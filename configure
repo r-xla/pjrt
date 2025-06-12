@@ -39,7 +39,7 @@ elif [ `uname` = "Darwin" ]; then
   else
     curl -sfL "https://autobrew.github.io/scripts/protobuf" > autobrew
     . ./autobrew
-    PKG_LIBS="$PKG_LIBS -Wl,-dead_strip"
+    PKG_LIBS="$PKG_LIBS -Wl,-dead_strip -ffunction-sections -fdata-sections"
   fi
 fi
 
