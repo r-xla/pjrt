@@ -1,0 +1,11 @@
+CXX_STD=CXX20
+
+PKG_CPPFLAGS=@cflags@ -Iproto -I$(R_PACKAGE_DIR)/include -I../inst/include
+PKG_CXXFLAGS=$(C_VISIBILITY)
+PKG_LIBS=@libs@
+
+CPP_SOURCES=@cppsrc@
+CC_SOURCES=@pbsrc@
+C_SOURCES=@csrc@
+
+OBJECTS=$(CPP_SOURCES:.cpp=.o) $(CC_SOURCES:.cc=.o) $(C_SOURCES:.c=.o)

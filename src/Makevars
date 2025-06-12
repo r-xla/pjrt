@@ -1,0 +1,11 @@
+CXX_STD=CXX20
+
+PKG_CPPFLAGS=-I/opt/homebrew/Cellar/protobuf/21.12/include -DUSENEWAPI -Iproto -I$(R_PACKAGE_DIR)/include -I../inst/include
+PKG_CXXFLAGS=$(C_VISIBILITY)
+PKG_LIBS=-L/opt/homebrew/Cellar/protobuf/21.12/lib -lprotobuf
+
+CPP_SOURCES=RcppExports.cpp buffer.cpp client.cpp device.cpp pjrt.cpp plugin.cpp program.cpp utils.cpp
+CC_SOURCES=proto/xla/pjrt/proto/compile_options.pb.cc proto/xla/autotune_results.pb.cc proto/xla/xla_data.pb.cc proto/xla/tsl/protobuf/dnn.pb.cc proto/xla/autotuning.pb.cc proto/xla/service/metrics.pb.cc proto/xla/service/hlo.pb.cc proto/xla/stream_executor/cuda/cuda_compute_capability.pb.cc proto/xla/stream_executor/device_description.pb.cc proto/xla/xla.pb.cc
+C_SOURCES=
+
+OBJECTS=$(CPP_SOURCES:.cpp=.o) $(CC_SOURCES:.cc=.o) $(C_SOURCES:.c=.o)
