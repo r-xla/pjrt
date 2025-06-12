@@ -9,3 +9,6 @@ CC_SOURCES=@pbsrc@
 C_SOURCES=@csrc@
 
 OBJECTS=$(CPP_SOURCES:.cpp=.o) $(CC_SOURCES:.cc=.o) $(C_SOURCES:.c=.o)
+
+all: pjrt.so
+	$(OBJCOPY) --strip-symbol=printf --strip-symbol=sprintf --strip-symbol=___stderrp pjrt.so
