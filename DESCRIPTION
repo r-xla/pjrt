@@ -18,4 +18,4 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/build/compilation-database: true
-SystemRequirements: C++20, libprotobuf, protobuf-compiler
+SystemRequirements: libprotobuf and protobuf-compiler
