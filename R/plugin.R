@@ -41,7 +41,7 @@ plugin_download <- function(cache_dir) {
 
   url <- plugin_url()
   tempfile <- tempfile(fileext = ".tar.gz")
-  download.file(url, tempfile)
+  utils::download.file(url, tempfile)
 
   plugin_hash <- rlang::hash(url)
   writeLines(plugin_hash, plugin_hash_path)

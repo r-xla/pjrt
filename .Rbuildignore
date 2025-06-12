@@ -3,3 +3,7 @@
 ^configure\.log$
 ^src/proto/xla/.*
 ^\.github$
+^\.clang-format$
+^\.vscode.*
+^src/Makevars$
+^LICENSE\.md$
