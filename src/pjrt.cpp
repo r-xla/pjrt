@@ -1,11 +1,9 @@
 #include <Rcpp.h>
-#include <_types/_uint8_t.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <optional>
 
-#include "Rcpp/XPtr.h"
-#include "Rinternals.h"
 #include "buffer.h"
 #include "client.h"
 #include "pjrt_types.h"
