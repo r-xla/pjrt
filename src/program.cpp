@@ -35,7 +35,7 @@ std::string PJRTProgram::load_program_from_file(
       return parse_hlo_program(buffer);
       break;
     case MLIR:
-      throw std::runtime_error("MLIR format not supported yet");
+      return std::string(buffer.data(), buffer.size());
       break;
   };
 
