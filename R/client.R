@@ -15,6 +15,11 @@ client_scalar_buffer_from_host <- function(client, data) {
   impl_client_scalar_buffer_from_host(client, data)
 }
 
+client_buffer_from_host <- function(client, data) {
+  check_client(client)
+  impl_client_buffer_from_host(client, data)
+}
+
 client_buffer_to_host <- function(client, buffer) {
   check_client(client)
   check_buffer(buffer)

@@ -30,6 +30,18 @@ test_that("can create a scalar buffer from host", {
   expect_equal(x, data)
 })
 
+test_that("can create a buffer from host data", {
+  plugin <- plugin_load()
+  client <- plugin_client_create(plugin)
+
+  x <- runif(10)
+  buffer <- client_buffer_from_host(client, x)
+  expect_true(inherits(buffer, "PJRTBuffer"))
+
+  x_res <- client_buffer_to_host(client, buffer)
+  expect_equal(x_res, x, tolerance = 1e-5)
+})
+
 test_that("can execute mlir program", {
   path <- system.file("programs/jax-stablehlo.mlir", package = "pjrt")
   program <- program_load(path, format = "mlir")

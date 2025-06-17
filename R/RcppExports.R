@@ -33,6 +33,10 @@ impl_client_scalar_buffer_from_host <- function(client, data) {
     .Call(`_pjrt_impl_client_scalar_buffer_from_host`, client, data)
 }
 
+impl_client_buffer_from_host <- function(client, data) {
+    .Call(`_pjrt_impl_client_buffer_from_host`, client, data)
+}
+
 impl_client_buffer_to_host <- function(client, buffer) {
     .Call(`_pjrt_impl_client_buffer_to_host`, client, buffer)
 }

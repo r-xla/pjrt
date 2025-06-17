@@ -106,6 +106,47 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_scalar_buffer_from_host(
 }
 
 // [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_host(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data) {
+  // Check that data is a numeric vector (REALSXP)
+  if (TYPEOF(data) != REALSXP) {
+    Rcpp::stop("Data must be a numeric vector (REALSXP).");
+  }
+
+  auto len = Rf_length(data);
+
+  if (len == 0) {
+    Rcpp::stop("Data must be a non-empty numeric vector.");
+  }
+
+  // We have no way around it, we need to copy data to another vector
+  std::vector<float> d(len);
+  std::copy(REAL(data), REAL(data) + len, d.data());
+
+  // Now get the dimensions from the dim attribute
+  std::optional<std::vector<int64_t>> dims;
+  SEXP dim_attr = Rf_getAttrib(data, R_DimSymbol);
+  if (dim_attr != R_NilValue) {
+    if (TYPEOF(dim_attr) != INTSXP) {
+      Rcpp::stop("Dimensions must be an integer vector.");
+    }
+    int dim_len = Rf_length(dim_attr);
+    dims = std::vector<int64_t>(dim_len);
+    std::copy(INTEGER(dim_attr), INTEGER(dim_attr) + dim_len, dims->data());
+  } else {
+    // If no dimensions are provided, we assume it's a flat vector
+    dims = std::vector<int64_t>{len};
+  }
+
+  void *data_ptr = static_cast<void *>(d.data());
+
+  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
+      client->buffer_from_host(data_ptr, dims, PJRT_Buffer_Type_F32).release());
+  xptr.attr("class") = "PJRTBuffer";
+  return xptr;
+}
+
+// [[Rcpp::export()]]
 SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                 Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   // Allocate a buffer of the required length
