@@ -85,6 +85,7 @@ std::string PJRTProgram::repr(int n) const {
       debug = hlo_proto.DebugString();
     } break;
     case MLIR:
+      debug = this->code;
       break;
   }
 
