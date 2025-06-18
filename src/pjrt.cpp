@@ -165,8 +165,16 @@ SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
   // Allocate an R numeric vector of the same length
   SEXP out = PROTECT(Rf_allocVector(REALSXP, numel));
   double *out_data = REAL(out);
-
   std::copy(float_buffer.begin(), float_buffer.end(), out_data);
+
+  if (dimensions.size() > 1) {
+    // Set the dimensions attribute if the buffer is multi-dimensional
+    SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
+    int *dim_data = INTEGER(dim_attr);
+    std::copy(dimensions.begin(), dimensions.end(), dim_data);
+    Rf_setAttrib(out, R_DimSymbol, dim_attr);
+    UNPROTECT(1);  // Unprotect dim_attr
+  }
 
   UNPROTECT(1);
   return out;
