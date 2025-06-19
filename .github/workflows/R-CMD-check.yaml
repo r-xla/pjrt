@@ -19,12 +19,14 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { os: macos-latest, r: "release" }
-          - { os: ubuntu-latest, r: "release" }
+          - { os: macos-latest, r: "release", device: "cpu" }
+          - { os: macos-latest, r: "release", device: "metal" }
+          - { os: ubuntu-latest, r: "release", device: "cpu" }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      PJRT_DEVICE: ${{ matrix.config.device }}
 
     steps:
       - uses: actions/checkout@v4
