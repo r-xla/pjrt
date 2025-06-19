@@ -76,10 +76,7 @@ plugin_url <- function() {
     attr(url, "extract") <- function(path, cache_dir) {
       tmp <- tempfile()
       dir.create(tmp)
-      utils::unzip(
-        "~/Downloads/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl",
-        exdir = tmp
-      )
+      utils::unzip(path, exdir = tmp)
       plugin_path <- list.files(
         file.path(tmp, "jax_plugins", "metal_plugin"),
         pattern = "*.dylib",
