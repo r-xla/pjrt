@@ -130,6 +130,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_client_platform_name
+std::string impl_client_platform_name(Rcpp::XPtr<rpjrt::PJRTClient> client);
+RcppExport SEXP _pjrt_impl_client_platform_name(SEXP clientSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_platform_name(client));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_loaded_executable_execute
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::XPtr<rpjrt::PJRTBuffer> input);
 RcppExport SEXP _pjrt_impl_loaded_executable_execute(SEXP executableSEXP, SEXP inputSEXP) {
@@ -154,6 +165,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_scalar_buffer_from_host", (DL_FUNC) &_pjrt_impl_client_scalar_buffer_from_host, 2},
     {"_pjrt_impl_client_buffer_from_host", (DL_FUNC) &_pjrt_impl_client_buffer_from_host, 2},
     {"_pjrt_impl_client_buffer_to_host", (DL_FUNC) &_pjrt_impl_client_buffer_to_host, 2},
+    {"_pjrt_impl_client_platform_name", (DL_FUNC) &_pjrt_impl_client_platform_name, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 2},
     {NULL, NULL, 0}
 };

@@ -4,6 +4,7 @@
 
 #include "pjrt.h"
 #include "utils.h"
+#include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
 

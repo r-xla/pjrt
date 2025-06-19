@@ -27,6 +27,11 @@ client_buffer_to_host <- function(client, buffer) {
   impl_client_buffer_to_host(client, buffer)
 }
 
+client_platform_name <- function(client) {
+  check_client(client)
+  tolower(impl_client_platform_name(client))
+}
+
 check_client <- function(client) {
   stopifnot(inherits(client, "PJRTClient"))
   invisible(NULL)

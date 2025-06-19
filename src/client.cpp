@@ -198,4 +198,12 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   return out;
 };
 
+std::string PJRTClient::platform_name() {
+  PJRT_Client_PlatformName_Args args{};
+  args.struct_size = sizeof(PJRT_Client_PlatformName_Args);
+  args.client = this->client;
+  check_err(this->api.get(), this->api->PJRT_Client_PlatformName(&args));
+  return std::string(args.platform_name, args.platform_name_size);
+}
+
 }  // namespace rpjrt

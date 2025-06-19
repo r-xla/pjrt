@@ -48,6 +48,7 @@ class PJRTClient {
       void *data, const std::optional<std::vector<int64_t>> &dims,
       PJRT_Buffer_Type dtype);
   void buffer_to_host(PJRTBuffer &buffer, std::span<uint8_t> &host_buffer);
+  std::string platform_name();
 };
 
 }  // namespace rpjrt

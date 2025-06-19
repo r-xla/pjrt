@@ -41,6 +41,10 @@ impl_client_buffer_to_host <- function(client, buffer) {
     .Call(`_pjrt_impl_client_buffer_to_host`, client, buffer)
 }
 
+impl_client_platform_name <- function(client) {
+    .Call(`_pjrt_impl_client_platform_name`, client)
+}
+
 impl_loaded_executable_execute <- function(executable, input) {
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input)
 }

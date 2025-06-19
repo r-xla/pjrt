@@ -181,6 +181,11 @@ SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
+std::string impl_client_platform_name(Rcpp::XPtr<rpjrt::PJRTClient> client) {
+  return client->platform_name();
+}
+
+// [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable,
     Rcpp::XPtr<rpjrt::PJRTBuffer> input) {

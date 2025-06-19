@@ -1,5 +1,9 @@
 skip_if_metal <- function() {
-  if (Sys.getenv("PJRT_DEVICE") == "metal") {
+  if (is_metal()) {
     testthat::skip("Skipping test on Metal device")
   }
+}
+
+is_metal <- function() {
+  Sys.getenv("PJRT_DEVICE") == "metal"
 }
