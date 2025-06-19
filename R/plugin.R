@@ -25,7 +25,7 @@ plugin_path <- function() {
     plugin_download(cache_dir)
   } else {
     plugin_hash <- readLines(plugin_hash_path)
-    expected_hash <- rlang::hash(plugin_url())
+    expected_hash <- rlang::hash(as.character(plugin_url()))
 
     if (plugin_hash != expected_hash) {
       message("Plugin hash mismatch. Re-downloading...")
@@ -43,8 +43,16 @@ plugin_download <- function(cache_dir) {
   tempfile <- tempfile(fileext = ".tar.gz")
   utils::download.file(url, tempfile)
 
-  plugin_hash <- rlang::hash(url)
+  fs::dir_delete(cache_dir)
+  fs::dir_create(cache_dir, recurse = TRUE)
+
+  plugin_hash <- rlang::hash(as.character(url))
   writeLines(plugin_hash, plugin_hash_path)
+
+  if (is.function(attr(url, "extract"))) {
+    return(attr(url, "extract")(tempfile, cache_dir))
+  }
+
   utils::untar(tempfile, exdir = cache_dir)
 }
 
@@ -57,6 +65,30 @@ plugin_url <- function() {
   arch <- plugin_arch()
   device <- plugin_device()
   zml_version <- plugin_version()
+
+  if (device == "metal") {
+    stopifnot(os == "darwin")
+    url <- if (arch == "arm64") {
+      "https://files.pythonhosted.org/packages/09/dc/6d8fbfc29d902251cf333414cf7dcfaf4b252a9920c881354584ed36270d/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl"
+    } else {
+      "https://files.pythonhosted.org/packages/87/ec/9bb7f7f0ffd06c3fb89813126b2f698636ac7a4263ed7bdd1ff7d7c94f8f/jax_metal-0.1.1-py3-none-macosx_10_14_x86_64.whl"
+    }
+    attr(url, "extract") <- function(path, cache_dir) {
+      tmp <- tempfile()
+      dir.create(tmp)
+      utils::unzip(
+        "~/Downloads/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl",
+        exdir = tmp
+      )
+      plugin_path <- list.files(
+        file.path(tmp, "jax_plugins", "metal_plugin"),
+        pattern = "*.dylib",
+        full.names = TRUE
+      )
+      fs::file_move(plugin_path, cache_dir)
+    }
+    return(url)
+  }
 
   glue::glue(
     "https://github.com/zml/pjrt-artifacts/releases/download/v{zml_version}/pjrt-{device}_{os}-{arch}.tar.gz"

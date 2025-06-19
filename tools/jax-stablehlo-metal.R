@@ -1,4 +1,4 @@
-reticulate::py_require("jax")
+reticulate::py_require("jax-metal")
 reticulate::py_require("numpy")
 
 jax <- reticulate::import("jax")
@@ -26,4 +26,7 @@ stablehlo_add = exported.mlir_module()
 "
 ))
 
-writeLines(reticulate::py$stablehlo_add, "inst/programs/jax-stablehlo.mlir")
+writeLines(
+  reticulate::py$stablehlo_add,
+  "inst/programs/jax-stablehlo-metal.mlir"
+)

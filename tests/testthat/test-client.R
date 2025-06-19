@@ -1,4 +1,6 @@
 test_that("compile program works", {
+  skip_if_metal()
+
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- program_load(path, format = "hlo")
 
