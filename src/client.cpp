@@ -140,7 +140,7 @@ PJRTBuildOptions PJRTBuildOptions::clone() const {
 
 // PJRTCompileOptions implementations
 PJRTCompileOptions::PJRTCompileOptions(PJRTBuildOptions build_options) {
-  compile_options.set_compile_portable_executable(true);
+  compile_options.set_compile_portable_executable(false);
   compile_options.set_profile_version(0);
   compile_options.set_parameter_is_tupled_arguments(false);
   compile_options.set_allocated_executable_build_options(

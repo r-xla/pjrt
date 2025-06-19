@@ -3,6 +3,8 @@ reticulate::py_require("numpy")
 
 jax <- reticulate::import("jax")
 
+jax$export$default_export_platform()
+
 invisible(reticulate::py_run_string(
   "
 
@@ -21,7 +23,7 @@ inputs = (np.float32(1),)
 input_shapes = [jax.ShapeDtypeStruct(input.shape, input.dtype) for input in inputs]
 
 # Export the function to StableHLO
-exported = export.export(plus)(*input_shapes)
+exported = export.export(plus, platforms = ['METAL', 'cpu'])(*input_shapes)
 stablehlo_add = exported.mlir_module()
 "
 ))
