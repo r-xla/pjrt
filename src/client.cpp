@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "buffer.h"
+#include "tcb/span.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
@@ -103,7 +104,7 @@ void BufferToHostAndWait(const PJRT_Api *api,
 }
 
 void PJRTClient::buffer_to_host(PJRTBuffer &buffer,
-                                std::span<uint8_t> &host_buffer) {
+                                tcb::span<uint8_t> &host_buffer) {
   PJRT_Buffer_ToHostBuffer_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_ToHostBuffer_Args);
   args.src = buffer.buffer;

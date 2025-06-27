@@ -1,11 +1,11 @@
 #pragma once
 #include <optional>
-#include <span>
 
 #include "buffer.h"
 #include "pjrt.h"
 #include "program.h"
 #include "proto/xla/pjrt/proto/compile_options.pb.h"
+#include "tcb/span.h"
 
 namespace rpjrt {
 
@@ -48,7 +48,7 @@ class PJRTClient {
   std::unique_ptr<PJRTBuffer> buffer_from_host(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       PJRT_Buffer_Type dtype);
-  void buffer_to_host(PJRTBuffer &buffer, std::span<uint8_t> &host_buffer);
+  void buffer_to_host(PJRTBuffer &buffer, tcb::span<uint8_t> &host_buffer);
   std::string platform_name();
 };
 

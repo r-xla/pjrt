@@ -7,6 +7,7 @@
 #include "buffer.h"
 #include "client.h"
 #include "pjrt_types.h"
+#include "tcb/span.h"
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTPlugin> impl_plugin_load(const std::string &path) {
@@ -156,7 +157,7 @@ SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   // Create a float buffer to hold data
   std::vector<float> float_buffer(numel);
-  std::span<uint8_t> host_buffer(
+  tcb::span<uint8_t> host_buffer(
       reinterpret_cast<uint8_t *>(float_buffer.data()), numel * sizeof(float));
 
   client->buffer_to_host(*buffer, host_buffer);
