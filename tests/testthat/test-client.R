@@ -26,6 +26,9 @@ test_that("compile program works", {
 })
 
 test_that("compile program works", {
+  # this won't work on CI currently because it runs on a Mac VM which doesn't support GPU access.
+  skip_if_metal()
+
   path <- system.file("programs/stablehlo.mlir", package = "pjrt")
   program <- program_load(path, format = "mlir")
 
