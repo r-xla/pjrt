@@ -31,7 +31,8 @@ class PJRTLoadedExecutable {
   std::shared_ptr<PJRT_Api> api;
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                        std::shared_ptr<PJRT_Api> api);
-  std::vector<std::unique_ptr<PJRTBuffer>> execute(PJRTBuffer *input);
+  std::vector<std::unique_ptr<PJRTBuffer>> execute(
+      std::vector<PJRTBuffer *> input);
   ~PJRTLoadedExecutable();
 };
 

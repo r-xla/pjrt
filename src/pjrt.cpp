@@ -187,9 +187,15 @@ std::string impl_client_platform_name(Rcpp::XPtr<rpjrt::PJRTClient> client) {
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(
-    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable,
-    Rcpp::XPtr<rpjrt::PJRTBuffer> input) {
-  auto outs = executable->execute(input.get());
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input) {
+  std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
+  for (auto i = 0; i < input.size(); i++) {
+    auto elt = input[i];
+    auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
+    inputs[i] = buffer.get();
+  }
+
+  auto outs = executable->execute(inputs);
   Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[0].release(), true);
   xptr.attr("class") = "PJRTBuffer";
   return xptr;
