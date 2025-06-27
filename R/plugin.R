@@ -1,6 +1,12 @@
+the <- new.env(parent = emptyenv())
+
 plugin_client_create <- function(plugin, ...) {
+  if (exists("client", envir = the, inherits = FALSE)) {
+    return(get("client", envir = the))
+  }
   check_plugin(plugin)
-  impl_plugin_client_create(plugin)
+  the$client <- impl_plugin_client_create(plugin)
+  the$client
 }
 
 check_plugin <- function(plugin) {
@@ -9,7 +15,11 @@ check_plugin <- function(plugin) {
 }
 
 plugin_load <- function() {
-  impl_plugin_load(plugin_path())
+  if (exists("plugin", envir = the, inherits = FALSE)) {
+    return(get("plugin", envir = the))
+  }
+  the$plugin <- impl_plugin_load(plugin_path())
+  the$plugin
 }
 
 plugin_path <- function() {
