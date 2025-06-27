@@ -1,2 +1,5 @@
 rm -f src/Makevars autobrew configure.log
 rm -Rf .deps
+
+echo "Cleaning: ${PWD}"
+find src -name '*.o' -delete
