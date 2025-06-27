@@ -142,13 +142,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_loaded_executable_execute
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::XPtr<rpjrt::PJRTBuffer> input);
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input);
 RcppExport SEXP _pjrt_impl_loaded_executable_execute(SEXP executableSEXP, SEXP inputSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> >::type executable(executableSEXP);
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type input(inputSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type input(inputSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_loaded_executable_execute(executable, input));
     return rcpp_result_gen;
 END_RCPP
