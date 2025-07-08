@@ -33,6 +33,22 @@ impl_client_scalar_buffer_from_host <- function(client, data) {
     .Call(`_pjrt_impl_client_scalar_buffer_from_host`, client, data)
 }
 
+impl_client_buffer_from_double <- function(client, data, dims, precision) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, precision)
+}
+
+impl_client_buffer_from_integer <- function(client, data, dims, precision, is_signed) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, precision, is_signed)
+}
+
+impl_client_buffer_from_logical <- function(client, data, dims) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims)
+}
+
+impl_client_buffer_from_floating_point <- function(client, data, dims, precision) {
+    .Call(`_pjrt_impl_client_buffer_from_floating_point`, client, data, dims, precision)
+}
+
 impl_client_buffer_from_host <- function(client, data) {
     .Call(`_pjrt_impl_client_buffer_from_host`, client, data)
 }

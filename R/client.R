@@ -1,7 +1,7 @@
 client_program_compile <- function(
-  client,
   program,
-  compile_options = new_compile_options()
+  compile_options = new_compile_options(),
+  client = default_client()
 ) {
   check_client(client)
   check_program(program)
@@ -10,24 +10,59 @@ client_program_compile <- function(
   impl_client_program_compile(client, program, compile_options)
 }
 
-client_scalar_buffer_from_host <- function(client, data) {
+client_scalar_buffer_from_host <- function(data, client = default_client()) {
   check_client(client)
   impl_client_scalar_buffer_from_host(client, data)
 }
 
-client_buffer_from_host <- function(client, data) {
+client_buffer_from_host <- function(data, client = default_client()) {
   check_client(client)
   impl_client_buffer_from_host(client, data)
 }
 
-client_buffer_to_host <- function(client, buffer) {
+client_buffer_from_integer <- function(
+  data,
+  precision = 32L,
+  signed = TRUE,
+  client = default_client()
+) {
+  check_client(client)
+  impl_client_buffer_from_integer(
+    client,
+    data,
+    get_dims(data),
+    precision,
+    signed
+  )
+}
+
+client_buffer_from_logical <- function(data, client = default_client()) {
+  check_client(client)
+  impl_client_buffer_from_logical(client, data, get_dims(data))
+}
+
+client_buffer_from_double <- function(
+  data,
+  precision = 32L,
+  client = default_client()
+) {
+  check_client(client)
+  impl_client_buffer_from_floating_point(
+    client,
+    data,
+    get_dims(data),
+    precision
+  )
+}
+
+client_buffer_to_host <- function(buffer, client = default_client()) {
   check_client(client)
   check_buffer(buffer)
 
   impl_client_buffer_to_host(client, buffer)
 }
 
-client_platform_name <- function(client) {
+client_platform_name <- function(client = default_client()) {
   check_client(client)
   tolower(impl_client_platform_name(client))
 }
