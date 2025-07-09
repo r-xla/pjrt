@@ -1,6 +1,7 @@
 #include <Rcpp.h>
 
 #include <algorithm>
+#include <climits>
 #include <cstdint>
 #include <optional>
 
@@ -120,50 +121,56 @@ impl_client_scalar_buffer_from_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
       "Data must be a numeric scalar (REALSXP) or logical scalar (LGLSXP).");
 }
 
-// [[Rcpp::export()]]
+// Helper template function for buffer creation from R data
+template <typename T>
 Rcpp::XPtr<rpjrt::PJRTBuffer>
-impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                               SEXP dims, std::string precision) {
+create_buffer_from_r_data(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
+                          const std::vector<int64_t> &dims,
+                          PJRT_Buffer_Type dtype) {
   int len = Rf_length(data);
   if (len == 0) {
     Rcpp::stop("Data must be a non-empty vector.");
   }
-  // Determine dims
-  std::optional<std::vector<int64_t>> dims_vec;
-  if (dims != R_NilValue) {
-    int dim_len = Rf_length(dims);
-    dims_vec = std::vector<int64_t>(dim_len);
-    std::copy(INTEGER(dims), INTEGER(dims) + dim_len, dims_vec->data());
-  } else {
-    dims_vec = std::vector<int64_t>{len};
+
+  std::vector<T> buffer(len);
+
+  // Copy data based on R type
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+    std::copy(REAL(data), REAL(data) + len, buffer.data());
+  } else if constexpr (std::is_same_v<T, int8_t> ||
+                       std::is_same_v<T, int16_t> ||
+                       std::is_same_v<T, int32_t> ||
+                       std::is_same_v<T, int64_t>) {
+    std::copy(INTEGER(data), INTEGER(data) + len, buffer.data());
+  } else if constexpr (std::is_same_v<T, uint8_t> ||
+                       std::is_same_v<T, uint16_t> ||
+                       std::is_same_v<T, uint32_t> ||
+                       std::is_same_v<T, uint64_t>) {
+    std::copy(INTEGER(data), INTEGER(data) + len, buffer.data());
+  } else if constexpr (std::is_same_v<T, bool>) {
+    std::copy(LOGICAL(data), LOGICAL(data) + len, buffer.data());
   }
-  // Only support native C++ types: float (32) and double (64)
-  PJRT_Buffer_Type dtype;
-  void *data_ptr = nullptr;
-  if (precision == "32") {
-    dtype = PJRT_Buffer_Type_F32;
-    std::vector<float> f32(len);
-    for (int i = 0; i < len; ++i)
-      f32[i] = static_cast<float>(REAL(data)[i]);
-    data_ptr = f32.data();
-    // Need to keep f32 alive until after buffer creation
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-        client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  } else if (precision == "64") {
-    dtype = PJRT_Buffer_Type_F64;
-    std::vector<double> f64(len);
-    for (int i = 0; i < len; ++i)
-      f64[i] = static_cast<double>(REAL(data)[i]);
-    data_ptr = f64.data();
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-        client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  } else {
-    Rcpp::stop("Unsupported floating point precision: %s. Only '32' (float) "
-               "and '64' (double) are supported.",
+
+  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
+      client->buffer_from_host(buffer.data(), dims, dtype).release());
+  xptr.attr("class") = "PJRTBuffer";
+  return xptr;
+}
+
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer>
+impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
+                               std::vector<int64_t> dims, int precision) {
+  switch (precision) {
+  case 32:
+    return create_buffer_from_r_data<float>(client, data, dims,
+                                            PJRT_Buffer_Type_F32);
+  case 64:
+    return create_buffer_from_r_data<double>(client, data, dims,
+                                             PJRT_Buffer_Type_F64);
+  default:
+    Rcpp::stop("Unsupported floating point precision: %d. Only 32 (single) "
+               "and 64 (double) are supported.",
                precision);
   }
 }
@@ -171,114 +178,42 @@ impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer>
 impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                                SEXP dims, int precision, bool is_signed) {
-  int len = Rf_length(data);
-  if (len == 0) {
-    Rcpp::stop("Data must be a non-empty vector.");
-  }
-
-  // Determine dims
-  std::optional<std::vector<int64_t>> dims_vec;
-  if (dims != R_NilValue) {
-    int dim_len = Rf_length(dims);
-    dims_vec = std::vector<int64_t>(dim_len);
-    std::copy(INTEGER(dims), INTEGER(dims) + dim_len, dims_vec->data());
-  } else {
-    dims_vec = std::vector<int64_t>{len};
-  }
-
-  // Only support native C++ integer types
-  PJRT_Buffer_Type dtype;
-  void *data_ptr = nullptr;
-
+                                std::vector<int64_t> dims, int precision,
+                                bool is_signed) {
   if (is_signed) {
-    if (precision == 8) {
-      dtype = PJRT_Buffer_Type_S8;
-      std::vector<int8_t> i8(len);
-      for (int i = 0; i < len; ++i)
-        i8[i] = static_cast<int8_t>(INTEGER(data)[i]);
-      data_ptr = i8.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else if (precision == 16) {
-      dtype = PJRT_Buffer_Type_S16;
-      std::vector<int16_t> i16(len);
-      for (int i = 0; i < len; ++i)
-        i16[i] = static_cast<int16_t>(INTEGER(data)[i]);
-      data_ptr = i16.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else if (precision == 32) {
-      dtype = PJRT_Buffer_Type_S32;
-      std::vector<int32_t> i32(len);
-      for (int i = 0; i < len; ++i)
-        i32[i] = static_cast<int32_t>(INTEGER(data)[i]);
-      data_ptr = i32.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else if (precision == 64) {
-      dtype = PJRT_Buffer_Type_S64;
-      std::vector<int64_t> i64(len);
-      for (int i = 0; i < len; ++i)
-        i64[i] = static_cast<int64_t>(INTEGER(data)[i]);
-      data_ptr = i64.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else {
+    switch (precision) {
+    case 8:
+      return create_buffer_from_r_data<int8_t>(client, data, dims,
+                                               PJRT_Buffer_Type_S8);
+    case 16:
+      return create_buffer_from_r_data<int16_t>(client, data, dims,
+                                                PJRT_Buffer_Type_S16);
+    case 32:
+      return create_buffer_from_r_data<int32_t>(client, data, dims,
+                                                PJRT_Buffer_Type_S32);
+    case 64:
+      return create_buffer_from_r_data<int64_t>(client, data, dims,
+                                                PJRT_Buffer_Type_S64);
+    default:
       Rcpp::stop("Unsupported signed integer precision: %d. Only 8, 16, 32, 64 "
                  "are supported.",
                  precision);
     }
   } else {
-    if (precision == 8) {
-      dtype = PJRT_Buffer_Type_U8;
-      std::vector<uint8_t> u8(len);
-      for (int i = 0; i < len; ++i)
-        u8[i] = static_cast<uint8_t>(INTEGER(data)[i]);
-      data_ptr = u8.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else if (precision == 16) {
-      dtype = PJRT_Buffer_Type_U16;
-      std::vector<uint16_t> u16(len);
-      for (int i = 0; i < len; ++i)
-        u16[i] = static_cast<uint16_t>(INTEGER(data)[i]);
-      data_ptr = u16.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else if (precision == 32) {
-      dtype = PJRT_Buffer_Type_U32;
-      std::vector<uint32_t> u32(len);
-      for (int i = 0; i < len; ++i)
-        u32[i] = static_cast<uint32_t>(INTEGER(data)[i]);
-      data_ptr = u32.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else if (precision == 64) {
-      dtype = PJRT_Buffer_Type_U64;
-      std::vector<uint64_t> u64(len);
-      for (int i = 0; i < len; ++i)
-        u64[i] = static_cast<uint64_t>(INTEGER(data)[i]);
-      data_ptr = u64.data();
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-          client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-      xptr.attr("class") = "PJRTBuffer";
-      return xptr;
-    } else {
+    switch (precision) {
+    case 8:
+      return create_buffer_from_r_data<uint8_t>(client, data, dims,
+                                                PJRT_Buffer_Type_U8);
+    case 16:
+      return create_buffer_from_r_data<uint16_t>(client, data, dims,
+                                                 PJRT_Buffer_Type_U16);
+    case 32:
+      return create_buffer_from_r_data<uint32_t>(client, data, dims,
+                                                 PJRT_Buffer_Type_U32);
+    case 64:
+      return create_buffer_from_r_data<uint64_t>(client, data, dims,
+                                                 PJRT_Buffer_Type_U64);
+    default:
       Rcpp::stop("Unsupported unsigned integer precision: %d. Only 8, 16, 32, "
                  "64 are supported.",
                  precision);
@@ -289,206 +224,86 @@ impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer>
 impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                                SEXP dims) {
-  int len = Rf_length(data);
-  if (len == 0) {
-    Rcpp::stop("Data must be a non-empty vector.");
-  }
-  // Determine dims
-  std::optional<std::vector<int64_t>> dims_vec;
-  if (dims != R_NilValue) {
-    int dim_len = Rf_length(dims);
-    dims_vec = std::vector<int64_t>(dim_len);
-    std::copy(INTEGER(dims), INTEGER(dims) + dim_len, dims_vec->data());
-  } else {
-    dims_vec = std::vector<int64_t>{len};
-  }
-  // Copy logical data to uint8_t array
-  std::vector<uint8_t> bool_data(len);
-  for (int i = 0; i < len; ++i) {
-    bool_data[i] = LOGICAL(data)[i] ? 1 : 0;
-  }
-  void *data_ptr = bool_data.data();
-  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-      client->buffer_from_host(data_ptr, dims_vec, PJRT_Buffer_Type_PRED)
-          .release());
-  xptr.attr("class") = "PJRTBuffer";
-  return xptr;
+                                std::vector<int64_t> dims) {
+  return create_buffer_from_r_data<uint8_t>(client, data, dims,
+                                            PJRT_Buffer_Type_PRED);
 }
 
-// [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer>
-impl_client_buffer_from_floating_point(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                                       SEXP data, SEXP dims, int precision) {
-  int len = Rf_length(data);
-  if (len == 0) {
-    Rcpp::stop("Data must be a non-empty vector.");
-  }
-  // Determine dims
-  std::optional<std::vector<int64_t>> dims_vec;
-  if (dims != R_NilValue) {
-    int dim_len = Rf_length(dims);
-    dims_vec = std::vector<int64_t>(dim_len);
-    std::copy(INTEGER(dims), INTEGER(dims) + dim_len, dims_vec->data());
-  } else {
-    dims_vec = std::vector<int64_t>{len};
-  }
-  // Only support native C++ types: float (32) and double (64)
-  PJRT_Buffer_Type dtype;
-  void *data_ptr = nullptr;
-  if (precision == 32) {
-    dtype = PJRT_Buffer_Type_F32;
-    std::vector<float> f32(len);
-    for (int i = 0; i < len; ++i)
-      f32[i] = static_cast<float>(REAL(data)[i]);
-    data_ptr = f32.data();
-    // Need to keep f32 alive until after buffer creation
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-        client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  } else if (precision == 64) {
-    dtype = PJRT_Buffer_Type_F64;
-    std::vector<double> f64(len);
-    for (int i = 0; i < len; ++i)
-      f64[i] = static_cast<double>(REAL(data)[i]);
-    data_ptr = f64.data();
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-        client->buffer_from_host(data_ptr, dims_vec, dtype).release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  } else {
-    Rcpp::stop("Unsupported floating point precision: %d. Only 32 (float) and "
-               "64 (double) are supported.",
-               precision);
-  }
-}
+// Helper template function for buffer to host conversion
+template <typename T>
+SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                         Rcpp::XPtr<rpjrt::PJRTBuffer> buffer,
+                         const std::vector<int64_t> &dimensions, int r_type) {
+  const auto numel = std::accumulate(dimensions.begin(), dimensions.end(), 1,
+                                     std::multiplies<int64_t>());
 
-// [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer>
-impl_client_buffer_from_host(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data) {
-  auto len = Rf_length(data);
+  std::vector<T> buffer_data(numel);
+  std::span<uint8_t> host_buffer(
+      reinterpret_cast<uint8_t *>(buffer_data.data()), numel * sizeof(T));
 
-  if (len == 0) {
-    Rcpp::stop("Data must be a non-empty vector.");
-  }
+  client->buffer_to_host(*buffer, host_buffer);
 
-  // Get the dimensions from the dim attribute
-  std::optional<std::vector<int64_t>> dims;
-  SEXP dim_attr = Rf_getAttrib(data, R_DimSymbol);
-  if (dim_attr != R_NilValue) {
-    int dim_len = Rf_length(dim_attr);
-    dims = std::vector<int64_t>(dim_len);
-    std::copy(INTEGER(dim_attr), INTEGER(dim_attr) + dim_len, dims->data());
-  } else {
-    // If no dimensions are provided, we assume it's a flat vector
-    dims = std::vector<int64_t>{len};
-  }
+  SEXP out = PROTECT(Rf_allocVector(r_type, numel));
+  void *out_data;
 
-  // Handle numeric vector (REALSXP)
-  if (TYPEOF(data) == REALSXP) {
-    // We have no way around it, we need to copy data to another vector
-    std::vector<float> d(len);
-    std::copy(REAL(data), REAL(data) + len, d.data());
-
-    void *data_ptr = static_cast<void *>(d.data());
-
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-        client->buffer_from_host(data_ptr, dims, PJRT_Buffer_Type_F32)
-            .release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  }
-
-  // Handle logical vector (LGLSXP)
-  if (TYPEOF(data) == LGLSXP) {
-    // Copy logical data to a bool array
-    std::vector<bool> d(len);
-    for (int i = 0; i < len; ++i) {
-      d[i] = LOGICAL(data)[i];
+  if (r_type == REALSXP) {
+    out_data = REAL(out);
+    std::copy(buffer_data.begin(), buffer_data.end(),
+              static_cast<double *>(out_data));
+  } else if (r_type == INTSXP) {
+    out_data = INTEGER(out);
+    std::copy(buffer_data.begin(), buffer_data.end(),
+              static_cast<int *>(out_data));
+  } else if (r_type == LGLSXP) {
+    out_data = LOGICAL(out);
+    for (size_t i = 0; i < numel; ++i) {
+      static_cast<int *>(out_data)[i] = buffer_data[i] ? 1 : 0;
     }
-
-    // Create a temporary array for the data pointer
-    std::vector<uint8_t> bool_data(len);
-    for (int i = 0; i < len; ++i) {
-      bool_data[i] = d[i] ? 1 : 0;
-    }
-
-    void *data_ptr = static_cast<void *>(bool_data.data());
-
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-        client->buffer_from_host(data_ptr, dims, PJRT_Buffer_Type_PRED)
-            .release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
   }
 
-  Rcpp::stop(
-      "Data must be a numeric vector (REALSXP) or logical vector (LGLSXP).");
+  // Set dimensions only once
+  if (dimensions.size() > 0) {
+    SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
+    int *dim_data = INTEGER(dim_attr);
+    std::copy(dimensions.begin(), dimensions.end(), dim_data);
+    Rf_setAttrib(out, R_DimSymbol, dim_attr);
+    UNPROTECT(1); // Unprotect dim_attr
+  }
+
+  UNPROTECT(1); // Unprotect out
+  return out;
 }
 
 // [[Rcpp::export()]]
 SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                 Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
-  // Allocate a buffer of the required length
   const auto dimensions = buffer->dimensions();
-  const auto numel = std::accumulate(dimensions.begin(), dimensions.end(), 1,
-                                     std::multiplies<int64_t>());
+  const auto element_type = buffer->element_type();
 
-  // Get the element type to determine how to handle the data
-  PJRT_Buffer_Type element_type = buffer->element_type();
-
-  if (element_type == PJRT_Buffer_Type_F32) {
-    // Handle float data
-    std::vector<float> float_buffer(numel);
-    std::span<uint8_t> host_buffer(
-        reinterpret_cast<uint8_t *>(float_buffer.data()),
-        numel * sizeof(float));
-
-    client->buffer_to_host(*buffer, host_buffer);
-
-    // Convert the float buffer to an R numeric vector
-    SEXP out = PROTECT(Rf_allocVector(REALSXP, numel));
-    double *out_data = REAL(out);
-    std::copy(float_buffer.begin(), float_buffer.end(), out_data);
-
-    if (dimensions.size() > 1) {
-      // Set the dimensions attribute if the buffer is multi-dimensional
-      SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
-      int *dim_data = INTEGER(dim_attr);
-      std::copy(dimensions.begin(), dimensions.end(), dim_data);
-      Rf_setAttrib(out, R_DimSymbol, dim_attr);
-      UNPROTECT(1); // Unprotect dim_attr
-    }
-
-    UNPROTECT(1);
-    return out;
-  } else if (element_type == PJRT_Buffer_Type_PRED) {
-    // Handle boolean data
-    std::vector<uint8_t> bool_buffer(numel);
-    std::span<uint8_t> host_buffer(bool_buffer.data(), numel * sizeof(uint8_t));
-
-    client->buffer_to_host(*buffer, host_buffer);
-
-    // Convert the boolean buffer to an R logical vector
-    SEXP out = PROTECT(Rf_allocVector(LGLSXP, numel));
-    int *out_data = LOGICAL(out);
-    for (size_t i = 0; i < numel; ++i) {
-      out_data[i] = bool_buffer[i] ? 1 : 0;
-    }
-
-    if (dimensions.size() > 1) {
-      // Set the dimensions attribute if the buffer is multi-dimensional
-      SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
-      int *dim_data = INTEGER(dim_attr);
-      std::copy(dimensions.begin(), dimensions.end(), dim_data);
-      Rf_setAttrib(out, R_DimSymbol, dim_attr);
-      UNPROTECT(1); // Unprotect dim_attr
-    }
-
-    UNPROTECT(1);
-    return out;
-  } else {
+  switch (element_type) {
+  case PJRT_Buffer_Type_F32:
+    return convert_buffer_to_r<float>(client, buffer, dimensions, REALSXP);
+  case PJRT_Buffer_Type_F64:
+    return convert_buffer_to_r<double>(client, buffer, dimensions, REALSXP);
+  case PJRT_Buffer_Type_S8:
+    return convert_buffer_to_r<int8_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_S16:
+    return convert_buffer_to_r<int16_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_S32:
+    return convert_buffer_to_r<int32_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_S64:
+    return convert_buffer_to_r<int64_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_U8:
+    return convert_buffer_to_r<uint8_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_U16:
+    return convert_buffer_to_r<uint16_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_U32:
+    return convert_buffer_to_r<uint32_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_U64:
+    return convert_buffer_to_r<uint64_t>(client, buffer, dimensions, INTSXP);
+  case PJRT_Buffer_Type_PRED:
+    return convert_buffer_to_r<uint8_t>(client, buffer, dimensions, LGLSXP);
+  default:
     Rcpp::stop("Unsupported buffer element type for conversion to host.");
   }
 }
@@ -512,4 +327,32 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(
   Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[0].release(), true);
   xptr.attr("class") = "PJRTBuffer";
   return xptr;
+}
+
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTElementType>
+impl_buffer_element_type(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+  auto element_type =
+      std::make_unique<rpjrt::PJRTElementType>(buffer->element_type());
+  Rcpp::XPtr<rpjrt::PJRTElementType> xptr(element_type.release(), true);
+  xptr.attr("class") = "PJRTElementType";
+  return xptr;
+}
+
+// [[Rcpp::export()]]
+std::string
+impl_element_type_as_string(Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {
+  return element_type->as_string();
+}
+
+// [[Rcpp::export()]]
+int impl_element_type_as_integer(
+    Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {
+  return element_type->as_integer();
+}
+
+// [[Rcpp::export()]]
+std::vector<int64_t>
+impl_buffer_dimensions(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+  return buffer->dimensions();
 }
