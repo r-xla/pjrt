@@ -7,3 +7,4 @@
 ^\.vscode.*
 ^src/Makevars$
 ^LICENSE\.md$
+^README\.Rmd$

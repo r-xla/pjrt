@@ -125,7 +125,7 @@ test_that("pjrt_buffer roundtrip works for integer data with different precision
     list(data = c(0L, 1L, 255L), precision = 8, signed = FALSE),
     list(data = c(0L, 1L, 65535L), precision = 16, signed = FALSE),
     list(data = c(0L, 1L, 4294967295L), precision = 32, signed = FALSE),
-    list(data = c(0L, 1L, 18446744073709551615L), precision = 64, signed = FALSE)
+    list(data = c(0L, 1L, 18446744073709551615), precision = 64, signed = FALSE)
   )
 
   for (case in test_cases_unsigned) {

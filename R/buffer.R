@@ -14,6 +14,7 @@ is_buffer <- function(x) {
 #' @param client A PJRT client object.
 #'
 #' @return A PJRT buffer object.
+#' @export
 pjrt_buffer <- function(data, client = default_client(), ...) {
   UseMethod("pjrt_buffer")
 }
@@ -115,4 +116,9 @@ print.PJRTElementType <- function(x, ...) {
 dim.PJRTBuffer <- function(x) {
   check_buffer(x)
   impl_buffer_dimensions(x)
+}
+
+#' @export
+print.PJRTElementType <- function(x, ...) {
+  cat(sprintf("<ElementType: %s>\n"))
 }

@@ -12,7 +12,7 @@ test_that("compile program works", {
     "cpu"
   )
 
-  executable <- client_program_compile(program)
+  executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
@@ -34,7 +34,7 @@ test_that("compile program works", {
 
   plugin <- plugin_load()
   client <- plugin_client_create(plugin)
-  executable <- client_program_compile(program)
+  executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
@@ -65,7 +65,7 @@ test_that("can execute mlir program", {
 
   client <- default_client()
 
-  executable <- client_program_compile(program)
+  executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 

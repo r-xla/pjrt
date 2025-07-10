@@ -1,4 +1,15 @@
-client_program_compile <- function(
+#' Compile a program
+#' @description
+#' Compile a program into a [`PJRTExecutable`].
+#' @param program (`character(1)`)\cr
+#'   A program to compile.
+#' @param compile_options ([`PJRTCompileOptions`])\cr
+#'   Compile options.
+#' @param client ([`PJRTClient`])\cr
+#'   A client to use for compilation.
+#' @return A compiled program.
+#' @export
+pjrt_compile <- function(
   program,
   compile_options = new_compile_options(),
   client = default_client()
@@ -56,6 +67,7 @@ client_buffer_from_double <- function(
   )
 }
 
+# TODO: Rename to buffer_to_host
 client_buffer_to_host <- function(buffer, client = default_client()) {
   check_client(client)
   check_buffer(buffer)

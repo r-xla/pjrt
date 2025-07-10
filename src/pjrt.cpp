@@ -135,6 +135,7 @@ create_buffer_from_r_data(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
   std::vector<T> buffer(len);
 
   // Copy data based on R type
+  // copy implicitly casts the types
   if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     std::copy(REAL(data), REAL(data) + len, buffer.data());
   } else if constexpr (std::is_same_v<T, int8_t> ||
@@ -237,6 +238,9 @@ SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
   const auto numel = std::accumulate(dimensions.begin(), dimensions.end(), 1,
                                      std::multiplies<int64_t>());
 
+  // TODO(performance): Can we avoid some copies here.
+  // We do two copies:
+  // device -> host -> R
   std::vector<T> buffer_data(numel);
   std::span<uint8_t> host_buffer(
       reinterpret_cast<uint8_t *>(buffer_data.data()), numel * sizeof(T));
