@@ -1,4 +1,3 @@
-
 program_load <- function(path, format = c("mlir", "hlo")) {
   path <- normalizePath(path, mustWork = TRUE)
   format <- rlang::arg_match(format)

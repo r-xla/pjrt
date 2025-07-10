@@ -109,10 +109,10 @@ test_that("pjrt_scalar roundtrip works for scalar data", {
   test_pjrt_scalar(-42L)
   test_pjrt_scalar(0L)
   test_pjrt_scalar(-1L, type = "s8")
-  test_pjrt_scalar(-2L, type = "s16")
-  test_pjrt_scalar(-3L, type = "s64")
-
-  test_pjrt_scalar(1L, type = "u8")
+  test_pjrt_scalar(-2L, type = "s16") -
+    test_pjrt_scalar(-3L, type = "s64")
+  t
+  -test_pjrt_scalar(1L, type = "u8")
   test_pjrt_scalar(2L, type = "u16")
   test_pjrt_scalar(3L, type = "u64")
 
@@ -154,7 +154,6 @@ test_that("pjrt_buffer handles edge cases", {
   expect_error(pjrt_buffer(logical(0)), "Data must be a non-empty vector")
   expect_error(pjrt_buffer(integer(0)), "Data must be a non-empty vector")
   expect_error(pjrt_buffer(numeric(0)), "Data must be a non-empty vector")
-
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {
@@ -164,44 +163,44 @@ test_that("pjrt_buffer preserves 3d dimensions", {
 })
 
 
-test_that("pjrt_elt_type returns correct data types", {
+test_that("pjrt_element_type returns correct data types", {
   # Test logical buffer
   logical_data <- c(TRUE, FALSE, TRUE)
   buffer <- pjrt_buffer(logical_data)
-  dtype <- pjrt_elt_type(buffer)
+  dtype <- pjrt_element_type(buffer)
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "pred")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
   buffer <- pjrt_buffer(integer_data, type = "s32")
-  dtype <- pjrt_elt_type(buffer)
+  dtype <- pjrt_element_type(buffer)
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "s32")
 
   # Test unsigned integer buffer (8-bit)
   buffer <- pjrt_buffer(integer_data, type = "u8")
-  dtype <- pjrt_elt_type(buffer)
+  dtype <- pjrt_element_type(buffer)
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "u8")
 
   # Test double buffer (32-bit)
   double_data <- c(1.1, 2.2, 3.3)
   buffer <- pjrt_buffer(double_data, type = "f32")
-  dtype <- pjrt_elt_type(buffer)
+  dtype <- pjrt_element_type(buffer)
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "f32")
 
   # Test double buffer (64-bit)
   buffer <- pjrt_buffer(double_data, type = "f64")
-  dtype <- pjrt_elt_type(buffer)
+  dtype <- pjrt_element_type(buffer)
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "f64")
 
   # Test scalar buffer
   scalar_data <- 42L
   buffer <- pjrt_scalar(scalar_data)
-  dtype <- pjrt_elt_type(buffer)
+  dtype <- pjrt_element_type(buffer)
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "s32")
 })

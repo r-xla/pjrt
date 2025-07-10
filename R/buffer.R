@@ -147,7 +147,7 @@ pjrt_scalar.double <- function(
 #'
 #' @return A PJRT element type object.
 #' @export
-pjrt_elt_type <- function(buffer) {
+pjrt_element_type <- function(buffer) {
   check_buffer(buffer)
   impl_buffer_element_type(buffer)
 }
@@ -166,15 +166,6 @@ is_element_type <- function(x) {
 #' @export
 as.character.PJRTElementType <- function(x, ...) {
   tolower(impl_element_type_as_string(x))
-}
-
-#' Print a PJRT element type
-#'
-#' @param x A PJRT element type object.
-#' @param ... Additional arguments passed to print.
-#' @export
-print.PJRTElementType <- function(x, ...) {
-  cat("<%s>", as.character(x), "\n")
 }
 
 #' Dimenson of `PJRTBuffer`
@@ -202,11 +193,6 @@ print.PJRTElementType <- function(x, ...) {
 client_platform_name <- function(client = default_client()) {
   check_client(client)
   impl_client_platform_name(client)
-}
-
-
-pjrt_element_type <- function(x) {
-  impl_buffer_element_type(x)
 }
 
 client_buffer_from_integer <- function(
