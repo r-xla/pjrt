@@ -204,3 +204,18 @@ test_that("pjrt_element_type returns correct data types", {
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "s32")
 })
+
+test_that("R layout and PJRT layout", {
+  program <- program_load("inst/programs/jax-stablehlo-subset.mlir")
+  executable <- pjrt_compile(program)
+  x <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+  i1 <- 0L
+  i2 <- 1L
+
+  x_buf <- pjrt_buffer(x, type = "f32")
+  i1_buf <- pjrt_buffer(i1, type = "s32")
+  i2_buf <- pjrt_buffer(i2, type = "s32")
+
+  output <- pjrt_execute(executable, x_buf, i1_buf, i2_buf)
+  expect_equal(output, 3)
+})
