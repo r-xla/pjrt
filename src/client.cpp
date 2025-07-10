@@ -88,32 +88,21 @@ PJRTClient::buffer_from_host(void *data,
   std::vector<int64_t> minor_to_major;
 
   if (dims.has_value() && !dims->empty()) {
-    std::cout << std::endl;
-    // For column-major layout, the minor-to-major order is (n-1, ..., 0)
-    // i.e., the fastest-changing index is the first dimension (R's default)
-    minor_to_major.resize(dims->size());
-    for (size_t i = 0; i < dims->size(); ++i) {
-      minor_to_major[i] = dims->size() - 1 - i;
-    }
+    size_t rank = dims->size();
+    minor_to_major.resize(rank);
 
-    // print dims
-    std::cout << "dims: ";
-    for (size_t i = 0; i < dims->size(); ++i) {
-      std::cout << dims->at(i) << " ";
+    // For column-major layout, the minor-to-major order is (rank-1, rank-2,
+    // ..., 0) i.e., the fastest-changing index is the first dimension (R's
+    // default)
+    for (size_t axis_idx = 0; axis_idx < rank; axis_idx++) {
+      minor_to_major[axis_idx] = axis_idx;
     }
-    std::cout << std::endl;
-
-    std::cout << "minor_to_major: ";
-    for (size_t i = 0; i < minor_to_major.size(); ++i) {
-      std::cout << minor_to_major[i] << " ";
-    }
-    std::cout << std::endl;
 
     device_layout.struct_size = sizeof(PJRT_Buffer_MemoryLayout);
     device_layout.type = PJRT_Buffer_MemoryLayout_Type_Tiled;
     device_layout.tiled.struct_size = sizeof(PJRT_Buffer_MemoryLayout_Tiled);
     device_layout.tiled.minor_to_major = minor_to_major.data();
-    device_layout.tiled.minor_to_major_size = minor_to_major.size();
+    device_layout.tiled.minor_to_major_size = rank;
     device_layout.tiled.tile_dims = nullptr;
     device_layout.tiled.tile_dim_sizes = nullptr;
     device_layout.tiled.num_tiles = 0;
