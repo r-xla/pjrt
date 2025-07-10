@@ -5,7 +5,7 @@ program_load <- function(path, format = c("mlir", "hlo")) {
   impl_program_load(path, format)
 }
 
-#' @title Create a PJRTProgram
+#' @title Create a `PJRTProgram`
 #' @description
 #' Create a program from a string.
 #' @param code (`character(1)`)\cr

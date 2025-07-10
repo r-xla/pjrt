@@ -189,13 +189,12 @@ print.PJRTElementType <- function(x, ...) {
 #' @return An integer vector of dimensions.
 #' @export
 dim.PJRTBuffer <- function(x) {
-  check_buffer(x)
   impl_buffer_dimensions(x)
 }
 
 #' @export
 print.PJRTElementType <- function(x, ...) {
-  cat(sprintf("<ElementType: %s>\n", as.character(x)))
+  cat(sprintf("<%s>\n", as.character(x)))
 }
 
 #' Get the platform name of a PJRT client
