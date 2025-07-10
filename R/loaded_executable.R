@@ -9,10 +9,10 @@ loaded_executable_execute <- function(executable, input) {
 
 #' @title Execute a PJRT program
 #' @description Execute a PJRT program with the given inputs.
-#' @param executable [PJRTLoadedExecutable]\cr
+#' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program.
 #' @param ... Inputs to the program.
-#' @return A list of results.
+#' @return A list of `PJRTBuffer`s.
 #' @export
 pjrt_execute <- function(executable, ...) {
   loaded_executable_execute(executable, list(...))

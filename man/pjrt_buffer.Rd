@@ -2,20 +2,42 @@
 % Please edit documentation in R/buffer.R
 \name{pjrt_buffer}
 \alias{pjrt_buffer}
-\title{Create a PJRT buffer}
+\alias{pjrt_scalar}
+\title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, client, ...)
+pjrt_buffer(data, type, client, ...)
+
+pjrt_scalar(data, type, client, ...)
 }
 \arguments{
-\item{data}{A vector of data to convert to a PJRT buffer.}
+\item{data}{(any)\cr
+Data to convert to a PJRT buffer.}
 
-\item{client}{A PJRT client object.}
+\item{type}{(\code{character(1)})\cr
+The type of the buffer.
+Currently supported types are:
+\itemize{
+\item \code{"pred"}: predicate (for \code{logical} data).
+\item \code{"s{8,16,32,64}"}: Signed integer (for \code{integer} data).
+\item \code{"u{8,16,32,64}"}: Unsigned integer (for \code{integer} data).
+\item \code{"f{32,64}"}: Floating point (for \code{double} data).
+}}
 
-\item{...}{Additional arguments.}
+\item{client}{(\code{PJRTClient})\cr
+A PJRT client object.}
+
+\item{...}{(any)\cr
+Additional arguments.}
 }
 \value{
-A PJRT buffer object.
+\code{\link[=pjrt_buffer]{PJRTBuffer}}
 }
 \description{
-Create a PJRT buffer
+Create a PJRT Buffer from an R object.
+Any numeric PJRT data is an array and 0-dimensional arrays are used as scalars.
+\code{\link{pjrt_buffer}} will create a array with dimensions \code{(1)} for a vector of length 1, while
+\code{\link{pjrt_scalar}} will create a 0-dimensional array for an R vector of length 1.
+}
+\details{
+R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar} function.
 }

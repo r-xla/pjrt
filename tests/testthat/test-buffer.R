@@ -1,8 +1,12 @@
 # Helper function to check scalar roundtrip
-test_scalar <- function(data, precision = NULL, signed = NULL, tolerance = testthat::testthat_tolerance()) {
+test_scalar <- function(
+  data,
+  type = NULL,
+  tolerance = testthat::testthat_tolerance()
+) {
   stopifnot(is.atomic(data) && length(data) == 1)
-  args = list(data = data, precision = precision, signed = signed)
-  args = args[!sapply(args, is.null)]
+  args <- list(data = data)
+  args$type <- type
   buffer <- do.call(pjrt_scalar, args)
 
   expect_class(buffer, "PJRTBuffer")
@@ -39,9 +43,13 @@ test_scalar <- function(data, precision = NULL, signed = NULL, tolerance = testt
 }
 
 # Helper function to check buffer roundtrip
-test_buffer <- function(data, precision = NULL, signed = NULL, tolerance = testthat::testthat_tolerance()) {
-  args = list(data = data, precision = precision, signed = signed)
-  args = args[!sapply(args, is.null)]
+test_buffer <- function(
+  data,
+  type = NULL,
+  tolerance = testthat::testthat_tolerance()
+) {
+  args <- list(data = data)
+  args$type <- type
   buffer <- do.call(pjrt_buffer, args)
 
   expect_class(buffer, "PJRTBuffer")
@@ -53,13 +61,14 @@ test_buffer <- function(data, precision = NULL, signed = NULL, tolerance = testt
   expect_equal(result, data_arr, tolerance = tolerance)
 
   modify_first <- function(data) {
-    data[1L] + if (is.numeric(data)) {
-      1L
-    } else if (is.logical(data)) {
-      !data[1L]
-    } else {
-      stop("Unsupported data type: ", typeof(data))
-    }
+    data[1L] +
+      if (is.numeric(data)) {
+        1L
+      } else if (is.logical(data)) {
+        !data[1L]
+      } else {
+        stop("Unsupported data type: ", typeof(data))
+      }
   }
 
   # Check dimensions are preserved
@@ -101,7 +110,7 @@ test_that("pjrt_scalar roundtrip works for scalar data", {
   test_scalar(0L)
 
   # Test double scalar
-  test_scalar(3.14, precision = 64)
+  test_scalar(3.14, type = "f64")
 })
 
 test_that("pjrt_buffer roundtrip works for logical data", {
@@ -118,18 +127,18 @@ test_that("pjrt_buffer roundtrip works for logical data", {
   test_buffer(logical_matrix)
 })
 
-test_that("pjrt_buffer roundtrip works for double data with different precisions", {
+test_that("pjrt_buffer roundtrip works for double data with different types", {
   # Test single precision (32-bit)
   data_32 <- c(1.0, -1.0, 0.0, 3.14159, -2.71828)
-  test_buffer(data_32, precision = 32, tolerance = 1e-6)
+  test_buffer(data_32, type = "f32", tolerance = 1e-6)
 
   # Test double precision (64-bit)
   data_64 <- c(1.0, -1.0, 0.0, 3.14159265359, -2.71828182846)
-  test_buffer(data_64, precision = 64, tolerance = 1e-12)
+  test_buffer(data_64, type = "f64", tolerance = 1e-12)
 
   # Test arrays with dimensions
   data_matrix <- matrix(c(1.1, 2.2, 3.3, 4.4), nrow = 2, ncol = 2)
-  test_buffer(data_matrix, precision = 32, tolerance = 1e-6)
+  test_buffer(data_matrix, type = "f32", tolerance = 1e-6)
 })
 
 test_that("pjrt_buffer handles edge cases", {
@@ -179,38 +188,38 @@ test_that("pjrt_elt_type returns correct data types", {
   buffer <- pjrt_buffer(logical_data)
   dtype <- pjrt_elt_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "PRED")
+  expect_equal(as.character(dtype), "pred")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
-  buffer <- pjrt_buffer(integer_data, precision = 32, signed = TRUE)
+  buffer <- pjrt_buffer(integer_data, type = "s32")
   dtype <- pjrt_elt_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "S32")
+  expect_equal(as.character(dtype), "s32")
 
   # Test unsigned integer buffer (8-bit)
-  buffer <- pjrt_buffer(integer_data, precision = 8, signed = FALSE)
+  buffer <- pjrt_buffer(integer_data, type = "u8")
   dtype <- pjrt_elt_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "U8")
+  expect_equal(as.character(dtype), "u8")
 
   # Test double buffer (32-bit)
   double_data <- c(1.1, 2.2, 3.3)
-  buffer <- pjrt_buffer(double_data, precision = 32)
+  buffer <- pjrt_buffer(double_data, type = "f32")
   dtype <- pjrt_elt_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "F32")
+  expect_equal(as.character(dtype), "f32")
 
   # Test double buffer (64-bit)
-  buffer <- pjrt_buffer(double_data, precision = 64)
+  buffer <- pjrt_buffer(double_data, type = "f64")
   dtype <- pjrt_elt_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "F64")
+  expect_equal(as.character(dtype), "f64")
 
   # Test scalar buffer
   scalar_data <- 42L
   buffer <- pjrt_scalar(scalar_data)
   dtype <- pjrt_elt_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "S32")
+  expect_equal(as.character(dtype), "s32")
 })

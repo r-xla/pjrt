@@ -71,8 +71,8 @@ Because the program above expects `2x2` tensors with element type `f32`, we need
 ```{r}
 x <- matrix(as.double(1:4), nrow = 2)
 y <- matrix(as.double(5:8), nrow = 2)
-x_buffer <- pjrt_buffer(x, precision = 32)
-y_buffer <- pjrt_buffer(y, precision = 32)
+x_buffer <- pjrt_buffer(x, type = "f32")
+y_buffer <- pjrt_buffer(y, type = "f32")
 ```
 
 Having created these buffers, we can now run the program.

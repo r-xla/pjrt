@@ -15,7 +15,7 @@ The format of the program.
 One of "mlir" or "hlo".}
 }
 \value{
-\code{\link{PJRTProgram}}
+\code{PJRTProgram}
 }
 \description{
 Create a program from a string.

@@ -1,12 +1,13 @@
 #' @title Compile a Program
 #' @description
-#' Compile a [`PJRTProgram`] program into a [`PJRTExecutable`].
+#' Compile a `PJRTProgram` program into a `PJRTExecutable`.
+#'
 #' @param program (`character(1)`)\cr
 #'   A program to compile.
-#' @param compile_options ([`PJRTCompileOptions`])\cr
+#' @param compile_options (`PJRTCompileOptions`)\cr
 #'   Compile options.
 #' @template param_client
-#' @return [`PJRTExecutable`]
+#' @return `PJRTExecutable`
 #' @export
 pjrt_compile <- function(
   program,
@@ -20,46 +21,6 @@ pjrt_compile <- function(
   impl_client_program_compile(client, program, compile_options)
 }
 
-client_buffer_from_integer <- function(
-  data,
-  precision = 32L,
-  signed = TRUE,
-  dims,
-  client = default_client()
-) {
-  check_client(client)
-  impl_client_buffer_from_integer(
-    client,
-    data,
-    dims,
-    precision,
-    signed
-  )
-}
-
-client_buffer_from_logical <- function(
-  data,
-  dims,
-  client = default_client()
-) {
-  check_client(client)
-  impl_client_buffer_from_logical(client, data, dims)
-}
-
-client_buffer_from_double <- function(
-  data,
-  precision = 32L,
-  dims,
-  client = default_client()
-) {
-  check_client(client)
-  impl_client_buffer_from_double(
-    client,
-    data,
-    dims,
-    precision
-  )
-}
 
 client_platform_name <- function(client) {
   check_client(client)

@@ -1,3 +1,4 @@
+
 program_load <- function(path, format = c("mlir", "hlo")) {
   path <- normalizePath(path, mustWork = TRUE)
   format <- rlang::arg_match(format)
@@ -12,7 +13,7 @@ program_load <- function(path, format = c("mlir", "hlo")) {
 #' @param format (`character(1)`)\cr
 #'   The format of the program.
 #'   One of "mlir" or "hlo".
-#' @return [`PJRTProgram`]
+#' @return `PJRTProgram`
 #' @export
 pjrt_program <- function(code, format = c("mlir", "hlo")) {
   if (!is.character(code) || length(code) != 1) {

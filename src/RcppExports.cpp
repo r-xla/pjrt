@@ -95,44 +95,44 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_client_buffer_from_double
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, int precision);
-RcppExport SEXP _pjrt_impl_client_buffer_from_double(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP precisionSEXP) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, std::string type);
+RcppExport SEXP _pjrt_impl_client_buffer_from_double(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
     Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
-    Rcpp::traits::input_parameter< int >::type precision(precisionSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double(client, data, dims, precision));
+    Rcpp::traits::input_parameter< std::string >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double(client, data, dims, type));
     return rcpp_result_gen;
 END_RCPP
 }
 // impl_client_buffer_from_integer
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, int precision, bool is_signed);
-RcppExport SEXP _pjrt_impl_client_buffer_from_integer(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP precisionSEXP, SEXP is_signedSEXP) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, std::string type);
+RcppExport SEXP _pjrt_impl_client_buffer_from_integer(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
     Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
-    Rcpp::traits::input_parameter< int >::type precision(precisionSEXP);
-    Rcpp::traits::input_parameter< bool >::type is_signed(is_signedSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer(client, data, dims, precision, is_signed));
+    Rcpp::traits::input_parameter< std::string >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer(client, data, dims, type));
     return rcpp_result_gen;
 END_RCPP
 }
 // impl_client_buffer_from_logical
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims);
-RcppExport SEXP _pjrt_impl_client_buffer_from_logical(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, std::string type);
+RcppExport SEXP _pjrt_impl_client_buffer_from_logical(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
     Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_logical(client, data, dims));
+    Rcpp::traits::input_parameter< std::string >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_logical(client, data, dims, type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -214,8 +214,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_compile_options_create", (DL_FUNC) &_pjrt_impl_compile_options_create, 1},
     {"_pjrt_impl_client_program_compile", (DL_FUNC) &_pjrt_impl_client_program_compile, 3},
     {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 4},
-    {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 5},
-    {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 3},
+    {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 4},
+    {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 4},
     {"_pjrt_impl_client_buffer_to_host", (DL_FUNC) &_pjrt_impl_client_buffer_to_host, 2},
     {"_pjrt_impl_client_platform_name", (DL_FUNC) &_pjrt_impl_client_platform_name, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 2},

@@ -7,13 +7,13 @@
 pjrt_execute(executable, ...)
 }
 \arguments{
-\item{executable}{\link{PJRTLoadedExecutable}\cr
+\item{executable}{(\code{PJRTLoadedExecutable})\cr
 A PJRT program.}
 
 \item{...}{Inputs to the program.}
 }
 \value{
-A list of results.
+A list of \code{PJRTBuffer}s.
 }
 \description{
 Execute a PJRT program with the given inputs.

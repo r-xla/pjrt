@@ -29,16 +29,16 @@ impl_client_program_compile <- function(client, program, compile_options) {
     .Call(`_pjrt_impl_client_program_compile`, client, program, compile_options)
 }
 
-impl_client_buffer_from_double <- function(client, data, dims, precision) {
-    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, precision)
+impl_client_buffer_from_double <- function(client, data, dims, type) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, type)
 }
 
-impl_client_buffer_from_integer <- function(client, data, dims, precision, is_signed) {
-    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, precision, is_signed)
+impl_client_buffer_from_integer <- function(client, data, dims, type) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, type)
 }
 
-impl_client_buffer_from_logical <- function(client, data, dims) {
-    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims)
+impl_client_buffer_from_logical <- function(client, data, dims, type) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims, type)
 }
 
 impl_client_buffer_to_host <- function(client, buffer) {

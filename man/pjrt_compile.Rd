@@ -14,15 +14,15 @@ pjrt_compile(
 \item{program}{(\code{character(1)})\cr
 A program to compile.}
 
-\item{compile_options}{(\code{\link{PJRTCompileOptions}})\cr
+\item{compile_options}{(\code{PJRTCompileOptions})\cr
 Compile options.}
 
-\item{client}{(\code{\link{PJRTClient}})\cr
+\item{client}{(\code{PJRTClient})\cr
 A PJRT client object.}
 }
 \value{
-\code{\link{PJRTExecutable}}
+\code{PJRTExecutable}
 }
 \description{
-Compile a \code{\link{PJRTProgram}} program into a \code{\link{PJRTExecutable}}.
+Compile a \code{PJRTProgram} program into a \code{PJRTExecutable}.
 }

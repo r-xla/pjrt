@@ -124,73 +124,61 @@ create_buffer_from_r_data(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer>
 impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                               std::vector<int64_t> dims, int precision) {
-  switch (precision) {
-  case 32:
+                               std::vector<int64_t> dims, std::string type) {
+  if (type == "f32") {
     return create_buffer_from_r_data<float>(client, data, dims,
                                             PJRT_Buffer_Type_F32);
-  case 64:
+  } else if (type == "f64") {
     return create_buffer_from_r_data<double>(client, data, dims,
                                              PJRT_Buffer_Type_F64);
-  default:
-    Rcpp::stop("Unsupported floating point precision: %d. Only 32 (single) "
-               "and 64 (double) are supported.",
-               precision);
+  } else {
+    Rcpp::stop("Unsupported floating point type: %s", type.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer>
 impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                                std::vector<int64_t> dims, int precision,
-                                bool is_signed) {
-  if (is_signed) {
-    switch (precision) {
-    case 8:
-      return create_buffer_from_r_data<int8_t>(client, data, dims,
-                                               PJRT_Buffer_Type_S8);
-    case 16:
-      return create_buffer_from_r_data<int16_t>(client, data, dims,
-                                                PJRT_Buffer_Type_S16);
-    case 32:
-      return create_buffer_from_r_data<int32_t>(client, data, dims,
-                                                PJRT_Buffer_Type_S32);
-    case 64:
-      return create_buffer_from_r_data<int64_t>(client, data, dims,
-                                                PJRT_Buffer_Type_S64);
-    default:
-      Rcpp::stop("Unsupported signed integer precision: %d. Only 8, 16, 32, 64 "
-                 "are supported.",
-                 precision);
-    }
+                                std::vector<int64_t> dims, std::string type) {
+  if (type == "s8") {
+    return create_buffer_from_r_data<int8_t>(client, data, dims,
+                                             PJRT_Buffer_Type_S8);
+  } else if (type == "s16") {
+    return create_buffer_from_r_data<int16_t>(client, data, dims,
+                                              PJRT_Buffer_Type_S16);
+  } else if (type == "s32") {
+    return create_buffer_from_r_data<int32_t>(client, data, dims,
+                                              PJRT_Buffer_Type_S32);
+  } else if (type == "s64") {
+    return create_buffer_from_r_data<int64_t>(client, data, dims,
+                                              PJRT_Buffer_Type_S64);
+  } else if (type == "u8") {
+    return create_buffer_from_r_data<uint8_t>(client, data, dims,
+                                              PJRT_Buffer_Type_U8);
+  } else if (type == "u16") {
+    return create_buffer_from_r_data<uint16_t>(client, data, dims,
+                                               PJRT_Buffer_Type_U16);
+  } else if (type == "u32") {
+    return create_buffer_from_r_data<uint32_t>(client, data, dims,
+                                               PJRT_Buffer_Type_U32);
+  } else if (type == "u64") {
+    return create_buffer_from_r_data<uint64_t>(client, data, dims,
+                                               PJRT_Buffer_Type_U64);
   } else {
-    switch (precision) {
-    case 8:
-      return create_buffer_from_r_data<uint8_t>(client, data, dims,
-                                                PJRT_Buffer_Type_U8);
-    case 16:
-      return create_buffer_from_r_data<uint16_t>(client, data, dims,
-                                                 PJRT_Buffer_Type_U16);
-    case 32:
-      return create_buffer_from_r_data<uint32_t>(client, data, dims,
-                                                 PJRT_Buffer_Type_U32);
-    case 64:
-      return create_buffer_from_r_data<uint64_t>(client, data, dims,
-                                                 PJRT_Buffer_Type_U64);
-    default:
-      Rcpp::stop("Unsupported unsigned integer precision: %d. Only 8, 16, 32, "
-                 "64 are supported.",
-                 precision);
-    }
+    Rcpp::stop("Unsupported type: %s", type.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer>
 impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                                std::vector<int64_t> dims) {
-  return create_buffer_from_r_data<uint8_t>(client, data, dims,
-                                            PJRT_Buffer_Type_PRED);
+                                std::vector<int64_t> dims, std::string type) {
+  if (type == "pred") {
+    return create_buffer_from_r_data<uint8_t>(client, data, dims,
+                                              PJRT_Buffer_Type_PRED);
+  } else {
+    Rcpp::stop("Unsupported type: %s", type.c_str());
+  }
 }
 
 // Helper template function for buffer to host conversion
@@ -223,9 +211,8 @@ SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
               static_cast<int *>(out_data));
   } else if (r_type == LGLSXP) {
     out_data = LOGICAL(out);
-    for (size_t i = 0; i < numel; ++i) {
-      static_cast<int *>(out_data)[i] = buffer_data[i] ? 1 : 0;
-    }
+    std::copy(buffer_data.begin(), buffer_data.end(),
+              static_cast<int *>(out_data));
   }
 
   // Set dimensions only once

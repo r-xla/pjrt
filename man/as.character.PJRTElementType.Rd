@@ -7,7 +7,9 @@
 \method{as.character}{PJRTElementType}(x, ...)
 }
 \arguments{
-\item{element_type}{A PJRT element type object.}
+\item{x}{A PJRT element type object.}
+
+\item{...}{Additional arguments (unused).}
 }
 \value{
 A string representation of the element type.
