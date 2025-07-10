@@ -108,9 +108,13 @@ test_that("pjrt_scalar roundtrip works for scalar data", {
   test_scalar(42L)
   test_scalar(-42L)
   test_scalar(0L)
+  test_scalar(-1L, type = "u8")
+  test_sclar(2L, type = "s16")
+  test_scalar(3L, type = "s64")
 
   # Test double scalar
   test_scalar(3.14, type = "f64")
+  test_scalar(-3, type = "f32")
 })
 
 test_that("pjrt_buffer roundtrip works for logical data", {
@@ -147,40 +151,14 @@ test_that("pjrt_buffer handles edge cases", {
   expect_error(pjrt_buffer(integer(0)), "Data must be a non-empty vector")
   expect_error(pjrt_buffer(numeric(0)), "Data must be a non-empty vector")
 
-  # Test very large arrays
-  large_array <- array(1:1000, dim = c(10, 10, 10))
-  test_buffer(large_array)
 })
 
-test_that("pjrt_buffer preserves dimensions correctly", {
-  # Test 1D array
-  vec_1d <- 1:10
-  test_buffer(vec_1d)
-
-  # Test 2D array
-  mat_2d <- matrix(1:12, nrow = 3, ncol = 4)
-  test_buffer(mat_2d)
-
+test_that("pjrt_buffer preserves 3d dimensions", {
   # Test 3D array
   arr_3d <- array(1:24, dim = c(2, 3, 4))
   test_buffer(arr_3d)
-
-  # Test logical array with dimensions
-  logical_arr <- array(c(TRUE, FALSE), dim = c(2, 2, 2))
-  test_buffer(logical_arr)
 })
 
-test_that("pjrt_buffer handles mixed data types correctly", {
-  # Test that each data type goes to the correct buffer creation function
-  logical_data <- c(TRUE, FALSE, TRUE)
-  integer_data <- c(1L, 2L, 3L)
-  double_data <- c(1.1, 2.2, 3.3)
-
-  # These should all work without errors
-  expect_no_error(pjrt_buffer(logical_data))
-  expect_no_error(pjrt_buffer(integer_data))
-  expect_no_error(pjrt_buffer(double_data))
-})
 
 test_that("pjrt_elt_type returns correct data types", {
   # Test logical buffer

@@ -11,26 +11,25 @@ is_buffer <- function(x) {
 #' @rdname pjrt_buffer
 #' @description
 #' Create a PJRT Buffer from an R object.
-#' Any numeric PJRT data is an array and 0-dimensional arrays are used as scalars.
+#' Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 #' [`pjrt_buffer`] will create a array with dimensions `(1)` for a vector of length 1, while
-#' [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
+#' Therefore, [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
 #'
 #' @details
 #' R does not have 0-dimensional arrays, hence we need the extra `pjrt_scalar` function.
 #'
 #' @param data (any)\cr
-#'  Data to convert to a PJRT buffer.
+#'  Data to convert to a `PJRTBuffer`.
 #' @param type (`character(1)`)\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
-#'   - `"pred"`: predicate (for `logical` data).
-#'   - `"s{8,16,32,64}"`: Signed integer (for `integer` data).
-#'   - `"u{8,16,32,64}"`: Unsigned integer (for `integer` data).
+#'   - `"pred"`: predicate (i.e. a boolean)
+#'   - `"{s,u}{8,16,32,64}"`: (Un)signed integer (for `integer` data).
 #'   - `"f{32,64}"`: Floating point (for `double` data).
 #' @param ... (any)\cr
 #'   Additional arguments.
 #' @template param_client
-#' @return [`PJRTBuffer`][pjrt_buffer]
+#' @return `PJRTBuffer`
 #' @export
 pjrt_buffer <- function(data, type, client, ...) {
   UseMethod("pjrt_buffer")
@@ -142,7 +141,7 @@ pjrt_scalar.double <- function(
   )
 }
 
-#' Get the data type of a PJRT buffer
+#' Get the Element Type of a `PJRTBuffer`
 #'
 #' @param buffer A PJRT buffer object.
 #'
@@ -153,16 +152,12 @@ pjrt_elt_type <- function(buffer) {
   impl_buffer_element_type(buffer)
 }
 
-#' Check if an object is a PJRT element type
-#'
-#' @param x An object to check.
-#'
-#' @return TRUE if the object is a PJRT element type, FALSE otherwise.
 is_element_type <- function(x) {
   inherits(x, "PJRTElementType")
 }
 
-#' Get a string representation of a PJRT element type
+#' Convert `PJRTElementType` to string
+#' Get a (lowecase) string representation of a PJRT element type
 #'
 #' @param x A PJRT element type object.
 #' @param ... Additional arguments (unused).
@@ -182,6 +177,7 @@ print.PJRTElementType <- function(x, ...) {
   cat("<%s>", as.character(x), "\n")
 }
 
+#' Dimenson of `PJRTBuffer`
 #' Get the dimensions of a PJRT buffer
 #'
 #' @param x A PJRT buffer object.

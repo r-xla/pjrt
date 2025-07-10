@@ -103,8 +103,6 @@ create_buffer_from_r_data(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
                        std::is_same_v<T, int16_t> ||
                        std::is_same_v<T, int32_t> ||
                        std::is_same_v<T, int64_t> ||
-    std::copy(INTEGER(data), INTEGER(data) + len, buffer.data());
-  } else if constexpr (std::is_same_v<T, uint8_t> ||
                        std::is_same_v<T, uint16_t> ||
                        std::is_same_v<T, uint32_t> ||
                        std::is_same_v<T, uint64_t>) {
