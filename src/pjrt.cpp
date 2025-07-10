@@ -84,43 +84,6 @@ Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
   return xptr;
 }
 
-// [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer>
-impl_client_scalar_buffer_from_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                                    SEXP data) {
-  // Check that length is 1
-  if (Rf_length(data) != 1) {
-    Rcpp::stop("Data must be a scalar (length 1 vector).");
-  }
-
-  // Handle numeric scalar (REALSXP)
-  if (TYPEOF(data) == REALSXP) {
-    float dfloat = (float)*(REAL(data));
-    void *data_ptr = static_cast<void *>(&dfloat);
-
-    Rcpp::XPtr xptr(
-        client->buffer_from_host(data_ptr, std::nullopt, PJRT_Buffer_Type_F32)
-            .release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  }
-
-  // Handle logical scalar (LGLSXP)
-  if (TYPEOF(data) == LGLSXP) {
-    bool dbool = (bool)*(LOGICAL(data));
-    void *data_ptr = static_cast<void *>(&dbool);
-
-    Rcpp::XPtr xptr(
-        client->buffer_from_host(data_ptr, std::nullopt, PJRT_Buffer_Type_PRED)
-            .release());
-    xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  }
-
-  Rcpp::stop(
-      "Data must be a numeric scalar (REALSXP) or logical scalar (LGLSXP).");
-}
-
 // Helper template function for buffer creation from R data
 template <typename T>
 Rcpp::XPtr<rpjrt::PJRTBuffer>
@@ -347,12 +310,6 @@ impl_buffer_element_type(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
 std::string
 impl_element_type_as_string(Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {
   return element_type->as_string();
-}
-
-// [[Rcpp::export()]]
-int impl_element_type_as_integer(
-    Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {
-  return element_type->as_integer();
 }
 
 // [[Rcpp::export()]]

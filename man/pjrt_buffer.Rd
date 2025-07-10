@@ -4,7 +4,7 @@
 \alias{pjrt_buffer}
 \title{Create a PJRT buffer}
 \usage{
-pjrt_buffer(data, client = default_client(), ...)
+pjrt_buffer(data, client, ...)
 }
 \arguments{
 \item{data}{A vector of data to convert to a PJRT buffer.}

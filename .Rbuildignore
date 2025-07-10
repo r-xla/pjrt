@@ -8,3 +8,4 @@
 ^src/Makevars$
 ^LICENSE\.md$
 ^README\.Rmd$
+man-roxygen/

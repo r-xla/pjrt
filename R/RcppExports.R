@@ -29,10 +29,6 @@ impl_client_program_compile <- function(client, program, compile_options) {
     .Call(`_pjrt_impl_client_program_compile`, client, program, compile_options)
 }
 
-impl_client_scalar_buffer_from_host <- function(client, data) {
-    .Call(`_pjrt_impl_client_scalar_buffer_from_host`, client, data)
-}
-
 impl_client_buffer_from_double <- function(client, data, dims, precision) {
     .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, precision)
 }
@@ -63,10 +59,6 @@ impl_buffer_element_type <- function(buffer) {
 
 impl_element_type_as_string <- function(element_type) {
     .Call(`_pjrt_impl_element_type_as_string`, element_type)
-}
-
-impl_element_type_as_integer <- function(element_type) {
-    .Call(`_pjrt_impl_element_type_as_integer`, element_type)
 }
 
 impl_buffer_dimensions <- function(buffer) {

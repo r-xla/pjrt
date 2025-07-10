@@ -17,10 +17,10 @@ test_that("compile program works", {
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
   data <- 3.0
-  scalar_buffer <- client_scalar_buffer_from_host(data)
+  scalar_buffer <- pjrt_scalar(data)
 
   result <- loaded_executable_execute(executable, scalar_buffer)
-  r_res <- client_buffer_to_host(result)
+  r_res <- as_array(result)
 
   expect_equal(r_res, 9)
 })
@@ -54,7 +54,7 @@ test_that("compile program works", {
       bias_buffer
     )
   )
-  r_res <- client_buffer_to_host(result)
+  r_res <- as_array(result)
 
   expect_equal(r_res, matrix(0, ncol = 10, nrow = 1))
 })
@@ -85,7 +85,7 @@ test_that("can execute mlir program", {
   scalar_buffer <- pjrt_scalar(data)
 
   result <- loaded_executable_execute(executable, scalar_buffer)
-  r_res <- client_buffer_to_host(result)
+  r_res <- as_array(result)
 
   expect_equal(r_res, 6)
 })

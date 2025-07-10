@@ -12,60 +12,71 @@ is_buffer <- function(x) {
 #' @param data A vector of data to convert to a PJRT buffer.
 #' @param ... Additional arguments.
 #' @param client A PJRT client object.
-#'
+#' @param ... Additional arguments.
 #' @return A PJRT buffer object.
 #' @export
-pjrt_buffer <- function(data, client = default_client(), ...) {
+pjrt_buffer <- function(data, client, ...) {
   UseMethod("pjrt_buffer")
 }
 
 
 #' @export
-pjrt_buffer.logical <- function(data, client = default_client()) {
-  dim = get_dims(data)
-  client_buffer_from_logical(data, dim = dim, client = client)
+pjrt_buffer.logical <- function(data, client = default_client(), ...) {
+  dims = get_dims(data)
+  client_buffer_from_logical(data, dims = dims, client = client)
 }
 
 #' @export
-pjrt_buffer.integer <- function(data, client = default_client(), precision = 32) {
-  dim = get_dims(data)
-  client_buffer_from_integer(data, dim = dim, client = client, precision = precision)
-}
-
-
-#' @export
-pjrt_buffer.double <- function(data, client = default_client(), precision = 32) {
-  dim = get_dims(data)
-  client_buffer_from_double(data, dim = dim, client = client, precision = precision)
+pjrt_buffer.integer <- function(data, client = default_client(), precision = 32, signed = TRUE, ...) {
+  dims = get_dims(data)
+  client_buffer_from_integer(data, dims = dims, client = client, precision = precision, signed = signed)
 }
 
 #' @export
-pjrt_scalar <- function(data, client = default_client(), ...) {
+pjrt_buffer.double <- function(data, client = default_client(), precision = 32, ...) {
+  dims = get_dims(data)
+  client_buffer_from_double(data, dims = dims, client = client, precision = precision)
+}
+
+#' Create a PJRT scalar buffer
+#'
+#' @param data A scalar value to convert to a PJRT buffer.
+#' @param client A PJRT client object.
+#' @param ... Additional arguments.
+#' @return A PJRT buffer object representing a scalar.
+#' @export
+pjrt_scalar <- function(data, client, ...) {
   UseMethod("pjrt_scalar")
 }
 
 #' @export
-pjrt_scalar.logical <- function(data, client = default_client()) {
+pjrt_scalar.logical <- function(data, client = default_client(), ...) {
   if (!is.atomic(data) || length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
-  client_buffer_from_logical(data, dim = integer(), client = client)
+  client_buffer_from_logical(data, dims = integer(), client = client)
 }
 
 #' @export
-pjrt_scalar.integer <- function(data, client = default_client(), precision = 32) {
+pjrt_scalar.integer <- function(data, client = default_client(), precision = NULL, ...) {
   if (!is.atomic(data) || length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
-  client_buffer_from_integer(data, dim = integer(), client = client, precision = precision)
+  if (is.null(precision)) {
+    precision = 32
+  }
+  client_buffer_from_integer(data, dims = integer(), client = client, precision = precision, ...)
 }
 
 #' @export
-pjrt_scalar.double <- function(data, client = default_client(), precision = 32) {
+pjrt_scalar.double <- function(data, client = default_client(), precision = NULL, ...) {
   if (!is.atomic(data) || length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
-  client_buffer_from_double(data, dim = integer(), client = client, precision = precision)
+  if (is.null(precision)) {
+    precision = 32
+  }
+  client_buffer_from_double(data, dims = integer(), client = client, precision = precision)
 }
 
 #' Get the data type of a PJRT buffer
@@ -121,4 +132,15 @@ dim.PJRTBuffer <- function(x) {
 #' @export
 print.PJRTElementType <- function(x, ...) {
   cat(sprintf("<ElementType: %s>\n"))
+}
+
+#' Get the platform name of a PJRT client
+#'
+#' @param client A PJRT client object.
+#'
+#' @return A string representing the platform name.
+#' @export
+client_platform_name <- function(client = default_client()) {
+  check_client(client)
+  impl_client_platform_name(client)
 }

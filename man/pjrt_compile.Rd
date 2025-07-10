@@ -2,7 +2,7 @@
 % Please edit documentation in R/client.R
 \name{pjrt_compile}
 \alias{pjrt_compile}
-\title{Compile a program}
+\title{Compile a Program}
 \usage{
 pjrt_compile(
   program,
@@ -18,11 +18,11 @@ A program to compile.}
 Compile options.}
 
 \item{client}{(\code{\link{PJRTClient}})\cr
-A client to use for compilation.}
+A PJRT client object.}
 }
 \value{
-A compiled program.
+\code{\link{PJRTExecutable}}
 }
 \description{
-Compile a program into a \code{\link{PJRTExecutable}}.
+Compile a \code{\link{PJRTProgram}} program into a \code{\link{PJRTExecutable}}.
 }

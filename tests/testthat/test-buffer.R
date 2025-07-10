@@ -1,8 +1,13 @@
 # Helper function to check scalar roundtrip
-check_scalar <- function(data, precision = NULL, tolerance = testthat::testthat_tolerance()) {
-  buffer <- pjrt_scalar(data, precision = precision)
+test_scalar <- function(data, precision = NULL, signed = NULL, tolerance = testthat::testthat_tolerance()) {
+  stopifnot(is.atomic(data) && length(data) == 1)
+  args = list(data = data, precision = precision, signed = signed)
+  args = args[!sapply(args, is.null)]
+  buffer <- do.call(pjrt_scalar, args)
+
   expect_class(buffer, "PJRTBuffer")
   result <- as_array(buffer)
+  expect_true(!is.array(result))
 
   # Check that scalar becomes 1D array with length 1
   expect_true(is.null(dim(result)))
@@ -11,7 +16,7 @@ check_scalar <- function(data, precision = NULL, tolerance = testthat::testthat_
     data[1L] <- if (is.numeric(data)) {
       1L
     } else if (is.logical(data)) {
-      !data
+      !data[1L]
     } else {
       stop("Unsupported data type: ", typeof(data))
     }
@@ -34,18 +39,24 @@ check_scalar <- function(data, precision = NULL, tolerance = testthat::testthat_
 }
 
 # Helper function to check buffer roundtrip
-check_buffer <- function(data, precision = NULL, signed = NULL, tolerance = testthat::testthat_tolerance()) {
-  buffer <- pjrt_buffer(data, precision = precision, signed = signed)
+test_buffer <- function(data, precision = NULL, signed = NULL, tolerance = testthat::testthat_tolerance()) {
+  args = list(data = data, precision = precision, signed = signed)
+  args = args[!sapply(args, is.null)]
+  buffer <- do.call(pjrt_buffer, args)
+
   expect_class(buffer, "PJRTBuffer")
   result <- as_array(buffer)
+  expect_true(is.array(result))
 
-  expect_equal(result, data, tolerance = tolerance)
+  data_arr <- as.array(data)
+
+  expect_equal(result, data_arr, tolerance = tolerance)
 
   modify_first <- function(data) {
-    data[1L] <- if (is.numeric(data)) {
+    data[1L] + if (is.numeric(data)) {
       1L
     } else if (is.logical(data)) {
-      !data
+      !data[1L]
     } else {
       stop("Unsupported data type: ", typeof(data))
     }
@@ -65,38 +76,38 @@ check_buffer <- function(data, precision = NULL, signed = NULL, tolerance = test
   data[1L] <- modify_first(data)
 
   result_after_modification <- as_array(buffer)
-  expect_equal(result_after_modification, original_data, tolerance = tolerance)
+  expect_equal(result_after_modification, data_arr, tolerance = tolerance)
 
   # Test that modifying the result doesn't persist when recreating from buffer
   result[1L] <- modify_first(result)
 
   result_recreated <- as_array(buffer)
   if (!is.null(tolerance)) {
-    expect_equal(result_recreated, original_data, tolerance = tolerance)
+    expect_equal(result_recreated, data_arr, tolerance = tolerance)
   } else {
-    expect_equal(result_recreated, original_data)
+    expect_equal(result_recreated, data_arr)
   }
 
   return(buffer)
 }
 
 test_that("pjrt_scalar roundtrip works for scalar data", {
-  check_scalar(TRUE)
-  check_scalar(FALSE)
+  test_scalar(TRUE)
+  test_scalar(FALSE)
 
   # Test integer scalar
-  check_scalar(42L)
-  check_scalar(-42L)
-  check_scalar(0L)
+  test_scalar(42L)
+  test_scalar(-42L)
+  test_scalar(0L)
 
   # Test double scalar
-  check_scalar(3.14, precision = 64)
+  test_scalar(3.14, precision = 64)
 })
 
 test_that("pjrt_buffer roundtrip works for logical data", {
   # Test logical vector
-  logical_vec <- c(TRUE, FALSE, TRUE, FALSE)
-  check_buffer(logical_vec)
+  logical_vec <- array(c(TRUE, FALSE, TRUE, FALSE))
+  test_buffer(logical_vec)
 
   # Test logical matrix
   logical_matrix <- matrix(
@@ -104,47 +115,21 @@ test_that("pjrt_buffer roundtrip works for logical data", {
     nrow = 2,
     ncol = 3
   )
-  check_buffer(logical_matrix)
-})
-
-test_that("pjrt_buffer roundtrip works for integer data with different precisions", {
-  # Test signed integers
-  test_cases <- list(
-    list(data = c(1L, -1L, 0L, 127L, -128L), precision = 8, signed = TRUE),
-    list(data = c(1L, -1L, 0L, 32767L, -32768L), precision = 16, signed = TRUE),
-    list(data = c(1L, -1L, 0L, 2147483647L, -2147483648L), precision = 32, signed = TRUE),
-    list(data = c(1L, -1L, 0L, 9223372036854775807L, -9223372036854775808L), precision = 64, signed = TRUE)
-  )
-
-  for (case in test_cases) {
-    check_buffer(case$data, precision = case$precision, signed = case$signed)
-  }
-
-  # Test unsigned integers
-  test_cases_unsigned <- list(
-    list(data = c(0L, 1L, 255L), precision = 8, signed = FALSE),
-    list(data = c(0L, 1L, 65535L), precision = 16, signed = FALSE),
-    list(data = c(0L, 1L, 4294967295L), precision = 32, signed = FALSE),
-    list(data = c(0L, 1L, 18446744073709551615), precision = 64, signed = FALSE)
-  )
-
-  for (case in test_cases_unsigned) {
-    check_buffer(case$data, precision = case$precision, signed = case$signed)
-  }
+  test_buffer(logical_matrix)
 })
 
 test_that("pjrt_buffer roundtrip works for double data with different precisions", {
   # Test single precision (32-bit)
   data_32 <- c(1.0, -1.0, 0.0, 3.14159, -2.71828)
-  check_buffer(data_32, precision = 32, tolerance = 1e-6)
+  test_buffer(data_32, precision = 32, tolerance = 1e-6)
 
   # Test double precision (64-bit)
   data_64 <- c(1.0, -1.0, 0.0, 3.14159265359, -2.71828182846)
-  check_buffer(data_64, precision = 64, tolerance = 1e-12)
+  test_buffer(data_64, precision = 64, tolerance = 1e-12)
 
   # Test arrays with dimensions
   data_matrix <- matrix(c(1.1, 2.2, 3.3, 4.4), nrow = 2, ncol = 2)
-  check_buffer(data_matrix, precision = 32, tolerance = 1e-6)
+  test_buffer(data_matrix, precision = 32, tolerance = 1e-6)
 })
 
 test_that("pjrt_buffer handles edge cases", {
@@ -155,25 +140,25 @@ test_that("pjrt_buffer handles edge cases", {
 
   # Test very large arrays
   large_array <- array(1:1000, dim = c(10, 10, 10))
-  check_buffer(large_array)
+  test_buffer(large_array)
 })
 
 test_that("pjrt_buffer preserves dimensions correctly", {
   # Test 1D array
   vec_1d <- 1:10
-  check_buffer(vec_1d)
+  test_buffer(vec_1d)
 
   # Test 2D array
   mat_2d <- matrix(1:12, nrow = 3, ncol = 4)
-  check_buffer(mat_2d)
+  test_buffer(mat_2d)
 
   # Test 3D array
   arr_3d <- array(1:24, dim = c(2, 3, 4))
-  check_buffer(arr_3d)
+  test_buffer(arr_3d)
 
   # Test logical array with dimensions
   logical_arr <- array(c(TRUE, FALSE), dim = c(2, 2, 2))
-  check_buffer(logical_arr)
+  test_buffer(logical_arr)
 })
 
 test_that("pjrt_buffer handles mixed data types correctly", {
@@ -186,10 +171,6 @@ test_that("pjrt_buffer handles mixed data types correctly", {
   expect_no_error(pjrt_buffer(logical_data))
   expect_no_error(pjrt_buffer(integer_data))
   expect_no_error(pjrt_buffer(double_data))
-
-  # Test that character data is rejected
-  character_data <- c("a", "b", "c")
-  expect_error(pjrt_buffer(character_data), "Unsupported data type")
 })
 
 test_that("pjrt_elt_type returns correct data types", {

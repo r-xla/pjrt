@@ -10,10 +10,11 @@
 <!-- badges: end -->
 
 The {pjrt} package provides an R interface to the
-[PJRT](https://github.com/openxla/pjrt) (“Pretty much Just Another
-Runtime”), which allows you to run XLA or stableHLO programs on a
-variety of hardware backends. For writing stableHLO programs, you can
-use the [stablehlo](https://github.com/r-xla/stablehlo) package.
+[PJRT](https://github.com/openxla/pjrt) (Pretty much Just another
+RunTime), which allows you to run XLA or stableHLO programs on a variety
+of hardware backends. For a low-level interface to write stableHLO
+programs, you can use the
+[stablehlo](https://github.com/r-xla/stablehlo) package.
 
 ## Installation
 

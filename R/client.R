@@ -1,13 +1,12 @@
-#' Compile a program
+#' @title Compile a Program
 #' @description
-#' Compile a program into a [`PJRTExecutable`].
+#' Compile a [`PJRTProgram`] program into a [`PJRTExecutable`].
 #' @param program (`character(1)`)\cr
 #'   A program to compile.
 #' @param compile_options ([`PJRTCompileOptions`])\cr
 #'   Compile options.
-#' @param client ([`PJRTClient`])\cr
-#'   A client to use for compilation.
-#' @return A compiled program.
+#' @template param_client
+#' @return [`PJRTExecutable`]
 #' @export
 pjrt_compile <- function(
   program,
@@ -19,11 +18,6 @@ pjrt_compile <- function(
   check_compile_options(compile_options)
 
   impl_client_program_compile(client, program, compile_options)
-}
-
-client_scalar_buffer_from_host <- function(data, client = default_client()) {
-  check_client(client)
-  impl_client_scalar_buffer_from_host(client, data)
 }
 
 client_buffer_from_integer <- function(
@@ -67,35 +61,7 @@ client_buffer_from_double <- function(
   )
 }
 
-# TODO: Rename to buffer_to_host
-client_buffer_to_host <- function(buffer, client = default_client()) {
-  check_client(client)
-  check_buffer(buffer)
-
-  impl_client_buffer_to_host(client, buffer)
-}
-
-client_buffer_from_host <- function(data, client = default_client()) {
-  check_client(client)
-
-  # For scalars, use the scalar function
-  if (length(data) == 1) {
-    return(client_scalar_buffer_from_host(data, client))
-  }
-
-  # For vectors/arrays, detect type and use appropriate function
-  if (is.logical(data)) {
-    return(client_buffer_from_logical(data, client))
-  } else if (is.double(data) || is.numeric(data)) {
-    return(client_buffer_from_double(data, client))
-  } else if (is.integer(data)) {
-    return(client_buffer_from_integer(data, client))
-  } else {
-    stop("Unsupported data type: ", class(data)[1])
-  }
-}
-
-client_platform_name <- function(client = default_client()) {
+client_platform_name <- function(client) {
   check_client(client)
   tolower(impl_client_platform_name(client))
 }
