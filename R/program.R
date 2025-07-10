@@ -4,6 +4,27 @@ program_load <- function(path, format = c("mlir", "hlo")) {
   impl_program_load(path, format)
 }
 
+#' @title Create a `PJRTProgram`
+#' @description
+#' Create a program from a string.
+#' @param code (`character(1)`)\cr
+#'   Source code.
+#' @param format (`character(1)`)\cr
+#'   The format of the program.
+#'   One of "mlir" or "hlo".
+#' @return `PJRTProgram`
+#' @export
+pjrt_program <- function(code, format = c("mlir", "hlo")) {
+  if (!is.character(code) || length(code) != 1) {
+    stop("code must be a character(1)")
+  }
+  format <- rlang::arg_match(format)
+  on.exit(unlink(file))
+  file <- tempfile()
+  writeLines(code, file)
+  program_load(file, format)
+}
+
 #' @export
 format.PJRTProgram <- function(x, ..., n = 10) {
   check_program(x)

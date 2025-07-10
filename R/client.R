@@ -1,7 +1,18 @@
-client_program_compile <- function(
-  client,
+#' @title Compile a Program
+#' @description
+#' Compile a `PJRTProgram` program into a `PJRTExecutable`.
+#'
+#' @param program (`character(1)`)\cr
+#'   A program to compile.
+#' @param compile_options (`PJRTCompileOptions`)\cr
+#'   Compile options.
+#' @template param_client
+#' @return `PJRTExecutable`
+#' @export
+pjrt_compile <- function(
   program,
-  compile_options = new_compile_options()
+  compile_options = new_compile_options(),
+  client = default_client()
 ) {
   check_client(client)
   check_program(program)
@@ -10,22 +21,6 @@ client_program_compile <- function(
   impl_client_program_compile(client, program, compile_options)
 }
 
-client_scalar_buffer_from_host <- function(client, data) {
-  check_client(client)
-  impl_client_scalar_buffer_from_host(client, data)
-}
-
-client_buffer_from_host <- function(client, data) {
-  check_client(client)
-  impl_client_buffer_from_host(client, data)
-}
-
-client_buffer_to_host <- function(client, buffer) {
-  check_client(client)
-  check_buffer(buffer)
-
-  impl_client_buffer_to_host(client, buffer)
-}
 
 client_platform_name <- function(client) {
   check_client(client)

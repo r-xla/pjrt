@@ -7,6 +7,18 @@ loaded_executable_execute <- function(executable, input) {
   impl_loaded_executable_execute(executable, input)
 }
 
+#' @title Execute a PJRT program
+#' @description Execute a PJRT program with the given inputs.
+#' @param executable (`PJRTLoadedExecutable`)\cr
+#' A PJRT program.
+#' @param ... (`PJRTBuffer)`\cr
+#'   Inputs to the program.
+#' @return `PJRTBuffer` | list of `PJRTBuffers`
+#' @export
+pjrt_execute <- function(executable, ...) {
+  loaded_executable_execute(executable, list(...))
+}
+
 check_loaded_executable <- function(x) {
   stopifnot(inherits(x, "PJRTLoadedExecutable"))
   invisible(NULL)

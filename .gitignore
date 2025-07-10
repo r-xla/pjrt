@@ -2,3 +2,5 @@ compile_commands.json
 .cache
 configure.log
 src/proto/
+README.html
+src/Makevars

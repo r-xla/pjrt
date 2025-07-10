@@ -29,12 +29,16 @@ impl_client_program_compile <- function(client, program, compile_options) {
     .Call(`_pjrt_impl_client_program_compile`, client, program, compile_options)
 }
 
-impl_client_scalar_buffer_from_host <- function(client, data) {
-    .Call(`_pjrt_impl_client_scalar_buffer_from_host`, client, data)
+impl_client_buffer_from_double <- function(client, data, dims, type) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, type)
 }
 
-impl_client_buffer_from_host <- function(client, data) {
-    .Call(`_pjrt_impl_client_buffer_from_host`, client, data)
+impl_client_buffer_from_integer <- function(client, data, dims, type) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, type)
+}
+
+impl_client_buffer_from_logical <- function(client, data, dims, type) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims, type)
 }
 
 impl_client_buffer_to_host <- function(client, buffer) {
@@ -47,5 +51,17 @@ impl_client_platform_name <- function(client) {
 
 impl_loaded_executable_execute <- function(executable, input) {
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input)
+}
+
+impl_buffer_element_type <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_element_type`, buffer)
+}
+
+impl_element_type_as_string <- function(element_type) {
+    .Call(`_pjrt_impl_element_type_as_string`, element_type)
+}
+
+impl_buffer_dimensions <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_dimensions`, buffer)
 }
 
