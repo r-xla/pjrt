@@ -91,9 +91,6 @@ PJRTClient::buffer_from_host(void *data,
     size_t rank = dims->size();
     minor_to_major.resize(rank);
 
-    // For column-major layout, the minor-to-major order is (rank-1, rank-2,
-    // ..., 0) i.e., the fastest-changing index is the first dimension (R's
-    // default)
     for (size_t axis_idx = 0; axis_idx < rank; axis_idx++) {
       minor_to_major[axis_idx] = axis_idx;
     }
