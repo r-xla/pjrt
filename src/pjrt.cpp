@@ -109,6 +109,18 @@ create_buffer_from_r_data(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
     std::copy(INTEGER(data), INTEGER(data) + len, buffer.data());
   } else if constexpr (std::is_same_v<T, bool>) {
     std::copy(LOGICAL(data), LOGICAL(data) + len, buffer.data());
+  } else if constexpr (std::is_same_v<T, uint8_t>) {
+    // Special case for uint8_t: could be logical data or unsigned 8-bit
+    // integers
+    if (TYPEOF(data) == LGLSXP) {
+      // Convert logical data to uint8_t
+      for (int i = 0; i < len; ++i) {
+        buffer[i] = LOGICAL(data)[i] ? 1 : 0;
+      }
+    } else {
+      // Regular integer data
+      std::copy(INTEGER(data), INTEGER(data) + len, buffer.data());
+    }
   }
 
   Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
@@ -207,8 +219,9 @@ SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
               static_cast<int *>(out_data));
   } else if (r_type == LGLSXP) {
     out_data = LOGICAL(out);
-    std::copy(buffer_data.begin(), buffer_data.end(),
-              static_cast<int *>(out_data));
+    for (size_t i = 0; i < numel; ++i) {
+      static_cast<int *>(out_data)[i] = buffer_data[i] ? 1 : 0;
+    }
   }
 
   // Set dimensions only once

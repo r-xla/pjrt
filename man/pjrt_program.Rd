@@ -2,7 +2,7 @@
 % Please edit documentation in R/program.R
 \name{pjrt_program}
 \alias{pjrt_program}
-\title{Create a PJRTProgram}
+\title{Create a \code{PJRTProgram}}
 \usage{
 pjrt_program(code, format = c("mlir", "hlo"))
 }

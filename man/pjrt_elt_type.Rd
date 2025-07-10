@@ -2,7 +2,7 @@
 % Please edit documentation in R/buffer.R
 \name{pjrt_elt_type}
 \alias{pjrt_elt_type}
-\title{Get the data type of a PJRT buffer}
+\title{Get the Element Type of a \code{PJRTBuffer}}
 \usage{
 pjrt_elt_type(buffer)
 }
@@ -13,5 +13,5 @@ pjrt_elt_type(buffer)
 A PJRT element type object.
 }
 \description{
-Get the data type of a PJRT buffer
+Get the Element Type of a \code{PJRTBuffer}
 }

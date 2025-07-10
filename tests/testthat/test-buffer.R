@@ -1,5 +1,5 @@
 # Helper function to check scalar roundtrip
-test_scalar <- function(
+test_pjrt_scalar <- function(
   data,
   type = NULL,
   tolerance = testthat::testthat_tolerance()
@@ -43,7 +43,7 @@ test_scalar <- function(
 }
 
 # Helper function to check buffer roundtrip
-test_buffer <- function(
+test_pjrt_buffer <- function(
   data,
   type = NULL,
   tolerance = testthat::testthat_tolerance()
@@ -101,26 +101,30 @@ test_buffer <- function(
 }
 
 test_that("pjrt_scalar roundtrip works for scalar data", {
-  test_scalar(TRUE)
-  test_scalar(FALSE)
+  test_pjrt_scalar(TRUE)
+  test_pjrt_scalar(FALSE)
 
   # Test integer scalar
-  test_scalar(42L)
-  test_scalar(-42L)
-  test_scalar(0L)
-  test_scalar(-1L, type = "u8")
-  test_sclar(2L, type = "s16")
-  test_scalar(3L, type = "s64")
+  test_pjrt_scalar(42L)
+  test_pjrt_scalar(-42L)
+  test_pjrt_scalar(0L)
+  test_pjrt_scalar(-1L, type = "s8")
+  test_pjrt_scalar(-2L, type = "s16")
+  test_pjrt_scalar(-3L, type = "s64")
+
+  test_pjrt_scalar(1L, type = "u8")
+  test_pjrt_scalar(2L, type = "u16")
+  test_pjrt_scalar(3L, type = "u64")
 
   # Test double scalar
-  test_scalar(3.14, type = "f64")
-  test_scalar(-3, type = "f32")
+  test_pjrt_scalar(3.14, type = "f64")
+  test_pjrt_scalar(-3, type = "f32")
 })
 
 test_that("pjrt_buffer roundtrip works for logical data", {
   # Test logical vector
   logical_vec <- array(c(TRUE, FALSE, TRUE, FALSE))
-  test_buffer(logical_vec)
+  test_pjrt_buffer(logical_vec)
 
   # Test logical matrix
   logical_matrix <- matrix(
@@ -128,21 +132,21 @@ test_that("pjrt_buffer roundtrip works for logical data", {
     nrow = 2,
     ncol = 3
   )
-  test_buffer(logical_matrix)
+  test_pjrt_buffer(logical_matrix)
 })
 
 test_that("pjrt_buffer roundtrip works for double data with different types", {
   # Test single precision (32-bit)
   data_32 <- c(1.0, -1.0, 0.0, 3.14159, -2.71828)
-  test_buffer(data_32, type = "f32", tolerance = 1e-6)
+  test_pjrt_buffer(data_32, type = "f32", tolerance = 1e-6)
 
   # Test double precision (64-bit)
   data_64 <- c(1.0, -1.0, 0.0, 3.14159265359, -2.71828182846)
-  test_buffer(data_64, type = "f64", tolerance = 1e-12)
+  test_pjrt_buffer(data_64, type = "f64", tolerance = 1e-12)
 
   # Test arrays with dimensions
   data_matrix <- matrix(c(1.1, 2.2, 3.3, 4.4), nrow = 2, ncol = 2)
-  test_buffer(data_matrix, type = "f32", tolerance = 1e-6)
+  test_pjrt_buffer(data_matrix, type = "f32", tolerance = 1e-6)
 })
 
 test_that("pjrt_buffer handles edge cases", {
@@ -156,7 +160,7 @@ test_that("pjrt_buffer handles edge cases", {
 test_that("pjrt_buffer preserves 3d dimensions", {
   # Test 3D array
   arr_3d <- array(1:24, dim = c(2, 3, 4))
-  test_buffer(arr_3d)
+  test_pjrt_buffer(arr_3d)
 })
 
 

@@ -2,7 +2,8 @@
 % Please edit documentation in R/buffer.R
 \name{dim.PJRTBuffer}
 \alias{dim.PJRTBuffer}
-\title{Get the dimensions of a PJRT buffer}
+\title{Dimenson of \code{PJRTBuffer}
+Get the dimensions of a PJRT buffer}
 \usage{
 \method{dim}{PJRTBuffer}(x)
 }
@@ -13,5 +14,6 @@
 An integer vector of dimensions.
 }
 \description{
+Dimenson of \code{PJRTBuffer}
 Get the dimensions of a PJRT buffer
 }
