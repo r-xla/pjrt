@@ -3,3 +3,4 @@ compile_commands.json
 configure.log
 src/proto/
 README.html
+src/Makevars
