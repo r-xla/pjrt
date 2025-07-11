@@ -6,6 +6,7 @@
 #include "buffer.h"
 #include "client.h"
 #include "pjrt_types.h"
+#include "utils.h"
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTPlugin> impl_plugin_load(const std::string &path) {
@@ -218,17 +219,16 @@ SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   if (r_type == REALSXP) {
     out_data = REAL(out);
-    std::copy(buffer_data.begin(), buffer_data.end(),
-              static_cast<double *>(out_data));
+    row_to_col_order<T, double>(buffer_data, static_cast<double *>(out_data),
+                                dimensions);
   } else if (r_type == INTSXP) {
     out_data = INTEGER(out);
-    std::copy(buffer_data.begin(), buffer_data.end(),
-              static_cast<int *>(out_data));
+    row_to_col_order<T, int>(buffer_data, static_cast<int *>(out_data),
+                             dimensions);
   } else if (r_type == LGLSXP) {
     out_data = LOGICAL(out);
-    for (size_t i = 0; i < numel; ++i) {
-      static_cast<int *>(out_data)[i] = buffer_data[i] ? 1 : 0;
-    }
+    row_to_col_order<T, int>(buffer_data, static_cast<int *>(out_data),
+                             dimensions);
   }
 
   // Set dimensions only once
