@@ -6,6 +6,7 @@
 #include "buffer.h"
 #include "client.h"
 #include "pjrt_types.h"
+#include "utils.h"
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTPlugin> impl_plugin_load(const std::string &path) {
@@ -16,8 +17,8 @@ Rcpp::XPtr<rpjrt::PJRTPlugin> impl_plugin_load(const std::string &path) {
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTClient>
-impl_plugin_client_create(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+Rcpp::XPtr<rpjrt::PJRTClient> impl_plugin_client_create(
+    Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
   auto client = plugin->client_create();
   Rcpp::XPtr<rpjrt::PJRTClient> xptr(client.release(), true);
   xptr.attr("class") = "PJRTClient";
@@ -49,10 +50,9 @@ std::string impl_program_repr(Rcpp::XPtr<rpjrt::PJRTProgram> program,
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuildOptions>
-impl_build_options_create(const int num_replicas = 1,
-                          const int num_partitions = 1,
-                          const int device_ordinal = -1) {
+Rcpp::XPtr<rpjrt::PJRTBuildOptions> impl_build_options_create(
+    const int num_replicas = 1, const int num_partitions = 1,
+    const int device_ordinal = -1) {
   auto build_options = std::make_unique<rpjrt::PJRTBuildOptions>(
       num_replicas, num_partitions, device_ordinal);
   Rcpp::XPtr<rpjrt::PJRTBuildOptions> xptr(build_options.release(), true);
@@ -61,8 +61,8 @@ impl_build_options_create(const int num_replicas = 1,
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTCompileOptions>
-impl_compile_options_create(Rcpp::XPtr<rpjrt::PJRTBuildOptions> build_options) {
+Rcpp::XPtr<rpjrt::PJRTCompileOptions> impl_compile_options_create(
+    Rcpp::XPtr<rpjrt::PJRTBuildOptions> build_options) {
   auto compile_options =
       std::make_unique<rpjrt::PJRTCompileOptions>(build_options->clone());
   Rcpp::XPtr<rpjrt::PJRTCompileOptions> xptr(compile_options.release(), true);
@@ -84,10 +84,9 @@ Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
 
 // Helper template function for buffer creation from R data
 template <typename T>
-Rcpp::XPtr<rpjrt::PJRTBuffer>
-create_buffer_from_r_data(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                          const std::vector<int64_t> &dims,
-                          PJRT_Buffer_Type dtype) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_r_data(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
+    const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype) {
   int len = Rf_length(data);
   if (len == 0) {
     Rcpp::stop("Data must be a non-empty vector.");
@@ -123,16 +122,25 @@ create_buffer_from_r_data(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
     }
   }
 
+  auto byte_strides = std::vector<int64_t>(dims.size());
+  for (size_t i = 0; i < dims.size(); ++i) {
+    byte_strides[i] = sizeof(T);
+    for (size_t j = 0; j < i; ++j) {
+      byte_strides[i] *= dims[j];
+    }
+  }
+
   Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-      client->buffer_from_host(buffer.data(), dims, dtype).release());
+      client->buffer_from_host(buffer.data(), dims, byte_strides, dtype)
+          .release());
   xptr.attr("class") = "PJRTBuffer";
   return xptr;
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer>
-impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                               std::vector<int64_t> dims, std::string type) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
+    std::string type) {
   if (type == "f32") {
     return create_buffer_from_r_data<float>(client, data, dims,
                                             PJRT_Buffer_Type_F32);
@@ -145,9 +153,9 @@ impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer>
-impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                                std::vector<int64_t> dims, std::string type) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
+    std::string type) {
   if (type == "s8") {
     return create_buffer_from_r_data<int8_t>(client, data, dims,
                                              PJRT_Buffer_Type_S8);
@@ -178,9 +186,9 @@ impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer>
-impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-                                std::vector<int64_t> dims, std::string type) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
+    std::string type) {
   if (type == "pred") {
     return create_buffer_from_r_data<uint8_t>(client, data, dims,
                                               PJRT_Buffer_Type_PRED);
@@ -211,17 +219,16 @@ SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   if (r_type == REALSXP) {
     out_data = REAL(out);
-    std::copy(buffer_data.begin(), buffer_data.end(),
-              static_cast<double *>(out_data));
+    row_to_col_order<T, double>(buffer_data, static_cast<double *>(out_data),
+                                dimensions);
   } else if (r_type == INTSXP) {
     out_data = INTEGER(out);
-    std::copy(buffer_data.begin(), buffer_data.end(),
-              static_cast<int *>(out_data));
+    row_to_col_order<T, int>(buffer_data, static_cast<int *>(out_data),
+                             dimensions);
   } else if (r_type == LGLSXP) {
     out_data = LOGICAL(out);
-    for (size_t i = 0; i < numel; ++i) {
-      static_cast<int *>(out_data)[i] = buffer_data[i] ? 1 : 0;
-    }
+    row_to_col_order<T, int>(buffer_data, static_cast<int *>(out_data),
+                             dimensions);
   }
 
   // Set dimensions only once
@@ -230,10 +237,10 @@ SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
     int *dim_data = INTEGER(dim_attr);
     std::copy(dimensions.begin(), dimensions.end(), dim_data);
     Rf_setAttrib(out, R_DimSymbol, dim_attr);
-    UNPROTECT(1); // Unprotect dim_attr
+    UNPROTECT(1);  // Unprotect dim_attr
   }
 
-  UNPROTECT(1); // Unprotect out
+  UNPROTECT(1);  // Unprotect out
   return out;
 }
 
@@ -244,30 +251,30 @@ SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
   const auto element_type = buffer->element_type();
 
   switch (element_type) {
-  case PJRT_Buffer_Type_F32:
-    return convert_buffer_to_r<float>(client, buffer, dimensions, REALSXP);
-  case PJRT_Buffer_Type_F64:
-    return convert_buffer_to_r<double>(client, buffer, dimensions, REALSXP);
-  case PJRT_Buffer_Type_S8:
-    return convert_buffer_to_r<int8_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_S16:
-    return convert_buffer_to_r<int16_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_S32:
-    return convert_buffer_to_r<int32_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_S64:
-    return convert_buffer_to_r<int64_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_U8:
-    return convert_buffer_to_r<uint8_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_U16:
-    return convert_buffer_to_r<uint16_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_U32:
-    return convert_buffer_to_r<uint32_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_U64:
-    return convert_buffer_to_r<uint64_t>(client, buffer, dimensions, INTSXP);
-  case PJRT_Buffer_Type_PRED:
-    return convert_buffer_to_r<uint8_t>(client, buffer, dimensions, LGLSXP);
-  default:
-    Rcpp::stop("Unsupported buffer element type for conversion to host.");
+    case PJRT_Buffer_Type_F32:
+      return convert_buffer_to_r<float>(client, buffer, dimensions, REALSXP);
+    case PJRT_Buffer_Type_F64:
+      return convert_buffer_to_r<double>(client, buffer, dimensions, REALSXP);
+    case PJRT_Buffer_Type_S8:
+      return convert_buffer_to_r<int8_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_S16:
+      return convert_buffer_to_r<int16_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_S32:
+      return convert_buffer_to_r<int32_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_S64:
+      return convert_buffer_to_r<int64_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_U8:
+      return convert_buffer_to_r<uint8_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_U16:
+      return convert_buffer_to_r<uint16_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_U32:
+      return convert_buffer_to_r<uint32_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_U64:
+      return convert_buffer_to_r<uint64_t>(client, buffer, dimensions, INTSXP);
+    case PJRT_Buffer_Type_PRED:
+      return convert_buffer_to_r<uint8_t>(client, buffer, dimensions, LGLSXP);
+    default:
+      Rcpp::stop("Unsupported buffer element type for conversion to host.");
   }
 }
 
@@ -293,8 +300,8 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTElementType>
-impl_buffer_element_type(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_element_type(
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   auto element_type =
       std::make_unique<rpjrt::PJRTElementType>(buffer->element_type());
   Rcpp::XPtr<rpjrt::PJRTElementType> xptr(element_type.release(), true);
@@ -303,13 +310,13 @@ impl_buffer_element_type(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
 }
 
 // [[Rcpp::export()]]
-std::string
-impl_element_type_as_string(Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {
+std::string impl_element_type_as_string(
+    Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {
   return element_type->as_string();
 }
 
 // [[Rcpp::export()]]
-std::vector<int64_t>
-impl_buffer_dimensions(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+std::vector<int64_t> impl_buffer_dimensions(
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   return buffer->dimensions();
 }
