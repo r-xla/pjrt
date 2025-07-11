@@ -218,5 +218,5 @@ test_that("R layout and PJRT layout", {
   i2_buf <- pjrt_buffer(i2, type = "s32")
 
   result <- as_array(pjrt_execute(executable, x_buf, i1_buf, i2_buf))
-  expect_equal(result, 3)
+  expect_equal(x[i1 + 1, i2 + 1], result)
 })
