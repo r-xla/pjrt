@@ -52,6 +52,9 @@ pjrt_buffer.logical <- function(
     stop("Unused arguments")
   }
   dims = get_dims(data)
+  if (is.array(data)) {
+    data <- as.vector(aperm(data, rev(seq_along(dim(data)))))
+  }
   client_buffer_from_logical(data, dims = dims, client = client, type = type)
 }
 
@@ -63,6 +66,9 @@ pjrt_buffer.integer <- function(
   ...
 ) {
   dims = get_dims(data)
+  if (is.array(data)) {
+    data <- as.vector(aperm(data, rev(seq_along(dim(data)))))
+  }
   if (...length()) {
     stop("Unused arguments")
   }
@@ -77,6 +83,9 @@ pjrt_buffer.double <- function(
   ...
 ) {
   dims = get_dims(data)
+  if (is.array(data)) {
+    data <- as.vector(aperm(data, rev(seq_along(dim(data)))))
+  }
   if (...length()) {
     stop("Unused arguments")
   }
@@ -248,5 +257,10 @@ client_buffer_from_double <- function(
 #' @template param_client
 #' @export
 as_array <- function(buffer, client = default_client()) {
-  impl_client_buffer_to_host(buffer, client = client)
+  data <- impl_client_buffer_to_host(buffer, client = client)
+  if (is.array(data)) {
+    dims <- dim(data)
+    data <- aperm(array(data, rev(dims)), rev(seq_along(dims)))
+  }
+  return(data)
 }

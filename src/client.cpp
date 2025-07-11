@@ -80,35 +80,9 @@ PJRTClient::buffer_from_host(void *data,
   args.host_buffer_semantics =
       PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
   args.device = devices[0];
-  // No preallocated memory
+  // No preallocated memory or custom layout
   args.memory = nullptr;
-
-  // Set up memory layout for column-major data (R's default layout)
-  PJRT_Buffer_MemoryLayout device_layout{};
-  std::vector<int64_t> minor_to_major;
-
-  if (dims.has_value() && !dims->empty()) {
-    size_t rank = dims->size();
-    minor_to_major.resize(rank);
-
-    for (size_t axis_idx = 0; axis_idx < rank; axis_idx++) {
-      minor_to_major[axis_idx] = axis_idx;
-    }
-
-    device_layout.struct_size = sizeof(PJRT_Buffer_MemoryLayout);
-    device_layout.type = PJRT_Buffer_MemoryLayout_Type_Tiled;
-    device_layout.tiled.struct_size = sizeof(PJRT_Buffer_MemoryLayout_Tiled);
-    device_layout.tiled.minor_to_major = minor_to_major.data();
-    device_layout.tiled.minor_to_major_size = rank;
-    device_layout.tiled.tile_dims = nullptr;
-    device_layout.tiled.tile_dim_sizes = nullptr;
-    device_layout.tiled.num_tiles = 0;
-
-    args.device_layout = &device_layout;
-  } else {
-    // For 0-dimensional arrays (scalars), no layout needed
-    args.device_layout = nullptr;
-  }
+  args.device_layout = nullptr;
 
   BufferFromHostAndWait(this->api.get(), &args);
   return std::make_unique<PJRTBuffer>(args.buffer, this->api);
