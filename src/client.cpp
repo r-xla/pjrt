@@ -27,9 +27,8 @@ std::vector<PJRT_Device *> PJRTClient::devices() {
                      args.addressable_devices + args.num_addressable_devices);
 }
 
-std::unique_ptr<PJRTLoadedExecutable>
-PJRTClient::compile(const PJRTProgram &program,
-                    PJRTCompileOptions &compile_options) {
+std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
+    const PJRTProgram &program, PJRTCompileOptions &compile_options) {
   PJRT_Client_Compile_Args args{};
   args.struct_size = sizeof(PJRT_Client_Compile_Args);
 
@@ -59,10 +58,10 @@ void BufferFromHostAndWait(const PJRT_Api *api,
   check_err(api, api->PJRT_Event_Destroy(&efree_args));
 }
 
-std::unique_ptr<PJRTBuffer>
-PJRTClient::buffer_from_host(void *data,
-                             const std::optional<std::vector<int64_t>> &dims,
-                             PJRT_Buffer_Type dtype) {
+std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
+    void *data, const std::optional<std::vector<int64_t>> &dims,
+    const std::optional<std::vector<int64_t>> &strides,
+    PJRT_Buffer_Type dtype) {
   const auto devices = this->devices();
 
   // Initialize args to zero to ensure optional fields are null.
@@ -75,40 +74,13 @@ PJRTClient::buffer_from_host(void *data,
   args.dims = dims.has_value() ? dims->data() : nullptr;
   args.num_dims = dims.has_value() ? dims->size() : 0;
   // No custom strides: assume dense layout
-  args.byte_strides = nullptr;
-  args.num_byte_strides = 0;
+  args.byte_strides = strides.has_value() ? strides->data() : nullptr;
+  args.num_byte_strides = strides.has_value() ? strides->size() : 0;
   args.host_buffer_semantics =
       PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
   args.device = devices[0];
   // No preallocated memory
   args.memory = nullptr;
-
-  // Set up memory layout for column-major data (R's default layout)
-  PJRT_Buffer_MemoryLayout device_layout{};
-  std::vector<int64_t> minor_to_major;
-
-  if (dims.has_value() && !dims->empty()) {
-    size_t rank = dims->size();
-    minor_to_major.resize(rank);
-
-    for (size_t axis_idx = 0; axis_idx < rank; axis_idx++) {
-      minor_to_major[axis_idx] = axis_idx;
-    }
-
-    device_layout.struct_size = sizeof(PJRT_Buffer_MemoryLayout);
-    device_layout.type = PJRT_Buffer_MemoryLayout_Type_Tiled;
-    device_layout.tiled.struct_size = sizeof(PJRT_Buffer_MemoryLayout_Tiled);
-    device_layout.tiled.minor_to_major = minor_to_major.data();
-    device_layout.tiled.minor_to_major_size = rank;
-    device_layout.tiled.tile_dims = nullptr;
-    device_layout.tiled.tile_dim_sizes = nullptr;
-    device_layout.tiled.num_tiles = 0;
-
-    args.device_layout = &device_layout;
-  } else {
-    // For 0-dimensional arrays (scalars), no layout needed
-    args.device_layout = nullptr;
-  }
 
   BufferFromHostAndWait(this->api.get(), &args);
   return std::make_unique<PJRTBuffer>(args.buffer, this->api);
@@ -190,8 +162,8 @@ PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   check_err(this->api.get(), this->api->PJRT_LoadedExecutable_Destroy(&args));
 }
 
-std::vector<std::unique_ptr<PJRTBuffer>>
-PJRTLoadedExecutable::execute(std::vector<PJRTBuffer *> input) {
+std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
+    std::vector<PJRTBuffer *> input) {
   PJRT_ExecuteOptions options{};
   options.struct_size = sizeof(PJRT_ExecuteOptions);
 
@@ -237,4 +209,4 @@ std::string PJRTClient::platform_name() {
   return std::string(args.platform_name, args.platform_name_size);
 }
 
-} // namespace rpjrt
+}  // namespace rpjrt
