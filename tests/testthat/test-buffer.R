@@ -211,6 +211,7 @@ test_that("R layout and PJRT layout (2D)", {
   program <- program_load(path, format = "mlir")
   executable <- pjrt_compile(program)
   x <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+  x_buf <- pjrt_buffer(x)
   check <- function(i1, i2) {
     i1_buf <- pjrt_buffer(i1, type = "s32")
     i2_buf <- pjrt_buffer(i2, type = "s32")
