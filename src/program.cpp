@@ -22,22 +22,21 @@ PJRTProgramFormat PJRTProgram::format() const {
   }
 }
 
-std::string
-PJRTProgram::load_program_from_file(const std::string &fname,
-                                    const PJRTProgramFormat &format) {
+std::string PJRTProgram::load_program_from_file(
+    const std::string &fname, const PJRTProgramFormat &format) {
   std::ifstream input(fname, std::ios::binary | std::ios::ate);
   std::streamsize size = input.tellg();
-  input.seekg(0, std::ios::beg); // rewind
+  input.seekg(0, std::ios::beg);  // rewind
   std::vector<char> buffer(size);
   input.read(buffer.data(), size);
 
   switch (format) {
-  case HLO:
-    return parse_hlo_program(buffer);
-    break;
-  case MLIR:
-    return std::string(buffer.data(), buffer.size());
-    break;
+    case HLO:
+      return parse_hlo_program(buffer);
+      break;
+    case MLIR:
+      return std::string(buffer.data(), buffer.size());
+      break;
   };
 
   throw std::runtime_error("Unknown program format");
@@ -52,16 +51,16 @@ PJRT_Program PJRTProgram::create_program(std::string &code,
   program.code_size = code.size();
 
   switch (format) {
-  case HLO:
-    program.format = "hlo";
-    program.format_size = strlen("hlo");
-    break;
-  case MLIR:
-    program.format = "mlir";
-    program.format_size = strlen("mlir");
-    break;
-  default:
-    throw std::runtime_error("Unknown program format");
+    case HLO:
+      program.format = "hlo";
+      program.format_size = strlen("hlo");
+      break;
+    case MLIR:
+      program.format = "mlir";
+      program.format_size = strlen("mlir");
+      break;
+    default:
+      throw std::runtime_error("Unknown program format");
   }
 
   return program;
@@ -80,14 +79,14 @@ std::string PJRTProgram::repr(int n) const {
   auto format = this->format();
   std::string debug("");
   switch (format) {
-  case HLO: {
-    xla::HloModuleProto hlo_proto{};
-    hlo_proto.ParseFromArray(this->code.data(), this->code.size());
-    debug = hlo_proto.DebugString();
-  } break;
-  case MLIR:
-    debug = this->code;
-    break;
+    case HLO: {
+      xla::HloModuleProto hlo_proto{};
+      hlo_proto.ParseFromArray(this->code.data(), this->code.size());
+      debug = hlo_proto.DebugString();
+    } break;
+    case MLIR:
+      debug = this->code;
+      break;
   }
 
   // debug must not be larger than n lines
@@ -99,7 +98,7 @@ std::string PJRTProgram::repr(int n) const {
     pos = debug.find('\n', pos);
     if (pos != std::string::npos) {
       lines_found++;
-      pos++; // Move past the newline
+      pos++;  // Move past the newline
     }
   }
 
@@ -108,11 +107,11 @@ std::string PJRTProgram::repr(int n) const {
     // Check if there's more content after the nth line
     if (pos < debug.length()) {
       debug = debug.substr(0, pos - 1) +
-              "\n..."; // pos-1 to include the nth newline
+              "\n...";  // pos-1 to include the nth newline
     }
   }
 
   return repr + "\n" + debug;
 }
 
-} // namespace rpjrt
+}  // namespace rpjrt
