@@ -96,7 +96,12 @@ pjrt_scalar.logical <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_logical(data, dims = integer(), client = client)
+  client_buffer_from_logical(
+    data,
+    dims = integer(),
+    client = client,
+    type = type
+  )
 }
 
 #' @export
