@@ -15,9 +15,9 @@ jobs:
 
       - name: Format R code
         uses: rstudio/shiny-workflows/format-r-code@v1
-
+        with:
+          check: true
       - name: Format C++ code
         uses: jidicula/clang-format-action@v4.13.0
         with:
-          clang-format-version: '18'
-          fallback-style: none
+          clang-format-version: '20'
