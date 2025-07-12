@@ -15,13 +15,9 @@ jobs:
 
       - name: Format R code
         uses: rstudio/shiny-workflows/format-r-code@v1
-        with:
-            check: false
 
       - name: Format C++ code
-        uses: DoozyX/clang-format-lint-action@v0.15
+        uses: jidicula/clang-format-action@v4.13.0
         with:
-            clangFormatVersion: 15
-            source: './'
-            exclude: './build'
-            inplace: true
+          clang-format-version: '18'
+          fallback-style: none
