@@ -22,3 +22,4 @@ jobs:
         with:
           clang-format-version: '20'
           check-path: ./src
+          exclude-regex: RcppExports
