@@ -4,3 +4,5 @@ configure.log
 src/proto/
 README.html
 src/Makevars
+docs
+.vscode/

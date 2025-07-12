@@ -47,6 +47,7 @@ class PJRTClient {
       const PJRTProgram &program, PJRTCompileOptions &compile_options);
   std::unique_ptr<PJRTBuffer> buffer_from_host(
       void *data, const std::optional<std::vector<int64_t>> &dims,
+      const std::optional<std::vector<int64_t>> &strides,
       PJRT_Buffer_Type dtype);
   void buffer_to_host(PJRTBuffer &buffer, std::span<uint8_t> &host_buffer);
   std::string platform_name();

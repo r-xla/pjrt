@@ -204,3 +204,48 @@ test_that("pjrt_element_type returns correct data types", {
   expect_true(is_element_type(dtype))
   expect_equal(as.character(dtype), "s32")
 })
+
+test_that("R layout and PJRT layout (2D)", {
+  skip_if_metal()
+  path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
+  program <- program_load(path, format = "mlir")
+  executable <- pjrt_compile(program)
+  x <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+  x_buf <- pjrt_buffer(x)
+  check <- function(i1, i2) {
+    i1_buf <- pjrt_buffer(i1, type = "s32")
+    i2_buf <- pjrt_buffer(i2, type = "s32")
+
+    result <- as_array(pjrt_execute(executable, x_buf, i1_buf, i2_buf))
+    expect_equal(x[i1 + 1, i2 + 1], result)
+  }
+  check(0L, 0L)
+  check(0L, 1L)
+  check(1L, 0L)
+  check(1L, 1L)
+})
+
+test_that("R layout and PJRT layout (3D)", {
+  skip_if_metal()
+  path <- system.file("programs/jax-stablehlo-subset-3d.mlir", package = "pjrt")
+  program <- program_load(path, format = "mlir")
+  executable <- pjrt_compile(program)
+  x <- array(as.double(1:24), dim = c(2, 3, 4))
+  x_buf <- pjrt_buffer(x)
+
+  check <- function(i1, i2, i3) {
+    i1_buf <- pjrt_buffer(i1, type = "s32")
+    i2_buf <- pjrt_buffer(i2, type = "s32")
+    i3_buf <- pjrt_buffer(i3, type = "s32")
+
+    result <- as_array(pjrt_execute(executable, x_buf, i1_buf, i2_buf, i3_buf))
+    expect_equal(x[i1 + 1, i2 + 1, i3 + 1], result)
+  }
+  for (i1 in 0:1) {
+    for (i2 in 0:2) {
+      for (i3 in 0:3) {
+        check(i1, i2, i3)
+      }
+    }
+  }
+})

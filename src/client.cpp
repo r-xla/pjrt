@@ -60,6 +60,7 @@ void BufferFromHostAndWait(const PJRT_Api *api,
 
 std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
     void *data, const std::optional<std::vector<int64_t>> &dims,
+    const std::optional<std::vector<int64_t>> &strides,
     PJRT_Buffer_Type dtype) {
   const auto devices = this->devices();
 
@@ -73,14 +74,13 @@ std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
   args.dims = dims.has_value() ? dims->data() : nullptr;
   args.num_dims = dims.has_value() ? dims->size() : 0;
   // No custom strides: assume dense layout
-  args.byte_strides = nullptr;
-  args.num_byte_strides = 0;
+  args.byte_strides = strides.has_value() ? strides->data() : nullptr;
+  args.num_byte_strides = strides.has_value() ? strides->size() : 0;
   args.host_buffer_semantics =
       PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
   args.device = devices[0];
-  // No preallocated memory or custom layout
+  // No preallocated memory
   args.memory = nullptr;
-  args.device_layout = nullptr;
 
   BufferFromHostAndWait(this->api.get(), &args);
   return std::make_unique<PJRTBuffer>(args.buffer, this->api);
