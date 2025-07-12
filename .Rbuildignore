@@ -10,3 +10,6 @@
 ^README\.Rmd$
 man-roxygen/
 README.html
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
