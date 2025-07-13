@@ -109,7 +109,10 @@ plugin_url <- function(platform) {
 
   sprintf(
     "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
-    zml_version, platform, os, arch
+    zml_version,
+    platform,
+    os,
+    arch
   )
 }
 

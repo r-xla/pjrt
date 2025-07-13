@@ -87,3 +87,20 @@ test_that("can execute mlir program", {
 
   expect_equal(r_res, 6)
 })
+
+test_that("can use more than one client", {
+  skip_if(!is_metal())
+
+  pjrt_buffer(1, pjrt_client("cpu"))
+  pjrt_buffer(1, pjrt_client("metal"))
+
+  expect_permutation(c("metal", "cpu"), names(the$clients))
+  expect_permutation(c("metal", "cpu"), names(the$plugins))
+
+  # not they are loaded and global env 'the' is not changed
+  pjrt_buffer(1, pjrt_client("cpu"))
+  pjrt_buffer(1, pjrt_client("metal"))
+
+  expect_permutation(c("metal", "cpu"), names(the$clients))
+  expect_permutation(c("metal", "cpu"), names(the$plugins))
+})
