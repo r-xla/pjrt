@@ -7,7 +7,7 @@
 pjrt_compile(
   program,
   compile_options = new_compile_options(),
-  client = default_client()
+  client = pjrt_client("cpu")
 )
 }
 \arguments{
@@ -17,8 +17,8 @@ A program to compile.}
 \item{compile_options}{(\code{PJRTCompileOptions})\cr
 Compile options.}
 
-\item{client}{(\code{PJRTClient})\cr
-A PJRT client object.}
+\item{client}{(\code{PJRTClient} | \code{character(1)})\cr
+A PJRT client object or the name of the device to use, from which the client will be created.}
 }
 \value{
 \code{PJRTExecutable}

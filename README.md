@@ -6,7 +6,8 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml)
-[![Experimental](https://img.shields.io/badge/status-experimental-red.svg)](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml)
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
 The {pjrt} package provides an R interface to the
@@ -91,7 +92,7 @@ result <- pjrt_execute(program_compiled, x_buffer, y_buffer)
 We can convert this result back to R:
 
 ``` r
-as_array(result)
+buffer_to_host(result)
 #>      [,1] [,2]
 #> [1,]    6   10
 #> [2,]    8   12

@@ -1,12 +1,17 @@
 the <- new.env(parent = emptyenv())
 
-plugin_client_create <- function(plugin, ...) {
-  if (exists("client", envir = the, inherits = FALSE)) {
-    return(get("client", envir = the))
+# Initialize named lists for plugins and clients
+the$plugins <- list()
+the$clients <- list()
+
+plugin_client_create <- function(plugin, platform, ...) {
+  # Check if client already exists for this device
+  if (platform %in% names(the$clients)) {
+    return(the$clients[[platform]])
   }
+
   check_plugin(plugin)
-  the$client <- impl_plugin_client_create(plugin)
-  the$client
+  the$clients[[platform]] <- impl_plugin_client_create(plugin)
 }
 
 check_plugin <- function(plugin) {
@@ -14,42 +19,46 @@ check_plugin <- function(plugin) {
   invisible(NULL)
 }
 
-plugin_load <- function() {
-  if (exists("plugin", envir = the, inherits = FALSE)) {
-    return(get("plugin", envir = the))
+plugin_load <- function(platform) {
+  if (platform %in% names(the$plugins)) {
+    return(the$plugins[[platform]])
   }
-  the$plugin <- impl_plugin_load(plugin_path())
-  the$plugin
+
+  # Load plugin for the specified device
+  the$plugins[[platform]] <- impl_plugin_load(plugin_path(platform))
 }
 
-plugin_path <- function() {
+plugin_path <- function(platform) {
+  # Create device-specific cache directory
   cache_dir <- tools::R_user_dir("pjrt", which = "cache")
 
-  if (!dir.exists(cache_dir)) {
-    dir.create(cache_dir, recursive = TRUE)
+  device_cache_dir <- file.path(cache_dir, platform)
+
+  if (!dir.exists(device_cache_dir)) {
+    dir.create(device_cache_dir, recursive = TRUE)
   }
 
-  plugin_hash_path <- file.path(cache_dir, "hash")
+  plugin_hash_path <- file.path(device_cache_dir, "hash")
 
   if (!file.exists(plugin_hash_path)) {
-    plugin_download(cache_dir)
+    plugin_download(device_cache_dir, platform)
   } else {
     plugin_hash <- readLines(plugin_hash_path)
-    expected_hash <- rlang::hash(as.character(plugin_url()))
+    expected_hash <- rlang::hash(as.character(plugin_url(platform)))
 
     if (plugin_hash != expected_hash) {
       message("Plugin hash mismatch. Re-downloading...")
-      plugin_download(cache_dir)
+      plugin_download(device_cache_dir, platform)
     }
   }
 
-  list.files(cache_dir, pattern = "pjrt", full.names = TRUE)
+  list.files(device_cache_dir, pattern = "pjrt", full.names = TRUE)
 }
 
-plugin_download <- function(cache_dir) {
+plugin_download <- function(cache_dir, platform = NULL) {
   plugin_hash_path <- file.path(cache_dir, "hash")
 
-  url <- plugin_url()
+  url <- plugin_url(platform)
   tempfile <- tempfile(fileext = ".tar.gz")
   utils::download.file(url, tempfile)
 
@@ -66,17 +75,18 @@ plugin_download <- function(cache_dir) {
   utils::untar(tempfile, exdir = cache_dir)
 }
 
-plugin_url <- function() {
-  if (Sys.getenv("PJRT_PLUGIN_URL") != "") {
-    return(Sys.getenv("PJRT_PLUGIN_URL"))
+plugin_url <- function(platform) {
+  # Check if plugin already exists for this device
+  env_var <- paste0("PJRT_PLUGIN_URL_", toupper(platform))
+  if (Sys.getenv(env_var) != "") {
+    return(Sys.getenv(env_var))
   }
 
   os <- plugin_os()
   arch <- plugin_arch()
-  device <- plugin_device()
   zml_version <- plugin_version()
 
-  if (device == "metal") {
+  if (platform == "metal") {
     stopifnot(os == "darwin")
     url <- if (arch == "arm64") {
       "https://files.pythonhosted.org/packages/09/dc/6d8fbfc29d902251cf333414cf7dcfaf4b252a9920c881354584ed36270d/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl"
@@ -97,8 +107,9 @@ plugin_url <- function() {
     return(url)
   }
 
-  glue::glue(
-    "https://github.com/zml/pjrt-artifacts/releases/download/v{zml_version}/pjrt-{device}_{os}-{arch}.tar.gz"
+  sprintf(
+    "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
+    zml_version, platform, os, arch
   )
 }
 
@@ -118,14 +129,6 @@ plugin_os <- function() {
   } else {
     stop("Unsupported OS: ", Sys.info()[["sysname"]])
   }
-}
-
-plugin_device <- function() {
-  if (Sys.getenv("PJRT_DEVICE") != "") {
-    return(Sys.getenv("PJRT_DEVICE"))
-  }
-
-  "cpu"
 }
 
 plugin_arch <- function() {

@@ -9,5 +9,5 @@ get_dims <- function(data) {
 }
 
 default_client <- function() {
-  plugin_client_create(plugin_load())
+  plugin_client_create(plugin_load("cpu"), "cpu")
 }

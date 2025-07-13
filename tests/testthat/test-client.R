@@ -4,8 +4,8 @@ test_that("compile program works", {
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- program_load(path, format = "hlo")
 
-  plugin <- plugin_load()
-  client <- plugin_client_create(plugin)
+  plugin <- plugin_load("cpu")
+  client <- plugin_client_create(plugin, "cpu")
 
   expect_equal(
     client_platform_name(client),
@@ -20,7 +20,7 @@ test_that("compile program works", {
   scalar_buffer <- pjrt_scalar(data)
 
   result <- loaded_executable_execute(executable, scalar_buffer)
-  r_res <- as_array(result)
+  r_res <- buffer_to_host(result)
 
   expect_equal(r_res, 9)
 })
@@ -32,8 +32,8 @@ test_that("compile program works", {
   path <- system.file("programs/stablehlo.mlir", package = "pjrt")
   program <- program_load(path, format = "mlir")
 
-  plugin <- plugin_load()
-  client <- plugin_client_create(plugin)
+  plugin <- plugin_load("cpu")
+  client <- plugin_client_create(plugin, "cpu")
   executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
@@ -54,7 +54,7 @@ test_that("compile program works", {
       bias_buffer
     )
   )
-  r_res <- as_array(result)
+  r_res <- buffer_to_host(result)
 
   expect_equal(r_res, matrix(0, ncol = 10, nrow = 1))
 })
@@ -63,20 +63,18 @@ test_that("can execute mlir program", {
   path <- system.file("programs/jax-stablehlo.mlir", package = "pjrt")
   program <- program_load(path, format = "mlir")
 
-  client <- default_client()
-
   executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
   if (is_metal()) {
     expect_equal(
-      client_platform_name(client),
+      client_platform_name(pjrt_client("metal")),
       "metal"
     )
   } else {
     expect_equal(
-      client_platform_name(client),
+      client_platform_name(pjrt_client("cpu")),
       "cpu"
     )
   }
@@ -85,7 +83,7 @@ test_that("can execute mlir program", {
   scalar_buffer <- pjrt_scalar(data)
 
   result <- loaded_executable_execute(executable, scalar_buffer)
-  r_res <- as_array(result)
+  r_res <- buffer_to_host(result)
 
   expect_equal(r_res, 6)
 })

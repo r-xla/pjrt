@@ -18,7 +18,6 @@ LinkingTo:
     Rcpp
 Imports:
     checkmate,
-    glue,
     Rcpp,
     rlang,
     fs
