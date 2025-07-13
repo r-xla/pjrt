@@ -63,8 +63,6 @@ test_that("can execute mlir program", {
   path <- system.file("programs/jax-stablehlo.mlir", package = "pjrt")
   program <- program_load(path, format = "mlir")
 
-  client <- default_client()
-
   executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))

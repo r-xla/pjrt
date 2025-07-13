@@ -285,7 +285,8 @@ std::string impl_client_platform_name(Rcpp::XPtr<rpjrt::PJRTClient> client) {
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(
-    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input) {
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
+    Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
   std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
   for (auto i = 0; i < input.size(); i++) {
     auto elt = input[i];
@@ -293,7 +294,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(
     inputs[i] = buffer.get();
   }
 
-  auto outs = executable->execute(inputs);
+  auto outs = executable->execute(inputs, *execution_options);
   Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[0].release(), true);
   xptr.attr("class") = "PJRTBuffer";
   return xptr;
@@ -319,4 +320,14 @@ std::string impl_element_type_as_string(
 std::vector<int64_t> impl_buffer_dimensions(
     Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   return buffer->dimensions();
+}
+
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(
+    std::vector<int64_t> non_donatable_input_indices, int launch_id) {
+  auto options = std::make_unique<rpjrt::PJRTExecuteOptions>(
+      non_donatable_input_indices, launch_id);
+  Rcpp::XPtr<rpjrt::PJRTExecuteOptions> xptr(options.release(), true);
+  xptr.attr("class") = "PJRTExecuteOptions";
+  return xptr;
 }

@@ -160,14 +160,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_loaded_executable_execute
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input);
-RcppExport SEXP _pjrt_impl_loaded_executable_execute(SEXP executableSEXP, SEXP inputSEXP) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
+RcppExport SEXP _pjrt_impl_loaded_executable_execute(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> >::type executable(executableSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type input(inputSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_loaded_executable_execute(executable, input));
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTExecuteOptions> >::type execution_options(execution_optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_loaded_executable_execute(executable, input, execution_options));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -204,6 +205,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_execution_options_create
+Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(std::vector<int64_t> non_donatable_input_indices, int launch_id);
+RcppExport SEXP _pjrt_impl_execution_options_create(SEXP non_donatable_input_indicesSEXP, SEXP launch_idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type non_donatable_input_indices(non_donatable_input_indicesSEXP);
+    Rcpp::traits::input_parameter< int >::type launch_id(launch_idSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_execution_options_create(non_donatable_input_indices, launch_id));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
@@ -218,10 +231,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 4},
     {"_pjrt_impl_client_buffer_to_host", (DL_FUNC) &_pjrt_impl_client_buffer_to_host, 2},
     {"_pjrt_impl_client_platform_name", (DL_FUNC) &_pjrt_impl_client_platform_name, 1},
-    {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 2},
+    {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
     {"_pjrt_impl_buffer_element_type", (DL_FUNC) &_pjrt_impl_buffer_element_type, 1},
     {"_pjrt_impl_element_type_as_string", (DL_FUNC) &_pjrt_impl_element_type_as_string, 1},
     {"_pjrt_impl_buffer_dimensions", (DL_FUNC) &_pjrt_impl_buffer_dimensions, 1},
+    {"_pjrt_impl_execution_options_create", (DL_FUNC) &_pjrt_impl_execution_options_create, 2},
     {NULL, NULL, 0}
 };
 

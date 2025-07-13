@@ -49,8 +49,8 @@ impl_client_platform_name <- function(client) {
     .Call(`_pjrt_impl_client_platform_name`, client)
 }
 
-impl_loaded_executable_execute <- function(executable, input) {
-    .Call(`_pjrt_impl_loaded_executable_execute`, executable, input)
+impl_loaded_executable_execute <- function(executable, input, execution_options) {
+    .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
 impl_buffer_element_type <- function(buffer) {
@@ -63,5 +63,9 @@ impl_element_type_as_string <- function(element_type) {
 
 impl_buffer_dimensions <- function(buffer) {
     .Call(`_pjrt_impl_buffer_dimensions`, buffer)
+}
+
+impl_execution_options_create <- function(non_donatable_input_indices, launch_id) {
+    .Call(`_pjrt_impl_execution_options_create`, non_donatable_input_indices, launch_id)
 }
 
