@@ -6,7 +6,10 @@
 #'   A program to compile.
 #' @param compile_options (`PJRTCompileOptions`)\cr
 #'   Compile options.
-#' @template param_client
+#' @param client (`PJRTClient` or `character(1)`)\cr
+#'   A PJRT client object or a platform name (e.g., "cpu", "gpu", "metal").
+#'   If a platform name is provided, the appropriate client will be created
+#'   or retrieved automatically.
 #' @return `PJRTExecutable`
 #' @export
 pjrt_compile <- function(
@@ -14,6 +17,11 @@ pjrt_compile <- function(
   compile_options = new_compile_options(),
   client = default_client()
 ) {
+  # Handle case where client is a string (platform name)
+  if (is.character(client)) {
+    client <- default_client(client)
+  }
+
   check_client(client)
   check_program(program)
   check_compile_options(compile_options)

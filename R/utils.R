@@ -8,6 +8,6 @@ get_dims <- function(data) {
   dim(data)
 }
 
-default_client <- function() {
-  plugin_client_create(plugin_load())
+default_client <- function(platform_name = NULL) {
+  get_client(platform_name)
 }

@@ -7,6 +7,14 @@ is_buffer <- function(x) {
   inherits(x, "PJRTBuffer")
 }
 
+# Helper function to convert string platform names to clients
+resolve_client <- function(client) {
+  if (is.character(client)) {
+    client <- default_client(client)
+  }
+  client
+}
+
 #' @title Create a PJRT Buffer
 #' @rdname pjrt_buffer
 #' @description
@@ -26,9 +34,12 @@ is_buffer <- function(x) {
 #'   - `"pred"`: predicate (i.e. a boolean)
 #'   - `"{s,u}{8,16,32,64}"`: (Un)signed integer (for `integer` data).
 #'   - `"f{32,64}"`: Floating point (for `double` data).
+#' @param client (`PJRTClient` or `character(1)`)\cr
+#'   A PJRT client object or a platform name (e.g., "cpu", "gpu", "metal").
+#'   If a platform name is provided, the appropriate client will be created
+#'   or retrieved automatically.
 #' @param ... (any)\cr
 #'   Additional arguments.
-#' @template param_client
 #' @return `PJRTBuffer`
 #' @export
 pjrt_buffer <- function(data, type, client, ...) {
@@ -51,6 +62,7 @@ pjrt_buffer.logical <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  client <- resolve_client(client)
   dims = get_dims(data)
   client_buffer_from_logical(data, dims = dims, client = client, type = type)
 }
@@ -66,6 +78,7 @@ pjrt_buffer.integer <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  client <- resolve_client(client)
   client_buffer_from_integer(data, dims = dims, client = client, type = type)
 }
 
@@ -80,6 +93,7 @@ pjrt_buffer.double <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  client <- resolve_client(client)
   client_buffer_from_double(data, dims = dims, client = client, type = type)
 }
 
@@ -96,6 +110,7 @@ pjrt_scalar.logical <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  client <- resolve_client(client)
   client_buffer_from_logical(
     data,
     dims = integer(),
@@ -117,6 +132,7 @@ pjrt_scalar.integer <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  client <- resolve_client(client)
   client_buffer_from_integer(
     data,
     dims = integer(),
@@ -138,6 +154,7 @@ pjrt_scalar.double <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  client <- resolve_client(client)
   client_buffer_from_double(
     data,
     dims = integer(),
@@ -191,11 +208,15 @@ print.PJRTElementType <- function(x, ...) {
 
 #' Get the platform name of a PJRT client
 #'
-#' @param client A PJRT client object.
+#' @param client (`PJRTClient` or `character(1)`)\cr
+#'   A PJRT client object or a platform name (e.g., "cpu", "gpu", "metal").
+#'   If a platform name is provided, the appropriate client will be created
+#'   or retrieved automatically.
 #'
 #' @return A string representing the platform name.
 #' @export
 client_platform_name <- function(client = default_client()) {
+  client <- resolve_client(client)
   check_client(client)
   impl_client_platform_name(client)
 }
@@ -206,6 +227,7 @@ client_buffer_from_integer <- function(
   dims,
   client = default_client()
 ) {
+  client <- resolve_client(client)
   check_client(client)
   impl_client_buffer_from_integer(
     client,
@@ -221,6 +243,7 @@ client_buffer_from_logical <- function(
   type = "pred",
   client = default_client()
 ) {
+  client <- resolve_client(client)
   check_client(client)
   impl_client_buffer_from_logical(client, data, dims, type)
 }
@@ -231,6 +254,7 @@ client_buffer_from_double <- function(
   dims,
   client = default_client()
 ) {
+  client <- resolve_client(client)
   check_client(client)
   impl_client_buffer_from_double(
     client,
@@ -249,9 +273,14 @@ client_buffer_from_double <- function(
 #' 1. Copy the data from the PJRT device to the CPU.
 #' 2. Copy the data from the CPU to the R array.
 #'
-#' @template param_buffer
-#' @template param_client
+#' @param buffer (`PJRTBuffer`)\cr
+#'   A PJRT buffer object.
+#' @param client (`PJRTClient` or `character(1)`)\cr
+#'   A PJRT client object or a platform name (e.g., "cpu", "gpu", "metal").
+#'   If a platform name is provided, the appropriate client will be created
+#'   or retrieved automatically.
 #' @export
 as_array <- function(buffer, client = default_client()) {
+  client <- resolve_client(client)
   impl_client_buffer_to_host(buffer, client = client)
 }
