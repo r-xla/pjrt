@@ -5,11 +5,12 @@
 <url><loc>/authors.html</loc></url>
 <url><loc>/index.html</loc></url>
 <url><loc>/reference/as.character.PJRTElementType.html</loc></url>
-<url><loc>/reference/as_array.html</loc></url>
+<url><loc>/reference/buffer_to_host.html</loc></url>
 <url><loc>/reference/client_platform_name.html</loc></url>
 <url><loc>/reference/dim.PJRTBuffer.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
 <url><loc>/reference/pjrt_buffer.html</loc></url>
+<url><loc>/reference/pjrt_client.html</loc></url>
 <url><loc>/reference/pjrt_compile.html</loc></url>
 <url><loc>/reference/pjrt_element_type.html</loc></url>
 <url><loc>/reference/pjrt_execute.html</loc></url>
