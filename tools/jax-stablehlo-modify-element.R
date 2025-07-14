@@ -12,12 +12,11 @@ import jax.numpy as jnp
 import numpy as np
 
 @jax.jit
-def modify_element_00(x):
-    return x.at[0].set(1)
+def modify_element_00(x, grad):
+  return x - grad
 
 # Create abstract input shapes for 1000x1000 array
-input_shape = (1000000,)
-input_shapes = [jax.ShapeDtypeStruct((1000000,), np.float32)]
+input_shapes = [jax.ShapeDtypeStruct((1000000,), np.float32), jax.ShapeDtypeStruct((1000000,), np.float32)]
 
 # Export the function to StableHLO
 exported = export.export(modify_element_00)(*input_shapes)

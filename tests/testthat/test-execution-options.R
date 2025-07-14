@@ -65,9 +65,10 @@ test_that("can donate input", {
   )
   executable <- pjrt_compile(program)
 
-  exec_options <- pjrt_execution_options(non_donatable_input_indices = integer())
+  exec_options <- pjrt_execution_options(non_donatable_input_indices = 1L)
 
   x <- pjrt_buffer(as.double(1:1000000))
-  y <- pjrt_execute(executable, x)
+  grad <- pjrt_buffer(as.double(1:1000000))
+  y <- pjrt_execute(executable, x, grad, execution_options = exec_options)
   expect_equal(as_array(x)[1L], as_array(y)[1L])
 })
