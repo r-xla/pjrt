@@ -60,7 +60,7 @@ test_that("execution with options works", {
 
 test_that("can donate input", {
   program <- program_load(
-    system.file("programs/jax-stablehlo-modify-element.mlir", package = "pjrt"),
+    system.file("programs/jax-stablehlo-update-param.mlir", package = "pjrt"),
     format = "mlir"
   )
   executable <- pjrt_compile(program)
