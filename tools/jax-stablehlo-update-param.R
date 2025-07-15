@@ -13,8 +13,6 @@ import numpy as np
 from functools import partial
 
 @partial(jax.jit, donate_argnames=['x'])
-
-@jax.jit
 def update_param(x, grad):
   return x - grad
 
