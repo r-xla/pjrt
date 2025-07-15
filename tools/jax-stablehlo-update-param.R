@@ -25,4 +25,7 @@ stablehlo_update_param = exported.mlir_module()
 "
 ))
 
-writeLines(reticulate::py$stablehlo_update_param, "inst/programs/jax-stablehlo-update-param.mlir")
+writeLines(
+  reticulate::py$stablehlo_update_param,
+  "inst/programs/jax-stablehlo-update-param.mlir"
+)
