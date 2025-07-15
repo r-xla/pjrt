@@ -20,18 +20,20 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { os: macos, r: "release", device: "cpu" }
-          - { os: macos, r: "release", device: "metal" }
-          - { os: ubuntu, r: "release", device: "cpu" }
-          - { os: ubuntu, r: "release", device: "cuda"}
+          - { os: "macos", r: "release", device: "cpu" }
+          - { os: "macos", r: "release", device: "metal" }
+          - { os: "ubuntu", r: "release", device: "cpu" }
+          - { os: "ubuntu", r: "release", device: "cuda"}
         
         include: 
-          - config: {os: ubuntu, device: "cuda"}
+          - config: {os: "ubuntu", device: "cuda"}
             container: {image: 'nvidia/cuda:12.4.1-cudnn-devel-ubuntu20.04', options: '--gpus all --runtime=nvidia'}
             runner: ['self-hosted', 'gpu']
-          - config: {os: ubuntu, device: "cpu"}
+          - config: {os: "ubuntu", device: "cpu"}
             runner: 'ubuntu-latest'
-          - config: {os: macos, device: "cpu"}
+          - config: {os: "macos", device: "cpu"}
+            runner: 'macos-latest'
+          - config: {os: "macos", device: "metal"}
             runner: 'macos-latest'
 
     env:
