@@ -45,13 +45,14 @@ jobs:
       PJRT_DEVICE: ${{ matrix.config.device }}
 
     steps:
+      - name: Setup
+        if: ${{ matrix.setup }}
+        run: ${{ matrix.setup }}
+        shell: bash
+
       - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-pandoc@v2
-
-      - name: Runs setup
-        run: ${{ matrix.config.setup || '' }}
-        shell: bash
 
       - name: Install protobuf on macOS
         if: runner.os == 'macOS'
