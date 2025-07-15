@@ -70,5 +70,6 @@ test_that("can donate input", {
   x <- pjrt_buffer(as.double(1:1000000))
   grad <- pjrt_buffer(as.double(1:1000000))
   y <- pjrt_execute(executable, x, grad, execution_options = exec_options)
-  expect_equal(as_array(x)[1L], as_array(y)[1L])
+  expect_equal(as_array(y)[1L], 0)
+  expect_error(as_array(x), regexp = "called on deleted or donated buffer")
 })
