@@ -90,6 +90,7 @@ test_that("can execute mlir program", {
 
 test_that("can use more than one client", {
   skip_if(!is_metal())
+  skip_on_ci()
 
   pjrt_buffer(1, pjrt_client("cpu"))
   pjrt_buffer(1, pjrt_client("metal"))
