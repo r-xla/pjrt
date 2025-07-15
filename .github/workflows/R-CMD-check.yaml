@@ -34,11 +34,8 @@ jobs:
               DEBIAN_FRONTEND="noninteractive" apt-get install -y sudo software-properties-common dialog apt-utils tzdata libpng-dev locales
           - config: {os: "ubuntu", device: "cpu"}
             runner: 'ubuntu-latest'
-          - config: {os: "macos", device: "cpu"}
-            runner: 'macos-latest'
-          - config: {os: "macos", device: "metal"}
-            runner: 'macos-latest'
           - config: {os: "macos"}
+            runner: 'macos-latest'
             setup: |
               brew install protobuf@21
               brew link protobuf@21 --force --overwrite
