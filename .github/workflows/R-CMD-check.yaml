@@ -27,7 +27,7 @@ jobs:
         
         include: 
           - config: {os: "ubuntu", device: "cuda"}
-            container: {image: 'nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04', options: '--gpus all --runtime=nvidia'}
+            container: {image: 'nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04', options: '--gpus all --runtime=nvidia'}
             runner: ['self-hosted', 'gpu']
             setup: |
               DEBIAN_FRONTEND="noninteractive" apt-get update -y
