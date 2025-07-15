@@ -38,8 +38,9 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
       dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
 
   if (!handle) {
-    const char* error = dlerror();
-    throw std::runtime_error("Failed to load plugin from path: " + path + "\nError: " + (error ? error : "Unknown error"));
+    const char *error = dlerror();
+    throw std::runtime_error("Failed to load plugin from path: " + path +
+                             "\nError: " + (error ? error : "Unknown error"));
   }
 
   GetPjrtApiFunc GetPjrtApi = nullptr;
