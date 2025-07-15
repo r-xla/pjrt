@@ -157,6 +157,18 @@ pjrt_element_type <- function(buffer) {
   impl_buffer_element_type(buffer)
 }
 
+#' Gets the memory of a Pjrt buffer
+#' @noRd
+pjrt_memory <- function(buffer) {
+  check_buffer(buffer)
+  impl_buffer_memory(buffer)
+}
+
+#' @export
+print.PJRTMemory <- function(x, ...) {
+  cat(sprintf("<PJRTMemory %s>\n", impl_memory_debug_string(x)))
+}
+
 is_element_type <- function(x) {
   inherits(x, "PJRTElementType")
 }

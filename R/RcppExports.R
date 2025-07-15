@@ -57,6 +57,26 @@ impl_buffer_element_type <- function(buffer) {
     .Call(`_pjrt_impl_buffer_element_type`, buffer)
 }
 
+impl_buffer_memory <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_memory`, buffer)
+}
+
+impl_memory_debug_string <- function(memory) {
+    .Call(`_pjrt_impl_memory_debug_string`, memory)
+}
+
+impl_memory_id <- function(memory) {
+    .Call(`_pjrt_impl_memory_id`, memory)
+}
+
+impl_memory_kind <- function(memory) {
+    .Call(`_pjrt_impl_memory_kind`, memory)
+}
+
+impl_memory_to_string <- function(memory) {
+    .Call(`_pjrt_impl_memory_to_string`, memory)
+}
+
 impl_element_type_as_string <- function(element_type) {
     .Call(`_pjrt_impl_element_type_as_string`, element_type)
 }

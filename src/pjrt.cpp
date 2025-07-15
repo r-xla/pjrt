@@ -310,6 +310,36 @@ Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_element_type(
   return xptr;
 }
 
+// [[Rcpp::export]]
+Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+  auto memory = buffer->memory();
+  Rcpp::XPtr<rpjrt::PJRTMemory> xptr(memory.release(), true);
+  xptr.attr("class") = "PJRTMemory";
+  return xptr;
+}
+
+// [[Rcpp::export()]]
+std::string impl_memory_debug_string(
+    Rcpp::XPtr<rpjrt::PJRTMemory> memory) {
+  return memory->debug_string();
+}
+
+// [[Rcpp::export()]]
+int impl_memory_id(Rcpp::XPtr<rpjrt::PJRTMemory> memory) {
+  return memory->id();
+}
+
+// [[Rcpp::export()]]
+std::string impl_memory_kind(Rcpp::XPtr<rpjrt::PJRTMemory> memory) {
+  return memory->kind();
+}
+
+// [[Rcpp::export()]]
+std::string impl_memory_to_string(Rcpp::XPtr<rpjrt::PJRTMemory> memory) {
+  return memory->to_string();
+}
+
 // [[Rcpp::export()]]
 std::string impl_element_type_as_string(
     Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {

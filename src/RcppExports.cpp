@@ -183,6 +183,61 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_buffer_memory
+Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_buffer_memory(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_memory(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_memory_debug_string
+std::string impl_memory_debug_string(Rcpp::XPtr<rpjrt::PJRTMemory> memory);
+RcppExport SEXP _pjrt_impl_memory_debug_string(SEXP memorySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTMemory> >::type memory(memorySEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_memory_debug_string(memory));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_memory_id
+int impl_memory_id(Rcpp::XPtr<rpjrt::PJRTMemory> memory);
+RcppExport SEXP _pjrt_impl_memory_id(SEXP memorySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTMemory> >::type memory(memorySEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_memory_id(memory));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_memory_kind
+std::string impl_memory_kind(Rcpp::XPtr<rpjrt::PJRTMemory> memory);
+RcppExport SEXP _pjrt_impl_memory_kind(SEXP memorySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTMemory> >::type memory(memorySEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_memory_kind(memory));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_memory_to_string
+std::string impl_memory_to_string(Rcpp::XPtr<rpjrt::PJRTMemory> memory);
+RcppExport SEXP _pjrt_impl_memory_to_string(SEXP memorySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTMemory> >::type memory(memorySEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_memory_to_string(memory));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_element_type_as_string
 std::string impl_element_type_as_string(Rcpp::XPtr<rpjrt::PJRTElementType> element_type);
 RcppExport SEXP _pjrt_impl_element_type_as_string(SEXP element_typeSEXP) {
@@ -233,6 +288,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_platform_name", (DL_FUNC) &_pjrt_impl_client_platform_name, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
     {"_pjrt_impl_buffer_element_type", (DL_FUNC) &_pjrt_impl_buffer_element_type, 1},
+    {"_pjrt_impl_buffer_memory", (DL_FUNC) &_pjrt_impl_buffer_memory, 1},
+    {"_pjrt_impl_memory_debug_string", (DL_FUNC) &_pjrt_impl_memory_debug_string, 1},
+    {"_pjrt_impl_memory_id", (DL_FUNC) &_pjrt_impl_memory_id, 1},
+    {"_pjrt_impl_memory_kind", (DL_FUNC) &_pjrt_impl_memory_kind, 1},
+    {"_pjrt_impl_memory_to_string", (DL_FUNC) &_pjrt_impl_memory_to_string, 1},
     {"_pjrt_impl_element_type_as_string", (DL_FUNC) &_pjrt_impl_element_type_as_string, 1},
     {"_pjrt_impl_buffer_dimensions", (DL_FUNC) &_pjrt_impl_buffer_dimensions, 1},
     {"_pjrt_impl_execution_options_create", (DL_FUNC) &_pjrt_impl_execution_options_create, 2},

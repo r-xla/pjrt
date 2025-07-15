@@ -13,6 +13,10 @@ class PJRTMemory {
  public:
   PJRT_Memory* memory;
   PJRTMemory(PJRT_Memory* memory, std::shared_ptr<PJRT_Api> api);
+  std::string debug_string();
+  int id();
+  std::string kind();
+  std::string to_string();
 
  private:
   std::shared_ptr<PJRT_Api> api;
