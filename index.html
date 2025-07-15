@@ -113,7 +113,7 @@
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">program_compiled</span>, <span class="va">x_buffer</span>, <span class="va">y_buffer</span><span class="op">)</span></span></code></pre></div>
 <p>We can convert this result back to R:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/buffer_to_host.html">buffer_to_host</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/as_array.html">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      [,1] [,2]</span></span>
 <span><span class="co">#&gt; [1,]    6   10</span></span>
 <span><span class="co">#&gt; [2,]    8   12</span></span></code></pre></div>
@@ -152,7 +152,7 @@
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
 <li><a href="https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
-<li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
+<li><a href="https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://img.shields.io/badge/status-experimental-red.svg" alt="Experimental"></a></li>
 </ul>
 </div>
 
