@@ -69,12 +69,12 @@ test_that("can execute mlir program", {
 
   if (is_metal()) {
     expect_equal(
-      client_platform_name(client),
+      client_platform_name(default_client()),
       "metal"
     )
   } else {
     expect_equal(
-      client_platform_name(client),
+      client_platform_name(default_client()),
       "cpu"
     )
   }
