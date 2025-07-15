@@ -29,6 +29,9 @@ jobs:
           - config: {os: "ubuntu", device: "cuda"}
             container: {image: 'nvidia/cuda:12.4.1-cudnn-devel-ubuntu20.04', options: '--gpus all --runtime=nvidia'}
             runner: ['self-hosted', 'gpu']
+            setup: |
+              DEBIAN_FRONTEND="noninteractive" apt-get update -y
+              DEBIAN_FRONTEND="noninteractive" apt-get install -y sudo software-properties-common dialog apt-utils tzdata libpng-dev locales
           - config: {os: "ubuntu", device: "cpu"}
             runner: 'ubuntu-latest'
           - config: {os: "macos", device: "cpu"}
@@ -45,6 +48,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Runs setup
+        run: ${{ matrix.config.setup || '' }}
+        shell: bash
 
       - name: Install protobuf on macOS
         if: runner.os == 'macOS'
