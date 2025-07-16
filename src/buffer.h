@@ -5,7 +5,6 @@
 
 #include "device.h"
 #include "pjrt.h"
-#include "pjrt_undefs.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
