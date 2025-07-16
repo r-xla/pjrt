@@ -1,7 +1,7 @@
 CXX_STD=CXX20
 
 PKG_CPPFLAGS=@cflags@ -Iproto -I$(R_PACKAGE_DIR)/include -I../inst/include
-PKG_CXXFLAGS=$(C_VISIBILITY) -Wno-error=changes-meaning -Wno-changes-meaning
+PKG_CXXFLAGS=$(C_VISIBILITY)
 PKG_LIBS=@libs@
 
 CPP_SOURCES=@cppsrc@
