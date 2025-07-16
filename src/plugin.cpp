@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 
 #include "pjrt.h"
+#include "pjrt_undefs.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
