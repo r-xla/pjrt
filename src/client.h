@@ -28,9 +28,9 @@ class PJRTCompileOptions {
 class PJRTLoadedExecutable {
  public:
   PJRT_LoadedExecutable *executable;
-  std::shared_ptr<PJRT_Api> api;
+  std::shared_ptr<PJRT_API> api;
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                       std::shared_ptr<PJRT_Api> api);
+                       std::shared_ptr<PJRT_API> api);
   std::vector<std::unique_ptr<PJRTBuffer>> execute(
       std::vector<PJRTBuffer *> input);
   ~PJRTLoadedExecutable();
@@ -39,8 +39,8 @@ class PJRTLoadedExecutable {
 class PJRTClient {
  public:
   PJRT_Client *client;
-  std::shared_ptr<PJRT_Api> api;
-  PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_Api> api);
+  std::shared_ptr<PJRT_API> api;
+  PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_API> api);
   ~PJRTClient();
   std::vector<PJRT_Device *> devices();
   std::unique_ptr<PJRTLoadedExecutable> compile(

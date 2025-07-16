@@ -33,7 +33,7 @@ std::unique_ptr<PJRTClient> PJRTPlugin::client_create() {
   return std::make_unique<PJRTClient>(args.client, this->api);
 }
 
-PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
+PJRT_API *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   const auto handle =
       dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
 

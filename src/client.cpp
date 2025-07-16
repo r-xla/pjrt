@@ -8,7 +8,7 @@
 
 namespace rpjrt {
 
-PJRTClient::PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_Api> api)
+PJRTClient::PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_API> api)
     : client(client), api(api) {}
 
 PJRTClient::~PJRTClient() {
@@ -43,7 +43,7 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api);
 }
 
-void BufferFromHostAndWait(const PJRT_Api *api,
+void BufferFromHostAndWait(const PJRT_API *api,
                            PJRT_Client_BufferFromHostBuffer_Args *args) {
   check_err(api, api->PJRT_Client_BufferFromHostBuffer(args));
 
@@ -87,7 +87,7 @@ std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
 }
 
 // Copy a device buffer to the host and wait for the copy to complete.
-void BufferToHostAndWait(const PJRT_Api *api,
+void BufferToHostAndWait(const PJRT_API *api,
                          PJRT_Buffer_ToHostBuffer_Args *args) {
   check_err(api, api->PJRT_Buffer_ToHostBuffer(args));
 
@@ -152,7 +152,7 @@ std::string PJRTCompileOptions::serialize() {
 }
 
 PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                                           std::shared_ptr<PJRT_Api> api)
+                                           std::shared_ptr<PJRT_API> api)
     : executable(executable), api(api) {}
 
 PJRTLoadedExecutable::~PJRTLoadedExecutable() {
