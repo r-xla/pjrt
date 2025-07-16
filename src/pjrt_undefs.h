@@ -110,4 +110,4 @@
 #undef PJRT_TopologyDescription_PlatformName
 #undef PJRT_TopologyDescription_PlatformVersion
 #undef PJRT_TopologyDescription_Serialize
-#endif // __cplusplus
+#endif  // __cplusplus
