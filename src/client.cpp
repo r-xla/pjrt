@@ -16,14 +16,14 @@ PJRTClient::~PJRTClient() {
   PJRT_Client_Destroy_Args args{};
   args.struct_size = sizeof(PJRT_Client_Destroy_Args);
   args.client = this->client;
-  check_err(this->api.get(), this->api->PJRT_Client_Destroy(&args));
+  check_err(this->api.get(), this->api->PJRT_Client_Destroy_(&args));
 }
 
 std::vector<PJRT_Device *> PJRTClient::devices() {
   PJRT_Client_AddressableDevices_Args args{};
   args.client = this->client;
   args.struct_size = sizeof(PJRT_Client_AddressableDevices_Args);
-  check_err(this->api.get(), this->api->PJRT_Client_AddressableDevices(&args));
+  check_err(this->api.get(), this->api->PJRT_Client_AddressableDevices_(&args));
   return std::vector(args.addressable_devices,
                      args.addressable_devices + args.num_addressable_devices);
 }
@@ -40,23 +40,23 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   args.compile_options = opts.data();
   args.compile_options_size = opts.size();
 
-  check_err(this->api.get(), this->api->PJRT_Client_Compile(&args));
+  check_err(this->api.get(), this->api->PJRT_Client_Compile_(&args));
   return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api);
 }
 
 void BufferFromHostAndWait(const PJRT_Api *api,
                            PJRT_Client_BufferFromHostBuffer_Args *args) {
-  check_err(api, api->PJRT_Client_BufferFromHostBuffer(args));
+  check_err(api, api->PJRT_Client_BufferFromHostBuffer_(args));
 
   PJRT_Event_Await_Args event_args = {0};
   event_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
   event_args.event = args->done_with_host_buffer;
-  check_err(api, api->PJRT_Event_Await(&event_args));
+  check_err(api, api->PJRT_Event_Await_(&event_args));
 
   PJRT_Event_Destroy_Args efree_args;
   efree_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
   efree_args.event = args->done_with_host_buffer;
-  check_err(api, api->PJRT_Event_Destroy(&efree_args));
+  check_err(api, api->PJRT_Event_Destroy_(&efree_args));
 }
 
 std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
@@ -90,17 +90,17 @@ std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
 // Copy a device buffer to the host and wait for the copy to complete.
 void BufferToHostAndWait(const PJRT_Api *api,
                          PJRT_Buffer_ToHostBuffer_Args *args) {
-  check_err(api, api->PJRT_Buffer_ToHostBuffer(args));
+  check_err(api, api->PJRT_Buffer_ToHostBuffer_(args));
 
   PJRT_Event_Await_Args event_args = {0};
   event_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
   event_args.event = args->event;
-  check_err(api, api->PJRT_Event_Await(&event_args));
+  check_err(api, api->PJRT_Event_Await_(&event_args));
 
   PJRT_Event_Destroy_Args destroy_args = {0};
   destroy_args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
   destroy_args.event = args->event;
-  check_err(api, api->PJRT_Event_Destroy(&destroy_args));
+  check_err(api, api->PJRT_Event_Destroy_(&destroy_args));
 }
 
 void PJRTClient::buffer_to_host(PJRTBuffer &buffer,
@@ -160,7 +160,7 @@ PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   PJRT_LoadedExecutable_Destroy_Args args{};
   args.struct_size = sizeof(PJRT_LoadedExecutable_Destroy_Args);
   args.executable = this->executable;
-  check_err(this->api.get(), this->api->PJRT_LoadedExecutable_Destroy(&args));
+  check_err(this->api.get(), this->api->PJRT_LoadedExecutable_Destroy_(&args));
 }
 
 std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
@@ -194,7 +194,7 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   exec_args.output_lists = &outer_out[0];
 
   check_err(this->api.get(),
-            this->api->PJRT_LoadedExecutable_Execute(&exec_args));
+            this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
 
   std::vector<std::unique_ptr<PJRTBuffer>> out;
   out.push_back(std::make_unique<PJRTBuffer>(outer_out[0][0], this->api));
@@ -206,7 +206,7 @@ std::string PJRTClient::platform_name() {
   PJRT_Client_PlatformName_Args args{};
   args.struct_size = sizeof(PJRT_Client_PlatformName_Args);
   args.client = this->client;
-  check_err(this->api.get(), this->api->PJRT_Client_PlatformName(&args));
+  check_err(this->api.get(), this->api->PJRT_Client_PlatformName_(&args));
   return std::string(args.platform_name, args.platform_name_size);
 }
 

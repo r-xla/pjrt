@@ -2359,7 +2359,11 @@ typedef PJRT_Error* PJRT_Compile(PJRT_Compile_Args* args);
 
 // -------------------------------- API access ---------------------------------
 
-#define _PJRT_API_STRUCT_FIELD(fn_type) fn_type* fn_type
+// This macro defines a struct field for a function pointer of type `fn_type*`
+// named `fn_type_`. For example, _PJRT_API_STRUCT_FIELD(PJRT_Error_Destroy)
+// expands to:
+//    PJRT_Error_Destroy* PJRT_Error_Destroy_
+#define _PJRT_API_STRUCT_FIELD(fn_type) fn_type* fn_type##_
 
 // Please modify PJRT_Api_STRUCT_SIZE if the last field of PJRT_Api is changed.
 typedef struct PJRT_Api {
@@ -2508,7 +2512,7 @@ typedef struct PJRT_Api {
 
 enum {
   PJRT_Api_STRUCT_SIZE =
-      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_Client_CreateUninitializedBuffer)
+      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_Client_CreateUninitializedBuffer_)
 };
 
 #undef _PJRT_API_STRUCT_FIELD
