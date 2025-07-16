@@ -3,7 +3,7 @@
 
 #include "pjrt.h"
 
-void check_err(const PJRT_API* api, PJRT_Error* err);
+void check_err(const PJRT_Api* api, PJRT_Error* err);
 
 template <typename src_type, typename dst_type>
 void row_to_col_order(const std::vector<src_type>& src, dst_type* dst,

@@ -5,13 +5,13 @@
 
 namespace rpjrt {
 
-PJRTMemory::PJRTMemory(PJRT_Memory *memory, std::shared_ptr<PJRT_API> api)
+PJRTMemory::PJRTMemory(PJRT_Memory *memory, std::shared_ptr<PJRT_Api> api)
     : memory(memory), api(api) {}
 
 PJRTBufferMemoryLayout::PJRTBufferMemoryLayout(PJRT_Buffer_MemoryLayout layout)
     : layout(layout) {}
 
-PJRTBuffer::PJRTBuffer(PJRT_Buffer *buffer, std::shared_ptr<PJRT_API> api)
+PJRTBuffer::PJRTBuffer(PJRT_Buffer *buffer, std::shared_ptr<PJRT_Api> api)
     : buffer(buffer), api(api) {}
 
 PJRTBuffer::~PJRTBuffer() {

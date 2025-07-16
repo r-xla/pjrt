@@ -2,7 +2,7 @@
 
 #include <memory>
 
-void check_err(const PJRT_API *api, PJRT_Error *err) {
+void check_err(const PJRT_Api *api, PJRT_Error *err) {
   if (err) {
     PJRT_Error_Message_Args args;
     args.error = err;
