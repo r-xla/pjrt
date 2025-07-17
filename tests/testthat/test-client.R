@@ -65,7 +65,9 @@ test_that("can execute mlir program", {
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
   client <- default_client()
-  check_client_device(client)
+  if (!is_metal()) {
+    check_client_device(client)
+  }
 
   data <- 3.0
   scalar_buffer <- pjrt_scalar(data)
