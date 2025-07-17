@@ -18,14 +18,14 @@ PJRTBuffer::~PJRTBuffer() {
   PJRT_Buffer_Destroy_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Destroy_Args);
   args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_Destroy(&args));
+  check_err(this->api.get(), this->api->PJRT_Buffer_Destroy_(&args));
 }
 
 std::vector<int64_t> PJRTBuffer::dimensions() {
   PJRT_Buffer_Dimensions_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Dimensions_Args);
   args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_Dimensions(&args));
+  check_err(this->api.get(), this->api->PJRT_Buffer_Dimensions_(&args));
 
   return std::vector<int64_t>(args.dims, args.dims + args.num_dims);
 }
@@ -34,7 +34,7 @@ std::unique_ptr<PJRTMemory> PJRTBuffer::memory() {
   PJRT_Buffer_Memory_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Memory_Args);
   args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_Memory(&args));
+  check_err(this->api.get(), this->api->PJRT_Buffer_Memory_(&args));
 
   return std::make_unique<PJRTMemory>(args.memory, this->api);
 }
@@ -43,7 +43,7 @@ std::unique_ptr<PJRTBufferMemoryLayout> PJRTBuffer::memory_layout() {
   PJRT_Buffer_GetMemoryLayout_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_GetMemoryLayout_Args);
   args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_GetMemoryLayout(&args));
+  check_err(this->api.get(), this->api->PJRT_Buffer_GetMemoryLayout_(&args));
 
   return std::make_unique<PJRTBufferMemoryLayout>(args.layout);
 }
@@ -52,7 +52,7 @@ PJRT_Buffer_Type PJRTBuffer::element_type() {
   PJRT_Buffer_ElementType_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_ElementType_Args);
   args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_ElementType(&args));
+  check_err(this->api.get(), this->api->PJRT_Buffer_ElementType_(&args));
 
   return args.type;
 }
@@ -61,7 +61,7 @@ std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
   PJRT_Buffer_Device_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Device_Args);
   args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_Device(&args));
+  check_err(this->api.get(), this->api->PJRT_Buffer_Device_(&args));
 
   return std::make_unique<PJRTDevice>(args.device);
 }
