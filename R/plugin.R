@@ -1,11 +1,9 @@
 the <- new.env(parent = emptyenv())
 
-# Initialize named lists for plugins and clients
 the$plugins <- list()
 the$clients <- list()
 
 plugin_client_create <- function(plugin, platform, ...) {
-  # Check if client already exists for this device
   if (platform %in% names(the$clients)) {
     return(the$clients[[platform]])
   }
@@ -24,35 +22,33 @@ plugin_load <- function(platform) {
     return(the$plugins[[platform]])
   }
 
-  # Load plugin for the specified device
   the$plugins[[platform]] <- impl_plugin_load(plugin_path(platform))
 }
 
 plugin_path <- function(platform) {
-  # Create device-specific cache directory
   cache_dir <- tools::R_user_dir("pjrt", which = "cache")
 
-  device_cache_dir <- file.path(cache_dir, platform)
+  platform_cache_dir <- file.path(cache_dir, platform)
 
-  if (!dir.exists(device_cache_dir)) {
-    dir.create(device_cache_dir, recursive = TRUE)
+  if (!dir.exists(platform_cache_dir)) {
+    dir.create(platform_cache_dir, recursive = TRUE)
   }
 
-  plugin_hash_path <- file.path(device_cache_dir, "hash")
+  plugin_hash_path <- file.path(platform_cache_dir, "hash")
 
   if (!file.exists(plugin_hash_path)) {
-    plugin_download(device_cache_dir, platform)
+    plugin_download(platform_cache_dir, platform)
   } else {
     plugin_hash <- readLines(plugin_hash_path)
     expected_hash <- rlang::hash(as.character(plugin_url(platform)))
 
     if (plugin_hash != expected_hash) {
       message("Plugin hash mismatch. Re-downloading...")
-      plugin_download(device_cache_dir, platform)
+      plugin_download(platform_cache_dir, platform)
     }
   }
 
-  list.files(device_cache_dir, pattern = "pjrt", full.names = TRUE)
+  list.files(platform_cache_dir, pattern = "pjrt", full.names = TRUE)
 }
 
 plugin_download <- function(cache_dir, platform = NULL) {
@@ -76,7 +72,6 @@ plugin_download <- function(cache_dir, platform = NULL) {
 }
 
 plugin_url <- function(platform) {
-  # Check if plugin already exists for this device
   env_var <- paste0("PJRT_PLUGIN_URL_", toupper(platform))
   if (Sys.getenv(env_var) != "") {
     return(Sys.getenv(env_var))

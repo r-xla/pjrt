@@ -3,7 +3,7 @@ test_that("compile program with one input", {
 
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- program_load(path, format = "hlo")
-  platform <- Sys.getenv("PJRT_DEVICE", "cpu")
+  platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
 
   plugin <- plugin_load(platform)
   client <- plugin_client_create(plugin, platform)
@@ -30,8 +30,9 @@ test_that("compile program with multiple inputs", {
   path <- system.file("programs/stablehlo.mlir", package = "pjrt")
   program <- program_load(path, format = "mlir")
 
-  plugin <- plugin_load("cpu")
-  client <- plugin_client_create(plugin, "cpu")
+  platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
+  plugin <- plugin_load(platform)
+  client <- plugin_client_create(plugin, platform)
   executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))

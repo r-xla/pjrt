@@ -11,7 +11,8 @@ as_array(buffer, client = default_client())
 A PJRT buffer object.}
 
 \item{client}{(\code{PJRTClient} | \code{character(1)})\cr
-A PJRT client object or the name of the device to use, from which the client will be created.}
+A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
+from which the client will be created.}
 }
 \description{
 Copy a \code{\link[=pjrt_buffer]{PJRTBuffer}} to an R object.
