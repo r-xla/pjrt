@@ -10,5 +10,5 @@ default_client()
 \code{PJRTClient}
 }
 \description{
-Respects environemnt variable \code{PJRT_DEVICE} and otherwise defaults to "cpu".
+Respects environment variable \code{PJRT_DEVICE} and otherwise defaults to "cpu".
 }

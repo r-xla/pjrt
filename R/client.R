@@ -72,10 +72,11 @@ check_build_options <- function(build_options) {
 
 #' @title Default Client
 #' @description
-#' Respects environemnt variable `PJRT_DEVICE` and otherwise defaults to "cpu".
+#' Respects environment variable `PJRT_DEVICE` and otherwise defaults to "cpu".
 #'
 #' @return `PJRTClient`
 #' @export
 default_client <- function() {
-  plugin_client_create(Sys.getenv("PJRT_DEVICE", "cpu"))
+  platform <- Sys.getenv("PJRT_DEVICE", "cpu")
+  plugin_client_create(plugin_load(platform), platform)
 }
