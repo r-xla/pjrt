@@ -77,19 +77,20 @@ test_that("can execute mlir program", {
 })
 
 test_that("can use more than one client", {
-  skip_if(!is_metal())
-  skip_on_ci()
+  skip_if(!is_metal() || !is_cuda())
+  is_metal() && skip_on_ci()
 
-  pjrt_buffer(1, pjrt_client("cpu"))
-  pjrt_buffer(1, pjrt_client("metal"))
+  device <- if (is_metal()) "metal" else "cpu"
 
-  expect_permutation(c("metal", "cpu"), names(the$clients))
-  expect_permutation(c("metal", "cpu"), names(the$plugins))
+  pjrt_buffer(1, pjrt_client(device))
+
+  expect_permutation(c(device, "cpu"), names(the$clients))
+  expect_permutation(c(device, "cpu"), names(the$plugins))
 
   # not they are loaded and global env 'the' is not changed
   pjrt_buffer(1, pjrt_client("cpu"))
-  pjrt_buffer(1, pjrt_client("metal"))
+  pjrt_buffer(1, pjrt_client(device))
 
-  expect_permutation(c("metal", "cpu"), names(the$clients))
-  expect_permutation(c("metal", "cpu"), names(the$plugins))
+  expect_permutation(c(device, "cpu"), names(the$clients))
+  expect_permutation(c(device, "cpu"), names(the$plugins))
 })
