@@ -2359,6 +2359,7 @@ typedef PJRT_Error* PJRT_Compile(PJRT_Compile_Args* args);
 
 // -------------------------------- API access ---------------------------------
 
+// This is needed to be able to compile on CRAN
 #define _PJRT_API_STRUCT_FIELD(fn_type) fn_type* fn_type##_
 
 // Please modify PJRT_Api_STRUCT_SIZE if the last field of PJRT_Api is changed.
