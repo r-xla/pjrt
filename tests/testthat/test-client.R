@@ -7,10 +7,7 @@ test_that("compile program works", {
   plugin <- plugin_load("cpu")
   client <- plugin_client_create(plugin, "cpu")
 
-  expect_equal(
-    client_platform_name(client),
-    "cpu"
-  )
+  check_client_device(client)
 
   executable <- pjrt_compile(program)
 
@@ -67,17 +64,7 @@ test_that("can execute mlir program", {
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
-  if (is_metal()) {
-    expect_equal(
-      client_platform_name(pjrt_client("metal")),
-      "metal"
-    )
-  } else {
-    expect_equal(
-      client_platform_name(pjrt_client("cpu")),
-      "cpu"
-    )
-  }
+  check_client_device(client)
 
   data <- 3.0
   scalar_buffer <- pjrt_scalar(data)

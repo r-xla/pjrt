@@ -21,4 +21,13 @@ for (file in HEADER_FILES) {
   }
 
   fs::file_copy(from, dest, overwrite = TRUE)
+
+  if (basename(file) == "pjrt_c_api.h") {
+    content <- readLines(dest)
+    pattern <- "^#define _PJRT_API_STRUCT_FIELD\\(fn_type\\) fn_type\\* fn_type$"
+    replacement <- "\n// This is needed to be able to compile on CRAN\n#define _PJRT_API_STRUCT_FIELD(fn_type) fn_type* fn_type##_"
+    content <- gsub(pattern, replacement, content)
+    writeLines(content, dest)
+    cat("Applied macro definition edit to:", dest, "\n")
+  }
 }

@@ -9,7 +9,7 @@
 ^LICENSE\.md$
 ^README\.Rmd$
 ^man-roxygen/
-^README.html
+^README.html$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
