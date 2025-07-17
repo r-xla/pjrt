@@ -7,7 +7,7 @@
 pjrt_compile(
   program,
   compile_options = new_compile_options(),
-  client = pjrt_client("cpu")
+  client = default_client()
 )
 }
 \arguments{

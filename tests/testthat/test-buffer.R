@@ -10,7 +10,7 @@ test_pjrt_scalar <- function(
   buffer <- do.call(pjrt_scalar, args)
 
   expect_class(buffer, "PJRTBuffer")
-  result <- buffer_to_host(buffer)
+  result <- as_array(buffer)
   expect_true(!is.array(result))
 
   # Check that scalar becomes 1D array with length 1
@@ -30,13 +30,13 @@ test_pjrt_scalar <- function(
   original_data <- data
   data[1L] <- modify(data)
 
-  result_after_modification <- buffer_to_host(buffer)
+  result_after_modification <- as_array(buffer)
   expect_equal(result_after_modification, original_data, tolerance = tolerance)
 
   # Test that modifying the result doesn't persist when recreating from buffer
   result[1L] <- modify(result)
 
-  result_recreated <- buffer_to_host(buffer)
+  result_recreated <- as_array(buffer)
   expect_equal(result_recreated, original_data, tolerance = tolerance)
 
   TRUE
@@ -53,7 +53,7 @@ test_pjrt_buffer <- function(
   buffer <- do.call(pjrt_buffer, args)
 
   expect_class(buffer, "PJRTBuffer")
-  result <- buffer_to_host(buffer)
+  result <- as_array(buffer)
   expect_true(is.array(result))
 
   data_arr <- as.array(data)
@@ -84,13 +84,13 @@ test_pjrt_buffer <- function(
   original_data <- data
   data[1L] <- modify_first(data)
 
-  result_after_modification <- buffer_to_host(buffer)
+  result_after_modification <- as_array(buffer)
   expect_equal(result_after_modification, data_arr, tolerance = tolerance)
 
   # Test that modifying the result doesn't persist when recreating from buffer
   result[1L] <- modify_first(result)
 
-  result_recreated <- buffer_to_host(buffer)
+  result_recreated <- as_array(buffer)
   if (!is.null(tolerance)) {
     expect_equal(result_recreated, data_arr, tolerance = tolerance)
   } else {
@@ -216,7 +216,7 @@ test_that("R layout and PJRT layout (2D)", {
     i1_buf <- pjrt_buffer(i1, type = "s32")
     i2_buf <- pjrt_buffer(i2, type = "s32")
 
-    result <- buffer_to_host(pjrt_execute(executable, x_buf, i1_buf, i2_buf))
+    result <- as_array(pjrt_execute(executable, x_buf, i1_buf, i2_buf))
     expect_equal(x[i1 + 1, i2 + 1], result)
   }
   check(0L, 0L)
@@ -238,7 +238,7 @@ test_that("R layout and PJRT layout (3D)", {
     i2_buf <- pjrt_buffer(i2, type = "s32")
     i3_buf <- pjrt_buffer(i3, type = "s32")
 
-    result <- buffer_to_host(pjrt_execute(
+    result <- as_array(pjrt_execute(
       executable,
       x_buf,
       i1_buf,

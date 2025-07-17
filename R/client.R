@@ -12,7 +12,7 @@
 pjrt_compile <- function(
   program,
   compile_options = new_compile_options(),
-  client = pjrt_client("cpu")
+  client = default_client()
 ) {
   check_client(client)
   check_program(program)
@@ -34,11 +34,6 @@ pjrt_client <- function(platform) {
     return(the$clients[[platform]])
   }
   plugin_client_create(plugin_load(platform), platform)
-}
-
-client_platform_name <- function(client) {
-  check_client(client)
-  tolower(impl_client_platform_name(client))
 }
 
 check_client <- function(client) {
@@ -73,4 +68,14 @@ new_build_options <- function(
 check_build_options <- function(build_options) {
   stopifnot(inherits(build_options, "PJRTBuildOptions"))
   invisible(NULL)
+}
+
+#' @title Default Client
+#' @description
+#' Respects environemnt variable `PJRT_DEVICE` and otherwise defaults to "cpu".
+#'
+#' @return `PJRTClient`
+#' @export
+default_client <- function() {
+  plugin_client_create(Sys.getenv("PJRT_DEVICE", "cpu"))
 }

@@ -1,4 +1,4 @@
-test_that("compile program works", {
+test_that("compile program with one input", {
   skip_if_metal()
 
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
@@ -17,12 +17,12 @@ test_that("compile program works", {
   scalar_buffer <- pjrt_scalar(data)
 
   result <- loaded_executable_execute(executable, scalar_buffer)
-  r_res <- buffer_to_host(result)
+  r_res <- as_array(result)
 
   expect_equal(r_res, 9)
 })
 
-test_that("compile program works", {
+test_that("compile program with multiple inputs", {
   # this won't work on CI currently because it runs on a Mac VM which doesn't support GPU access.
   skip_if_metal()
 
@@ -51,7 +51,7 @@ test_that("compile program works", {
       bias_buffer
     )
   )
-  r_res <- buffer_to_host(result)
+  r_res <- as_array(result)
 
   expect_equal(r_res, matrix(0, ncol = 10, nrow = 1))
 })
@@ -64,13 +64,14 @@ test_that("can execute mlir program", {
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
+  client <- default_client()
   check_client_device(client)
 
   data <- 3.0
   scalar_buffer <- pjrt_scalar(data)
 
   result <- loaded_executable_execute(executable, scalar_buffer)
-  r_res <- buffer_to_host(result)
+  r_res <- as_array(result)
 
   expect_equal(r_res, 6)
 })

@@ -92,7 +92,7 @@ result <- pjrt_execute(program_compiled, x_buffer, y_buffer)
 We can convert this result back to R:
 
 ``` r
-buffer_to_host(result)
+as_array(result)
 #>      [,1] [,2]
 #> [1,]    6   10
 #> [2,]    8   12
