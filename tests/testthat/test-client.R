@@ -3,9 +3,10 @@ test_that("compile program with one input", {
 
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- program_load(path, format = "hlo")
+  platform <- Sys.getenv("PJRT_DEVICE", "cpu")
 
-  plugin <- plugin_load("cpu")
-  client <- plugin_client_create(plugin, "cpu")
+  plugin <- plugin_load(platform)
+  client <- plugin_client_create(plugin, platform)
 
   check_client_device(client)
 

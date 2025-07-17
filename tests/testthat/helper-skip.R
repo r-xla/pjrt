@@ -15,7 +15,7 @@ is_cuda <- function() {
 check_client_device <- function(client) {
   device <- Sys.getenv("PJRT_DEVICE", "cpu")
   expect_equal(
-    pjrt_platform_name(client),
-    device
+    tolower(pjrt_platform_name(client)),
+    tolower(device)
   )
 }
