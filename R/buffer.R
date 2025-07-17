@@ -197,7 +197,7 @@ print.PJRTElementType <- function(x, ...) {
 #'
 #' @return A string representing the platform name.
 #' @export
-pjrt_platform_name <- function(client) {
+pjrt_platform_name <- function(client = default_client()) {
   check_client(client)
   impl_client_platform_name(client)
 }
