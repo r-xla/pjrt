@@ -82,7 +82,7 @@ test_that("can use more than one client", {
   skip_if(!is_metal() || !is_cuda())
   is_metal() && skip_on_ci()
 
-  device <- if (is_metal()) "metal" else "cpu"
+  device <- if (is_metal()) "metal" else "cuda"
 
   pjrt_buffer(1, pjrt_client(device))
 
