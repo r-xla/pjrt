@@ -59,6 +59,8 @@ test_that("execution with options works", {
 })
 
 test_that("can donate input", {
+  skip_if_metal()
+
   program <- program_load(
     system.file("programs/jax-stablehlo-update-param.mlir", package = "pjrt"),
     format = "mlir"
