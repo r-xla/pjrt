@@ -147,9 +147,9 @@ plugin_arch <- function() {
   }
 }
 
-pjrt_api_version <- function(plugin = pjrt_plugin()) {
+pjrt_api_version <- function(plugin = pjrt_plugin("cpu")) {
   v <- impl_plugin_pjrt_api_version(plugin)
-  list(major = v[[1]], minor = v[[2]])
+  c(major = v[[1]], minor = v[[2]])
 }
 
 #' @title Get Plugin Attributes

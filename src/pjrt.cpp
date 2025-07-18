@@ -96,7 +96,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_r_data(
 
   // Copy data based on R type
   // copy implicitly casts the types
-  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+  if (TYPEOF(data) == RAWSXP) {
+    std::copy(RAW(data), RAW(data) + len,
+              reinterpret_cast<uint8_t *>(buffer.data()));
+  } else if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     std::copy(REAL(data), REAL(data) + len, buffer.data());
   } else if constexpr (std::is_same_v<T, int8_t> ||
                        std::is_same_v<T, int16_t> ||
@@ -197,6 +200,58 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
   }
 }
 
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
+    std::string type) {
+  if (TYPEOF(data) != RAWSXP) {
+    Rcpp::stop("Data must be a raw vector");
+  }
+
+  int len = Rf_length(data);
+  if (len == 0) {
+    Rcpp::stop("Data must be a non-empty raw vector.");
+  }
+
+  // Support all the same types as the other buffer functions
+  if (type == "f32") {
+    return create_buffer_from_r_data<float>(client, data, dims,
+                                            PJRT_Buffer_Type_F32);
+  } else if (type == "f64") {
+    return create_buffer_from_r_data<double>(client, data, dims,
+                                             PJRT_Buffer_Type_F64);
+  } else if (type == "s8") {
+    return create_buffer_from_r_data<int8_t>(client, data, dims,
+                                             PJRT_Buffer_Type_S8);
+  } else if (type == "s16") {
+    return create_buffer_from_r_data<int16_t>(client, data, dims,
+                                              PJRT_Buffer_Type_S16);
+  } else if (type == "s32") {
+    return create_buffer_from_r_data<int32_t>(client, data, dims,
+                                              PJRT_Buffer_Type_S32);
+  } else if (type == "s64") {
+    return create_buffer_from_r_data<int64_t>(client, data, dims,
+                                              PJRT_Buffer_Type_S64);
+  } else if (type == "u8") {
+    return create_buffer_from_r_data<uint8_t>(client, data, dims,
+                                              PJRT_Buffer_Type_U8);
+  } else if (type == "u16") {
+    return create_buffer_from_r_data<uint16_t>(client, data, dims,
+                                               PJRT_Buffer_Type_U16);
+  } else if (type == "u32") {
+    return create_buffer_from_r_data<uint32_t>(client, data, dims,
+                                               PJRT_Buffer_Type_U32);
+  } else if (type == "u64") {
+    return create_buffer_from_r_data<uint64_t>(client, data, dims,
+                                               PJRT_Buffer_Type_U64);
+  } else if (type == "pred") {
+    return create_buffer_from_r_data<uint8_t>(client, data, dims,
+                                              PJRT_Buffer_Type_PRED);
+  } else {
+    Rcpp::stop("Unsupported type for raw data: %s", type.c_str());
+  }
+}
+
 // Helper template function for buffer to host conversion
 template <typename T>
 SEXP convert_buffer_to_r(Rcpp::XPtr<rpjrt::PJRTClient> client,
@@ -276,6 +331,177 @@ SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client,
     default:
       Rcpp::stop("Unsupported buffer element type for conversion to host.");
   }
+}
+
+// [[Rcpp::export()]]
+Rcpp::RawVector impl_client_buffer_to_raw(
+    Rcpp::XPtr<rpjrt::PJRTClient> client,
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+  const auto dimensions = buffer->dimensions();
+  const auto element_type = buffer->element_type();
+
+  // Calculate total number of elements
+  const auto numel = std::accumulate(dimensions.begin(), dimensions.end(), 1,
+                                     std::multiplies<int64_t>());
+
+  // Get the size of each element in bytes
+  size_t element_size = 0;
+  switch (element_type) {
+    case PJRT_Buffer_Type_F32:
+      element_size = sizeof(float);
+      break;
+    case PJRT_Buffer_Type_F64:
+      element_size = sizeof(double);
+      break;
+    case PJRT_Buffer_Type_S8:
+      element_size = sizeof(int8_t);
+      break;
+    case PJRT_Buffer_Type_S16:
+      element_size = sizeof(int16_t);
+      break;
+    case PJRT_Buffer_Type_S32:
+      element_size = sizeof(int32_t);
+      break;
+    case PJRT_Buffer_Type_S64:
+      element_size = sizeof(int64_t);
+      break;
+    case PJRT_Buffer_Type_U8:
+      element_size = sizeof(uint8_t);
+      break;
+    case PJRT_Buffer_Type_U16:
+      element_size = sizeof(uint16_t);
+      break;
+    case PJRT_Buffer_Type_U32:
+      element_size = sizeof(uint32_t);
+      break;
+    case PJRT_Buffer_Type_U64:
+      element_size = sizeof(uint64_t);
+      break;
+    case PJRT_Buffer_Type_PRED:
+      element_size = sizeof(uint8_t);
+      break;
+    default:
+      Rcpp::stop("Unsupported buffer element type for conversion to raw.");
+  }
+
+  // Calculate total size in bytes
+  const size_t total_bytes = numel * element_size;
+
+  // Create raw vector
+  Rcpp::RawVector raw_data(total_bytes);
+
+  // Handle each type appropriately with proper transposition
+  switch (element_type) {
+    case PJRT_Buffer_Type_F32: {
+      std::vector<float> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<float, float>(
+          temp_buffer, reinterpret_cast<float *>(raw_data.begin()), dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_F64: {
+      std::vector<double> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<double, double>(
+          temp_buffer, reinterpret_cast<double *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_S8: {
+      std::vector<int8_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<int8_t, int8_t>(
+          temp_buffer, reinterpret_cast<int8_t *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_S16: {
+      std::vector<int16_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<int16_t, int16_t>(
+          temp_buffer, reinterpret_cast<int16_t *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_S32: {
+      std::vector<int32_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<int32_t, int32_t>(
+          temp_buffer, reinterpret_cast<int32_t *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_S64: {
+      std::vector<int64_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<int64_t, int64_t>(
+          temp_buffer, reinterpret_cast<int64_t *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_U8: {
+      std::vector<uint8_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(temp_buffer.data(), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<uint8_t, uint8_t>(temp_buffer, raw_data.begin(),
+                                         dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_U16: {
+      std::vector<uint16_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<uint16_t, uint16_t>(
+          temp_buffer, reinterpret_cast<uint16_t *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_U32: {
+      std::vector<uint32_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<uint32_t, uint32_t>(
+          temp_buffer, reinterpret_cast<uint32_t *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_U64: {
+      std::vector<uint64_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(
+          reinterpret_cast<uint8_t *>(temp_buffer.data()), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<uint64_t, uint64_t>(
+          temp_buffer, reinterpret_cast<uint64_t *>(raw_data.begin()),
+          dimensions);
+      break;
+    }
+    case PJRT_Buffer_Type_PRED: {
+      std::vector<uint8_t> temp_buffer(numel);
+      std::span<uint8_t> host_buffer(temp_buffer.data(), total_bytes);
+      client->buffer_to_host(*buffer, host_buffer);
+      row_to_col_order<uint8_t, uint8_t>(temp_buffer, raw_data.begin(),
+                                         dimensions);
+      break;
+    }
+    default:
+      Rcpp::stop("Unsupported buffer element type for conversion to raw.");
+  }
+
+  return raw_data;
 }
 
 // [[Rcpp::export()]]
