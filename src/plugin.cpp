@@ -65,7 +65,7 @@ std::vector<std::pair<std::string, SEXP>> PJRTPlugin::attributes() const {
         value = Rf_ScalarLogical(nv.bool_value ? TRUE : FALSE);
         break;
       default:
-        value = Rf_mkString("");  // fallback: empty string
+        value = Rf_ScalarLogical(NA_LOGICAL);
     }
     out.emplace_back(key, value);
   }
