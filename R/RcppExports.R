@@ -96,3 +96,4 @@ impl_plugin_pjrt_api_version <- function(plugin) {
 impl_plugin_attributes <- function(plugin) {
     .Call(`_pjrt_impl_plugin_attributes`, plugin)
 }
+
