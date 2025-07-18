@@ -5,9 +5,9 @@
 \alias{pjrt_scalar}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, type, client, ...)
+pjrt_buffer(data, type, client = default_client(), ...)
 
-pjrt_scalar(data, type, client, ...)
+pjrt_scalar(data, type, client = default_client(), ...)
 }
 \arguments{
 \item{data}{(any)\cr
@@ -22,8 +22,9 @@ Currently supported types are:
 \item \code{"f{32,64}"}: Floating point (for \code{double} data).
 }}
 
-\item{client}{(\code{PJRTClient})\cr
-A PJRT client object.}
+\item{client}{(\code{PJRTClient} | \code{character(1)})\cr
+A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
+from which the client will be created.}
 
 \item{...}{(any)\cr
 Additional arguments.}

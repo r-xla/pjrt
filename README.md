@@ -6,7 +6,8 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml)
-[![Experimental](https://img.shields.io/badge/status-experimental-red.svg)](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml)
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
 The {pjrt} package provides an R interface to the
@@ -50,7 +51,7 @@ The {pjrt} package now allows to create a PJRT program from this string.
 program <- pjrt_program(src, format = "mlir")
 program
 #> PJRTProgram(format=mlir, code_size=221)
-#>
+#> 
 #> func.func @main(
 #>   %x: tensor<2x2xf32>,
 #>   %y: tensor<2x2xf32>

@@ -5,17 +5,17 @@ skip_if_metal <- function() {
 }
 
 is_metal <- function() {
-  Sys.getenv("PJRT_DEVICE") == "metal"
+  Sys.getenv("PJRT_PLATFORM") == "metal"
 }
 
 is_cuda <- function() {
-  Sys.getenv("PJRT_DEVICE") == "cuda"
+  Sys.getenv("PJRT_PLATFORM") == "cuda"
 }
 
 check_client_device <- function(client) {
-  device <- Sys.getenv("PJRT_DEVICE", "cpu")
+  device <- Sys.getenv("PJRT_PLATFORM", "cpu")
   expect_equal(
-    client_platform_name(client),
-    device
+    tolower(pjrt_platform_name(client)),
+    tolower(device)
   )
 }

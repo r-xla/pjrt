@@ -31,13 +31,15 @@ is_buffer <- function(x) {
 #' @template param_client
 #' @return `PJRTBuffer`
 #' @export
-pjrt_buffer <- function(data, type, client, ...) {
+pjrt_buffer <- function(data, type, client = default_client(), ...) {
+  check_client(client)
   UseMethod("pjrt_buffer")
 }
 
 #' @rdname pjrt_buffer
 #' @export
-pjrt_scalar <- function(data, type, client, ...) {
+pjrt_scalar <- function(data, type, client = default_client(), ...) {
+  check_client(client)
   UseMethod("pjrt_scalar")
 }
 
@@ -195,7 +197,7 @@ print.PJRTElementType <- function(x, ...) {
 #'
 #' @return A string representing the platform name.
 #' @export
-client_platform_name <- function(client = default_client()) {
+pjrt_platform_name <- function(client = default_client()) {
   check_client(client)
   impl_client_platform_name(client)
 }
@@ -204,7 +206,7 @@ client_buffer_from_integer <- function(
   data,
   type = "f32",
   dims,
-  client = default_client()
+  client
 ) {
   check_client(client)
   impl_client_buffer_from_integer(
@@ -219,7 +221,7 @@ client_buffer_from_logical <- function(
   data,
   dims,
   type = "pred",
-  client = default_client()
+  client
 ) {
   check_client(client)
   impl_client_buffer_from_logical(client, data, dims, type)
@@ -229,7 +231,7 @@ client_buffer_from_double <- function(
   data,
   type = "f32",
   dims,
-  client = default_client()
+  client
 ) {
   check_client(client)
   impl_client_buffer_from_double(
@@ -240,18 +242,21 @@ client_buffer_from_double <- function(
   )
 }
 
-#' Convert a PJRT Buffer to an R Array
+#' Convert a PJRT Buffer to an R object.
 #'
 #' @description
-#' Copy a [`PJRTBuffer`][pjrt_buffer] to an R array.
+#' Copy a [`PJRTBuffer`][pjrt_buffer] to an R object.
+#' For 0-dimensional PJRT buffers, the R object will be a vector of length 1 and otherwise an array.
+#'
 #' @details
-#' Currently, two copies are being done:
+#' Moving the buffer to the host requires to:
 #' 1. Copy the data from the PJRT device to the CPU.
-#' 2. Copy the data from the CPU to the R array.
+#' 2. Transpose the data, because PJRT returns it in row-major order but R uses column-major order.
 #'
 #' @template param_buffer
 #' @template param_client
 #' @export
 as_array <- function(buffer, client = default_client()) {
+  check_client(client)
   impl_client_buffer_to_host(buffer, client = client)
 }

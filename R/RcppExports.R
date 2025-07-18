@@ -65,3 +65,7 @@ impl_buffer_dimensions <- function(buffer) {
     .Call(`_pjrt_impl_buffer_dimensions`, buffer)
 }
 
+impl_plugin_attributes <- function(plugin) {
+    .Call(`_pjrt_impl_plugin_attributes`, plugin)
+}
+

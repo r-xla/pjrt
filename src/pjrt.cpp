@@ -320,3 +320,16 @@ std::vector<int64_t> impl_buffer_dimensions(
     Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   return buffer->dimensions();
 }
+
+// [[Rcpp::export()]]
+Rcpp::List impl_plugin_attributes(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+  auto attrs = plugin->attributes();
+  Rcpp::List out;
+  Rcpp::CharacterVector names(attrs.size());
+  for (size_t i = 0; i < attrs.size(); ++i) {
+    names[i] = attrs[i].first;
+    out.push_back(attrs[i].second);
+  }
+  out.attr("names") = names;
+  return out;
+}

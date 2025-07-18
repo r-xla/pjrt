@@ -14,19 +14,19 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
 
-    name: ${{ matrix.config.os }} - ${{ matrix.config.device }} (${{ matrix.config.r }})
+    name: ${{ matrix.config.os }} - ${{ matrix.config.platform }} (${{ matrix.config.r }})
 
     strategy:
       fail-fast: false
       matrix:
         config:
-          - { os: "macos", r: "release", device: "cpu" }
-          - { os: "macos", r: "release", device: "metal" }
-          - { os: "ubuntu", r: "release", device: "cpu" }
-          - { os: "ubuntu", r: "release", device: "cuda"}
-        
-        include: 
-          - config: {os: "ubuntu", device: "cuda"}
+          - { os: "macos", r: "release", platform: "cpu" }
+          - { os: "macos", r: "release", platform: "metal" }
+          - { os: "ubuntu", r: "release", platform: "cpu" }
+          - { os: "ubuntu", r: "release", platform: "cuda"}
+
+        include:
+          - config: {os: "ubuntu", platform: "cuda"}
             container: {image: 'nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
             runner: ['self-hosted', 'gpu']
             setup: |
@@ -34,7 +34,7 @@ jobs:
               DEBIAN_FRONTEND="noninteractive" apt-get install -y sudo software-properties-common dialog apt-utils tzdata libpng-dev locales pkg-config
               DEBIAN_FRONTEND="noninteractive" locale-gen en_US.UTF-8
               DEBIAN_FRONTEND="noninteractive" update-locale LANG=en_US.UTF-8
-          - config: {os: "ubuntu", device: "cpu"}
+          - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
           - config: {os: "macos"}
             runner: 'macos-latest'
@@ -45,7 +45,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      PJRT_DEVICE: ${{ matrix.config.device }}
+      PJRT_PLATFORM: ${{ matrix.config.platform }}
 
     steps:
       - name: Setup
