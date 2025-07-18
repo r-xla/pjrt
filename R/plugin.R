@@ -138,3 +138,25 @@ plugin_arch <- function() {
     stop("Unsupported architecture: ", .Platform$r_arch)
   }
 }
+
+#' @title Get Plugin Attributes
+#' @description
+#' Get the attributes of a PJRT plugin.
+#' This commonly includes:
+#' - `xla_version`
+#' - `stablehlo_current_version`
+#' - `stablehlo_minimum_version`
+#'
+#' But the implementation depends on the plugin.
+#'
+#' @param plugin (`PJRTPlugin` | `character(1)`)\cr
+#'   The plugin (or platform name) to get the attributes of.
+#' @return named `list()`
+#' @export
+pjrt_plugin_attributes <- function(plugin) {
+  if (is.character(plugin)) {
+    plugin <- plugin_load(plugin)
+  }
+  check_plugin(plugin)
+  impl_plugin_attributes(plugin)
+}
