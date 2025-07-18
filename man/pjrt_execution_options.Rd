@@ -24,4 +24,8 @@ to detect scheduling errors in multi-host programs.}
 \description{
 Create execution options for configuring how a PJRT program is executed,
 including buffer donation settings.
+\strong{Important}:
+It is not enough to only mark a buffer as donatable (not not donatable)
+during runtime. The program also needs to specify this during compile-time
+via input-output aliasing (stableHLO attribute \code{tf.aliasing_output}).
 }

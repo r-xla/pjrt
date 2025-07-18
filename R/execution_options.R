@@ -2,6 +2,10 @@
 #' @description
 #' Create execution options for configuring how a PJRT program is executed,
 #' including buffer donation settings.
+#' **Important**:
+#' It is not enough to only mark a buffer as donatable (not not donatable)
+#' during runtime. The program also needs to specify this during compile-time
+#' via input-output aliasing (stableHLO attribute `tf.aliasing_output`).
 #'
 #' @param non_donatable_input_indices (`integer()`)\cr
 #'   A vector of input buffer indices that should not be donated during execution.
