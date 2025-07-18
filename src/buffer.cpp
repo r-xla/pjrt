@@ -2,11 +2,44 @@
 
 #include "pjrt.h"
 #include "utils.h"
+#include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
 
 PJRTMemory::PJRTMemory(PJRT_Memory *memory, std::shared_ptr<PJRT_Api> api)
     : memory(memory), api(api) {}
+
+std::string PJRTMemory::debug_string() {
+  PJRT_Memory_DebugString_Args args{};
+  args.struct_size = sizeof(PJRT_Memory_DebugString_Args);
+  args.memory = this->memory;
+  check_err(this->api.get(), this->api->PJRT_Memory_DebugString_(&args));
+  return std::string(args.debug_string, args.debug_string_size);
+}
+
+int PJRTMemory::id() {
+  PJRT_Memory_Id_Args args{};
+  args.struct_size = sizeof(PJRT_Memory_Id_Args);
+  args.memory = this->memory;
+  check_err(this->api.get(), this->api->PJRT_Memory_Id_(&args));
+  return args.id;
+}
+
+std::string PJRTMemory::kind() {
+  PJRT_Memory_Kind_Args args{};
+  args.struct_size = sizeof(PJRT_Memory_Kind_Args);
+  args.memory = this->memory;
+  check_err(this->api.get(), this->api->PJRT_Memory_Kind_(&args));
+  return std::string(args.kind, args.kind_size);
+}
+
+std::string PJRTMemory::to_string() {
+  PJRT_Memory_ToString_Args args{};
+  args.struct_size = sizeof(PJRT_Memory_ToString_Args);
+  args.memory = this->memory;
+  check_err(this->api.get(), this->api->PJRT_Memory_ToString_(&args));
+  return std::string(args.to_string, args.to_string_size);
+}
 
 PJRTBufferMemoryLayout::PJRTBufferMemoryLayout(PJRT_Buffer_MemoryLayout layout)
     : layout(layout) {}

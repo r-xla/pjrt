@@ -12,6 +12,7 @@ class PJRTPlugin {
   PJRTPlugin(const std::string &path);
   void initialize();
   std::unique_ptr<PJRTClient> client_create();
+  std::pair<int, int> pjrt_api_version() const;
   std::vector<std::pair<std::string, SEXP>> attributes() const;
   std::shared_ptr<PJRT_Api> api;
 

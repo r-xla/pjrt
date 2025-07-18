@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 #include <span>
+#include <vector>
 
 #include "buffer.h"
 #include "pjrt.h"
@@ -25,6 +26,16 @@ class PJRTCompileOptions {
   std::string serialize();
 };
 
+class PJRTExecuteOptions {
+ public:
+  std::vector<int64_t> non_donatable_input_indices;
+  int launch_id;
+
+  PJRTExecuteOptions();
+  PJRTExecuteOptions(const std::vector<int64_t> &non_donatable_indices,
+                     int launch_id = 0);
+};
+
 class PJRTLoadedExecutable {
  public:
   PJRT_LoadedExecutable *executable;
@@ -32,7 +43,8 @@ class PJRTLoadedExecutable {
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                        std::shared_ptr<PJRT_Api> api);
   std::vector<std::unique_ptr<PJRTBuffer>> execute(
-      std::vector<PJRTBuffer *> input);
+      std::vector<PJRTBuffer *> input,
+      const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   ~PJRTLoadedExecutable();
 };
 

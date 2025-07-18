@@ -33,7 +33,7 @@ pjrt_client <- function(platform) {
   if (platform %in% names(the$clients)) {
     return(the$clients[[platform]])
   }
-  plugin_client_create(plugin_load(platform), platform)
+  plugin_client_create(pjrt_plugin(platform), platform)
 }
 
 check_client <- function(client) {

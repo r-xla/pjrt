@@ -4,7 +4,7 @@
 \alias{pjrt_execute}
 \title{Execute a PJRT program}
 \usage{
-pjrt_execute(executable, ...)
+pjrt_execute(executable, ..., execution_options = NULL)
 }
 \arguments{
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
@@ -12,10 +12,13 @@ A PJRT program.}
 
 \item{...}{(\verb{PJRTBuffer)}\cr
 Inputs to the program.}
+
+\item{execution_options}{(\code{PJRTExecuteOptions})\cr
+Optional execution options for configuring buffer donation and other settings.}
 }
 \value{
 \code{PJRTBuffer} | list of \code{PJRTBuffers}
 }
 \description{
-Execute a PJRT program with the given inputs.
+Execute a PJRT program with the given inputs and execution options.
 }

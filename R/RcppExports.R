@@ -49,12 +49,32 @@ impl_client_platform_name <- function(client) {
     .Call(`_pjrt_impl_client_platform_name`, client)
 }
 
-impl_loaded_executable_execute <- function(executable, input) {
-    .Call(`_pjrt_impl_loaded_executable_execute`, executable, input)
+impl_loaded_executable_execute <- function(executable, input, execution_options) {
+    .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
 impl_buffer_element_type <- function(buffer) {
     .Call(`_pjrt_impl_buffer_element_type`, buffer)
+}
+
+impl_buffer_memory <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_memory`, buffer)
+}
+
+impl_memory_debug_string <- function(memory) {
+    .Call(`_pjrt_impl_memory_debug_string`, memory)
+}
+
+impl_memory_id <- function(memory) {
+    .Call(`_pjrt_impl_memory_id`, memory)
+}
+
+impl_memory_kind <- function(memory) {
+    .Call(`_pjrt_impl_memory_kind`, memory)
+}
+
+impl_memory_to_string <- function(memory) {
+    .Call(`_pjrt_impl_memory_to_string`, memory)
 }
 
 impl_element_type_as_string <- function(element_type) {
@@ -63,6 +83,14 @@ impl_element_type_as_string <- function(element_type) {
 
 impl_buffer_dimensions <- function(buffer) {
     .Call(`_pjrt_impl_buffer_dimensions`, buffer)
+}
+
+impl_execution_options_create <- function(non_donatable_input_indices, launch_id) {
+    .Call(`_pjrt_impl_execution_options_create`, non_donatable_input_indices, launch_id)
+}
+
+impl_plugin_pjrt_api_version <- function(plugin) {
+    .Call(`_pjrt_impl_plugin_pjrt_api_version`, plugin)
 }
 
 impl_plugin_attributes <- function(plugin) {

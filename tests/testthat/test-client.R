@@ -5,7 +5,7 @@ test_that("compile program with one input", {
   program <- program_load(path, format = "hlo")
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
 
-  plugin <- plugin_load(platform)
+  plugin <- pjrt_plugin(platform)
   client <- plugin_client_create(plugin, platform)
 
   check_client_device(client)
@@ -31,7 +31,7 @@ test_that("compile program with multiple inputs", {
   program <- program_load(path, format = "mlir")
 
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
-  plugin <- plugin_load(platform)
+  plugin <- pjrt_plugin(platform)
   client <- plugin_client_create(plugin, platform)
   executable <- pjrt_compile(program)
 

@@ -17,7 +17,15 @@ check_plugin <- function(plugin) {
   invisible(NULL)
 }
 
-plugin_load <- function(platform) {
+#' @title Create PJRT Plugin
+#' @description
+#' Create a PJRT plugin for a specific platform.
+#'
+#' @param platform (`character(1)`)\cr
+#'   Platform name (e.g., "cpu", "cuda", "metal").
+#' @return `PJRTPlugin`
+#' @export
+pjrt_plugin <- function(platform) {
   if (platform %in% names(the$plugins)) {
     return(the$plugins[[platform]])
   }
@@ -138,6 +146,10 @@ plugin_arch <- function() {
     stop("Unsupported architecture: ", .Platform$r_arch)
   }
 }
+pjrt_api_version <- function(plugin = pjrt_plugin()) {
+  v <- impl_plugin_pjrt_api_version(plugin)
+  list(major = v[[1]], minor = v[[2]])
+}
 
 #' @title Get Plugin Attributes
 #' @description
@@ -155,7 +167,7 @@ plugin_arch <- function() {
 #' @export
 pjrt_plugin_attributes <- function(plugin) {
   if (is.character(plugin)) {
-    plugin <- plugin_load(plugin)
+    plugin <- pjrt_plugin(plugin)
   }
   check_plugin(plugin)
   impl_plugin_attributes(plugin)

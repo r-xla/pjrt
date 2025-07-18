@@ -15,7 +15,7 @@ get_dims <- function(data) {
 #' @export
 default_client <- function() {
   platform <- default_platform()
-  plugin_client_create(plugin_load(platform), platform)
+  plugin_client_create(pjrt_plugin(platform), platform)
 }
 
 #' @title Default Platform

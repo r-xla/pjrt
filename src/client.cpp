@@ -151,6 +151,14 @@ std::string PJRTCompileOptions::serialize() {
   return compile_options.SerializeAsString();
 }
 
+// PJRTExecuteOptions implementations
+PJRTExecuteOptions::PJRTExecuteOptions() : launch_id(0) {}
+
+PJRTExecuteOptions::PJRTExecuteOptions(
+    const std::vector<int64_t> &non_donatable_indices, int launch_id)
+    : non_donatable_input_indices(non_donatable_indices),
+      launch_id(launch_id) {}
+
 PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                                            std::shared_ptr<PJRT_Api> api)
     : executable(executable), api(api) {}
@@ -163,14 +171,21 @@ PJRTLoadedExecutable::~PJRTLoadedExecutable() {
 }
 
 std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
-    std::vector<PJRTBuffer *> input) {
-  PJRT_ExecuteOptions options{};
-  options.struct_size = sizeof(PJRT_ExecuteOptions);
+    std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
+  PJRT_ExecuteOptions exec_options{};
+  exec_options.struct_size = sizeof(PJRT_ExecuteOptions);
+  exec_options.launch_id = options.launch_id;
+  exec_options.non_donatable_input_indices =
+      options.non_donatable_input_indices.empty()
+          ? nullptr
+          : options.non_donatable_input_indices.data();
+  exec_options.num_non_donatable_input_indices =
+      options.non_donatable_input_indices.size();
 
   PJRT_LoadedExecutable_Execute_Args exec_args{};
   exec_args.struct_size = PJRT_LoadedExecutable_Execute_Args_STRUCT_SIZE;
   exec_args.executable = this->executable;
-  exec_args.options = &options;
+  exec_args.options = &exec_options;
 
   // This is the actual parameters
   std::vector<PJRT_Buffer *> inner(input.size());

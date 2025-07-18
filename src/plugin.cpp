@@ -72,6 +72,11 @@ std::vector<std::pair<std::string, SEXP>> PJRTPlugin::attributes() const {
   return out;
 }
 
+std::pair<int, int> PJRTPlugin::pjrt_api_version() const {
+  return {api->pjrt_api_version.major_version,
+          api->pjrt_api_version.minor_version};
+}
+
 PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   const auto handle =
       dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
@@ -91,5 +96,4 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
 
   return GetPjrtApi();
 }
-
 }  // namespace rpjrt
