@@ -21,10 +21,19 @@ pjrt_compile <- function(
   impl_client_program_compile(client, program, compile_options)
 }
 
-
-client_platform_name <- function(client) {
-  check_client(client)
-  tolower(impl_client_platform_name(client))
+#' @title Create a Client
+#' @description
+#' Create a PJRT client for a specific device.
+#'
+#' @param platform (`character(1)`)\cr
+#'   Platform name (e.g., "cpu", "cuda", "metal").
+#' @return `PJRTClient`
+#' @export
+pjrt_client <- function(platform) {
+  if (platform %in% names(the$clients)) {
+    return(the$clients[[platform]])
+  }
+  plugin_client_create(pjrt_plugin(platform), platform)
 }
 
 check_client <- function(client) {

@@ -1,12 +1,15 @@
 the <- new.env(parent = emptyenv())
 
-plugin_client_create <- function(plugin, ...) {
-  if (exists("client", envir = the, inherits = FALSE)) {
-    return(get("client", envir = the))
+the$plugins <- list()
+the$clients <- list()
+
+plugin_client_create <- function(plugin, platform, ...) {
+  if (platform %in% names(the$clients)) {
+    return(the$clients[[platform]])
   }
+
   check_plugin(plugin)
-  the$client <- impl_plugin_client_create(plugin)
-  the$client
+  the$clients[[platform]] <- impl_plugin_client_create(plugin)
 }
 
 check_plugin <- function(plugin) {
@@ -14,42 +17,52 @@ check_plugin <- function(plugin) {
   invisible(NULL)
 }
 
-plugin_load <- function() {
-  if (exists("plugin", envir = the, inherits = FALSE)) {
-    return(get("plugin", envir = the))
+#' @title Create PJRT Plugin
+#' @description
+#' Create a PJRT plugin for a specific platform.
+#'
+#' @param platform (`character(1)`)\cr
+#'   Platform name (e.g., "cpu", "cuda", "metal").
+#' @return `PJRTPlugin`
+#' @export
+pjrt_plugin <- function(platform) {
+  if (platform %in% names(the$plugins)) {
+    return(the$plugins[[platform]])
   }
-  the$plugin <- impl_plugin_load(plugin_path())
-  the$plugin
+
+  the$plugins[[platform]] <- impl_plugin_load(plugin_path(platform))
 }
 
-plugin_path <- function() {
+plugin_path <- function(platform) {
   cache_dir <- tools::R_user_dir("pjrt", which = "cache")
 
-  if (!dir.exists(cache_dir)) {
-    dir.create(cache_dir, recursive = TRUE)
+  platform_cache_dir <- file.path(cache_dir, platform)
+
+  if (!dir.exists(platform_cache_dir)) {
+    dir.create(platform_cache_dir, recursive = TRUE)
   }
 
-  plugin_hash_path <- file.path(cache_dir, "hash")
+  plugin_hash_path <- file.path(platform_cache_dir, "hash")
 
   if (!file.exists(plugin_hash_path)) {
-    plugin_download(cache_dir)
+    plugin_download(platform_cache_dir, platform)
   } else {
     plugin_hash <- readLines(plugin_hash_path)
-    expected_hash <- rlang::hash(as.character(plugin_url()))
+    expected_hash <- rlang::hash(as.character(plugin_url(platform)))
 
     if (plugin_hash != expected_hash) {
       message("Plugin hash mismatch. Re-downloading...")
-      plugin_download(cache_dir)
+      plugin_download(platform_cache_dir, platform)
     }
   }
 
-  list.files(cache_dir, pattern = "pjrt", full.names = TRUE)
+  list.files(platform_cache_dir, pattern = "pjrt", full.names = TRUE)
 }
 
-plugin_download <- function(cache_dir) {
+plugin_download <- function(cache_dir, platform = NULL) {
   plugin_hash_path <- file.path(cache_dir, "hash")
 
-  url <- plugin_url()
+  url <- plugin_url(platform)
   tempfile <- tempfile(fileext = ".tar.gz")
   utils::download.file(url, tempfile)
 
@@ -66,17 +79,17 @@ plugin_download <- function(cache_dir) {
   utils::untar(tempfile, exdir = cache_dir)
 }
 
-plugin_url <- function() {
-  if (Sys.getenv("PJRT_PLUGIN_URL") != "") {
-    return(Sys.getenv("PJRT_PLUGIN_URL"))
+plugin_url <- function(platform) {
+  env_var <- paste0("PJRT_PLUGIN_URL_", toupper(platform))
+  if (Sys.getenv(env_var) != "") {
+    return(Sys.getenv(env_var))
   }
 
   os <- plugin_os()
   arch <- plugin_arch()
-  device <- plugin_device()
   zml_version <- plugin_version()
 
-  if (device == "metal") {
+  if (platform == "metal") {
     stopifnot(os == "darwin")
     url <- if (arch == "arm64") {
       "https://files.pythonhosted.org/packages/09/dc/6d8fbfc29d902251cf333414cf7dcfaf4b252a9920c881354584ed36270d/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl"
@@ -97,8 +110,12 @@ plugin_url <- function() {
     return(url)
   }
 
-  glue::glue(
-    "https://github.com/zml/pjrt-artifacts/releases/download/v{zml_version}/pjrt-{device}_{os}-{arch}.tar.gz"
+  sprintf(
+    "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
+    zml_version,
+    platform,
+    os,
+    arch
   )
 }
 
@@ -120,14 +137,6 @@ plugin_os <- function() {
   }
 }
 
-plugin_device <- function() {
-  if (Sys.getenv("PJRT_DEVICE") != "") {
-    return(Sys.getenv("PJRT_DEVICE"))
-  }
-
-  "cpu"
-}
-
 plugin_arch <- function() {
   if (Sys.info()["machine"] == "x86_64") {
     return("amd64")
@@ -136,4 +145,31 @@ plugin_arch <- function() {
   } else {
     stop("Unsupported architecture: ", .Platform$r_arch)
   }
+}
+
+pjrt_api_version <- function(plugin = pjrt_plugin()) {
+  v <- impl_plugin_pjrt_api_version(plugin)
+  list(major = v[[1]], minor = v[[2]])
+}
+
+#' @title Get Plugin Attributes
+#' @description
+#' Get the attributes of a PJRT plugin.
+#' This commonly includes:
+#' - `xla_version`
+#' - `stablehlo_current_version`
+#' - `stablehlo_minimum_version`
+#'
+#' But the implementation depends on the plugin.
+#'
+#' @param plugin (`PJRTPlugin` | `character(1)`)\cr
+#'   The plugin (or platform name) to get the attributes of.
+#' @return named `list()`
+#' @export
+pjrt_plugin_attributes <- function(plugin) {
+  if (is.character(plugin)) {
+    plugin <- pjrt_plugin(plugin)
+  }
+  check_plugin(plugin)
+  impl_plugin_attributes(plugin)
 }

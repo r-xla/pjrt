@@ -320,8 +320,7 @@ Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(
 }
 
 // [[Rcpp::export()]]
-std::string impl_memory_debug_string(
-    Rcpp::XPtr<rpjrt::PJRTMemory> memory) {
+std::string impl_memory_debug_string(Rcpp::XPtr<rpjrt::PJRTMemory> memory) {
   return memory->debug_string();
 }
 
@@ -360,4 +359,24 @@ Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(
   Rcpp::XPtr<rpjrt::PJRTExecuteOptions> xptr(options.release(), true);
   xptr.attr("class") = "PJRTExecuteOptions";
   return xptr;
+}
+
+// [[Rcpp::export()]]
+Rcpp::IntegerVector impl_plugin_pjrt_api_version(
+    Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+  auto version = plugin->pjrt_api_version();
+  return Rcpp::IntegerVector::create(version.first, version.second);
+}
+
+// [[Rcpp::export()]]
+Rcpp::List impl_plugin_attributes(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+  auto attrs = plugin->attributes();
+  Rcpp::List out;
+  Rcpp::CharacterVector names(attrs.size());
+  for (size_t i = 0; i < attrs.size(); ++i) {
+    names[i] = attrs[i].first;
+    out.push_back(attrs[i].second);
+  }
+  out.attr("names") = names;
+  return out;
 }

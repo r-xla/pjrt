@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml)
-[![Experimental](https://img.shields.io/badge/status-experimental-red.svg)](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
 The {pjrt} package provides an R interface to the [PJRT](https://github.com/openxla/pjrt) (Pretty much Just another RunTime), which allows you to run XLA or stableHLO programs on a variety of hardware backends.

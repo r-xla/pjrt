@@ -2,7 +2,7 @@
 % Please edit documentation in R/buffer.R
 \name{as_array}
 \alias{as_array}
-\title{Convert a PJRT Buffer to an R Array}
+\title{Convert a PJRT Buffer to an R object.}
 \usage{
 as_array(buffer, client = default_client())
 }
@@ -10,16 +10,18 @@ as_array(buffer, client = default_client())
 \item{buffer}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
 A PJRT buffer object.}
 
-\item{client}{(\code{PJRTClient})\cr
-A PJRT client object.}
+\item{client}{(\code{PJRTClient} | \code{character(1)})\cr
+A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
+from which the client will be created.}
 }
 \description{
-Copy a \code{\link[=pjrt_buffer]{PJRTBuffer}} to an R array.
+Copy a \code{\link[=pjrt_buffer]{PJRTBuffer}} to an R object.
+For 0-dimensional PJRT buffers, the R object will be a vector of length 1 and otherwise an array.
 }
 \details{
-Currently, two copies are being done:
+Moving the buffer to the host requires to:
 \enumerate{
 \item Copy the data from the PJRT device to the CPU.
-\item Copy the data from the CPU to the R array.
+\item Transpose the data, because PJRT returns it in row-major order but R uses column-major order.
 }
 }

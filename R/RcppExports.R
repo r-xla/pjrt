@@ -89,3 +89,11 @@ impl_execution_options_create <- function(non_donatable_input_indices, launch_id
     .Call(`_pjrt_impl_execution_options_create`, non_donatable_input_indices, launch_id)
 }
 
+impl_plugin_pjrt_api_version <- function(plugin) {
+    .Call(`_pjrt_impl_plugin_pjrt_api_version`, plugin)
+}
+
+impl_plugin_attributes <- function(plugin) {
+    .Call(`_pjrt_impl_plugin_attributes`, plugin)
+}
+

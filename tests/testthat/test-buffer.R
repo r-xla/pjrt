@@ -238,7 +238,13 @@ test_that("R layout and PJRT layout (3D)", {
     i2_buf <- pjrt_buffer(i2, type = "s32")
     i3_buf <- pjrt_buffer(i3, type = "s32")
 
-    result <- as_array(pjrt_execute(executable, x_buf, i1_buf, i2_buf, i3_buf))
+    result <- as_array(pjrt_execute(
+      executable,
+      x_buf,
+      i1_buf,
+      i2_buf,
+      i3_buf
+    ))
     expect_equal(x[i1 + 1, i2 + 1, i3 + 1], result)
   }
   for (i1 in 0:1) {
@@ -248,4 +254,27 @@ test_that("R layout and PJRT layout (3D)", {
       }
     }
   }
+
+  # slicing also works (internal optimization w.r.t. transposition)
+  path <- system.file(
+    "programs/jax-stablehlo-slice-column-keep.mlir",
+    package = "pjrt"
+  )
+  program <- program_load(path, format = "mlir")
+  executable <- pjrt_compile(program)
+  x <- array(as.double(1:12), dim = c(3, 4))
+  x_buf <- pjrt_buffer(x)
+  i1 <- 1L
+  i1_buf <- pjrt_buffer(i1, type = "s32")
+  result <- as_array(pjrt_execute(executable, x_buf, i1_buf))
+  expect_equal(x[, i1 + 1, drop = FALSE], result)
+
+  path <- system.file(
+    "programs/jax-stablehlo-slice-column-drop.mlir",
+    package = "pjrt"
+  )
+  program <- program_load(path, format = "mlir")
+  executable <- pjrt_compile(program)
+  result <- as_array(pjrt_execute(executable, x_buf, i1_buf))
+  expect_equal(array(x[, i1 + 1], dim = 3L), result)
 })

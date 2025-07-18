@@ -8,8 +8,9 @@
 ^src/Makevars$
 ^LICENSE\.md$
 ^README\.Rmd$
-man-roxygen/
-README.html
+^man-roxygen/
+^README.html$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^codecov.yaml$

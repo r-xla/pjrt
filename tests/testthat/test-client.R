@@ -1,16 +1,14 @@
-test_that("compile program works", {
+test_that("compile program with one input", {
   skip_if_metal()
 
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- program_load(path, format = "hlo")
+  platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
 
-  plugin <- plugin_load()
-  client <- plugin_client_create(plugin)
+  plugin <- pjrt_plugin(platform)
+  client <- plugin_client_create(plugin, platform)
 
-  expect_equal(
-    client_platform_name(client),
-    "cpu"
-  )
+  check_client_device(client)
 
   executable <- pjrt_compile(program)
 
@@ -25,15 +23,16 @@ test_that("compile program works", {
   expect_equal(r_res, 9)
 })
 
-test_that("compile program works", {
+test_that("compile program with multiple inputs", {
   # this won't work on CI currently because it runs on a Mac VM which doesn't support GPU access.
   skip_if_metal()
 
   path <- system.file("programs/stablehlo.mlir", package = "pjrt")
   program <- program_load(path, format = "mlir")
 
-  plugin <- plugin_load()
-  client <- plugin_client_create(plugin)
+  platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
+  plugin <- pjrt_plugin(platform)
+  client <- plugin_client_create(plugin, platform)
   executable <- pjrt_compile(program)
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
@@ -67,16 +66,9 @@ test_that("can execute mlir program", {
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
-  if (is_metal()) {
-    expect_equal(
-      client_platform_name(default_client()),
-      "metal"
-    )
-  } else {
-    expect_equal(
-      client_platform_name(default_client()),
-      "cpu"
-    )
+  client <- default_client()
+  if (!is_metal()) {
+    check_client_device(client)
   }
 
   data <- 3.0
@@ -86,4 +78,23 @@ test_that("can execute mlir program", {
   r_res <- as_array(result)
 
   expect_equal(r_res, 6)
+})
+
+test_that("can use more than one client", {
+  skip_if(!is_metal() || !is_cuda())
+  is_metal() && skip_on_ci()
+
+  device <- if (is_metal()) "metal" else "cuda"
+
+  pjrt_buffer(1, pjrt_client(device))
+
+  expect_permutation(c(device, "cpu"), names(the$clients))
+  expect_permutation(c(device, "cpu"), names(the$plugins))
+
+  # not they are loaded and global env 'the' is not changed
+  pjrt_buffer(1, pjrt_client("cpu"))
+  pjrt_buffer(1, pjrt_client(device))
+
+  expect_permutation(c(device, "cpu"), names(the$clients))
+  expect_permutation(c(device, "cpu"), names(the$plugins))
 })
