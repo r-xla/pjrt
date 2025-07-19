@@ -12,6 +12,7 @@ Description: Provides an R interface to PJRT (Pretty much Just another RunTime),
     backends including CPU, GPU, and TPU.
 License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
+BugReports: https://github.com/r-xla/pjrt/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
