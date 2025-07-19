@@ -14,7 +14,7 @@ pjrt_compile <- function(
   compile_options = new_compile_options(),
   client = default_client()
 ) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   check_program(program)
   check_compile_options(compile_options)
 
@@ -34,6 +34,26 @@ pjrt_client <- function(platform) {
     return(the$clients[[platform]])
   }
   plugin_client_create(pjrt_plugin(platform), platform)
+}
+
+#' @title Convert to PJRT Client
+#' @description
+#' Convert a platform name to a PJRT client or verify that an object is already a client.
+#'
+#' @param x (`PJRTClient` | `character(1)`)\cr
+#'   Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "metal").
+#' @return `PJRTClient`
+#' @export
+as_pjrt_client <- function(x) {
+  if (inherits(x, "PJRTClient")) {
+    return(x)
+  }
+
+  if (is.character(x) && length(x) == 1 && nchar(x) > 0) {
+    return(pjrt_client(x))
+  }
+
+  stop("Must be a PJRTClient or a platform name")
 }
 
 check_client <- function(client) {
