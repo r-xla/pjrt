@@ -7,10 +7,11 @@ Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = "aut",
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197"))
   )
-Description: Provides an R interface to PJRT (Pretty Much Just Another Runtime),
+Description: Provides an R interface to PJRT (Pretty much Just another RunTime),
     which allows you to run XLA or stableHLO programs on a variety of hardware
     backends including CPU, GPU, and TPU.
 License: MIT + file LICENSE
+URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
