@@ -146,6 +146,7 @@ plugin_arch <- function() {
     stop("Unsupported architecture: ", .Platform$r_arch)
   }
 }
+
 pjrt_api_version <- function(plugin = pjrt_plugin()) {
   v <- impl_plugin_pjrt_api_version(plugin)
   list(major = v[[1]], minor = v[[2]])

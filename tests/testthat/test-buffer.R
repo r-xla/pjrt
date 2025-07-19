@@ -162,6 +162,112 @@ test_that("pjrt_buffer preserves 3d dimensions", {
   test_pjrt_buffer(arr_3d)
 })
 
+test_that("raw", {
+  sample_signed <- function(precision, shape) {
+    precision <- as.integer(precision)
+    lower <- as.integer(-2^(precision - 1))
+    upper <- as.integer(2^(precision - 1) - 1)
+    array(
+      sample(seq(lower, upper), prod(shape), replace = TRUE),
+      dim = shape
+    )
+  }
+  sample_unsigned <- function(precision, shape) {
+    array(
+      sample(seq(0, 2^(precision) - 1), prod(shape), replace = TRUE),
+      dim = shape
+    )
+  }
+  # Because powers are floating point operations we sample from a bit below the
+  # available range to ensure that we stay within as we otherwise get overflows
+  test_cases <- list(
+    f32 = list(data = matrix(runif(4), nrow = 2), type = "f32"),
+    f64 = list(data = matrix(runif(6), nrow = 3), type = "f64"),
+
+    s8 = list(data = sample_signed(6, c(3, 2)), type = "s8"),
+    s16 = list(data = sample_signed(14, c(4, 3)), type = "s16"),
+    s32 = list(data = sample_signed(30, c(4, 3, 1)), type = "s32"),
+    s64 = list(data = sample_signed(30, c(2, 3, 7)), type = "s64"),
+
+    u8 = list(data = sample_unsigned(6, c(1, 1)), type = "u8"),
+    u16 = list(data = sample_unsigned(14, c(2, 1)), type = "u16"),
+    u32 = list(data = sample_unsigned(30, c(2, 2, 2)), type = "u32"),
+    u64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), type = "u64"),
+
+    pred = list(
+      data = matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2),
+      type = "pred"
+    )
+  )
+
+  for (test_name in names(test_cases)) {
+    test_case <- test_cases[[test_name]]
+    original_data <- test_case$data
+    type <- test_case$type
+
+    # Full roundtrip: R → PJRT buffer → raw → PJRT buffer → R
+    buf1 <- pjrt_buffer(original_data, type = type)
+    raw_data <- as_raw(buf1)
+    buf2 <- pjrt_buffer(raw_data, type = type, shape = dim(original_data))
+    roundtrip_data <- as_array(buf2)
+
+    # Compare original with roundtrip
+    if (type %in% c("f32", "f64")) {
+      expect_equal(roundtrip_data, original_data, tolerance = 1e-6)
+    } else {
+      expect_equal(roundtrip_data, original_data)
+    }
+  }
+})
+
+test_that("roundtrip tests for raw vectors", {
+  # Test raw vector roundtrip
+  raw_data <- as.raw(c(1, 2, 3, 4, 5, 6, 7, 8))
+
+  # Test as u8 (most natural for raw)
+  buf1 <- pjrt_buffer(raw_data, type = "u8", shape = length(raw_data))
+  roundtrip_raw <- as_raw(buf1)
+  expect_identical(roundtrip_raw, raw_data)
+
+  # Test interpreting raw as other types
+  buf2 <- pjrt_buffer(raw_data, type = "f32", shape = 2) # 2 floats (4 bytes each)
+  roundtrip_raw2 <- as_raw(buf2)
+  expect_identical(roundtrip_raw2, raw_data)
+})
+
+test_that("roundtrip tests for scalars", {
+  test_scalars <- list(
+    f32 = 3.14,
+    f64 = 3.14159265359,
+    s32 = 42L,
+    u8 = 255L,
+    pred = TRUE
+  )
+
+  for (type in names(test_scalars)) {
+    original <- test_scalars[[type]]
+
+    buf1 <- pjrt_scalar(original, type = type)
+    raw_data <- as_raw(buf1)
+    buf2 <- pjrt_scalar(raw_data, type = type)
+    roundtrip <- as_array(buf2)
+
+    if (type %in% c("f32", "f64")) {
+      expect_equal(
+        roundtrip,
+        original,
+        tolerance = 1e-6,
+        info = paste("Scalar roundtrip failed for type:", type)
+      )
+    } else {
+      expect_equal(
+        roundtrip,
+        original,
+        info = paste("Scalar roundtrip failed for type:", type)
+      )
+    }
+  }
+})
 
 test_that("pjrt_element_type returns correct data types", {
   # Test logical buffer

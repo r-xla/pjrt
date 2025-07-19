@@ -86,13 +86,27 @@ pjrt_buffer.double <- function(
 }
 
 #' @export
+pjrt_buffer.raw <- function(
+  data,
+  type = "u8",
+  client = default_client(),
+  shape,
+  ...
+) {
+  if (...length()) {
+    stop("Unused arguments")
+  }
+  client_buffer_from_raw(data, dims = shape, client = client, type = type)
+}
+
+#' @export
 pjrt_scalar.logical <- function(
   data,
   type = "pred",
   client = default_client(),
   ...
 ) {
-  if (!is.atomic(data) || length(data) != 1) {
+  if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
   if (...length()) {
@@ -113,7 +127,7 @@ pjrt_scalar.integer <- function(
   client = default_client(),
   ...
 ) {
-  if (!is.atomic(data) || length(data) != 1) {
+  if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
   if (...length()) {
@@ -134,13 +148,31 @@ pjrt_scalar.double <- function(
   client = default_client(),
   ...
 ) {
-  if (!is.atomic(data) || length(data) != 1) {
+  if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
   if (...length()) {
     stop("Unused arguments")
   }
   client_buffer_from_double(
+    data,
+    dims = integer(),
+    client = client,
+    type = type
+  )
+}
+
+#' @export
+pjrt_scalar.raw <- function(
+  data,
+  type = "u8",
+  client = default_client(),
+  ...
+) {
+  if (...length()) {
+    stop("Unused arguments")
+  }
+  client_buffer_from_raw(
     data,
     dims = integer(),
     client = client,
@@ -254,6 +286,19 @@ client_buffer_from_double <- function(
   )
 }
 
+client_buffer_from_raw <- function(
+  data,
+  dims,
+  type,
+  client
+) {
+  # Raw vectors can be interpreted as any supported data type
+  # Supported types: "f32", "f64", "s8", "s16", "s32", "s64",
+  #                  "u8", "u16", "u32", "u64", "pred"
+  check_client(client)
+  impl_client_buffer_from_raw(client, data, dims, type)
+}
+
 #' Convert a PJRT Buffer to an R object.
 #'
 #' @description
@@ -271,4 +316,20 @@ client_buffer_from_double <- function(
 as_array <- function(buffer, client = default_client()) {
   check_client(client)
   impl_client_buffer_to_host(buffer, client = client)
+}
+
+#' Convert a PJRT Buffer to a raw R vector.
+#'
+#' @description
+#' Copy a [`PJRTBuffer`][pjrt_buffer] to a raw R vector containing the buffer data as bytes.
+#' Any shape information is lost.
+#'
+#' @template param_buffer
+#' @template param_client
+#' @return `raw()`
+#' @export
+as_raw <- function(buffer, client = default_client()) {
+  check_buffer(buffer)
+  check_client(client)
+  impl_client_buffer_to_raw(client, buffer)
 }
