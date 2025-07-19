@@ -32,14 +32,14 @@ is_buffer <- function(x) {
 #' @return `PJRTBuffer`
 #' @export
 pjrt_buffer <- function(data, type, client = default_client(), ...) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   UseMethod("pjrt_buffer")
 }
 
 #' @rdname pjrt_buffer
 #' @export
 pjrt_scalar <- function(data, type, client = default_client(), ...) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   UseMethod("pjrt_scalar")
 }
 
@@ -198,7 +198,7 @@ print.PJRTElementType <- function(x, ...) {
 #' @return A string representing the platform name.
 #' @export
 pjrt_platform_name <- function(client = default_client()) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   impl_client_platform_name(client)
 }
 
@@ -208,7 +208,7 @@ client_buffer_from_integer <- function(
   dims,
   client
 ) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   impl_client_buffer_from_integer(
     client,
     data,
@@ -223,7 +223,7 @@ client_buffer_from_logical <- function(
   type = "pred",
   client
 ) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   impl_client_buffer_from_logical(client, data, dims, type)
 }
 
@@ -233,7 +233,7 @@ client_buffer_from_double <- function(
   dims,
   client
 ) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   impl_client_buffer_from_double(
     client,
     data,
@@ -257,6 +257,6 @@ client_buffer_from_double <- function(
 #' @template param_client
 #' @export
 as_array <- function(buffer, client = default_client()) {
-  check_client(client)
+  client <- as_pjrt_client(client)
   impl_client_buffer_to_host(buffer, client = client)
 }
