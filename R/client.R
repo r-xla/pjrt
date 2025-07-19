@@ -53,7 +53,7 @@ as_pjrt_client <- function(x) {
     return(pjrt_client(x))
   }
 
-  cli::cli_abort("{.arg x} must be a {.cls PJRTClient} or a platform name")
+  stop("Must be a PJRTClient or a platform name")
 }
 
 check_client <- function(client) {
