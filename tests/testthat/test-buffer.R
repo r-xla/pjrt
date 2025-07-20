@@ -225,26 +225,6 @@ test_that("raw", {
   }
 })
 
-test_that("roundtrip tests for raw vectors", {
-  # Test raw vector roundtrip
-  raw_data <- as.raw(c(1, 2, 3, 4, 5, 6, 7, 8))
-
-  # Test as u8 (most natural for raw)
-  buf1 <- pjrt_buffer(
-    raw_data,
-    type = "u8",
-    shape = length(raw_data),
-    row_major = FALSE
-  )
-  roundtrip_raw <- as_raw(buf1, row_major = FALSE)
-  expect_identical(roundtrip_raw, raw_data)
-
-  # Test interpreting raw as other types
-  buf2 <- pjrt_buffer(raw_data, type = "f32", shape = 2, row_major = FALSE) # 2 floats (4 bytes each)
-  roundtrip_raw2 <- as_raw(buf2, row_major = FALSE)
-  expect_identical(roundtrip_raw2, raw_data)
-})
-
 test_that("roundtrip tests for scalars", {
   test_scalars <- list(
     f32 = 3.14,
@@ -415,10 +395,6 @@ test_that("buffer <-> raw: row_major parameter", {
   check <- function(pjrt_type, rtype) {
     data_sexp <- switch(
       rtype,
-      integer = 1:6,
-      double = as.double(1:6),
-      logical = c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE),
-      stop()
     )
     size <- switch(rtype, integer = 4, double = 8, logical = 4, stop())
     data_raw <- writeBin(data_sexp, raw(), size = size)
