@@ -395,6 +395,10 @@ test_that("buffer <-> raw: row_major parameter", {
   check <- function(pjrt_type, rtype) {
     data_sexp <- switch(
       rtype,
+      integer = 1:6L,
+      double = as.double(1:6),
+      logical = c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE),
+      stop()
     )
     size <- switch(rtype, integer = 4, double = 8, logical = 4, stop())
     data_raw <- writeBin(data_sexp, raw(), size = size)
