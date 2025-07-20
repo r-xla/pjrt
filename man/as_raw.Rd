@@ -4,7 +4,7 @@
 \alias{as_raw}
 \title{Convert a PJRT Buffer to a raw R vector.}
 \usage{
-as_raw(buffer, client = default_client())
+as_raw(buffer, client = default_client(), row_major)
 }
 \arguments{
 \item{buffer}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
@@ -13,6 +13,10 @@ A PJRT buffer object.}
 \item{client}{(\code{PJRTClient} | \code{character(1)})\cr
 A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
 from which the client will be created.}
+
+\item{row_major}{(\code{logical(1)})\cr
+Whether to return the data in row-major format (TRUE) or column-major format (FALSE).
+R's uses column-major format.}
 }
 \value{
 \code{raw()}
