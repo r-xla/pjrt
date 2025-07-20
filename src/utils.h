@@ -39,3 +39,13 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
     dst[idx_col] = static_cast<dst_type>(src[idx_row]);
   }
 }
+
+template <typename src_type, typename dst_type>
+void convert_order(const std::vector<src_type> &src, dst_type *dst,
+                   const std::vector<int64_t> &dims, bool row_major) {
+  if (row_major) {
+    std::copy(src.begin(), src.end(), dst);
+  } else {
+    row_to_col_order(src, dst, dims);
+  }
+}

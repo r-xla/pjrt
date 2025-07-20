@@ -91,12 +91,19 @@ pjrt_buffer.raw <- function(
   type = "u8",
   client = default_client(),
   shape,
+  row_major,
   ...
 ) {
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_raw(data, dims = shape, client = client, type = type)
+  client_buffer_from_raw(
+    data,
+    dims = shape,
+    client = client,
+    type = type,
+    row_major = row_major
+  )
 }
 
 #' @export
@@ -176,7 +183,8 @@ pjrt_scalar.raw <- function(
     data,
     dims = integer(),
     client = client,
-    type = type
+    type = type,
+    row_major = FALSE
   )
 }
 
@@ -290,13 +298,14 @@ client_buffer_from_raw <- function(
   data,
   dims,
   type,
-  client
+  client,
+  row_major
 ) {
   # Raw vectors can be interpreted as any supported data type
   # Supported types: "f32", "f64", "s8", "s16", "s32", "s64",
   #                  "u8", "u16", "u32", "u64", "pred"
   check_client(client)
-  impl_client_buffer_from_raw(client, data, dims, type)
+  impl_client_buffer_from_raw(client, data, dims, type, row_major)
 }
 
 #' Convert a PJRT Buffer to an R object.
@@ -326,10 +335,13 @@ as_array <- function(buffer, client = default_client()) {
 #'
 #' @template param_buffer
 #' @template param_client
+#' @param row_major (`logical(1)`)\cr
+#'   Whether to return the data in row-major format (TRUE) or column-major format (FALSE).
+#'   R's uses column-major format.
 #' @return `raw()`
 #' @export
-as_raw <- function(buffer, client = default_client()) {
+as_raw <- function(buffer, client = default_client(), row_major) {
   check_buffer(buffer)
   check_client(client)
-  impl_client_buffer_to_raw(client, buffer)
+  impl_client_buffer_to_raw(client, buffer, row_major)
 }

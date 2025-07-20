@@ -207,8 +207,13 @@ test_that("raw", {
 
     # Full roundtrip: R → PJRT buffer → raw → PJRT buffer → R
     buf1 <- pjrt_buffer(original_data, type = type)
-    raw_data <- as_raw(buf1)
-    buf2 <- pjrt_buffer(raw_data, type = type, shape = dim(original_data))
+    raw_data <- as_raw(buf1, row_major = FALSE)
+    buf2 <- pjrt_buffer(
+      raw_data,
+      type = type,
+      shape = dim(original_data),
+      row_major = FALSE
+    )
     roundtrip_data <- as_array(buf2)
 
     # Compare original with roundtrip
@@ -225,13 +230,18 @@ test_that("roundtrip tests for raw vectors", {
   raw_data <- as.raw(c(1, 2, 3, 4, 5, 6, 7, 8))
 
   # Test as u8 (most natural for raw)
-  buf1 <- pjrt_buffer(raw_data, type = "u8", shape = length(raw_data))
-  roundtrip_raw <- as_raw(buf1)
+  buf1 <- pjrt_buffer(
+    raw_data,
+    type = "u8",
+    shape = length(raw_data),
+    row_major = FALSE
+  )
+  roundtrip_raw <- as_raw(buf1, row_major = FALSE)
   expect_identical(roundtrip_raw, raw_data)
 
   # Test interpreting raw as other types
-  buf2 <- pjrt_buffer(raw_data, type = "f32", shape = 2) # 2 floats (4 bytes each)
-  roundtrip_raw2 <- as_raw(buf2)
+  buf2 <- pjrt_buffer(raw_data, type = "f32", shape = 2, row_major = FALSE) # 2 floats (4 bytes each)
+  roundtrip_raw2 <- as_raw(buf2, row_major = FALSE)
   expect_identical(roundtrip_raw2, raw_data)
 })
 
@@ -248,7 +258,7 @@ test_that("roundtrip tests for scalars", {
     original <- test_scalars[[type]]
 
     buf1 <- pjrt_scalar(original, type = type)
-    raw_data <- as_raw(buf1)
+    raw_data <- as_raw(buf1, row_major = FALSE)
     buf2 <- pjrt_scalar(raw_data, type = type)
     roundtrip <- as_array(buf2)
 
@@ -383,4 +393,76 @@ test_that("R layout and PJRT layout (3D)", {
   executable <- pjrt_compile(program)
   result <- as_array(pjrt_execute(executable, x_buf, i1_buf))
   expect_equal(array(x[, i1 + 1], dim = 3L), result)
+})
+
+test_that("buffer <-> raw: row_major parameter", {
+  types = list(
+    list(pjrt_type = "u8", rtype = "integer"),
+    list(pjrt_type = "u16", rtype = "integer"),
+    list(pjrt_type = "u32", rtype = "integer"),
+    list(pjrt_type = "u64", rtype = "integer"),
+    list(pjrt_type = "s8", rtype = "integer"),
+    list(pjrt_type = "s16", rtype = "integer"),
+    list(pjrt_type = "s32", rtype = "integer"),
+    list(pjrt_type = "s64", rtype = "integer"),
+    list(pjrt_type = "f32", rtype = "double"),
+    list(pjrt_type = "f64", rtype = "double"),
+    list(pjrt_type = "s32", rtype = "integer"),
+    list(pjrt_type = "s64", rtype = "integer"),
+    list(pjrt_type = "pred", rtype = "logical")
+  )
+
+  check <- function(pjrt_type, rtype) {
+    data_sexp <- switch(
+      rtype,
+      integer = 1:6,
+      double = as.double(1:6),
+      logical = c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE),
+      stop()
+    )
+    size <- switch(rtype, integer = 4, double = 8, logical = 4, stop())
+    data_raw <- writeBin(data_sexp, raw(), size = size)
+
+    ## pjrt_buffer()
+
+    # for ints we have:
+    # buf1: [1, 2, 3, 4, 5, 6] that represents [[1, 2], [3, 4], [5, 6]]
+    buf1 <- pjrt_buffer(
+      data_raw,
+      type = "u8",
+      row_major = TRUE,
+      shape = c(3, 2)
+    )
+    # buf2: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
+    buf2 <- pjrt_buffer(
+      data_raw,
+      type = "u8",
+      row_major = FALSE,
+      shape = c(2, 3)
+    )
+
+    # we send both back as they are, i.e. using the correct metadata
+    raw1 <- array(as_raw(buf1, row_major = FALSE), dim = c(3, 2))
+    raw2 <- array(as_raw(buf2, row_major = FALSE), dim = c(2, 3))
+    expect_equal(raw1, t(raw2))
+
+    ## as_raw()
+
+    # buf: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
+    buf <- pjrt_buffer(
+      data_raw,
+      type = "u8",
+      row_major = FALSE,
+      shape = c(2, 3)
+    )
+    # this will return it as-is
+    raw1 <- array(as_raw(buf, row_major = FALSE), dim = c(2, 3))
+    # this will transpose it
+    raw2 <- array(as_raw(buf, row_major = TRUE), dim = c(3, 2))
+    expect_equal(raw1, t(raw2))
+  }
+
+  for (type in types) {
+    check(type$pjrt_type, type$rtype)
+  }
 })
