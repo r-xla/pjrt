@@ -55,7 +55,10 @@ test_that("can donate input", {
   skip_if_metal()
 
   program <- pjrt_program(
-    path = system.file("programs/jax-stablehlo-update-param.mlir", package = "pjrt"),
+    path = system.file(
+      "programs/jax-stablehlo-update-param.mlir",
+      package = "pjrt"
+    ),
     format = "mlir"
   )
   executable <- pjrt_compile(program)
