@@ -4,7 +4,7 @@
 \alias{pjrt_client}
 \title{Create a Client}
 \usage{
-pjrt_client(platform)
+pjrt_client(platform = NULL)
 }
 \arguments{
 \item{platform}{(\code{character(1)})\cr

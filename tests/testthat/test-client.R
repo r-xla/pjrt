@@ -66,7 +66,7 @@ test_that("can execute mlir program", {
 
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
-  client <- default_client()
+  client <- pjrt_client()
   if (!is_metal()) {
     check_client_device(client)
   }
