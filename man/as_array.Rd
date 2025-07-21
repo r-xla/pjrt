@@ -4,7 +4,7 @@
 \alias{as_array}
 \title{Convert a PJRT Buffer to an R object.}
 \usage{
-as_array(buffer, client = default_client())
+as_array(buffer, client = pjrt_client())
 }
 \arguments{
 \item{buffer}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr

@@ -4,7 +4,7 @@
 \alias{pjrt_platform_name}
 \title{Get the platform name of a PJRT client}
 \usage{
-pjrt_platform_name(client = default_client())
+pjrt_platform_name(client = pjrt_client())
 }
 \arguments{
 \item{client}{A PJRT client object.}

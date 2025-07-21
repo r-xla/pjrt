@@ -7,7 +7,7 @@
 pjrt_compile(
   program,
   compile_options = new_compile_options(),
-  client = default_client()
+  client = pjrt_client()
 )
 }
 \arguments{

@@ -5,9 +5,9 @@
 \alias{pjrt_scalar}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, type, client = default_client(), ...)
+pjrt_buffer(data, type, client = pjrt_client(), ...)
 
-pjrt_scalar(data, type, client = default_client(), ...)
+pjrt_scalar(data, type, client = pjrt_client(), ...)
 }
 \arguments{
 \item{data}{(any)\cr

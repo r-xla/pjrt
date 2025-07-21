@@ -12,7 +12,7 @@
 pjrt_compile <- function(
   program,
   compile_options = new_compile_options(),
-  client = default_client()
+  client = pjrt_client()
 ) {
   client <- as_pjrt_client(client)
   check_program(program)
@@ -29,7 +29,11 @@ pjrt_compile <- function(
 #'   Platform name (e.g., "cpu", "cuda", "metal").
 #' @return `PJRTClient`
 #' @export
-pjrt_client <- function(platform) {
+pjrt_client <- function(platform = NULL) {
+  if (is.null(platform)) {
+    platform <- default_platform()
+  }
+
   if (platform %in% names(the$clients)) {
     return(the$clients[[platform]])
   }
