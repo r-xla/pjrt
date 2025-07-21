@@ -13,7 +13,7 @@ test_that("execution with options works", {
   skip_if_metal()
 
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
-  program <- program_load(path, format = "hlo")
+  program <- pjrt_program(path = path, format = "hlo")
   executable <- pjrt_compile(program)
 
   data <- 3.0
@@ -54,7 +54,7 @@ test_that("execution with options works", {
 test_that("can donate input", {
   skip_if_metal()
 
-  program <- program_load(
+  program <- pjrt_program(
     system.file("programs/jax-stablehlo-update-param.mlir", package = "pjrt"),
     format = "mlir"
   )

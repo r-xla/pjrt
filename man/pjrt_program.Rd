@@ -4,19 +4,21 @@
 \alias{pjrt_program}
 \title{Create a \code{PJRTProgram}}
 \usage{
-pjrt_program(code, format = c("mlir", "hlo"))
+pjrt_program(src = NULL, path = NULL, format = c("mlir", "hlo"))
 }
 \arguments{
-\item{code}{(\code{character(1)})\cr
+\item{src}{(\code{character(1)})
 Source code.}
 
-\item{format}{(\code{character(1)})\cr
-The format of the program.
+\item{path}{(\code{character(1)})
+Path to the program file.}
+
+\item{format}{(\code{character(1)})
 One of "mlir" or "hlo".}
 }
 \value{
 \code{PJRTProgram}
 }
 \description{
-Create a program from a string.
+Create a program from a string or file path.
 }
