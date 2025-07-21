@@ -1,28 +1,33 @@
-program_load <- function(path, format = c("mlir", "hlo")) {
-  path <- normalizePath(path, mustWork = TRUE)
-  format <- rlang::arg_match(format)
-  impl_program_load(path, format)
-}
-
 #' @title Create a `PJRTProgram`
 #' @description
-#' Create a program from a string.
-#' @param code (`character(1)`)\cr
+#' Create a program from a string or file path.
+#' @param src (`character(1)`)
 #'   Source code.
-#' @param format (`character(1)`)\cr
-#'   The format of the program.
+#' @param path (`character(1)`)
+#'   Path to the program file.
+#' @param format (`character(1)`)
 #'   One of "mlir" or "hlo".
 #' @return `PJRTProgram`
 #' @export
-pjrt_program <- function(code, format = c("mlir", "hlo")) {
-  if (!is.character(code) || length(code) != 1) {
-    stop("code must be a character(1)")
+pjrt_program <- function(src = NULL, path = NULL, format = c("mlir", "hlo")) {
+  if (!xor(is.null(src), is.null(path))) {
+    stop("Either src or path must be provided")
+  }
+  checkmate::assert(
+    checkmate::check_string(src, null.ok = TRUE),
+    checkmate::check_string(path, null.ok = TRUE),
+    combine = "or"
+  )
+  temp_file <- NULL
+  if (!is.null(src)) {
+    temp_file <- tempfile()
+    writeLines(src, temp_file)
+    path <- temp_file
+    on.exit(unlink(temp_file))
   }
   format <- rlang::arg_match(format)
-  on.exit(unlink(file))
-  file <- tempfile()
-  writeLines(code, file)
-  program_load(file, format)
+  path <- normalizePath(path, mustWork = TRUE)
+  impl_program_load(path, format)
 }
 
 #' @export

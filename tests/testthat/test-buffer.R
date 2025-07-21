@@ -304,7 +304,7 @@ test_that("pjrt_element_type returns correct data types", {
 test_that("R layout and PJRT layout (2D)", {
   skip_if_metal()
   path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
-  program <- program_load(path, format = "mlir")
+  program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   x <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
   x_buf <- pjrt_buffer(x)
@@ -324,7 +324,7 @@ test_that("R layout and PJRT layout (2D)", {
 test_that("R layout and PJRT layout (3D)", {
   skip_if_metal()
   path <- system.file("programs/jax-stablehlo-subset-3d.mlir", package = "pjrt")
-  program <- program_load(path, format = "mlir")
+  program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   x <- array(as.double(1:24), dim = c(2, 3, 4))
   x_buf <- pjrt_buffer(x)
@@ -356,7 +356,7 @@ test_that("R layout and PJRT layout (3D)", {
     "programs/jax-stablehlo-slice-column-keep.mlir",
     package = "pjrt"
   )
-  program <- program_load(path, format = "mlir")
+  program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   x <- array(as.double(1:12), dim = c(3, 4))
   x_buf <- pjrt_buffer(x)
@@ -369,7 +369,7 @@ test_that("R layout and PJRT layout (3D)", {
     "programs/jax-stablehlo-slice-column-drop.mlir",
     package = "pjrt"
   )
-  program <- program_load(path, format = "mlir")
+  program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   result <- as_array(pjrt_execute(executable, x_buf, i1_buf))
   expect_equal(array(x[, i1 + 1], dim = 3L), result)
