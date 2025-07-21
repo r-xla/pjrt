@@ -16,7 +16,7 @@ from which the client will be created.}
 
 \item{row_major}{(\code{logical(1)})\cr
 Whether to return the data in row-major format (TRUE) or column-major format (FALSE).
-R's uses column-major format.}
+R uses column-major format.}
 }
 \value{
 \code{raw()}
