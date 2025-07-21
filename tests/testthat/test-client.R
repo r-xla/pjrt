@@ -2,7 +2,7 @@ test_that("compile program with one input", {
   skip_if_metal()
 
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
-  program <- program_load(path, format = "hlo")
+  program <- pjrt_program(path = path, format = "hlo")
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
 
   plugin <- pjrt_plugin(platform)
@@ -17,7 +17,7 @@ test_that("compile program with one input", {
   data <- 3.0
   scalar_buffer <- pjrt_scalar(data)
 
-  result <- loaded_executable_execute(executable, scalar_buffer)
+  result <- pjrt_execute(executable, scalar_buffer)
   r_res <- as_array(result)
 
   expect_equal(r_res, 9)
@@ -28,7 +28,7 @@ test_that("compile program with multiple inputs", {
   skip_if_metal()
 
   path <- system.file("programs/stablehlo.mlir", package = "pjrt")
-  program <- program_load(path, format = "mlir")
+  program <- pjrt_program(path = path, format = "mlir")
 
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
   plugin <- pjrt_plugin(platform)
@@ -45,13 +45,11 @@ test_that("compile program with multiple inputs", {
   weights_buffer <- pjrt_buffer(weights)
   bias_buffer <- pjrt_buffer(bias)
 
-  result <- loaded_executable_execute(
+  result <- pjrt_execute(
     executable,
-    list(
-      image_buffer,
-      weights_buffer,
-      bias_buffer
-    )
+    image_buffer,
+    weights_buffer,
+    bias_buffer
   )
   r_res <- as_array(result)
 
@@ -60,7 +58,7 @@ test_that("compile program with multiple inputs", {
 
 test_that("can execute mlir program", {
   path <- system.file("programs/jax-stablehlo.mlir", package = "pjrt")
-  program <- program_load(path, format = "mlir")
+  program <- pjrt_program(path = path, format = "mlir")
 
   executable <- pjrt_compile(program)
 
@@ -74,7 +72,7 @@ test_that("can execute mlir program", {
   data <- 3.0
   scalar_buffer <- pjrt_scalar(data)
 
-  result <- loaded_executable_execute(executable, scalar_buffer)
+  result <- pjrt_execute(executable, scalar_buffer)
   r_res <- as_array(result)
 
   expect_equal(r_res, 6)

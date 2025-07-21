@@ -1,23 +1,3 @@
-loaded_executable_execute <- function(
-  executable,
-  input,
-  execution_options = NULL
-) {
-  check_loaded_executable(executable)
-  if (is_buffer(input)) {
-    input <- list(input)
-  }
-  lapply(input, check_buffer)
-
-  if (is.null(execution_options)) {
-    execution_options <- pjrt_execution_options()
-  } else {
-    check_execution_options(execution_options)
-  }
-
-  impl_loaded_executable_execute(executable, input, execution_options)
-}
-
 #' @title Execute a PJRT program
 #' @description Execute a PJRT program with the given inputs and execution options.
 #' @param executable (`PJRTLoadedExecutable`)\cr
@@ -29,7 +9,20 @@ loaded_executable_execute <- function(
 #' @return `PJRTBuffer` | list of `PJRTBuffers`
 #' @export
 pjrt_execute <- function(executable, ..., execution_options = NULL) {
-  loaded_executable_execute(executable, list(...), execution_options)
+  if (!is.null(...names())) {
+    stop("Expected unnamed arguments")
+  }
+  check_loaded_executable(executable)
+  input <- list(...)
+  lapply(input, check_buffer)
+
+  if (is.null(execution_options)) {
+    execution_options <- pjrt_execution_options()
+  } else {
+    check_execution_options(execution_options)
+  }
+
+  impl_loaded_executable_execute(executable, input, execution_options)
 }
 
 check_loaded_executable <- function(x) {
