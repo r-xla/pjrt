@@ -65,11 +65,11 @@
 </h1></div>
 <!-- badges: start -->
 
-<p>The {pjrt} package provides an R interface to the <a href="https://github.com/openxla/pjrt" class="external-link">PJRT</a> (Pretty much Just another RunTime), which allows you to run XLA or stableHLO programs on a variety of hardware backends. For a low-level interface to write stableHLO programs, you can use the <a href="https://github.com/r-xla/stablehlo" class="external-link">stablehlo</a> package.</p>
+<p>The {pjrt} package provides an R interface to <a href="https://github.com/openxla/pjrt" class="external-link">PJRT</a> (“Pretty much Just another RunTime”), which allows you to run XLA or StableHLO programs on a variety of hardware backends. For a low-level interface to write StableHLO programs, you can use the <a href="https://github.com/r-xla/stablehlo" class="external-link">stablehlo</a> package.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>You can install the development version of pjrt from <a href="https://github.com/" class="external-link">GitHub</a> with:</p>
+<p>You can install the development version of {pjrt} from <a href="https://github.com/r-xla/pjrt" class="external-link">GitHub</a> with:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("pak")</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"r-xla/pjrt"</span><span class="op">)</span></span></code></pre></div>
@@ -77,7 +77,7 @@
 <div class="section level2">
 <h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
 </h2>
-<p>Below, we create a simple program in the stableHLO MLIR dialect that adds two tensors of shape <code>(2, 2)</code> and returns the result.</p>
+<p>Below, we create a simple program in the StableHLO MLIR dialect that adds two single-precision floating point tensors of shape <code>(2, 2)</code> and returns the result.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-xla.github.io/pjrt/" class="external-link">pjrt</a></span><span class="op">)</span></span>
 <span><span class="va">src</span> <span class="op">&lt;-</span> <span class="st">r"(</span></span>
@@ -89,7 +89,7 @@
 <span><span class="st">  "func.return"(%0): (tensor&lt;2x2xf32&gt;) -&gt; ()</span></span>
 <span><span class="st">}</span></span>
 <span><span class="st">)"</span></span></code></pre></div>
-<p>The {pjrt} package now allows to create a PJRT program from this string.</p>
+<p>The {pjrt} package allows you to create a PJRT program from this string:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">program</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_program.html">pjrt_program</a></span><span class="op">(</span><span class="va">src</span>, format <span class="op">=</span> <span class="st">"mlir"</span><span class="op">)</span></span>
 <span><span class="va">program</span></span>
@@ -100,20 +100,20 @@
 <span><span class="co">#&gt;   %y: tensor&lt;2x2xf32&gt;</span></span>
 <span><span class="co">#&gt; ) -&gt; tensor&lt;2x2xf32&gt; {</span></span>
 <span><span class="co">#&gt; ...</span></span></code></pre></div>
-<p>This program can now be compiled using a client that wraps a plugin, which is a dynamic library that implements the PJRT API. The plugin is the part that is hardware-specific, i.e. different hardware backends provide their own plugin. Without specifying it explicitly, we use the default client, which uses the CPU plugin.</p>
+<p>This program can now be compiled using a client that wraps a plugin, which is a dynamic library implementing the PJRT API. The plugin is hardware-specific; different hardware backends provide their own plugins. If not specified explicitly, the default client (CPU plugin if not configured otherwise) is used.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">program_compiled</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_compile.html">pjrt_compile</a></span><span class="op">(</span><span class="va">program</span><span class="op">)</span></span></code></pre></div>
-<p>To run this program, we need to create a so PJRT Buffer, which represents the data, which are mostly tensors.</p>
-<p>To create such a tensor, we can use the <code><a href="reference/pjrt_buffer.html">pjrt_buffer()</a></code> function. Because the program above expects <code>2x2</code> tensors with element type <code>f32</code>, we need to create buffers with this type.</p>
+<p>To run this program, we need to create PJRT buffers, which represent the data (typically tensors).</p>
+<p>To create such a tensor, use the <code><a href="reference/pjrt_buffer.html">pjrt_buffer()</a></code> function. Because the program above expects <code>2x2</code> tensors with element type <code>f32</code>, we need to create buffers with this type.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">5</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">x_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">x</span>, type <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
 <span><span class="va">y_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">y</span>, type <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span></code></pre></div>
-<p>Having created these buffers, we can now run the program.</p>
+<p>Having created these buffers, we can now run the program:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">program_compiled</span>, <span class="va">x_buffer</span>, <span class="va">y_buffer</span><span class="op">)</span></span></code></pre></div>
-<p>We can convert this result back to R:</p>
+<p>We can convert this result back to an R array:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/as_array.html">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      [,1] [,2]</span></span>
@@ -192,8 +192,9 @@
 <div class="dev-status">
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
-<li><a href="https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
 <li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
+<li><a href="https://CRAN.R-project.org/package=pjrt" class="external-link"><img src="https://www.r-pkg.org/badges/version/pjrt" alt="CRAN status"></a></li>
+<li><a href="https://codecov.io/gh/r-xla/pjrt" class="external-link"><img src="https://codecov.io/gh/r-xla/pjrt/branch/main/graph/badge.svg" alt="codecov"></a></li>
 </ul>
 </div>
 
