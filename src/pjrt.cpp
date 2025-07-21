@@ -346,7 +346,6 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
 
-  // Calculate total number of elements
   const auto numel = std::accumulate(dimensions.begin(), dimensions.end(), 1,
                                      std::multiplies<int64_t>());
 
@@ -390,10 +389,8 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
       Rcpp::stop("Unsupported buffer element type for conversion to raw.");
   }
 
-  // Calculate total size in bytes
   const size_t total_bytes = numel * element_size;
 
-  // Create raw vector
   Rcpp::RawVector raw_data(total_bytes);
 
   // Handle each type appropriately with proper transposition
