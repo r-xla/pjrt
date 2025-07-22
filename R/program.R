@@ -20,6 +20,11 @@ pjrt_program <- function(src = NULL, path = NULL, format = c("mlir", "hlo")) {
   )
   temp_file <- NULL
   if (!is.null(src)) {
+    if (checkmate::test_file_exists(src)) {
+      stop(
+        "You passed a file path to src, which expects a string containing the source code."
+      )
+    }
     temp_file <- tempfile()
     writeLines(src, temp_file)
     path <- temp_file
