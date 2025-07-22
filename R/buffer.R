@@ -172,9 +172,9 @@ pjrt_scalar.double <- function(
 #' @export
 pjrt_scalar.raw <- function(
   data,
+  ...,
   type,
-  client = pjrt_client(),
-  ...
+  client = pjrt_client()
 ) {
   if (...length()) {
     stop("Unused arguments")
