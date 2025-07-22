@@ -11,7 +11,8 @@ pjrt_execute(executable, ..., execution_options = NULL)
 A PJRT program.}
 
 \item{...}{(\verb{PJRTBuffer)}\cr
-Inputs to the program.}
+Inputs to the program.
+Named are ignored and arguments are passed in order.}
 
 \item{execution_options}{(\code{PJRTExecuteOptions})\cr
 Optional execution options for configuring buffer donation and other settings.}
@@ -21,4 +22,7 @@ Optional execution options for configuring buffer donation and other settings.}
 }
 \description{
 Execute a PJRT program with the given inputs and execution options.
+
+\strong{Important:}
+Arguments are passed by position and names are ignored.
 }

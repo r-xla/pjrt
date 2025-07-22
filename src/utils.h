@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <vector>
 
 #include "pjrt.h"
@@ -39,3 +40,10 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
     dst[idx_col] = static_cast<dst_type>(src[idx_row]);
   }
 }
+
+size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type);
+
+bool format_is_irrelevant(const std::vector<int64_t> &dims);
+
+std::optional<std::vector<int64_t>> get_byte_strides(
+    const std::vector<int64_t> &dims, bool row_major, size_t sizeof_type);

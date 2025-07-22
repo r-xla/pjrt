@@ -54,7 +54,12 @@ pjrt_buffer.logical <- function(
     stop("Unused arguments")
   }
   dims = get_dims(data)
-  client_buffer_from_logical(data, dims = dims, client = client, type = type)
+  impl_client_buffer_from_logical(
+    client = client,
+    data = data,
+    dims = dims,
+    type = type
+  )
 }
 
 #' @export
@@ -68,7 +73,12 @@ pjrt_buffer.integer <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_integer(data, dims = dims, client = client, type = type)
+  impl_client_buffer_from_integer(
+    client = client,
+    data = data,
+    dims = dims,
+    type = type
+  )
 }
 
 #' @export
@@ -82,7 +92,33 @@ pjrt_buffer.double <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_double(data, dims = dims, client = client, type = type)
+  impl_client_buffer_from_double(
+    client = client,
+    data = data,
+    dims = dims,
+    type = type
+  )
+}
+
+#' @export
+pjrt_buffer.raw <- function(
+  data,
+  ...,
+  type,
+  client = pjrt_client(),
+  shape,
+  row_major
+) {
+  if (...length()) {
+    stop("Unused arguments")
+  }
+  impl_client_buffer_from_raw(
+    data = data,
+    dims = shape,
+    client = client,
+    type = type,
+    row_major = row_major
+  )
 }
 
 #' @export
@@ -92,13 +128,13 @@ pjrt_scalar.logical <- function(
   client = pjrt_client(),
   ...
 ) {
-  if (!is.atomic(data) || length(data) != 1) {
+  if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_logical(
+  impl_client_buffer_from_logical(
     data,
     dims = integer(),
     client = client,
@@ -113,13 +149,13 @@ pjrt_scalar.integer <- function(
   client = pjrt_client(),
   ...
 ) {
-  if (!is.atomic(data) || length(data) != 1) {
+  if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_integer(
+  impl_client_buffer_from_integer(
     data,
     dims = integer(),
     client = client,
@@ -134,17 +170,36 @@ pjrt_scalar.double <- function(
   client = pjrt_client(),
   ...
 ) {
-  if (!is.atomic(data) || length(data) != 1) {
+  if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_double(
+  impl_client_buffer_from_double(
     data,
     dims = integer(),
     client = client,
     type = type
+  )
+}
+
+#' @export
+pjrt_scalar.raw <- function(
+  data,
+  ...,
+  type,
+  client = pjrt_client()
+) {
+  if (...length()) {
+    stop("Unused arguments")
+  }
+  impl_client_buffer_from_raw(
+    data,
+    dims = integer(),
+    client = client,
+    type = type,
+    row_major = FALSE
   )
 }
 
@@ -214,46 +269,6 @@ pjrt_platform_name <- function(client = pjrt_client()) {
   impl_client_platform_name(client)
 }
 
-client_buffer_from_integer <- function(
-  data,
-  type = "f32",
-  dims,
-  client
-) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_from_integer(
-    client,
-    data,
-    dims,
-    type
-  )
-}
-
-client_buffer_from_logical <- function(
-  data,
-  dims,
-  type = "pred",
-  client
-) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_from_logical(client, data, dims, type)
-}
-
-client_buffer_from_double <- function(
-  data,
-  type = "f32",
-  dims,
-  client
-) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_from_double(
-    client,
-    data,
-    dims,
-    type
-  )
-}
-
 #' Convert a PJRT Buffer to an R object.
 #'
 #' @description
@@ -270,5 +285,24 @@ client_buffer_from_double <- function(
 #' @export
 as_array <- function(buffer, client = pjrt_client()) {
   client <- as_pjrt_client(client)
-  impl_client_buffer_to_host(buffer, client = client)
+  impl_client_buffer_to_array(client, buffer)
+}
+
+#' Convert a PJRT Buffer to a raw R vector.
+#'
+#' @description
+#' Copy a [`PJRTBuffer`][pjrt_buffer] to a raw R vector containing the buffer data as bytes.
+#' Any shape information is lost.
+#'
+#' @template param_buffer
+#' @template param_client
+#' @param row_major (`logical(1)`)\cr
+#'   Whether to return the data in row-major format (TRUE) or column-major format (FALSE).
+#'   R uses column-major format.
+#' @return `raw()`
+#' @export
+as_raw <- function(buffer, client = pjrt_client(), row_major) {
+  check_buffer(buffer)
+  check_client(client)
+  impl_client_buffer_to_raw(client, buffer, row_major = row_major)
 }

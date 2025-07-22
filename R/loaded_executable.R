@@ -1,9 +1,15 @@
 #' @title Execute a PJRT program
-#' @description Execute a PJRT program with the given inputs and execution options.
+#' @description
+#' Execute a PJRT program with the given inputs and execution options.
+#'
+#' **Important:**
+#' Arguments are passed by position and names are ignored.
+#'
 #' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program.
 #' @param ... (`PJRTBuffer)`\cr
 #'   Inputs to the program.
+#'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
 #'   Optional execution options for configuring buffer donation and other settings.
 #' @return `PJRTBuffer` | list of `PJRTBuffers`
