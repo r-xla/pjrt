@@ -41,16 +41,6 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
   }
 }
 
-template <typename src_type, typename dst_type>
-void convert_order(const std::vector<src_type> &src, dst_type *dst,
-                   const std::vector<int64_t> &dims, bool row_major) {
-  if (row_major) {
-    std::copy(src.begin(), src.end(), dst);
-  } else {
-    row_to_col_order(src, dst, dims);
-  }
-}
-
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type);
 
 bool format_is_irrelevant(const std::vector<int64_t> &dims);
