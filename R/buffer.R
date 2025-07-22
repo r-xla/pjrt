@@ -54,7 +54,12 @@ pjrt_buffer.logical <- function(
     stop("Unused arguments")
   }
   dims = get_dims(data)
-  client_buffer_from_logical(data, dims = dims, client = client, type = type)
+  impl_client_buffer_from_logical(
+    client = client,
+    data = data,
+    dims = dims,
+    type = type
+  )
 }
 
 #' @export
@@ -68,7 +73,12 @@ pjrt_buffer.integer <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_integer(data, dims = dims, client = client, type = type)
+  impl_client_buffer_from_integer(
+    client = client,
+    data = data,
+    dims = dims,
+    type = type
+  )
 }
 
 #' @export
@@ -82,7 +92,12 @@ pjrt_buffer.double <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_double(data, dims = dims, client = client, type = type)
+  impl_client_buffer_from_double(
+    client = client,
+    data = data,
+    dims = dims,
+    type = type
+  )
 }
 
 #' @export
@@ -97,8 +112,8 @@ pjrt_buffer.raw <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_raw(
-    data,
+  impl_client_buffer_from_raw(
+    data = data,
     dims = shape,
     client = client,
     type = type,
@@ -119,7 +134,7 @@ pjrt_scalar.logical <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_logical(
+  impl_client_buffer_from_logical(
     data,
     dims = integer(),
     client = client,
@@ -140,7 +155,7 @@ pjrt_scalar.integer <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_integer(
+  impl_client_buffer_from_integer(
     data,
     dims = integer(),
     client = client,
@@ -161,7 +176,7 @@ pjrt_scalar.double <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_double(
+  impl_client_buffer_from_double(
     data,
     dims = integer(),
     client = client,
@@ -179,7 +194,7 @@ pjrt_scalar.raw <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  client_buffer_from_raw(
+  impl_client_buffer_from_raw(
     data,
     dims = integer(),
     client = client,
@@ -252,57 +267,6 @@ print.PJRTElementType <- function(x, ...) {
 pjrt_platform_name <- function(client = pjrt_client()) {
   client <- as_pjrt_client(client)
   impl_client_platform_name(client)
-}
-
-client_buffer_from_integer <- function(
-  data,
-  type = "f32",
-  dims,
-  client
-) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_from_integer(
-    client,
-    data,
-    dims,
-    type
-  )
-}
-
-client_buffer_from_logical <- function(
-  data,
-  dims,
-  type = "pred",
-  client
-) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_from_logical(client, data, dims, type)
-}
-
-client_buffer_from_double <- function(
-  data,
-  type = "f32",
-  dims,
-  client
-) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_from_double(
-    client,
-    data,
-    dims,
-    type
-  )
-}
-
-client_buffer_from_raw <- function(
-  data,
-  dims,
-  type,
-  client,
-  row_major
-) {
-  check_client(client)
-  impl_client_buffer_from_raw(client, data, dims, type, row_major)
 }
 
 #' Convert a PJRT Buffer to an R object.
