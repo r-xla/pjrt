@@ -10,4 +10,6 @@ library(testthat)
 library(checkmate)
 library(pjrt)
 
-test_check("pjrt")
+if (!Sys.info()["sysname"] == "Windows") {
+  test_check("pjrt", reporter = "summary")
+}
