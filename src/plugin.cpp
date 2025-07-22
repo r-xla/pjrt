@@ -80,8 +80,8 @@ std::pair<int, int> PJRTPlugin::pjrt_api_version() const {
 PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
 #ifdef _WIN32
   throw std::runtime_error(
-      "Dynamic loading of PJRT plugins is not supported on Windows in this "
-      "build.");
+      "Dynamic loading of PJRT plugins is currently not supported on Windows, "
+      "use WSL2 instead.");
 #else
   int flags = RTLD_NOW | RTLD_LOCAL;
 #ifdef RTLD_NODELETE

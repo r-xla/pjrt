@@ -11,3 +11,10 @@ test_that("can load MLIR program", {
 
   expect_snapshot(print(program))
 })
+
+test_that("error message", {
+  on.exit(unlink(path))
+  path <- tempfile(fileext = ".mlir")
+  writeLines("foo", path)
+  expect_error(pjrt_program(path), "You passed a file path to src")
+})
