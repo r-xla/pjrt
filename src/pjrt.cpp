@@ -96,7 +96,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
 
   // This stores the result of the type-cast
   // We could skip this for some special cases (s32 to INTSXP) but don't do it
-  // for now for simplicity (most of the time it's f32 -> f64 anyway)
+  // for now for simplicity (most of the time it's f64 -> f32 anyway)
   std::vector<T> temp_vec(len);
 
   if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
