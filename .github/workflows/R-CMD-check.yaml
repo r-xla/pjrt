@@ -24,6 +24,7 @@ jobs:
           - { os: "macos", r: "release", platform: "metal" }
           - { os: "ubuntu", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cuda"}
+          - { os: "windows", r: "release", platform: "cpu"}
 
         include:
           - config: {os: "ubuntu", platform: "cuda"}
