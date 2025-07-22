@@ -151,15 +151,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_client_buffer_to_host
-SEXP impl_client_buffer_to_host(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
-RcppExport SEXP _pjrt_impl_client_buffer_to_host(SEXP clientSEXP, SEXP bufferSEXP) {
+// impl_client_buffer_to_array
+SEXP impl_client_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_client_buffer_to_array(SEXP clientSEXP, SEXP bufferSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_to_host(client, buffer));
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_to_array(client, buffer));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -335,7 +335,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 4},
     {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 4},
     {"_pjrt_impl_client_buffer_from_raw", (DL_FUNC) &_pjrt_impl_client_buffer_from_raw, 5},
-    {"_pjrt_impl_client_buffer_to_host", (DL_FUNC) &_pjrt_impl_client_buffer_to_host, 2},
+    {"_pjrt_impl_client_buffer_to_array", (DL_FUNC) &_pjrt_impl_client_buffer_to_array, 2},
     {"_pjrt_impl_client_buffer_to_raw", (DL_FUNC) &_pjrt_impl_client_buffer_to_raw, 3},
     {"_pjrt_impl_client_platform_name", (DL_FUNC) &_pjrt_impl_client_platform_name, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},

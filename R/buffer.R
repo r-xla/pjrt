@@ -88,11 +88,11 @@ pjrt_buffer.double <- function(
 #' @export
 pjrt_buffer.raw <- function(
   data,
+  ...,
   type,
-  client = default_client(),
+  client = pjrt_client(),
   shape,
-  row_major,
-  ...
+  row_major
 ) {
   if (...length()) {
     stop("Unused arguments")
@@ -173,7 +173,7 @@ pjrt_scalar.double <- function(
 pjrt_scalar.raw <- function(
   data,
   type,
-  client = default_client(),
+  client = pjrt_client(),
   ...
 ) {
   if (...length()) {
@@ -321,7 +321,7 @@ client_buffer_from_raw <- function(
 #' @export
 as_array <- function(buffer, client = pjrt_client()) {
   client <- as_pjrt_client(client)
-  impl_client_buffer_to_host(buffer, client = client)
+  impl_client_buffer_to_array(client, buffer)
 }
 
 #' Convert a PJRT Buffer to a raw R vector.
@@ -337,8 +337,8 @@ as_array <- function(buffer, client = pjrt_client()) {
 #'   R uses column-major format.
 #' @return `raw()`
 #' @export
-as_raw <- function(buffer, client = default_client(), row_major) {
+as_raw <- function(buffer, client = pjrt_client(), row_major) {
   check_buffer(buffer)
   check_client(client)
-  impl_client_buffer_to_raw(client, buffer, row_major)
+  impl_client_buffer_to_raw(client, buffer, row_major = row_major)
 }

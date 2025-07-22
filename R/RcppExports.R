@@ -45,8 +45,8 @@ impl_client_buffer_from_raw <- function(client, data, dims, type, row_major = FA
     .Call(`_pjrt_impl_client_buffer_from_raw`, client, data, dims, type, row_major)
 }
 
-impl_client_buffer_to_host <- function(client, buffer) {
-    .Call(`_pjrt_impl_client_buffer_to_host`, client, buffer)
+impl_client_buffer_to_array <- function(client, buffer) {
+    .Call(`_pjrt_impl_client_buffer_to_array`, client, buffer)
 }
 
 impl_client_buffer_to_raw <- function(client, buffer, row_major = FALSE) {

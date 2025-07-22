@@ -4,7 +4,7 @@
 \alias{as_raw}
 \title{Convert a PJRT Buffer to a raw R vector.}
 \usage{
-as_raw(buffer, client = default_client(), row_major)
+as_raw(buffer, client = pjrt_client(), row_major)
 }
 \arguments{
 \item{buffer}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
