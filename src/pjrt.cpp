@@ -84,6 +84,8 @@ Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
 
 // Helper template function for buffer creation from R data (ints, doubles,
 // logicals) raw is handled separately
+// The generic type T indicates to what cast the R type before sending it to
+// PJRT
 template <typename T>
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
@@ -138,30 +140,14 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
   return xptr;
 }
 
-// Helper template function for buffer creation from raw R data
-// Only accepts RAWSXP input and copies/reinterprets the bytes into T
-// Throws if the length does not match
-// Used for impl_client_buffer_from_raw
-
-template <typename T>
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
     const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
     bool row_major = false) {
-  if (TYPEOF(data) != RAWSXP) {
-    Rcpp::stop("create_buffer_from_raw: data must be a raw vector (RAWSXP)");
-  }
-  int len = Rf_length(data) / sizeof(T);
-  if (len * sizeof(T) != Rf_length(data)) {
-    Rcpp::stop("Raw data length does not match expected size for target type");
-  }
-  std::vector<T> temp_vec(len);
-  std::memcpy(temp_vec.data(), RAW(data), sizeof(T) * len);
-
-  auto byte_strides_opt = get_byte_strides(dims, row_major, sizeof(T));
-
+  auto byte_strides_opt =
+      get_byte_strides(dims, row_major, sizeof_pjrt_buffer_type(dtype));
   Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-      client->buffer_from_host(temp_vec.data(), dims, byte_strides_opt, dtype)
+      client->buffer_from_host(RAW(data), dims, byte_strides_opt, dtype)
           .release());
   xptr.attr("class") = "PJRTBuffer";
   return xptr;
@@ -232,38 +218,38 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
     std::string type, bool row_major = false) {
   if (type == "f32") {
-    return create_buffer_from_raw<float>(client, data, dims,
-                                         PJRT_Buffer_Type_F32, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
+                                  row_major);
   } else if (type == "f64") {
-    return create_buffer_from_raw<double>(client, data, dims,
-                                          PJRT_Buffer_Type_F64, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F64,
+                                  row_major);
   } else if (type == "s8") {
-    return create_buffer_from_raw<int8_t>(client, data, dims,
-                                          PJRT_Buffer_Type_S8, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S8,
+                                  row_major);
   } else if (type == "s16") {
-    return create_buffer_from_raw<int16_t>(client, data, dims,
-                                           PJRT_Buffer_Type_S16, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S16,
+                                  row_major);
   } else if (type == "s32") {
-    return create_buffer_from_raw<int32_t>(client, data, dims,
-                                           PJRT_Buffer_Type_S32, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S32,
+                                  row_major);
   } else if (type == "s64") {
-    return create_buffer_from_raw<int64_t>(client, data, dims,
-                                           PJRT_Buffer_Type_S64, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S64,
+                                  row_major);
   } else if (type == "u8") {
-    return create_buffer_from_raw<uint8_t>(client, data, dims,
-                                           PJRT_Buffer_Type_U8, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U8,
+                                  row_major);
   } else if (type == "u16") {
-    return create_buffer_from_raw<uint16_t>(client, data, dims,
-                                            PJRT_Buffer_Type_U16, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U16,
+                                  row_major);
   } else if (type == "u32") {
-    return create_buffer_from_raw<uint32_t>(client, data, dims,
-                                            PJRT_Buffer_Type_U32, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U32,
+                                  row_major);
   } else if (type == "u64") {
-    return create_buffer_from_raw<uint64_t>(client, data, dims,
-                                            PJRT_Buffer_Type_U64, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U64,
+                                  row_major);
   } else if (type == "pred") {
-    return create_buffer_from_raw<uint8_t>(client, data, dims,
-                                           PJRT_Buffer_Type_PRED, row_major);
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_PRED,
+                                  row_major);
   } else {
     Rcpp::stop("Unsupported type for raw data: %s", type.c_str());
   }
