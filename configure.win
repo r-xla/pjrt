@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Ensure the header directory exists in src/
+mkdir -p src/xla/pjrt/c
+# Copy the header from inst/include to src if not already present
+cp -f inst/include/xla/pjrt/c/pjrt_c_api.h src/xla/pjrt/c/pjrt_c_api.h
+
+# Call the main configure script
+sh ./configure
