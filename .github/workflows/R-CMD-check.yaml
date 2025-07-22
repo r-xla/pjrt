@@ -42,6 +42,13 @@ jobs:
             setup: |
               brew install protobuf@21
               brew link protobuf@21 --force --overwrite
+          - config: {os: "windows"}
+            runner: 'windows-latest'
+            setup: |
+              choco install protobuf
+              choco install protobuf@21
+              choco install protobuf@21 --force --overwrite
+
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}

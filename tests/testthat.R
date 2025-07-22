@@ -10,7 +10,6 @@ library(testthat)
 library(checkmate)
 library(pjrt)
 
-# skip on windows
 if (!Sys.info()["sysname"] == "Windows") {
   test_check("pjrt", reporter = "summary")
 }
