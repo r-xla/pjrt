@@ -211,6 +211,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_buffer_device
+Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_buffer_device(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_device(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_buffer_memory
 Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
 RcppExport SEXP _pjrt_impl_buffer_memory(SEXP bufferSEXP) {
@@ -322,6 +333,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_device_to_string
+std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device);
+RcppExport SEXP _pjrt_impl_device_to_string(SEXP deviceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_device_to_string(device));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
@@ -340,6 +362,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_platform_name", (DL_FUNC) &_pjrt_impl_client_platform_name, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
     {"_pjrt_impl_buffer_element_type", (DL_FUNC) &_pjrt_impl_buffer_element_type, 1},
+    {"_pjrt_impl_buffer_device", (DL_FUNC) &_pjrt_impl_buffer_device, 1},
     {"_pjrt_impl_buffer_memory", (DL_FUNC) &_pjrt_impl_buffer_memory, 1},
     {"_pjrt_impl_memory_debug_string", (DL_FUNC) &_pjrt_impl_memory_debug_string, 1},
     {"_pjrt_impl_memory_id", (DL_FUNC) &_pjrt_impl_memory_id, 1},
@@ -350,6 +373,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_execution_options_create", (DL_FUNC) &_pjrt_impl_execution_options_create, 2},
     {"_pjrt_impl_plugin_pjrt_api_version", (DL_FUNC) &_pjrt_impl_plugin_pjrt_api_version, 1},
     {"_pjrt_impl_plugin_attributes", (DL_FUNC) &_pjrt_impl_plugin_attributes, 1},
+    {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
     {NULL, NULL, 0}
 };
 

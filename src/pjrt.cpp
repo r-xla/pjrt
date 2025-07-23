@@ -449,7 +449,16 @@ Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_element_type(
   return xptr;
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+  auto device = buffer->device();
+  Rcpp::XPtr<rpjrt::PJRTDevice> xptr(device.release(), true);
+  xptr.attr("class") = "PJRTDevice";
+  return xptr;
+}
+
+// [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(
     Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   auto memory = buffer->memory();
@@ -518,4 +527,19 @@ Rcpp::List impl_plugin_attributes(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
   }
   out.attr("names") = names;
   return out;
+}
+
+// [[Rcpp::export()]]
+std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
+  auto api = device->api;
+  PJRT_Device_GetDescription_Args desc_args{};
+  desc_args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
+  desc_args.device = device->device;
+  check_err(api.get(), api->PJRT_Device_GetDescription_(&desc_args));
+
+  PJRT_DeviceDescription_ToString_Args str_args{};
+  str_args.struct_size = sizeof(PJRT_DeviceDescription_ToString_Args);
+  str_args.device_description = desc_args.device_description;
+  check_err(api.get(), api->PJRT_DeviceDescription_ToString_(&str_args));
+  return std::string(str_args.to_string, str_args.to_string_size);
 }

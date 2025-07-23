@@ -306,3 +306,21 @@ as_raw <- function(buffer, client = pjrt_client(), row_major) {
   check_client(client)
   impl_client_buffer_to_raw(client, buffer, row_major = row_major)
 }
+
+#' Device of a PJRTBuffer
+#'
+#' @description
+#' Get the device of a [`PJRTBuffer`][pjrt_buffer].
+#'
+#' @template param_buffer
+#' @return `PJRTDevice`
+#' @export
+pjrt_device <- function(buffer) {
+  check_buffer(buffer)
+  impl_buffer_device(buffer)
+}
+
+#' @export
+as.character.PJRTDevice <- function(x, ...) {
+  impl_device_to_string(x)
+}

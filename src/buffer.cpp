@@ -96,7 +96,7 @@ std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
   args.buffer = this->buffer;
   check_err(this->api.get(), this->api->PJRT_Buffer_Device_(&args));
 
-  return std::make_unique<PJRTDevice>(args.device);
+  return std::make_unique<PJRTDevice>(args.device, this->api);
 }
 
 }  // namespace rpjrt

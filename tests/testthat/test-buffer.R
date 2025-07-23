@@ -446,3 +446,20 @@ test_that("buffer <-> raw: row_major parameter", {
     check(type$pjrt_type, type$rtype)
   }
 })
+
+test_that("device works", {
+  buf <- pjrt_buffer(1)
+  expect_class(pjrt_device(buf), "PJRTDevice")
+  expect_snapshot(as.character(pjrt_device(buf)))
+})
+
+test_that("tests can compare buffers", {
+  expect_equal(pjrt_buffer(1), pjrt_buffer(1))
+  expect_failure(expect_equal(pjrt_buffer(1), pjrt_buffer(2)))
+  expect_failure(expect_equal(pjrt_buffer(1), pjrt_scalar(1)))
+})
+
+test_that("No dim with pjrt_buffer", {
+  skip_if(is_cuda() || is_metal())
+  expect_equal(dim(pjrt_buffer(1)), 1L)
+})

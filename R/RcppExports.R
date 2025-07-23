@@ -65,6 +65,10 @@ impl_buffer_element_type <- function(buffer) {
     .Call(`_pjrt_impl_buffer_element_type`, buffer)
 }
 
+impl_buffer_device <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_device`, buffer)
+}
+
 impl_buffer_memory <- function(buffer) {
     .Call(`_pjrt_impl_buffer_memory`, buffer)
 }
@@ -103,5 +107,9 @@ impl_plugin_pjrt_api_version <- function(plugin) {
 
 impl_plugin_attributes <- function(plugin) {
     .Call(`_pjrt_impl_plugin_attributes`, plugin)
+}
+
+impl_device_to_string <- function(device) {
+    .Call(`_pjrt_impl_device_to_string`, device)
 }
 
