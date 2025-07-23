@@ -330,9 +330,9 @@ test_that("R layout and PJRT layout (3D)", {
   x_buf <- pjrt_buffer(x)
 
   check <- function(i1, i2, i3) {
-    i1_buf <- pjrt_buffer(i1, type = "s32")
-    i2_buf <- pjrt_buffer(i2, type = "s32")
-    i3_buf <- pjrt_buffer(i3, type = "s32")
+    i1_buf <- pjrt_scalar(i1, type = "s32")
+    i2_buf <- pjrt_scalar(i2, type = "s32")
+    i3_buf <- pjrt_scalar(i3, type = "s32")
 
     result <- as_array(pjrt_execute(
       executable,
@@ -361,7 +361,7 @@ test_that("R layout and PJRT layout (3D)", {
   x <- array(as.double(1:12), dim = c(3, 4))
   x_buf <- pjrt_buffer(x)
   i1 <- 1L
-  i1_buf <- pjrt_buffer(i1, type = "s32")
+  i1_buf <- pjrt_scalar(i1, type = "s32")
   result <- as_array(pjrt_execute(executable, x_buf, i1_buf))
   expect_equal(x[, i1 + 1, drop = FALSE], result)
 
