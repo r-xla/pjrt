@@ -450,6 +450,7 @@ test_that("buffer <-> raw: row_major parameter", {
 test_that("device works", {
   buf <- pjrt_buffer(1)
   expect_class(pjrt_device(buf), "PJRTDevice")
+  skip_if(is_metal() || is_cuda())
   expect_snapshot(as.character(pjrt_device(buf)))
 })
 
