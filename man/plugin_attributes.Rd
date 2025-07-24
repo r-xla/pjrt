@@ -25,5 +25,7 @@ This commonly includes:
 But the implementation depends on the plugin.
 }
 \examples{
+\dontshow{if (Sys.info()["sysname"] != "Windows") (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 plugin_attributes("cpu")
+\dontshow{\}) # examplesIf}
 }

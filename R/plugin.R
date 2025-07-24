@@ -169,7 +169,7 @@ pjrt_api_version <- function(plugin = pjrt_plugin()) {
 #'   The plugin (or platform name) to get the attributes of.
 #' @return named `list()`
 #' @export
-#' @examples
+#' @examplesIf Sys.info()["sysname"] != "Windows"
 #' plugin_attributes("cpu")
 plugin_attributes <- function(plugin) {
   plugin <- as_pjrt_plugin(plugin)
