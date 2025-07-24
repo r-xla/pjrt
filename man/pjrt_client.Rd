@@ -25,5 +25,7 @@ Create a PJRT client for a specific device.
 }
 
 \examples{
+\dontshow{if (Sys.info()["sysname"] != "Windows") (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 pjrt_client("cpu")
+\dontshow{\}) # examplesIf}
 }

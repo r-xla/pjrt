@@ -33,7 +33,7 @@ pjrt_compile <- function(
 #'   If `NULL`, use `PJRT_PLATFORM` environment variable or default to "cpu".
 #' @return `PJRTClient`
 #' @export
-#' @examples
+#' @examplesIf Sys.info()["sysname"] != "Windows"
 #' pjrt_client("cpu")
 pjrt_client <- function(platform = NULL) {
   if (is.null(platform)) {
