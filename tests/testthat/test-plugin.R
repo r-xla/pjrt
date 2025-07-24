@@ -1,5 +1,4 @@
 test_that("creation works", {
-  skip_on_windows()
   expect_class(pjrt_plugin("cpu"), "PJRTPlugin")
 })
 
