@@ -96,3 +96,7 @@ test_that("can use more than one client", {
   expect_permutation(c(device, "cpu"), names(the$clients))
   expect_permutation(c(device, "cpu"), names(the$plugins))
 })
+
+test_that("platform name", {
+  expect_equal(platform_name(pjrt_client("cpu")), "cpu")
+})

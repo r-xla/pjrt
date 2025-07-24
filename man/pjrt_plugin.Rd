@@ -16,3 +16,10 @@ Platform name (e.g., "cpu", "cuda", "metal").}
 \description{
 Create a PJRT plugin for a specific platform.
 }
+\section{Extrators}{
+
+\itemize{
+\item \code{\link[=plugin_attributes]{plugin_attributes()}} for a named \code{list()} of attributes.
+}
+}
+

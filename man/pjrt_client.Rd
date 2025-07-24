@@ -7,12 +7,23 @@
 pjrt_client(platform = NULL)
 }
 \arguments{
-\item{platform}{(\code{character(1)})\cr
-Platform name (e.g., "cpu", "cuda", "metal").}
+\item{platform}{(\code{character(1)} | \code{NULL})\cr
+Platform name (e.g., "cpu", "cuda", "metal").
+If \code{NULL}, use \code{PJRT_PLATFORM} environment variable or default to "cpu".}
 }
 \value{
 \code{PJRTClient}
 }
 \description{
 Create a PJRT client for a specific device.
+}
+\section{Extractors}{
+
+\itemize{
+\item \code{\link[=platform_name]{platform_name()}} for a \code{character(1)} representation of the platform.
+}
+}
+
+\examples{
+pjrt_client("cpu")
 }

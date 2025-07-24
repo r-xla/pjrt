@@ -2,8 +2,7 @@
 % Please edit documentation in R/buffer.R
 \name{as.character.PJRTElementType}
 \alias{as.character.PJRTElementType}
-\title{Convert \code{PJRTElementType} to string
-Get a (lowecase) string representation of a PJRT element type}
+\title{Convert \code{PJRTElementType} to string}
 \usage{
 \method{as.character}{PJRTElementType}(x, ...)
 }
@@ -16,6 +15,5 @@ Get a (lowecase) string representation of a PJRT element type}
 A string representation of the element type.
 }
 \description{
-Convert \code{PJRTElementType} to string
-Get a (lowecase) string representation of a PJRT element type
+Get a (lowercase) string representation of a PJRT element type
 }

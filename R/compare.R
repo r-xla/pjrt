@@ -3,7 +3,7 @@ compare_proxy.PJRTBuffer <- function(x, path) {
     object = list(
       x = as_array(x),
       dim = dim(x),
-      type = as.character(pjrt_element_type(x))
+      elt_type = as.character(element_type(x))
     ),
     path = path
   )

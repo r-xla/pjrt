@@ -15,12 +15,20 @@ is_buffer <- function(x) {
 #' [`pjrt_buffer`] will create a array with dimensions `(1)` for a vector of length 1, while
 #' Therefore, [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
 #'
+#' @section Extractors:
+#' * [`device()`] for the device of the buffer.
+#' * [`element_type()`] for the element type of the buffer.
+#'
+#' @section Converters:
+#' * [`as_array()`] for an array.
+#' * [`as_raw()`] for a raw vector.
+#'
 #' @details
 #' R does not have 0-dimensional arrays, hence we need the extra `pjrt_scalar` function.
 #'
 #' @param data (any)\cr
 #'  Data to convert to a `PJRTBuffer`.
-#' @param type (`character(1)`)\cr
+#' @param elt_type (`character(1)`)\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
@@ -31,14 +39,14 @@ is_buffer <- function(x) {
 #' @template param_client
 #' @return `PJRTBuffer`
 #' @export
-pjrt_buffer <- function(data, type, client = pjrt_client(), ...) {
+pjrt_buffer <- function(data, elt_type, client = pjrt_client(), ...) {
   client <- as_pjrt_client(client)
   UseMethod("pjrt_buffer")
 }
 
 #' @rdname pjrt_buffer
 #' @export
-pjrt_scalar <- function(data, type, client = pjrt_client(), ...) {
+pjrt_scalar <- function(data, elt_type, client = pjrt_client(), ...) {
   client <- as_pjrt_client(client)
   UseMethod("pjrt_scalar")
 }
@@ -46,7 +54,7 @@ pjrt_scalar <- function(data, type, client = pjrt_client(), ...) {
 #' @export
 pjrt_buffer.logical <- function(
   data,
-  type = "pred",
+  elt_type = "pred",
   client = pjrt_client(),
   ...
 ) {
@@ -58,14 +66,14 @@ pjrt_buffer.logical <- function(
     client = client,
     data = data,
     dims = dims,
-    type = type
+    elt_type = elt_type
   )
 }
 
 #' @export
 pjrt_buffer.integer <- function(
   data,
-  type = "s32",
+  elt_type = "s32",
   client = pjrt_client(),
   ...
 ) {
@@ -77,14 +85,14 @@ pjrt_buffer.integer <- function(
     client = client,
     data = data,
     dims = dims,
-    type = type
+    elt_type = elt_type
   )
 }
 
 #' @export
 pjrt_buffer.double <- function(
   data,
-  type = "f32",
+  elt_type = "f32",
   client = pjrt_client(),
   ...
 ) {
@@ -96,7 +104,7 @@ pjrt_buffer.double <- function(
     client = client,
     data = data,
     dims = dims,
-    type = type
+    elt_type = elt_type
   )
 }
 
@@ -104,7 +112,7 @@ pjrt_buffer.double <- function(
 pjrt_buffer.raw <- function(
   data,
   ...,
-  type,
+  elt_type,
   client = pjrt_client(),
   shape,
   row_major
@@ -116,7 +124,7 @@ pjrt_buffer.raw <- function(
     data = data,
     dims = shape,
     client = client,
-    type = type,
+    elt_type = elt_type,
     row_major = row_major
   )
 }
@@ -124,7 +132,7 @@ pjrt_buffer.raw <- function(
 #' @export
 pjrt_scalar.logical <- function(
   data,
-  type = "pred",
+  elt_type = "pred",
   client = pjrt_client(),
   ...
 ) {
@@ -138,14 +146,14 @@ pjrt_scalar.logical <- function(
     data,
     dims = integer(),
     client = client,
-    type = type
+    elt_type = elt_type
   )
 }
 
 #' @export
 pjrt_scalar.integer <- function(
   data,
-  type = "s32",
+  elt_type = "s32",
   client = pjrt_client(),
   ...
 ) {
@@ -159,14 +167,14 @@ pjrt_scalar.integer <- function(
     data,
     dims = integer(),
     client = client,
-    type = type
+    elt_type = elt_type
   )
 }
 
 #' @export
 pjrt_scalar.double <- function(
   data,
-  type = "f32",
+  elt_type = "f32",
   client = pjrt_client(),
   ...
 ) {
@@ -180,7 +188,7 @@ pjrt_scalar.double <- function(
     data,
     dims = integer(),
     client = client,
-    type = type
+    elt_type = elt_type
   )
 }
 
@@ -188,7 +196,7 @@ pjrt_scalar.double <- function(
 pjrt_scalar.raw <- function(
   data,
   ...,
-  type,
+  elt_type,
   client = pjrt_client()
 ) {
   if (...length()) {
@@ -198,7 +206,7 @@ pjrt_scalar.raw <- function(
     data,
     dims = integer(),
     client = client,
-    type = type,
+    elt_type = elt_type,
     row_major = FALSE
   )
 }
@@ -209,7 +217,7 @@ pjrt_scalar.raw <- function(
 #'
 #' @return A PJRT element type object.
 #' @export
-pjrt_element_type <- function(buffer) {
+element_type <- function(buffer) {
   check_buffer(buffer)
   impl_buffer_element_type(buffer)
 }
@@ -230,8 +238,10 @@ is_element_type <- function(x) {
   inherits(x, "PJRTElementType")
 }
 
-#' Convert `PJRTElementType` to string
-#' Get a (lowecase) string representation of a PJRT element type
+#' @title Convert `PJRTElementType` to string
+#'
+#' @description
+#' Get a (lowercase) string representation of a PJRT element type
 #'
 #' @param x A PJRT element type object.
 #' @param ... Additional arguments (unused).
@@ -264,7 +274,7 @@ print.PJRTElementType <- function(x, ...) {
 #'
 #' @return A string representing the platform name.
 #' @export
-pjrt_platform_name <- function(client = pjrt_client()) {
+platform_name <- function(client = pjrt_client()) {
   client <- as_pjrt_client(client)
   impl_client_platform_name(client)
 }
@@ -312,15 +322,30 @@ as_raw <- function(buffer, client = pjrt_client(), row_major) {
 #' @description
 #' Get the device of a [`PJRTBuffer`][pjrt_buffer].
 #'
-#' @template param_buffer
+#' @param x (any)\cr
+#'   Object for which to get the `PJRTDevice`.
 #' @return `PJRTDevice`
 #' @export
-pjrt_device <- function(buffer) {
-  check_buffer(buffer)
-  impl_buffer_device(buffer)
+device <- function(x) {
+  UseMethod("device")
+}
+
+#' @export
+device.PJRTBuffer <- function(x) {
+  impl_buffer_device(x)
 }
 
 #' @export
 as.character.PJRTDevice <- function(x, ...) {
   impl_device_to_string(x)
+}
+
+#' @export
+format.PJRTDevice <- function(x, ...) {
+  as.character(x)
+}
+
+#' @export
+print.PJRTDevice <- function(x, ...) {
+  cat(sprintf("<%s>\n", as.character(x)))
 }

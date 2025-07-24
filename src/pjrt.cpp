@@ -156,102 +156,102 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string type) {
-  if (type == "f32") {
+    std::string elt_type) {
+  if (elt_type == "f32") {
     return create_buffer_from_array<float>(client, data, dims,
                                            PJRT_Buffer_Type_F32);
-  } else if (type == "f64") {
+  } else if (elt_type == "f64") {
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
   } else {
-    Rcpp::stop("Unsupported floating point type: %s", type.c_str());
+    Rcpp::stop("Unsupported floating point type: %s", elt_type.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string type) {
-  if (type == "s8") {
+    std::string elt_type) {
+  if (elt_type == "s8") {
     return create_buffer_from_array<int8_t>(client, data, dims,
                                             PJRT_Buffer_Type_S8);
-  } else if (type == "s16") {
+  } else if (elt_type == "s16") {
     return create_buffer_from_array<int16_t>(client, data, dims,
                                              PJRT_Buffer_Type_S16);
-  } else if (type == "s32") {
+  } else if (elt_type == "s32") {
     return create_buffer_from_array<int32_t>(client, data, dims,
                                              PJRT_Buffer_Type_S32);
-  } else if (type == "s64") {
+  } else if (elt_type == "s64") {
     return create_buffer_from_array<int64_t>(client, data, dims,
                                              PJRT_Buffer_Type_S64);
-  } else if (type == "u8") {
+  } else if (elt_type == "u8") {
     return create_buffer_from_array<uint8_t>(client, data, dims,
                                              PJRT_Buffer_Type_U8);
-  } else if (type == "u16") {
+  } else if (elt_type == "u16") {
     return create_buffer_from_array<uint16_t>(client, data, dims,
                                               PJRT_Buffer_Type_U16);
-  } else if (type == "u32") {
+  } else if (elt_type == "u32") {
     return create_buffer_from_array<uint32_t>(client, data, dims,
                                               PJRT_Buffer_Type_U32);
-  } else if (type == "u64") {
+  } else if (elt_type == "u64") {
     return create_buffer_from_array<uint64_t>(client, data, dims,
                                               PJRT_Buffer_Type_U64);
   } else {
-    Rcpp::stop("Unsupported type: %s", type.c_str());
+    Rcpp::stop("Unsupported type: %s", elt_type.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string type) {
-  if (type == "pred") {
+    std::string elt_type) {
+  if (elt_type == "pred") {
     return create_buffer_from_array<uint8_t>(client, data, dims,
                                              PJRT_Buffer_Type_PRED);
   } else {
-    Rcpp::stop("Unsupported type: %s", type.c_str());
+    Rcpp::stop("Unsupported type: %s", elt_type.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string type, bool row_major = false) {
-  if (type == "f32") {
+    std::string elt_type, bool row_major = false) {
+  if (elt_type == "f32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
                                   row_major);
-  } else if (type == "f64") {
+  } else if (elt_type == "f64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F64,
                                   row_major);
-  } else if (type == "s8") {
+  } else if (elt_type == "s8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S8,
                                   row_major);
-  } else if (type == "s16") {
+  } else if (elt_type == "s16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S16,
                                   row_major);
-  } else if (type == "s32") {
+  } else if (elt_type == "s32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S32,
                                   row_major);
-  } else if (type == "s64") {
+  } else if (elt_type == "s64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S64,
                                   row_major);
-  } else if (type == "u8") {
+  } else if (elt_type == "u8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U8,
                                   row_major);
-  } else if (type == "u16") {
+  } else if (elt_type == "u16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U16,
                                   row_major);
-  } else if (type == "u32") {
+  } else if (elt_type == "u32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U32,
                                   row_major);
-  } else if (type == "u64") {
+  } else if (elt_type == "u64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U64,
                                   row_major);
-  } else if (type == "pred") {
+  } else if (elt_type == "pred") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_PRED,
                                   row_major);
   } else {
-    Rcpp::stop("Unsupported type for raw data: %s", type.c_str());
+    Rcpp::stop("Unsupported type for raw data: %s", elt_type.c_str());
   }
 }
 

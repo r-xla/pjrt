@@ -21,6 +21,9 @@ check_plugin <- function(plugin) {
 #' @description
 #' Create a PJRT plugin for a specific platform.
 #'
+#' @section Extrators:
+#' * [`plugin_attributes()`] for a named `list()` of attributes.
+#'
 #' @param platform (`character(1)`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
 #' @return `PJRTPlugin`
@@ -166,10 +169,27 @@ pjrt_api_version <- function(plugin = pjrt_plugin()) {
 #'   The plugin (or platform name) to get the attributes of.
 #' @return named `list()`
 #' @export
-pjrt_plugin_attributes <- function(plugin) {
-  if (is.character(plugin)) {
-    plugin <- pjrt_plugin(plugin)
-  }
-  check_plugin(plugin)
+#' @examples
+#' plugin_attributes("cpu")
+plugin_attributes <- function(plugin) {
+  plugin <- as_pjrt_plugin(plugin)
   impl_plugin_attributes(plugin)
+}
+
+#' @title Convert to PJRT Plugin
+#' @description
+#' Convert a platform name to a PJRT plugin or verify that an object is already a plugin.
+#'
+#' @param x (any)\cr
+#'   Object to convert to a PJRT plugin. Currently supports `PJRTPlugin` and `character(1)`.
+#' @return `PJRTPlugin`
+#' @export
+as_pjrt_plugin <- function(x) {
+  if (checkmate::test_string(x)) {
+    pjrt_plugin(x)
+  } else if (inherits(x, "PJRTPlugin")) {
+    x
+  } else {
+    stop("Invalid plugin: ", class(x))
+  }
 }

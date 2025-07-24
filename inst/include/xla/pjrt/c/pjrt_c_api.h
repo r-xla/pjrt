@@ -208,19 +208,19 @@ PJRT_DEFINE_STRUCT_TRAITS(PJRT_Plugin_Initialize_Args, extension_start);
 // One-time plugin setup. Must be called before any other functions are called.
 typedef PJRT_Error* PJRT_Plugin_Initialize(PJRT_Plugin_Initialize_Args* args);
 
-struct PJRT_Plugin_Attributes_Args {
+struct plugin_attributes_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   // Returned attributes have the lifetime of the process.
   const PJRT_NamedValue* attributes;  // out
   size_t num_attributes;              // out
 };
-PJRT_DEFINE_STRUCT_TRAITS(PJRT_Plugin_Attributes_Args, attributes);
+PJRT_DEFINE_STRUCT_TRAITS(plugin_attributes_Args, attributes);
 
 // Returns an array of plugin attributes which are key-value pairs. Common keys
 // include `xla_version`, `stablehlo_current_version`, and
 // `stablehlo_minimum_version`.
-typedef PJRT_Error* PJRT_Plugin_Attributes(PJRT_Plugin_Attributes_Args* args);
+typedef PJRT_Error* plugin_attributes(plugin_attributes_Args* args);
 
 // ---------------------------------- Events -----------------------------------
 
@@ -2374,7 +2374,7 @@ typedef struct PJRT_Api {
   _PJRT_API_STRUCT_FIELD(PJRT_Error_GetCode);
 
   _PJRT_API_STRUCT_FIELD(PJRT_Plugin_Initialize);
-  _PJRT_API_STRUCT_FIELD(PJRT_Plugin_Attributes);
+  _PJRT_API_STRUCT_FIELD(plugin_attributes);
 
   _PJRT_API_STRUCT_FIELD(PJRT_Event_Destroy);
   _PJRT_API_STRUCT_FIELD(PJRT_Event_IsReady);
