@@ -55,7 +55,7 @@ The {pjrt} package allows you to create a PJRT program from this string:
 program <- pjrt_program(src, format = "mlir")
 program
 #> PJRTProgram(format=mlir, code_size=221)
-#> 
+#>
 #> func.func @main(
 #>   %x: tensor<2x2xf32>,
 #>   %y: tensor<2x2xf32>
@@ -83,8 +83,8 @@ create buffers with this type.
 ``` r
 x <- matrix(as.double(1:4), nrow = 2)
 y <- matrix(as.double(5:8), nrow = 2)
-x_buffer <- pjrt_buffer(x, type = "f32")
-y_buffer <- pjrt_buffer(y, type = "f32")
+x_buffer <- pjrt_buffer(x, "f32")
+y_buffer <- pjrt_buffer(y, "f32")
 ```
 
 Having created these buffers, we can now run the program:

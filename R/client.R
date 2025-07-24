@@ -25,10 +25,16 @@ pjrt_compile <- function(
 #' @description
 #' Create a PJRT client for a specific device.
 #'
-#' @param platform (`character(1)`)\cr
+#' @section Extractors:
+#' * [`platform_name()`] for a `character(1)` representation of the platform.
+#'
+#' @param platform (`character(1)` | `NULL`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
+#'   If `NULL`, use `PJRT_PLATFORM` environment variable or default to "cpu".
 #' @return `PJRTClient`
 #' @export
+#' @examples
+#' pjrt_client("cpu")
 pjrt_client <- function(platform = NULL) {
   if (is.null(platform)) {
     platform <- default_platform()

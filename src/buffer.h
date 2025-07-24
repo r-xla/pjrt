@@ -38,6 +38,7 @@ class PJRTBuffer {
   std::unique_ptr<PJRTBufferMemoryLayout> memory_layout();
   PJRT_Buffer_Type element_type();
   std::unique_ptr<PJRTDevice> device();
+  std::shared_ptr<PJRT_Api> get_api() const { return api; }
 
  private:
   std::shared_ptr<PJRT_Api> api;

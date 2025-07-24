@@ -5,15 +5,15 @@
 \alias{pjrt_scalar}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, type, client = pjrt_client(), ...)
+pjrt_buffer(data, elt_type, client = pjrt_client(), ...)
 
-pjrt_scalar(data, type, client = pjrt_client(), ...)
+pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
 }
 \arguments{
 \item{data}{(any)\cr
 Data to convert to a \code{PJRTBuffer}.}
 
-\item{type}{(\code{character(1)})\cr
+\item{elt_type}{(\code{character(1)})\cr
 The type of the buffer.
 Currently supported types are:
 \itemize{
@@ -41,3 +41,19 @@ Therefore, \code{\link{pjrt_scalar}} will create a 0-dimensional array for an R 
 \details{
 R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar} function.
 }
+\section{Extractors}{
+
+\itemize{
+\item \code{\link[=device]{device()}} for the device of the buffer.
+\item \code{\link[=element_type]{element_type()}} for the element type of the buffer.
+}
+}
+
+\section{Converters}{
+
+\itemize{
+\item \code{\link[=as_array]{as_array()}} for an array.
+\item \code{\link[=as_raw]{as_raw()}} for a raw vector.
+}
+}
+
