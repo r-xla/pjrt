@@ -94,7 +94,7 @@
 <code class="sourceCode R"><span><span class="va">program</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_program.html">pjrt_program</a></span><span class="op">(</span><span class="va">src</span>, format <span class="op">=</span> <span class="st">"mlir"</span><span class="op">)</span></span>
 <span><span class="va">program</span></span>
 <span><span class="co">#&gt; PJRTProgram(format=mlir, code_size=221)</span></span>
-<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; func.func @main(</span></span>
 <span><span class="co">#&gt;   %x: tensor&lt;2x2xf32&gt;,</span></span>
 <span><span class="co">#&gt;   %y: tensor&lt;2x2xf32&gt;</span></span>
@@ -108,8 +108,8 @@
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">5</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">x_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">x</span>, type <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
-<span><span class="va">y_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">y</span>, type <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">x_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">x</span>, <span class="st">"f32"</span><span class="op">)</span></span>
+<span><span class="va">y_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">y</span>, <span class="st">"f32"</span><span class="op">)</span></span></code></pre></div>
 <p>Having created these buffers, we can now run the program:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">program_compiled</span>, <span class="va">x_buffer</span>, <span class="va">y_buffer</span><span class="op">)</span></span></code></pre></div>

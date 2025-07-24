@@ -60,9 +60,9 @@ Therefore, <code>pjrt_scalar</code> will create a 0-dimensional array for an R v
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, <span class="va">type</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, <span class="va">elt_type</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, <span class="va">type</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, <span class="va">elt_type</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -74,7 +74,7 @@ Therefore, <code>pjrt_scalar</code> will create a 0-dimensional array for an R v
 Data to convert to a <code>PJRTBuffer</code>.</p></dd>
 
 
-<dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
+<dt id="arg-elt-type">elt_type<a class="anchor" aria-label="anchor" href="#arg-elt-type"></a></dt>
 <dd><p>(<code>character(1)</code>)<br>
 The type of the buffer.
 Currently supported types are:</p><ul><li><p><code>"pred"</code>: predicate (i.e. a boolean)</p></li>
@@ -102,6 +102,20 @@ Additional arguments.</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>R does not have 0-dimensional arrays, hence we need the extra <code>pjrt_scalar</code> function.</p>
     </div>
+    <div class="section level2">
+    <h2 id="extractors">Extractors<a class="anchor" aria-label="anchor" href="#extractors"></a></h2>
+
+
+<ul><li><p><code><a href="device.html">device()</a></code> for the device of the buffer.</p></li>
+<li><p><code><a href="element_type.html">element_type()</a></code> for the element type of the buffer.</p></li>
+</ul></div>
+    <div class="section level2">
+    <h2 id="converters">Converters<a class="anchor" aria-label="anchor" href="#converters"></a></h2>
+
+
+<ul><li><p><code><a href="as_array.html">as_array()</a></code> for an array.</p></li>
+<li><p><code><a href="as_raw.html">as_raw()</a></code> for a raw vector.</p></li>
+</ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
