@@ -97,7 +97,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
   }
 
   // This stores the result of the type-cast
-  // We could skip this for some special cases (s32 to INTSXP) but don't do it
+  // We could skip this for some special cases (i32 to INTSXP) but don't do it
   // for now for simplicity (most of the time it's f64 -> f32 anyway)
   std::vector<T> temp_vec(len);
 
@@ -172,28 +172,28 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
     std::string elt_type) {
-  if (elt_type == "s8") {
+  if (elt_type == "i8") {
     return create_buffer_from_array<int8_t>(client, data, dims,
                                             PJRT_Buffer_Type_S8);
-  } else if (elt_type == "s16") {
+  } else if (elt_type == "i16") {
     return create_buffer_from_array<int16_t>(client, data, dims,
                                              PJRT_Buffer_Type_S16);
-  } else if (elt_type == "s32") {
+  } else if (elt_type == "i32") {
     return create_buffer_from_array<int32_t>(client, data, dims,
                                              PJRT_Buffer_Type_S32);
-  } else if (elt_type == "s64") {
+  } else if (elt_type == "i64") {
     return create_buffer_from_array<int64_t>(client, data, dims,
                                              PJRT_Buffer_Type_S64);
-  } else if (elt_type == "u8") {
+  } else if (elt_type == "ui8") {
     return create_buffer_from_array<uint8_t>(client, data, dims,
                                              PJRT_Buffer_Type_U8);
-  } else if (elt_type == "u16") {
+  } else if (elt_type == "ui16") {
     return create_buffer_from_array<uint16_t>(client, data, dims,
                                               PJRT_Buffer_Type_U16);
-  } else if (elt_type == "u32") {
+  } else if (elt_type == "ui32") {
     return create_buffer_from_array<uint32_t>(client, data, dims,
                                               PJRT_Buffer_Type_U32);
-  } else if (elt_type == "u64") {
+  } else if (elt_type == "ui64") {
     return create_buffer_from_array<uint64_t>(client, data, dims,
                                               PJRT_Buffer_Type_U64);
   } else {
@@ -223,28 +223,28 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
   } else if (elt_type == "f64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F64,
                                   row_major);
-  } else if (elt_type == "s8") {
+  } else if (elt_type == "i8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S8,
                                   row_major);
-  } else if (elt_type == "s16") {
+  } else if (elt_type == "i16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S16,
                                   row_major);
-  } else if (elt_type == "s32") {
+  } else if (elt_type == "i32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S32,
                                   row_major);
-  } else if (elt_type == "s64") {
+  } else if (elt_type == "i64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S64,
                                   row_major);
-  } else if (elt_type == "u8") {
+  } else if (elt_type == "ui8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U8,
                                   row_major);
-  } else if (elt_type == "u16") {
+  } else if (elt_type == "ui16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U16,
                                   row_major);
-  } else if (elt_type == "u32") {
+  } else if (elt_type == "ui32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U32,
                                   row_major);
-  } else if (elt_type == "u64") {
+  } else if (elt_type == "ui64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U64,
                                   row_major);
   } else if (elt_type == "pred") {
@@ -269,7 +269,7 @@ SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
   // Here, we first copy the data into a temporary vector because:
   // 1. We need to cast the data
   // 2. We might need to transpose the data
-  // In principle there are special cases (s32 -> INTSXP, 1d arrays) where we
+  // In principle there are special cases (i32 -> INTSXP, 1d arrays) where we
   // could skip this but for now we don't do it for simplicity (we are mostly
   // working with f32, where it anyway needs to be cast to f64)
   std::vector<T> temp_vec(numel);

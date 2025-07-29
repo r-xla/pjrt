@@ -108,13 +108,13 @@ test_that("pjrt_scalar roundtrip works for scalar data", {
   test_pjrt_scalar(42L)
   test_pjrt_scalar(-42L)
   test_pjrt_scalar(0L)
-  test_pjrt_scalar(-1L, "s8")
-  test_pjrt_scalar(2L, "s16")
-  test_pjrt_scalar(100L, "s32")
-  test_pjrt_scalar(-3L, "s64")
-  test_pjrt_scalar(1L, "u8")
-  test_pjrt_scalar(2L, "u16")
-  test_pjrt_scalar(3L, "u64")
+  test_pjrt_scalar(-1L, "i8")
+  test_pjrt_scalar(2L, "i16")
+  test_pjrt_scalar(100L, "i32")
+  test_pjrt_scalar(-3L, "i64")
+  test_pjrt_scalar(1L, "ui8")
+  test_pjrt_scalar(2L, "ui16")
+  test_pjrt_scalar(3L, "ui64")
 
   # Test double scalar
   test_pjrt_scalar(3.14, "f64")
@@ -184,15 +184,15 @@ test_that("raw", {
     f32 = list(data = matrix(runif(4), nrow = 2), elt_type = "f32"),
     f64 = list(data = matrix(runif(6), nrow = 3), elt_type = "f64"),
 
-    s8 = list(data = sample_signed(6, c(3, 2)), elt_type = "s8"),
-    s16 = list(data = sample_signed(14, c(4, 3)), elt_type = "s16"),
-    s32 = list(data = sample_signed(30, c(4, 3, 1)), elt_type = "s32"),
-    s64 = list(data = sample_signed(30, c(2, 3, 7)), elt_type = "s64"),
+    i8 = list(data = sample_signed(6, c(3, 2)), elt_type = "i8"),
+    i16 = list(data = sample_signed(14, c(4, 3)), elt_type = "i16"),
+    i32 = list(data = sample_signed(30, c(4, 3, 1)), elt_type = "i32"),
+    i64 = list(data = sample_signed(30, c(2, 3, 7)), elt_type = "i64"),
 
-    u8 = list(data = sample_unsigned(6, c(1, 1)), elt_type = "u8"),
-    u16 = list(data = sample_unsigned(14, c(2, 1)), elt_type = "u16"),
-    u32 = list(data = sample_unsigned(30, c(2, 2, 2)), elt_type = "u32"),
-    u64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), elt_type = "u64"),
+    ui8 = list(data = sample_unsigned(6, c(1, 1)), elt_type = "ui8"),
+    ui16 = list(data = sample_unsigned(14, c(2, 1)), elt_type = "ui16"),
+    ui32 = list(data = sample_unsigned(30, c(2, 2, 2)), elt_type = "ui32"),
+    ui64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), elt_type = "ui64"),
 
     pred = list(
       data = matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2),
@@ -229,8 +229,8 @@ test_that("roundtrip tests for scalars", {
   test_scalars <- list(
     f32 = 3.14,
     f64 = 3.14159265359,
-    s32 = 42L,
-    u8 = 255L,
+    i32 = 42L,
+    ui8 = 255L,
     pred = TRUE
   )
 
@@ -269,16 +269,16 @@ test_that("element_type returns correct data types", {
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
-  buffer <- pjrt_buffer(integer_data, "s32")
+  buffer <- pjrt_buffer(integer_data, "i32")
   dtype <- element_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "s32")
+  expect_equal(as.character(dtype), "i32")
 
   # Test unsigned integer buffer (8-bit)
-  buffer <- pjrt_buffer(integer_data, "u8")
+  buffer <- pjrt_buffer(integer_data, "ui8")
   dtype <- element_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "u8")
+  expect_equal(as.character(dtype), "ui8")
 
   # Test double buffer (32-bit)
   double_data <- c(1.1, 2.2, 3.3)
@@ -298,7 +298,7 @@ test_that("element_type returns correct data types", {
   buffer <- pjrt_scalar(scalar_data)
   dtype <- element_type(buffer)
   expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "s32")
+  expect_equal(as.character(dtype), "i32")
 })
 
 test_that("R layout and PJRT layout (2D)", {
@@ -309,8 +309,8 @@ test_that("R layout and PJRT layout (2D)", {
   x <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
   x_buf <- pjrt_buffer(x)
   check <- function(i1, i2) {
-    i1_buf <- pjrt_scalar(i1, "s32")
-    i2_buf <- pjrt_scalar(i2, "s32")
+    i1_buf <- pjrt_scalar(i1, "i32")
+    i2_buf <- pjrt_scalar(i2, "i32")
 
     result <- as_array(pjrt_execute(executable, x_buf, i1_buf, i2_buf))
     expect_equal(x[i1 + 1, i2 + 1], result)
@@ -330,9 +330,9 @@ test_that("R layout and PJRT layout (3D)", {
   x_buf <- pjrt_buffer(x)
 
   check <- function(i1, i2, i3) {
-    i1_buf <- pjrt_scalar(i1, "s32")
-    i2_buf <- pjrt_scalar(i2, "s32")
-    i3_buf <- pjrt_scalar(i3, "s32")
+    i1_buf <- pjrt_scalar(i1, "i32")
+    i2_buf <- pjrt_scalar(i2, "i32")
+    i3_buf <- pjrt_scalar(i3, "i32")
 
     result <- as_array(pjrt_execute(
       executable,
@@ -361,7 +361,7 @@ test_that("R layout and PJRT layout (3D)", {
   x <- array(as.double(1:12), dim = c(3, 4))
   x_buf <- pjrt_buffer(x)
   i1 <- 1L
-  i1_buf <- pjrt_scalar(i1, "s32")
+  i1_buf <- pjrt_scalar(i1, "i32")
   result <- as_array(pjrt_execute(executable, x_buf, i1_buf))
   expect_equal(x[, i1 + 1, drop = FALSE], result)
 
@@ -377,18 +377,18 @@ test_that("R layout and PJRT layout (3D)", {
 
 test_that("buffer <-> raw: row_major parameter", {
   types = list(
-    list(pjrt_type = "u8", rtype = "integer"),
-    list(pjrt_type = "u16", rtype = "integer"),
-    list(pjrt_type = "u32", rtype = "integer"),
-    list(pjrt_type = "u64", rtype = "integer"),
-    list(pjrt_type = "s8", rtype = "integer"),
-    list(pjrt_type = "s16", rtype = "integer"),
-    list(pjrt_type = "s32", rtype = "integer"),
-    list(pjrt_type = "s64", rtype = "integer"),
+    list(pjrt_type = "ui8", rtype = "integer"),
+    list(pjrt_type = "ui16", rtype = "integer"),
+    list(pjrt_type = "ui32", rtype = "integer"),
+    list(pjrt_type = "ui64", rtype = "integer"),
+    list(pjrt_type = "i8", rtype = "integer"),
+    list(pjrt_type = "i16", rtype = "integer"),
+    list(pjrt_type = "i32", rtype = "integer"),
+    list(pjrt_type = "i64", rtype = "integer"),
     list(pjrt_type = "f32", rtype = "double"),
     list(pjrt_type = "f64", rtype = "double"),
-    list(pjrt_type = "s32", rtype = "integer"),
-    list(pjrt_type = "s64", rtype = "integer"),
+    list(pjrt_type = "i32", rtype = "integer"),
+    list(pjrt_type = "i64", rtype = "integer"),
     list(pjrt_type = "pred", rtype = "logical")
   )
 
@@ -409,14 +409,14 @@ test_that("buffer <-> raw: row_major parameter", {
     # buf1: [1, 2, 3, 4, 5, 6] that represents [[1, 2], [3, 4], [5, 6]]
     buf1 <- pjrt_buffer(
       data_raw,
-      elt_type = "u8",
+      elt_type = "ui8",
       row_major = TRUE,
       shape = c(3, 2)
     )
     # buf2: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
     buf2 <- pjrt_buffer(
       data_raw,
-      elt_type = "u8",
+      elt_type = "ui8",
       row_major = FALSE,
       shape = c(2, 3)
     )
@@ -431,7 +431,7 @@ test_that("buffer <-> raw: row_major parameter", {
     # buf: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
     buf <- pjrt_buffer(
       data_raw,
-      elt_type = "u8",
+      elt_type = "ui8",
       row_major = FALSE,
       shape = c(2, 3)
     )
