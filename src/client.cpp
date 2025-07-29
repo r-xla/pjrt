@@ -195,23 +195,55 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   // We need an outer list, because its one input per execution device.
   // Currently we only support one device, so we have a single element in the
   // outer list.
-  std::vector<PJRT_Buffer *const *> outer = {inner.data()};
+  std::vector<PJRT_Buffer *const *> outer;
+  if (input.empty()) {
+    // When there are no inputs, we still need to provide a valid pointer
+    // but the inner vector will be empty
+    outer = {nullptr};
+  } else {
+    outer = {inner.data()};
+  }
   exec_args.argument_lists = outer.data();
   exec_args.num_args = input.size();
   exec_args.num_devices = 1;
 
-  exec_args.execute_device = input[0]->device()->device;
+  exec_args.execute_device = nullptr;
 
-  std::vector<PJRT_Buffer *> inner_out(1);
-  std::vector<PJRT_Buffer **> outer_out = {inner.data()};
+  // Get the number of outputs from the executable
+  PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
+  get_exec_args.struct_size = sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
+  get_exec_args.loaded_executable = this->executable;
+  check_err(this->api.get(),
+            this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args));
 
-  exec_args.output_lists = &outer_out[0];
+  PJRT_Executable_NumOutputs_Args num_outputs_args{};
+  num_outputs_args.struct_size = sizeof(PJRT_Executable_NumOutputs_Args);
+  num_outputs_args.executable = get_exec_args.executable;
+  check_err(this->api.get(),
+            this->api->PJRT_Executable_NumOutputs_(&num_outputs_args));
+
+  size_t num_outputs = num_outputs_args.num_outputs;
+
+  // Prepare output buffer storage
+  std::vector<PJRT_Buffer *> inner_out(num_outputs);
+  std::vector<PJRT_Buffer **> outer_out = {inner_out.data()};
+
+  exec_args.output_lists = outer_out.data();
 
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
 
   std::vector<std::unique_ptr<PJRTBuffer>> out;
-  out.push_back(std::make_unique<PJRTBuffer>(outer_out[0][0], this->api));
+  for (size_t i = 0; i < num_outputs; ++i) {
+    out.push_back(std::make_unique<PJRTBuffer>(outer_out[0][i], this->api));
+  }
+
+  // Clean up the executable we got
+  PJRT_Executable_Destroy_Args destroy_exec_args{};
+  destroy_exec_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
+  destroy_exec_args.executable = get_exec_args.executable;
+  check_err(this->api.get(),
+            this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
 
   return out;
 };

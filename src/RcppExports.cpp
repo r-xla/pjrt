@@ -188,7 +188,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_loaded_executable_execute
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
+SEXP impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
 RcppExport SEXP _pjrt_impl_loaded_executable_execute(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

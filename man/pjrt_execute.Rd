@@ -18,7 +18,7 @@ Named are ignored and arguments are passed in order.}
 Optional execution options for configuring buffer donation and other settings.}
 }
 \value{
-\code{PJRTBuffer} | list of \code{PJRTBuffers}
+\code{PJRTBuffer} | \code{list} of \code{PJRTBuffer}s
 }
 \description{
 Execute a PJRT program with the given inputs and execution options.
