@@ -73,7 +73,7 @@ pjrt_buffer.logical <- function(
 #' @export
 pjrt_buffer.integer <- function(
   data,
-  elt_type = "s32",
+  elt_type = "i32",
   client = pjrt_client(),
   ...
 ) {
@@ -153,7 +153,7 @@ pjrt_scalar.logical <- function(
 #' @export
 pjrt_scalar.integer <- function(
   data,
-  elt_type = "s32",
+  elt_type = "i32",
   client = pjrt_client(),
   ...
 ) {
