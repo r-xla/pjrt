@@ -469,3 +469,7 @@ test_that("device print", {
   skip_if(is_cuda() || is_metal())
   expect_snapshot(print(device(pjrt_buffer(1))))
 })
+
+test_that("dim is integer", {
+  expect_true(is.integer(dim(pjrt_buffer(1))))
+})
