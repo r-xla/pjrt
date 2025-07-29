@@ -436,12 +436,10 @@ SEXP impl_loaded_executable_execute(
   auto outs = executable->execute(inputs, *execution_options);
 
   if (outs.size() == 1) {
-    // Return a single buffer for backward compatibility
     Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[0].release(), true);
     xptr.attr("class") = "PJRTBuffer";
     return xptr;
   } else {
-    // Return a list of buffers for multiple outputs
     Rcpp::List result(outs.size());
     for (size_t i = 0; i < outs.size(); ++i) {
       Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[i].release(), true);
