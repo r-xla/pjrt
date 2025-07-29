@@ -289,7 +289,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_buffer_dimensions
-std::vector<int64_t> impl_buffer_dimensions(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+Rcpp::IntegerVector impl_buffer_dimensions(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
 RcppExport SEXP _pjrt_impl_buffer_dimensions(SEXP bufferSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

@@ -494,9 +494,14 @@ std::string impl_element_type_as_string(
 }
 
 // [[Rcpp::export()]]
-std::vector<int64_t> impl_buffer_dimensions(
+Rcpp::IntegerVector impl_buffer_dimensions(
     Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
-  return buffer->dimensions();
+  auto dims = buffer->dimensions();
+  Rcpp::IntegerVector result(dims.size());
+  for (size_t i = 0; i < dims.size(); ++i) {
+    result[i] = static_cast<int>(dims[i]);
+  }
+  return result;
 }
 
 // [[Rcpp::export()]]
