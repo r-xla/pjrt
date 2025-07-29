@@ -12,7 +12,7 @@
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
 #'   Optional execution options for configuring buffer donation and other settings.
-#' @return `PJRTBuffer` | list of `PJRTBuffers`
+#' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
 #' @export
 pjrt_execute <- function(executable, ..., execution_options = NULL) {
   if (!is.null(...names())) {
