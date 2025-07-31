@@ -37,7 +37,6 @@ pjrt_plugin <- function(platform) {
 }
 
 plugin_path <- function(platform) {
-
   envvar <- Sys.getenv(paste0("PJRT_PLUGIN_PATH_", toupper(platform)), "")
   if (envvar != "") {
     return(envvar)
