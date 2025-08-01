@@ -37,6 +37,11 @@ pjrt_plugin <- function(platform) {
 }
 
 plugin_path <- function(platform) {
+  envvar <- Sys.getenv(paste0("PJRT_PLUGIN_PATH_", toupper(platform)), "")
+  if (envvar != "") {
+    return(envvar)
+  }
+
   cache_dir <- tools::R_user_dir("pjrt", which = "cache")
 
   platform_cache_dir <- file.path(cache_dir, platform)
@@ -127,7 +132,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "9.0.1"
+  "11.0.0"
 }
 
 plugin_os <- function() {

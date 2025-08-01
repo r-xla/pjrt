@@ -35,10 +35,10 @@ std::unique_ptr<PJRTClient> PJRTPlugin::client_create() {
 }
 
 std::vector<std::pair<std::string, SEXP>> PJRTPlugin::attributes() const {
-  plugin_attributes_Args args{};
-  args.struct_size = sizeof(plugin_attributes_Args);
+  PJRT_Plugin_Attributes_Args args{};
+  args.struct_size = sizeof(PJRT_Plugin_Attributes_Args);
   args.extension_start = nullptr;
-  check_err(api.get(), api->plugin_attributes_(&args));
+  check_err(api.get(), api->PJRT_Plugin_Attributes_(&args));
   std::vector<std::pair<std::string, SEXP>> out;
   for (size_t i = 0; i < args.num_attributes; ++i) {
     const PJRT_NamedValue &nv = args.attributes[i];
