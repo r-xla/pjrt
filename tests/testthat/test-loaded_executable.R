@@ -10,7 +10,7 @@ test_that("arguments must be unnamed", {
 test_that("execute program without arguments", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
-  executable <- pjrt_compile(program)
+  executable <- pjrt_compile(program, client = "metal")
   result <- pjrt_execute(executable)
   expect_equal(as_array(result), 3)
 })
