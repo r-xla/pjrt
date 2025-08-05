@@ -40,14 +40,12 @@ is_buffer <- function(x) {
 #' @return `PJRTBuffer`
 #' @export
 pjrt_buffer <- function(data, elt_type, client = pjrt_client(), ...) {
-  client <- as_pjrt_client(client)
   UseMethod("pjrt_buffer")
 }
 
 #' @rdname pjrt_buffer
 #' @export
 pjrt_scalar <- function(data, elt_type, client = pjrt_client(), ...) {
-  client <- as_pjrt_client(client)
   UseMethod("pjrt_scalar")
 }
 
@@ -61,11 +59,10 @@ pjrt_buffer.logical <- function(
   if (...length()) {
     stop("Unused arguments")
   }
-  dims = get_dims(data)
   impl_client_buffer_from_logical(
-    client = client,
+    client = as_pjrt_client(client),
     data = data,
-    dims = dims,
+    dims = get_dims(data),
     elt_type = elt_type
   )
 }
@@ -77,14 +74,13 @@ pjrt_buffer.integer <- function(
   client = pjrt_client(),
   ...
 ) {
-  dims = get_dims(data)
   if (...length()) {
     stop("Unused arguments")
   }
   impl_client_buffer_from_integer(
-    client = client,
+    client = as_pjrt_client(client),
     data = data,
-    dims = dims,
+    dims = get_dims(data),
     elt_type = elt_type
   )
 }
@@ -96,14 +92,13 @@ pjrt_buffer.double <- function(
   client = pjrt_client(),
   ...
 ) {
-  dims = get_dims(data)
   if (...length()) {
     stop("Unused arguments")
   }
   impl_client_buffer_from_double(
-    client = client,
+    client = as_pjrt_client(client),
     data = data,
-    dims = dims,
+    dims = get_dims(data),
     elt_type = elt_type
   )
 }
@@ -117,13 +112,14 @@ pjrt_buffer.raw <- function(
   shape,
   row_major
 ) {
+  client <- as_pjrt_client(client)
   if (...length()) {
     stop("Unused arguments")
   }
   impl_client_buffer_from_raw(
     data = data,
     dims = shape,
-    client = client,
+    client = as_pjrt_client(client),
     elt_type = elt_type,
     row_major = row_major
   )
@@ -145,7 +141,7 @@ pjrt_scalar.logical <- function(
   impl_client_buffer_from_logical(
     data,
     dims = integer(),
-    client = client,
+    client = as_pjrt_client(client),
     elt_type = elt_type
   )
 }
@@ -166,7 +162,7 @@ pjrt_scalar.integer <- function(
   impl_client_buffer_from_integer(
     data,
     dims = integer(),
-    client = client,
+    client = as_pjrt_client(client),
     elt_type = elt_type
   )
 }
@@ -187,7 +183,7 @@ pjrt_scalar.double <- function(
   impl_client_buffer_from_double(
     data,
     dims = integer(),
-    client = client,
+    client = as_pjrt_client(client),
     elt_type = elt_type
   )
 }
@@ -205,7 +201,7 @@ pjrt_scalar.raw <- function(
   impl_client_buffer_from_raw(
     data,
     dims = integer(),
-    client = client,
+    client = as_pjrt_client(client),
     elt_type = elt_type,
     row_major = FALSE
   )
