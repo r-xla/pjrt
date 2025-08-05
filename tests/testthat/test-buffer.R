@@ -478,5 +478,7 @@ test_that("can move back buffer without specifying client", {
   skip_if(!(is_metal() || is_cuda()))
   client <- if (is_metal()) "metal" else "cuda"
   x <- pjrt_buffer(1, client = client)
-  expect_equal(as_array(x), 1)
+  expect_equal(as_array(x), array(1))
+  y <- pjrt_scalar(1, client = client)
+  expect_equal(as_array(y), 1)
 })
