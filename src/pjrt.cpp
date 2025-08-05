@@ -276,7 +276,7 @@ SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
   std::span<uint8_t> host_buffer(reinterpret_cast<uint8_t *>(temp_vec.data()),
                                  numel * sizeof(T));
 
-  client->buffer_to_host(*buffer, host_buffer);
+  buffer->buffer_to_host(host_buffer);
 
   SEXP out = PROTECT(Rf_allocVector(r_type, numel));
   void *out_data;
@@ -363,7 +363,7 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
     // 2. We don't need to transpose the data
     std::span<uint8_t> host_buffer(
         reinterpret_cast<uint8_t *>(raw_data.begin()), total_bytes);
-    client->buffer_to_host(*buffer, host_buffer);
+    buffer->buffer_to_host(host_buffer);
     return raw_data;
   }
 
@@ -372,7 +372,7 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
     std::vector<T> temp_vec(numel);
     std::span<uint8_t> host_buffer(reinterpret_cast<uint8_t *>(temp_vec.data()),
                                    total_bytes);
-    client->buffer_to_host(*buffer, host_buffer);
+    buffer->buffer_to_host(host_buffer);
     row_to_col_order<T, T>(temp_vec, reinterpret_cast<T *>(raw_data.begin()),
                            dimensions);
   };

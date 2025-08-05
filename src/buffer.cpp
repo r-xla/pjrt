@@ -99,4 +99,31 @@ std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
   return std::make_unique<PJRTDevice>(args.device, this->api);
 }
 
+// Copy a device buffer to the host and wait for the copy to complete.
+void BufferToHostAndWait(const PJRT_Api *api,
+                         PJRT_Buffer_ToHostBuffer_Args *args) {
+  check_err(api, api->PJRT_Buffer_ToHostBuffer_(args));
+
+  PJRT_Event_Await_Args event_args = {0};
+  event_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
+  event_args.event = args->event;
+  check_err(api, api->PJRT_Event_Await_(&event_args));
+
+  PJRT_Event_Destroy_Args destroy_args = {0};
+  destroy_args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
+  destroy_args.event = args->event;
+  check_err(api, api->PJRT_Event_Destroy_(&destroy_args));
+}
+
+void PJRTBuffer::buffer_to_host(std::span<uint8_t> &host_buffer) {
+  PJRT_Buffer_ToHostBuffer_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_ToHostBuffer_Args);
+  args.src = this->buffer;
+  args.dst = host_buffer.data();
+  args.dst_size = host_buffer.size();
+
+  // Perform the copy and wait for it to complete
+  BufferToHostAndWait(this->api.get(), &args);
+}
+
 }  // namespace rpjrt

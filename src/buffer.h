@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "device.h"
@@ -39,6 +40,7 @@ class PJRTBuffer {
   PJRT_Buffer_Type element_type();
   std::unique_ptr<PJRTDevice> device();
   std::shared_ptr<PJRT_Api> get_api() const { return api; }
+  void buffer_to_host(std::span<uint8_t>& host_buffer);
 
  private:
   std::shared_ptr<PJRT_Api> api;
