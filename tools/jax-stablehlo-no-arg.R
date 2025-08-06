@@ -31,7 +31,7 @@ stablehlo_two_constants = exported_g.mlir_module()
 
 @jax.jit
 def i():
-  return jnp.array([[1, 2], [3, 4]])
+  return jnp.array([1, 2])
 
 # Export the second function to StableHLO
 exported_i = export.export(i)()

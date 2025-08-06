@@ -27,9 +27,8 @@ std::vector<PJRT_Device *> PJRTClient::devices() {
                      args.addressable_devices + args.num_addressable_devices);
 }
 
-std::unique_ptr<PJRTLoadedExecutable>
-PJRTClient::compile(const PJRTProgram &program,
-                    PJRTCompileOptions &compile_options) {
+std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
+    const PJRTProgram &program, PJRTCompileOptions &compile_options) {
   PJRT_Client_Compile_Args args{};
   args.struct_size = sizeof(PJRT_Client_Compile_Args);
 
@@ -59,11 +58,10 @@ void BufferFromHostAndWait(const PJRT_Api *api,
   check_err(api, api->PJRT_Event_Destroy_(&efree_args));
 }
 
-std::unique_ptr<PJRTBuffer>
-PJRTClient::buffer_from_host(void *data,
-                             const std::optional<std::vector<int64_t>> &dims,
-                             const std::optional<std::vector<int64_t>> &strides,
-                             PJRT_Buffer_Type dtype) {
+std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
+    void *data, const std::optional<std::vector<int64_t>> &dims,
+    const std::optional<std::vector<int64_t>> &strides,
+    PJRT_Buffer_Type dtype) {
   const auto devices = this->devices();
 
   // Initialize args to zero to ensure optional fields are null.
@@ -130,8 +128,8 @@ PJRTExecuteOptions::PJRTExecuteOptions() : launch_id(0) {}
 
 PJRTExecuteOptions::PJRTExecuteOptions(
     const std::vector<int64_t> &non_donatable_indices, int launch_id)
-    : non_donatable_input_indices(non_donatable_indices), launch_id(launch_id) {
-}
+    : non_donatable_input_indices(non_donatable_indices),
+      launch_id(launch_id) {}
 
 PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                                            std::shared_ptr<PJRT_Api> api)
@@ -144,9 +142,8 @@ PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   check_err(this->api.get(), this->api->PJRT_LoadedExecutable_Destroy_(&args));
 }
 
-std::vector<std::unique_ptr<PJRTBuffer>>
-PJRTLoadedExecutable::execute(std::vector<PJRTBuffer *> input,
-                              const PJRTExecuteOptions &options) {
+std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
+    std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
   PJRT_ExecuteOptions exec_options{};
   exec_options.struct_size = sizeof(PJRT_ExecuteOptions);
   exec_options.launch_id = options.launch_id;
@@ -231,4 +228,4 @@ std::string PJRTClient::platform_name() {
   return std::string(args.platform_name, args.platform_name_size);
 }
 
-} // namespace rpjrt
+}  // namespace rpjrt
