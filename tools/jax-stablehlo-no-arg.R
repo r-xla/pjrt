@@ -13,25 +13,29 @@ import numpy as np
 
 # Create a JIT-transformed function that returns one constant
 @jax.jit
-def f(x):
+def f():
   return jnp.array(3)
 
-# Create abstract input shapes
-inputs = (np.float32(1),)
-input_shapes = [jax.ShapeDtypeStruct(input.shape, input.dtype) for input in inputs]
-
 # Export the function to StableHLO
-exported = export.export(f)(*input_shapes)
+exported = export.export(f)()
 stablehlo_f = exported.mlir_module()
 
 # Create a JIT-transformed function that returns two constants
 @jax.jit
-def g(x):
+def g():
   return jnp.array(3), jnp.array(7)
 
 # Export the second function to StableHLO
-exported_g = export.export(g)(*input_shapes)
+exported_g = export.export(g)()
 stablehlo_two_constants = exported_g.mlir_module()
+
+@jax.jit
+def i():
+  return jnp.array([[1, 2], [3, 4]])
+
+# Export the second function to StableHLO
+exported_i = export.export(i)()
+stablehlo_tensor_constant = exported_i.mlir_module()
 "
 ))
 
@@ -42,4 +46,9 @@ writeLines(
 writeLines(
   reticulate::py$stablehlo_two_constants,
   "inst/programs/jax-stablehlo-two-constants.mlir"
+)
+
+writeLines(
+  reticulate::py$stablehlo_tensor_constant,
+  "inst/programs/jax-stablehlo-tensor-constant.mlir"
 )

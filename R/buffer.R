@@ -112,7 +112,6 @@ pjrt_buffer.raw <- function(
   shape,
   row_major
 ) {
-  client <- as_pjrt_client(client)
   if (...length()) {
     stop("Unused arguments")
   }
