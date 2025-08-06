@@ -427,7 +427,6 @@ SEXP impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
   std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
-  std::cout << "a" << std::endl;
 
   for (auto i = 0; i < input.size(); i++) {
     auto elt = input[i];
@@ -435,11 +434,7 @@ SEXP impl_loaded_executable_execute(
     inputs[i] = buffer.get();
   }
 
-  std::cout << "b" << std::endl;
-
   auto outs = executable->execute(inputs, *execution_options);
-
-  std::cout << "c" << std::endl;
 
   if (outs.size() == 1) {
     Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[0].release(), true);

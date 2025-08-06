@@ -194,8 +194,10 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
 
   exec_args.output_lists = outer_out.data();
 
+  std::cout << "Before" << std::endl;
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
+  std::cout << "After" << std::endl;
 
   std::vector<std::unique_ptr<PJRTBuffer>> out;
   for (size_t i = 0; i < num_outputs; ++i) {
