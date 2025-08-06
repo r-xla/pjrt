@@ -159,12 +159,11 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   exec_args.executable = this->executable;
   exec_args.options = &exec_options;
 
-  // This is the actual parameters
   std::vector<PJRT_Buffer *> inner(input.size());
-  for (size_t i = 0; i < input.size(); ++i) {
+  for (size_t i = 0; i < input.size(); i++) {
     inner[i] = input[i]->buffer;
   }
-  // We need an outer list, because its one input per execution device.
+  // We need an outer list, because it's one input per execution device.
   // Currently we only support one device, so we have a single element in the
   // outer list.
   std::vector<PJRT_Buffer *const *> outer = {inner.data()};
