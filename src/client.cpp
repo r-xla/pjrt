@@ -91,7 +91,7 @@ PJRTBuildOptions::PJRTBuildOptions()
     : build_options(std::make_unique<xla::ExecutableBuildOptionsProto>()) {
   this->build_options->set_num_replicas(1);
   this->build_options->set_num_partitions(1);
-  this->build_options->set_device_ordinal(-1);
+  this->build_options->set_device_ordinal(0);
 }
 
 PJRTBuildOptions::PJRTBuildOptions(const int num_replicas,
