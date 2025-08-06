@@ -167,14 +167,7 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   // We need an outer list, because its one input per execution device.
   // Currently we only support one device, so we have a single element in the
   // outer list.
-  std::vector<PJRT_Buffer *const *> outer;
-  if (input.empty()) {
-    // When there are no inputs, we still need to provide a valid pointer
-    // but the inner vector will be empty
-    outer = {nullptr};
-  } else {
-    outer = {inner.data()};
-  }
+  std::vector<PJRT_Buffer *const *> outer = {inner.data()};
   exec_args.argument_lists = outer.data();
   exec_args.num_args = input.size();
   exec_args.num_devices = 1;
