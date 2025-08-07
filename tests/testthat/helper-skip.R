@@ -4,6 +4,17 @@ skip_if_metal <- function() {
   }
 }
 
+# GHA does not have access to metal hardware
+skip_if_gha_metal <- function() {
+  if (is_metal() && is_gha()) {
+    testthat::skip("Skipping test on (fake) Metal GHA runner")
+  }
+}
+
+is_gha <- function() {
+  Sys.getenv("GITHUB_ACTIONS") == "true"
+}
+
 is_metal <- function() {
   Sys.getenv("PJRT_PLATFORM") == "metal"
 }

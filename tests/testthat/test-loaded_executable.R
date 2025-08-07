@@ -30,6 +30,7 @@ test_that("can return two values", {
 
 
 test_that("can return array with no arg", {
+  skip_if_gha_metal()
   path <- system.file(
     "programs/jax-stablehlo-tensor-constant.mlir",
     package = "pjrt"
