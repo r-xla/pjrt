@@ -25,7 +25,6 @@ stablehlo_f = exported.mlir_module()
 def g():
   return jnp.array(3), jnp.array(7)
 
-# Export the second function to StableHLO
 exported_g = export.export(g)()
 stablehlo_two_constants = exported_g.mlir_module()
 
@@ -33,9 +32,22 @@ stablehlo_two_constants = exported_g.mlir_module()
 def i():
   return jnp.array([[1, 2], [3, 4]])
 
-# Export the second function to StableHLO
 exported_i = export.export(i)()
 stablehlo_tensor_constant = exported_i.mlir_module()
+
+@jax.jit
+def j():
+  return jnp.array(1.0)
+
+exported_j = export.export(j)()
+stablehlo_float_constant = exported_j.mlir_module()
+
+@jax.jit
+def k():
+  return jnp.array([[1.0, 2.0]])
+
+exported_k = export.export(k)()
+stablehlo_float_tensor_constant = exported_k.mlir_module()
 "
 ))
 
@@ -51,4 +63,12 @@ writeLines(
 writeLines(
   reticulate::py$stablehlo_tensor_constant,
   "inst/programs/jax-stablehlo-tensor-constant.mlir"
+)
+writeLines(
+  reticulate::py$stablehlo_float_constant,
+  "inst/programs/jax-stablehlo-float-constant.mlir"
+)
+writeLines(
+  reticulate::py$stablehlo_float_tensor_constant,
+  "inst/programs/jax-stablehlo-float-tensor-constant.mlir"
 )
