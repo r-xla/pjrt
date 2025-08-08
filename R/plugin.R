@@ -120,9 +120,13 @@ plugin_url <- function(platform) {
 
   if (os == "windows") {
     if (arch != "amd64") {
-      stop("Unsupported architecture for Windows: ", arch, ". Only 'amd64' is supported.")
+      stop(
+        "Unsupported architecture for Windows: ",
+        arch,
+        ". Only 'amd64' is supported."
+      )
     }
-    
+
     # on windows download from our pre-built artifacts
     # TODO make this versioned.
     url <- "https://github.com/dfalbel/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-windows-x86_64.zip"
@@ -137,7 +141,7 @@ plugin_url <- function(platform) {
         full.names = TRUE
       )
       fs::file_move(plugin_path, cache_dir)
-    }  
+    }
   }
 
   sprintf(
@@ -173,6 +177,10 @@ plugin_arch <- function() {
   if (Sys.info()["machine"] == "x86_64") {
     return("amd64")
   } else if (Sys.info()["machine"] == "arm64") {
+    return("arm64")
+  } else if (.Platform$r_arch == "x64") {
+    return("amd64")
+  } else if (.Platform$r_arch == "arm64") {
     return("arm64")
   } else {
     stop("Unsupported architecture: ", .Platform$r_arch)
