@@ -110,7 +110,7 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
     {
       pError->assign("(Unknown error)");
     }
-    throw std::runtime_error(pError.c_str());
+    throw std::runtime_error(pError->c_str());
   }
 
   GetPjrtApiFunc GetPjrtApi = nullptr;
