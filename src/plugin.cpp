@@ -113,7 +113,7 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   }
 
   GetPjrtApiFunc GetPjrtApi = nullptr;
-  GetPjrtApi = (void*)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
+  GetPjrtApi = (GetPjrtApiFunc)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
   return GetPjrtApi();
 #else
   int flags = RTLD_NOW | RTLD_LOCAL;
