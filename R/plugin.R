@@ -135,6 +135,7 @@ plugin_url <- function(platform) {
       tmp <- tempfile()
       dir.create(tmp)
       utils::unzip(path, exdir = tmp)
+      print(list.files(tmp, recursive = TRUE))
       plugin_path <- list.files(
         file.path(tmp, "pjrt"),
         pattern = "*.dll",
