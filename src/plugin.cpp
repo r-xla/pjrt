@@ -83,11 +83,12 @@ std::pair<int, int> PJRTPlugin::pjrt_api_version() const {
 }
 
 PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
+  void* handle = NULL;
 #ifdef _WIN32
   std::cout << "LOADING PJRT DLL" << std::endl;
-  const auto handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
+  handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
   std::cout << "THE DLL MAYBE BE LOADED?" << std::endl;
-  if (!handle) {
+  if (handle == NULL) {
     std::string* pError;
     LPVOID lpMsgBuf;
     DWORD dw = ::GetLastError();
@@ -130,9 +131,9 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
 #ifdef RTLD_NODELETE
   flags |= RTLD_NODELETE;
 #endif
-  const auto handle = dlopen(path.c_str(), flags);
+  handle = dlopen(path.c_str(), flags);
 
-  if (!handle) {
+  if (handle == NULL) {
     const char *error = dlerror();
     throw std::runtime_error("Failed to load plugin from path: " + path +
                              "\nError: " + (error ? error : "Unknown error"));
