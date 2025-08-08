@@ -70,12 +70,6 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
-      - name: Install pjrt
-        run: |
-          Rscript -e 'install.packages("remotes")'
-          Rscript -e 'remotes::install_github("r-xla/pjrt@fix-segfault")'
-          Rscript -e 'pjrt:::plugin_version("cuda")'
-
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
