@@ -110,10 +110,16 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
     {
       pError->assign("(Unknown error)");
     }
+    throw std::runtime_error(pError);
   }
 
   GetPjrtApiFunc GetPjrtApi = nullptr;
   GetPjrtApi = (GetPjrtApiFunc)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
+
+  if (!GetPjrtApi) {
+    throw std::runtime_error("Failed to load GetPjrtApi function");
+  }
+
   return GetPjrtApi();
 #else
   int flags = RTLD_NOW | RTLD_LOCAL;
