@@ -1,7 +1,12 @@
 #include "plugin.h"
 
 #include <Rcpp.h>
-#include <dlfcn.h>
+#ifndef _WIN32
+# include <dlfcn.h>
+#else
+# define WIN32_LEAN_AND_MEAN 1
+# include <windows.h>
+#endif
 
 #include "pjrt.h"
 #include "utils.h"
@@ -79,9 +84,37 @@ std::pair<int, int> PJRTPlugin::pjrt_api_version() const {
 
 PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
 #ifdef _WIN32
-  throw std::runtime_error(
-      "Dynamic loading of PJRT plugins is currently not supported on Windows, "
-      "use WSL2 instead.");
+  const auto handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
+  if (!handle) {
+    std::string* pError;
+    LPVOID lpMsgBuf;
+    DWORD dw = ::GetLastError();
+
+    DWORD length = ::FormatMessage(
+      FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR) &lpMsgBuf,
+        0, NULL );
+
+    if (length != 0)
+    {
+      std::string msg((LPTSTR)lpMsgBuf);
+      LocalFree(lpMsgBuf);
+      pError->assign(msg);
+    }
+    else
+    {
+      pError->assign("(Unknown error)");
+    }
+  }
+
+  GetPjrtApiFunc GetPjrtApi = nullptr;
+  GetPjrtApi = (void*)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
+  return GetPjrtApi();
 #else
   int flags = RTLD_NOW | RTLD_LOCAL;
 #ifdef RTLD_NODELETE
