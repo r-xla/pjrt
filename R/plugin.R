@@ -142,6 +142,7 @@ plugin_url <- function(platform) {
       )
       fs::file_move(plugin_path, cache_dir)
     }
+    return(url)
   }
 
   sprintf(
