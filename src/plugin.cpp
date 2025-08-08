@@ -89,8 +89,7 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
   std::cout << "THE DLL MAYBE BE LOADED?" << std::endl;
   if (handle == NULL) {
-    std::string* pError;
-    LPVOID lpMsgBuf;
+    LPTSTR lpMsgBuf = NULL;
     DWORD dw = ::GetLastError();
 
     DWORD length = ::FormatMessage(
@@ -105,15 +104,11 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
 
     if (length != 0)
     {
-      std::string msg((LPTSTR)lpMsgBuf);
+      std::string msg(lpMsgBuf);
       LocalFree(lpMsgBuf);
-      pError->assign(msg);
+      throw std::runtime_error(msg);
     }
-    else
-    {
-      pError->assign("(Unknown error)");
-    }
-    throw std::runtime_error(pError->c_str());
+    throw std::runtime_error("(Unknown error)");
   }
 
   std::cout << "Getting PJRT API?" << std::endl; 
