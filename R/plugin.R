@@ -118,6 +118,28 @@ plugin_url <- function(platform) {
     return(url)
   }
 
+  if (os == "windows") {
+    if (arch != "amd64") {
+      stop("Unsupported architecture for Windows: ", arch, ". Only 'amd64' is supported.")
+    }
+    
+    # on windows download from our pre-built artifacts
+    # TODO make this versioned.
+    url <- "https://github.com/dfalbel/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-windows-x86_64.zip"
+    # windows files are zipped
+    attr(url, "extract") <- function(path, cache_dir) {
+      tmp <- tempfile()
+      dir.create(tmp)
+      utils::unzip(path, exdir = tmp)
+      plugin_path <- list.files(
+        file.path(tmp, "pjrt"),
+        pattern = "*.dll",
+        full.names = TRUE
+      )
+      fs::file_move(plugin_path, cache_dir)
+    }  
+  }
+
   sprintf(
     "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
     zml_version,
@@ -140,6 +162,8 @@ plugin_os <- function() {
     return("darwin")
   } else if (Sys.info()[["sysname"]] == "Linux") {
     return("linux")
+  } else if (Sys.info()[["sysname"]] == "Windows") {
+    return("windows")
   } else {
     stop("Unsupported OS: ", Sys.info()[["sysname"]])
   }
