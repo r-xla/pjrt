@@ -116,6 +116,8 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
     throw std::runtime_error(pError->c_str());
   }
 
+  std::cout << "Getting PJRT API?" << std::endl; 
+
   GetPjrtApiFunc GetPjrtApi = nullptr;
   GetPjrtApi = (GetPjrtApiFunc)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
 
