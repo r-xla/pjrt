@@ -89,9 +89,12 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
   std::cout << "THE DLL MAYBE BE LOADED?" << std::endl;
   if (handle == NULL) {
-    LPTSTR lpMsgBuf = NULL;
     DWORD dw = ::GetLastError();
+    if (dw == 0) {
+      throw std::runtime_error("Failed to load library (no error code available)");
+    }
 
+    LPTSTR lpMsgBuf = NULL;
     DWORD length = ::FormatMessage(
       FORMAT_MESSAGE_ALLOCATE_BUFFER |
         FORMAT_MESSAGE_FROM_SYSTEM |
