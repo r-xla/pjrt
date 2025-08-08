@@ -84,6 +84,7 @@ std::pair<int, int> PJRTPlugin::pjrt_api_version() const {
 
 PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
 #ifdef _WIN32
+  std::cout << "LOADING PJRT DLL" << std::endl;
   const auto handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
   if (!handle) {
     std::string* pError;
@@ -119,6 +120,8 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   if (!GetPjrtApi) {
     throw std::runtime_error("Failed to load GetPjrtApi function");
   }
+
+  std::cout << "FOUND PJRT API" << std::endl; 
 
   return GetPjrtApi();
 #else
