@@ -86,6 +86,7 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
 #ifdef _WIN32
   std::cout << "LOADING PJRT DLL" << std::endl;
   const auto handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
+  std::cout << "THE DLL MAYBE BE LOADED?" << std::endl;
   if (!handle) {
     std::string* pError;
     LPVOID lpMsgBuf;
