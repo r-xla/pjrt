@@ -64,7 +64,9 @@ plugin_path <- function(platform) {
     }
   }
 
-  list.files(platform_cache_dir, pattern = "pjrt", full.names = TRUE)
+  f <- list.files(platform_cache_dir, pattern = "pjrt", full.names = TRUE)
+  print(f)
+  f
 }
 
 plugin_download <- function(cache_dir, platform = NULL) {
@@ -142,6 +144,7 @@ plugin_url <- function(platform) {
         full.names = TRUE
       )
       fs::file_move(plugin_path, cache_dir)
+      print(list.files(cache_dir, recursive = TRUE))
     }
     return(url)
   }
