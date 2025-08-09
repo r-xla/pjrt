@@ -495,3 +495,7 @@ test_that("can create f32 and f64 buffers from integer data", {
     pjrt_buffer(1:4, "f64", dims = c(2, 2))
   )
 })
+
+test_that("can specify dims", {
+  expect_equal(dim(pjrt_buffer(1:4, dims = c(2, 2))), c(2, 2))
+})
