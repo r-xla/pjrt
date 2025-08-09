@@ -484,7 +484,6 @@ test_that("can move back buffer without specifying client", {
 })
 
 test_that("can create f32 and f64 buffers from integer data", {
-  # Test creating f32 buffer from integer data
   expect_equal(
     pjrt_buffer(c(1, 2, 3, 4), "f32"),
     pjrt_buffer(1:4, "f32")
