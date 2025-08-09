@@ -482,3 +482,16 @@ test_that("can move back buffer without specifying client", {
   y <- pjrt_scalar(1, client = client)
   expect_equal(as_array(y), 1)
 })
+
+test_that("can create f32 and f64 buffers from integer data", {
+  # Test creating f32 buffer from integer data
+  expect_equal(
+    pjrt_buffer(c(1, 2, 3, 4), "f32"),
+    pjrt_buffer(1:4, "f32")
+  )
+
+  expect_equal(
+    pjrt_buffer(c(1, 2, 3, 4), "f64", dims = c(2, 2)),
+    pjrt_buffer(1:4, "f64", dims = c(2, 2))
+  )
+})

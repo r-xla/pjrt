@@ -3,11 +3,53 @@
 \name{pjrt_buffer}
 \alias{pjrt_buffer}
 \alias{pjrt_scalar}
+\alias{pjrt_buffer.logical}
+\alias{pjrt_buffer.integer}
+\alias{pjrt_buffer.double}
+\alias{pjrt_buffer.raw}
+\alias{pjrt_scalar.logical}
+\alias{pjrt_scalar.integer}
+\alias{pjrt_scalar.double}
+\alias{pjrt_scalar.raw}
 \title{Create a PJRT Buffer}
 \usage{
 pjrt_buffer(data, elt_type, client = pjrt_client(), ...)
 
 pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
+
+\method{pjrt_buffer}{logical}(
+  data,
+  elt_type = "pred",
+  client = pjrt_client(),
+  dims = get_dims(data),
+  ...
+)
+
+\method{pjrt_buffer}{integer}(
+  data,
+  elt_type = "i32",
+  client = pjrt_client(),
+  dims = get_dims(data),
+  ...
+)
+
+\method{pjrt_buffer}{double}(
+  data,
+  elt_type = "f32",
+  client = pjrt_client(),
+  dims = get_dims(data),
+  ...
+)
+
+\method{pjrt_buffer}{raw}(data, ..., elt_type, client = pjrt_client(), shape, row_major)
+
+\method{pjrt_scalar}{logical}(data, elt_type = "pred", client = pjrt_client(), ...)
+
+\method{pjrt_scalar}{integer}(data, elt_type = "i32", client = pjrt_client(), ...)
+
+\method{pjrt_scalar}{double}(data, elt_type = "f32", client = pjrt_client(), ...)
+
+\method{pjrt_scalar}{raw}(data, ..., elt_type, client = pjrt_client())
 }
 \arguments{
 \item{data}{(any)\cr
@@ -28,6 +70,10 @@ from which the client will be created.}
 
 \item{...}{(any)\cr
 Additional arguments.}
+
+\item{dims}{(integer)\cr
+The dimensions of the buffer.
+If \code{NULL}, the dimensions will be inferred from the data.}
 }
 \value{
 \code{PJRTBuffer}
