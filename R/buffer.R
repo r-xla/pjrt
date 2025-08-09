@@ -13,7 +13,7 @@ is_buffer <- function(x) {
 #' Create a PJRT Buffer from an R object.
 #' Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 #' [`pjrt_buffer`] will create a array with dimensions `(1)` for a vector of length 1, while
-#' Therefore, [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
+#' [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
 #'
 #' @section Extractors:
 #' * [`device()`] for the device of the buffer.
@@ -33,7 +33,7 @@ is_buffer <- function(x) {
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
 #'   - `"{s,u}{8,16,32,64}"`: (Un)signed integer (for `integer` data).
-#'   - `"f{32,64}"`: Floating point (for `double` data).
+#'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
 #' @param ... (any)\cr
 #'   Additional arguments.
 #' @template param_client
@@ -49,33 +49,46 @@ pjrt_scalar <- function(data, elt_type, client = pjrt_client(), ...) {
   UseMethod("pjrt_scalar")
 }
 
+#' @rdname pjrt_buffer
+#' @param shape (`integer()`)\cr
+#'   The dimensions of the buffer.
+#'   The default is to infer them from the data.
 #' @export
 pjrt_buffer.logical <- function(
   data,
   elt_type = "pred",
   client = pjrt_client(),
+  shape = get_dims(data),
   ...
 ) {
   if (...length()) {
     stop("Unused arguments")
   }
+  if (!is.array(data)) {
+    data <- array(data, dim = shape)
+  }
   impl_client_buffer_from_logical(
     client = as_pjrt_client(client),
     data = data,
-    dims = get_dims(data),
+    dims = shape,
     elt_type = elt_type
   )
 }
 
+#' @rdname pjrt_buffer
 #' @export
 pjrt_buffer.integer <- function(
   data,
   elt_type = "i32",
   client = pjrt_client(),
+  shape = get_dims(data),
   ...
 ) {
   if (...length()) {
     stop("Unused arguments")
+  }
+  if (!is.array(data)) {
+    data <- array(data, dim = shape)
   }
   impl_client_buffer_from_integer(
     client = as_pjrt_client(client),
@@ -85,24 +98,33 @@ pjrt_buffer.integer <- function(
   )
 }
 
+#' @rdname pjrt_buffer
 #' @export
 pjrt_buffer.double <- function(
   data,
   elt_type = "f32",
   client = pjrt_client(),
+  shape = get_dims(data),
   ...
 ) {
   if (...length()) {
     stop("Unused arguments")
   }
+  if (!is.array(data)) {
+    data <- array(data, dim = shape)
+  }
   impl_client_buffer_from_double(
     client = as_pjrt_client(client),
     data = data,
-    dims = get_dims(data),
+    dims = shape,
     elt_type = elt_type
   )
 }
 
+#' @rdname pjrt_buffer
+#' @param row_major (logical(1))\cr
+#'   Whether to read the data in row-major format or column-major format.
+#'   R uses column-major format.
 #' @export
 pjrt_buffer.raw <- function(
   data,
@@ -124,6 +146,7 @@ pjrt_buffer.raw <- function(
   )
 }
 
+#' @rdname pjrt_buffer
 #' @export
 pjrt_scalar.logical <- function(
   data,
@@ -145,6 +168,7 @@ pjrt_scalar.logical <- function(
   )
 }
 
+#' @rdname pjrt_buffer
 #' @export
 pjrt_scalar.integer <- function(
   data,
@@ -166,6 +190,7 @@ pjrt_scalar.integer <- function(
   )
 }
 
+#' @rdname pjrt_buffer
 #' @export
 pjrt_scalar.double <- function(
   data,
@@ -187,6 +212,7 @@ pjrt_scalar.double <- function(
   )
 }
 
+#' @rdname pjrt_buffer
 #' @export
 pjrt_scalar.raw <- function(
   data,

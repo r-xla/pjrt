@@ -3,3 +3,4 @@ rm -Rf .deps
 
 echo "Cleaning: ${PWD}"
 find src -name '*.o' -delete
+rm -Rf .deps
