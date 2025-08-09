@@ -21,7 +21,7 @@ pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
   data,
   elt_type = "pred",
   client = pjrt_client(),
-  dims = get_dims(data),
+  shape = get_dims(data),
   ...
 )
 
@@ -29,7 +29,7 @@ pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
   data,
   elt_type = "i32",
   client = pjrt_client(),
-  dims = get_dims(data),
+  shape = get_dims(data),
   ...
 )
 
@@ -37,7 +37,7 @@ pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
   data,
   elt_type = "f32",
   client = pjrt_client(),
-  dims = get_dims(data),
+  shape = get_dims(data),
   ...
 )
 
@@ -61,7 +61,7 @@ Currently supported types are:
 \itemize{
 \item \code{"pred"}: predicate (i.e. a boolean)
 \item \code{"{s,u}{8,16,32,64}"}: (Un)signed integer (for \code{integer} data).
-\item \code{"f{32,64}"}: Floating point (for \code{double} data).
+\item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 }}
 
 \item{client}{(\code{PJRTClient} | \code{character(1)})\cr
@@ -71,9 +71,13 @@ from which the client will be created.}
 \item{...}{(any)\cr
 Additional arguments.}
 
-\item{dims}{(integer)\cr
+\item{shape}{(\code{integer()})\cr
 The dimensions of the buffer.
-If \code{NULL}, the dimensions will be inferred from the data.}
+The default is to infer them from the data.}
+
+\item{row_major}{(logical(1))\cr
+Whether to read the data in row-major format or column-major format.
+R uses column-major format.}
 }
 \value{
 \code{PJRTBuffer}
@@ -82,7 +86,7 @@ If \code{NULL}, the dimensions will be inferred from the data.}
 Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 \code{\link{pjrt_buffer}} will create a array with dimensions \code{(1)} for a vector of length 1, while
-Therefore, \code{\link{pjrt_scalar}} will create a 0-dimensional array for an R vector of length 1.
+\code{\link{pjrt_scalar}} will create a 0-dimensional array for an R vector of length 1.
 }
 \details{
 R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar} function.
