@@ -102,7 +102,16 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
   std::vector<T> temp_vec(len);
 
   if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
-    std::copy(REAL(data), REAL(data) + len, temp_vec.data());
+    if (TYPEOF(data) == REALSXP) {
+      std::copy(REAL(data), REAL(data) + len, temp_vec.data());
+    } else if (TYPEOF(data) == INTSXP) {
+      // Convert integer data to float/double
+      for (int i = 0; i < len; ++i) {
+        temp_vec[i] = static_cast<T>(INTEGER(data)[i]);
+      }
+    } else {
+      Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
+    }
   } else if constexpr (std::is_same_v<T, int8_t> ||
                        std::is_same_v<T, int16_t> ||
                        std::is_same_v<T, int32_t> ||
@@ -196,6 +205,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else if (elt_type == "ui64") {
     return create_buffer_from_array<uint64_t>(client, data, dims,
                                               PJRT_Buffer_Type_U64);
+  } else if (elt_type == "f32") {
+    return create_buffer_from_array<float>(client, data, dims,
+                                           PJRT_Buffer_Type_F32);
+  } else if (elt_type == "f64") {
+    return create_buffer_from_array<double>(client, data, dims,
+                                            PJRT_Buffer_Type_F64);
   } else {
     Rcpp::stop("Unsupported type: %s", elt_type.c_str());
   }
