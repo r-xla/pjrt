@@ -121,7 +121,7 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
   std::cout << "THE DLL MAYBE BE LOADED?" << std::endl;
   if (handle == NULL) {
-    throw_last_error("Failed to load plugin from path: " + path)
+    throw_last_error("Failed to load plugin from path: " + path);
   }
 
   std::cout << "Getting PJRT API?" << std::endl; 
