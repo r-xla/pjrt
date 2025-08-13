@@ -13,7 +13,10 @@ NULL
   # this allows for tests without as_array() conversion
   register_s3_method("waldo", "compare_proxy", "PJRTBuffer")
   register_namespace_callback(pkgname, "safetensors", function(...) {
-    frameworks <- utils::getFromNamespace("safetensors_frameworks", ns = "safetensors")
+    frameworks <- utils::getFromNamespace(
+      "safetensors_frameworks",
+      ns = "safetensors"
+    )
     frameworks[["pjrt"]] <- list(
       constructor = pjrt_tensor_from_raw,
       packages = "pjrt"
