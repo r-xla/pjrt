@@ -21,6 +21,7 @@ LinkingTo:
 Imports:
     checkmate,
     Rcpp,
+    safetensors,
     rlang,
     fs
 Suggests:
