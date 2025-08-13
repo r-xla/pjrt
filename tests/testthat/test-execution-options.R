@@ -52,6 +52,7 @@ test_that("execution with options works", {
 })
 
 test_that("can donate input", {
+  skip_if_metal("-:10:28: error: expected ')' in inline location")
   program <- pjrt_program(
     path = system.file(
       "programs/jax-stablehlo-update-param.mlir",
