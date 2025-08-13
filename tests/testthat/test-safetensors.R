@@ -55,7 +55,7 @@ test_that("Can write safetensors (different data types)", {
 })
 
 test_that("load a file (pjrt)", {
-  path <- system.file("tests/testthat/safetensors/hello.safetensors", package = "safetensors")
+  path <- test_path("_safetensors", "hello.safetensors")
   dict <- safetensors::safe_load_file(
     path,
     framework = "pjrt"
