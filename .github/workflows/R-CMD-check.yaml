@@ -24,6 +24,7 @@ jobs:
           - { os: "ubuntu", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "windows", r: "release", platform: "cpu"}
+          - { os: "macos", r: null, platform: "metal"}
 
         include:
           - config: {os: "ubuntu", platform: "cuda"}
@@ -36,14 +37,15 @@ jobs:
               DEBIAN_FRONTEND="noninteractive" update-locale LANG=en_US.UTF-8
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
-          - config: {os: "macos"}
+          - config: {os: "macos", platform: "cpu"}
             runner: 'macos-latest'
             setup: |
               brew install protobuf@21
               brew link protobuf@21 --force --overwrite
           - config: {os: "windows"}
             runner: 'windows-latest'
-
+          - config: {os: "macos", platform: "metal"}
+            runner: ['self-hosted', 'metal']
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -60,6 +62,7 @@ jobs:
       - uses: r-lib/actions/setup-pandoc@v2
 
       - uses: r-lib/actions/setup-r@v2
+        if: matrix.config.r != null
         with:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
