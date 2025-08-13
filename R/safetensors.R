@@ -3,7 +3,7 @@ pjrt_tensor_from_raw <- function(raw, meta, client = pjrt_client()) {
 
   dims <- as.integer(meta$shape)
 
-  pjrt::pjrt_buffer(
+  pjrt_buffer(
     raw,
     shape = dims,
     elt_type = safetensors_dtype_to_pjrt(meta$dtype),
