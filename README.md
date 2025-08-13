@@ -69,6 +69,14 @@ as_array(result)
 #> [2,]    8   12
 ```
 
+## Main Features
+
+- Compile stableHLO programs into hardware-specific executables.
+- Provide a runtime to execute compiled programs.
+- Convert buffers to and from R arrays and vectors.
+- Read and write buffers using the
+  [safetensors](https://github.com/mlverse/safetensors) format.
+
 ## Platform Support
 
 - **Linux**

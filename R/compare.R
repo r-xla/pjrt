@@ -26,6 +26,7 @@ register_s3_method <- function(pkg, generic, class, fun = NULL) {
     packageEvent(pkg, "onLoad"),
     function(...) {
       registerS3method(generic, class, fun, envir = asNamespace(pkg))
-    }
+    },
+    action = "append"
   )
 }
