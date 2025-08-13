@@ -21,7 +21,7 @@ check_plugin <- function(plugin) {
 #' @description
 #' Create a PJRT plugin for a specific platform.
 #'
-#' @section Extrators:
+#' @section Extractors:
 #' * [`plugin_attributes()`] for a named `list()` of attributes.
 #'
 #' @param platform (`character(1)`)\cr
