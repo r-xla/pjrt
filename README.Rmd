@@ -61,6 +61,13 @@ result <- pjrt_execute(executable, x_buffer, y_buffer)
 as_array(result)
 ```
 
+## Main Features
+
+* Compile stableHLO programs into hardware-specific executables.
+* Provide a runtime to execute compiled programs.
+* Convert buffers to and from R arrays and vectors.
+* Read and write buffers using the [safetensors](https://github.com/mlverse/safetensors) format.
+
 ## Platform Support
 
 - **Linux**
