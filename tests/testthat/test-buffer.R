@@ -302,6 +302,7 @@ test_that("element_type returns correct data types", {
 })
 
 test_that("R layout and PJRT layout (2D)", {
+  skip_if_metal("-:20:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
