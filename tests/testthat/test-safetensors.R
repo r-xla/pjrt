@@ -1,5 +1,4 @@
 skip_if_not_installed("safetensors")
-library(safetensors)
 
 test_that("can write a safetensors file (pjrt)", {
   buffers <- list(
