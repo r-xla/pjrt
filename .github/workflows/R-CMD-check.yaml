@@ -46,6 +46,9 @@ jobs:
             runner: 'windows-latest'
           - config: {os: "macos", platform: "metal"}
             runner: ['self-hosted', 'metal']
+            setup: |
+              brew install protobuf@21
+              brew link protobuf@21 --force --overwrite
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
