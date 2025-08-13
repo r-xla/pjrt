@@ -7,25 +7,28 @@ Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = "aut",
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197"))
   )
-Description: Provides an R interface to PJRT (Pretty Much Just another RunTime),
-    which allows you to run XLA or stableHLO programs on a variety of hardware
-    backends including CPU, GPU, and TPU.
+Description: Provides an R interface to PJRT (Pretty Much Just another
+    RunTime), which allows you to run XLA or stableHLO programs on a
+    variety of hardware backends including CPU, GPU, and TPU.
 License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
 BugReports: https://github.com/r-xla/pjrt/issues
+Imports:
+    checkmate,
+    cli,
+    fs,
+    Rcpp,
+    rlang,
+    safetensors
+Suggests:
+    testthat (>= 3.0.0)
+LinkingTo:
+    Rcpp
+Remotes:
+    sebffischer/safetensors@feat-pjrt
+Config/build/compilation-database: true
+Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
-LinkingTo:
-    Rcpp
-Imports:
-    checkmate,
-    Rcpp,
-    safetensors,
-    rlang,
-    fs
-Suggests:
-    testthat (>= 3.0.0)
-Config/testthat/edition: 3
-Config/build/compilation-database: true
 SystemRequirements: C++20, libprotobuf, protobuf-compiler
