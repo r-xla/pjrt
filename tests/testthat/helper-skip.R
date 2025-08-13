@@ -1,6 +1,6 @@
-skip_if_metal <- function() {
+skip_if_metal <- function(msg = "") {
   if (is_metal()) {
-    testthat::skip("Skipping test on Metal device")
+    testthat::skip(sprintf("Skipping test on Metal device: %s", msg))
   }
 }
 

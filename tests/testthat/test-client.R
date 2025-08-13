@@ -1,5 +1,5 @@
 test_that("compile program with one input", {
-  skip_if_metal()
+  skip_if_metal("only works with MLIR programs")
 
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
@@ -24,9 +24,6 @@ test_that("compile program with one input", {
 })
 
 test_that("compile program with multiple inputs", {
-  # this won't work on CI currently because it runs on a Mac VM which doesn't support GPU access.
-  skip_if_metal()
-
   path <- system.file("programs/stablehlo.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
 

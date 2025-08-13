@@ -1,5 +1,5 @@
 test_that("arguments must be unnamed", {
-  skip_if_metal()
+  skip_if_metal("only supports MLIR programs")
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
   executable <- pjrt_compile(program)
