@@ -2,10 +2,10 @@
 
 #include <Rcpp.h>
 #ifndef _WIN32
-# include <dlfcn.h>
+#include <dlfcn.h>
 #else
-# define WIN32_LEAN_AND_MEAN 1
-# include <windows.h>
+#define WIN32_LEAN_AND_MEAN 1
+#include <windows.h>
 #endif
 
 #include "pjrt.h"
@@ -82,27 +82,22 @@ std::pair<int, int> PJRTPlugin::pjrt_api_version() const {
           api->pjrt_api_version.minor_version};
 }
 
-
-void throw_last_error (const std::string& prefix) {
+void throw_last_error(const std::string &prefix) {
 #ifdef _WIN32
   DWORD dw = ::GetLastError();
   if (dw == 0) {
-    throw std::runtime_error(prefix + ": Failed to load library (no error code available)");
+    throw std::runtime_error(
+        prefix + ": Failed to load library (no error code available)");
   }
 
   LPTSTR lpMsgBuf = NULL;
   DWORD length = ::FormatMessage(
-    FORMAT_MESSAGE_ALLOCATE_BUFFER |
-      FORMAT_MESSAGE_FROM_SYSTEM |
-      FORMAT_MESSAGE_IGNORE_INSERTS,
-      NULL,
-      dw,
-      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      (LPTSTR) &lpMsgBuf,
-      0, NULL );
+      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+          FORMAT_MESSAGE_IGNORE_INSERTS,
+      NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0,
+      NULL);
 
-  if (length != 0)
-  {
+  if (length != 0) {
     std::string msg(lpMsgBuf);
     LocalFree(lpMsgBuf);
     throw std::runtime_error(prefix + ": " + msg);
@@ -115,25 +110,26 @@ void throw_last_error (const std::string& prefix) {
 }
 
 PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
-  void* handle = NULL;
+  void *handle = NULL;
 #ifdef _WIN32
   std::cout << "LOADING PJRT DLL" << std::endl;
-  handle = (void*)::LoadLibraryEx(path.c_str(), NULL, 0);
+  handle = (void *)::LoadLibraryEx(path.c_str(), NULL, 0);
   std::cout << "THE DLL MAYBE BE LOADED?" << std::endl;
   if (handle == NULL) {
     throw_last_error("Failed to load plugin from path: " + path);
   }
 
-  std::cout << "Getting PJRT API?" << std::endl; 
+  std::cout << "Getting PJRT API?" << std::endl;
 
   GetPjrtApiFunc GetPjrtApi = nullptr;
-  GetPjrtApi = (GetPjrtApiFunc)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
+  GetPjrtApi =
+      (GetPjrtApiFunc)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
 
   if (!GetPjrtApi) {
     throw_last_error("Failed to load GetPjrtApi function");
   }
 
-  std::cout << "FOUND PJRT API" << std::endl; 
+  std::cout << "FOUND PJRT API" << std::endl;
 
   return GetPjrtApi();
 #else
