@@ -129,7 +129,7 @@ plugin_url <- function(platform) {
 
     # on windows download from our pre-built artifacts
     # TODO make this versioned.
-    url <- "https://github.com/dfalbel/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-windows-x86_64.zip"
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-windows-x86_64.zip"
     # windows files are zipped
     attr(url, "extract") <- function(path, cache_dir) {
       tmp <- tempfile()
