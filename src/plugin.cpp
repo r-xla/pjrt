@@ -112,14 +112,10 @@ void throw_last_error(const std::string &prefix) {
 PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   void *handle = NULL;
 #ifdef _WIN32
-  std::cout << "LOADING PJRT DLL" << std::endl;
   handle = (void *)::LoadLibraryEx(path.c_str(), NULL, 0);
-  std::cout << "THE DLL MAYBE BE LOADED?" << std::endl;
   if (handle == NULL) {
     throw_last_error("Failed to load plugin from path: " + path);
   }
-
-  std::cout << "Getting PJRT API?" << std::endl;
 
   GetPjrtApiFunc GetPjrtApi = nullptr;
   GetPjrtApi =
@@ -128,8 +124,6 @@ PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
   if (!GetPjrtApi) {
     throw_last_error("Failed to load GetPjrtApi function");
   }
-
-  std::cout << "FOUND PJRT API" << std::endl;
 
   return GetPjrtApi();
 #else
