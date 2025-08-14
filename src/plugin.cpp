@@ -1,7 +1,12 @@
 #include "plugin.h"
 
 #include <Rcpp.h>
+#ifndef _WIN32
 #include <dlfcn.h>
+#else
+#define WIN32_LEAN_AND_MEAN 1
+#include <windows.h>
+#endif
 
 #include "pjrt.h"
 #include "utils.h"
@@ -77,29 +82,66 @@ std::pair<int, int> PJRTPlugin::pjrt_api_version() const {
           api->pjrt_api_version.minor_version};
 }
 
-PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
+void throw_last_error(const std::string &prefix) {
 #ifdef _WIN32
-  throw std::runtime_error(
-      "Dynamic loading of PJRT plugins is currently not supported on Windows, "
-      "use WSL2 instead.");
+  DWORD dw = ::GetLastError();
+  if (dw == 0) {
+    throw std::runtime_error(
+        prefix + ": Failed to load library (no error code available)");
+  }
+
+  LPTSTR lpMsgBuf = NULL;
+  DWORD length = ::FormatMessage(
+      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+          FORMAT_MESSAGE_IGNORE_INSERTS,
+      NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&lpMsgBuf, 0,
+      NULL);
+
+  if (length != 0) {
+    std::string msg(lpMsgBuf);
+    LocalFree(lpMsgBuf);
+    throw std::runtime_error(prefix + ": " + msg);
+  }
+  throw std::runtime_error(prefix + ": (Unknown error)");
+#else
+  const char *error = dlerror();
+  throw std::runtime_error(prefix + ": " + (error ? error : "Unknown error"));
+#endif
+}
+
+PJRT_Api *PJRTPlugin::load_pjrt_plugin(const std::string &path) {
+  void *handle = NULL;
+#ifdef _WIN32
+  handle = (void *)::LoadLibraryEx(path.c_str(), NULL, 0);
+  if (handle == NULL) {
+    throw_last_error("Failed to load plugin from path: " + path);
+  }
+
+  GetPjrtApiFunc GetPjrtApi = nullptr;
+  GetPjrtApi =
+      (GetPjrtApiFunc)::GetProcAddress((HINSTANCE)handle, "GetPjrtApi");
+
+  if (!GetPjrtApi) {
+    throw_last_error("Failed to load GetPjrtApi function");
+  }
+
+  return GetPjrtApi();
 #else
   int flags = RTLD_NOW | RTLD_LOCAL;
 #ifdef RTLD_NODELETE
   flags |= RTLD_NODELETE;
 #endif
-  const auto handle = dlopen(path.c_str(), flags);
+  handle = dlopen(path.c_str(), flags);
 
-  if (!handle) {
-    const char *error = dlerror();
-    throw std::runtime_error("Failed to load plugin from path: " + path +
-                             "\nError: " + (error ? error : "Unknown error"));
+  if (handle == NULL) {
+    throw_last_error("Failed to load plugin from path: " + path);
   }
 
   GetPjrtApiFunc GetPjrtApi = nullptr;
   GetPjrtApi = (GetPjrtApiFunc)dlsym(handle, "GetPjrtApi");
 
   if (!GetPjrtApi) {
-    throw std::runtime_error("Failed to load GetPjrtApi function");
+    throw_last_error("Failed to load GetPjrtApi function");
   }
 
   return GetPjrtApi();

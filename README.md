@@ -83,7 +83,8 @@ as_array(result)
   - :white_check_mark: CPU backend is fully supported.
   - :white_check_mark: CUDA (NVIDIA GPU) backend is fully supported.
 - **Windows**
-  - :warning: Currently only supported via Windows Subsystem for Linux
+  - :white_check_mark: CPU backend is fully supported.
+  - :warning: GPU is only supported via Windows Subsystem for Linux
     (WSL2).
 - **macOS**
   - :white_check_mark: CPU backend is supported.

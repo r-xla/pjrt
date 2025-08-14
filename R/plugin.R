@@ -118,6 +118,33 @@ plugin_url <- function(platform) {
     return(url)
   }
 
+  if (os == "windows") {
+    if (arch != "amd64") {
+      stop(
+        "Unsupported architecture for Windows: ",
+        arch,
+        ". Only 'amd64' is supported."
+      )
+    }
+
+    # on windows download from our pre-built artifacts
+    # TODO make this versioned.
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-windows-x86_64.zip"
+    # windows files are zipped
+    attr(url, "extract") <- function(path, cache_dir) {
+      tmp <- tempfile()
+      dir.create(tmp)
+      utils::unzip(path, exdir = tmp)
+      plugin_path <- list.files(
+        tmp,
+        pattern = "*.dll",
+        full.names = TRUE
+      )
+      fs::file_move(plugin_path, cache_dir)
+    }
+    return(url)
+  }
+
   sprintf(
     "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
     zml_version,
@@ -140,6 +167,8 @@ plugin_os <- function() {
     return("darwin")
   } else if (Sys.info()[["sysname"]] == "Linux") {
     return("linux")
+  } else if (Sys.info()[["sysname"]] == "Windows") {
+    return("windows")
   } else {
     stop("Unsupported OS: ", Sys.info()[["sysname"]])
   }
@@ -149,6 +178,10 @@ plugin_arch <- function() {
   if (Sys.info()["machine"] == "x86_64") {
     return("amd64")
   } else if (Sys.info()["machine"] == "arm64") {
+    return("arm64")
+  } else if (.Platform$r_arch == "x64") {
+    return("amd64")
+  } else if (.Platform$r_arch == "arm64") {
     return("arm64")
   } else {
     stop("Unsupported architecture: ", .Platform$r_arch)
