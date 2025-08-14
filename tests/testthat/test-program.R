@@ -6,6 +6,9 @@ test_that("load a test program", {
 })
 
 test_that("can load MLIR program", {
+  # Slightly different code size on windows, due to how files are written.
+  skip_on_os('windows')
+
   path <- system.file("programs/jax-stablehlo.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
 
