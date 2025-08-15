@@ -13,7 +13,9 @@ if (!dir.exists("inst/include")) {
 HEADER_FILES <- c(
   "xla/pjrt/c/pjrt_c_api.h",
   "xla/pjrt/c/pjrt_c_api_ffi_extension.h",
-  "xla/ffi/api/c_api.h"
+  "xla/ffi/api/c_api.h",
+  "xla/ffi/api/api.h",
+  "xla/ffi/api/ffi.h"
 )
 
 for (file in HEADER_FILES) {
