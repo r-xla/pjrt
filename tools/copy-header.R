@@ -12,7 +12,10 @@ if (!dir.exists("inst/include")) {
 
 HEADER_FILES <- c(
   "xla/pjrt/c/pjrt_c_api.h",
-  "xla/pjrt/c/pjrt_c_api_ffi_extension.h"
+  "xla/pjrt/c/pjrt_c_api_ffi_extension.h",
+  "xla/ffi/api/c_api.h",
+  "xla/ffi/api/api.h",
+  "xla/ffi/api/ffi.h"
 )
 
 for (file in HEADER_FILES) {
@@ -33,4 +36,8 @@ for (file in HEADER_FILES) {
     writeLines(content, dest)
     cat("Applied macro definition edit to:", dest, "\n")
   }
+}
+
+for (file in fs::dir_ls("tools/headers/patch/")) {
+  system(sprintf("git apply %s", file))
 }
