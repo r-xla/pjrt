@@ -11,6 +11,17 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// test_get_extension
+bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin);
+RcppExport SEXP _pjrt_test_get_extension(SEXP pluginSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTPlugin> >::type plugin(pluginSEXP);
+    rcpp_result_gen = Rcpp::wrap(test_get_extension(plugin));
+    return rcpp_result_gen;
+END_RCPP
+}
 // format_raw_buffer_cpp
 CharacterVector format_raw_buffer_cpp(RawVector data, std::string dtype, IntegerVector shape);
 RcppExport SEXP _pjrt_format_raw_buffer_cpp(SEXP dataSEXP, SEXP dtypeSEXP, SEXP shapeSEXP) {
@@ -399,6 +410,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 1},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
     {"_pjrt_impl_plugin_client_create", (DL_FUNC) &_pjrt_impl_plugin_client_create, 2},
