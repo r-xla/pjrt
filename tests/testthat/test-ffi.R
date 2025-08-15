@@ -1,9 +1,11 @@
 test_that("can load the ffi extension", {
-  expect_true(test_get_extension(pjrt_plugin(Sys.getenv("PJRT_PLATFORM", "cpu"))))
+  expect_true(test_get_extension(pjrt_plugin(Sys.getenv(
+    "PJRT_PLATFORM",
+    "cpu"
+  ))))
 })
 
 test_that("can use registered funs", {
-  
   src <- r"(
 func.func @main(
   %x: tensor<2x2xf32>
@@ -17,10 +19,9 @@ func.func @main(
   "func.return"(%0): (tensor<2x2xf32>) -> ()
 }
 )"
-  
+
   program <- pjrt_program(src)
   program <- pjrt_compile(program)
-  out <- pjrt_execute(program, pjrt_buffer(matrix(1, nrow=2, ncol=2)))
+  out <- pjrt_execute(program, pjrt_buffer(matrix(1, nrow = 2, ncol = 2)))
   as_array(out)
-
 })

@@ -1,9 +1,10 @@
-#include "plugin.h"
-#include "xla/ffi/api/api.h"
 #include "xla/ffi/api/ffi.h"
+
+#include "plugin.h"
+#include "utils.h"
+#include "xla/ffi/api/api.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "xla/pjrt/c/pjrt_c_api_ffi_extension.h"
-#include "utils.h"
 
 using namespace xla::ffi;
 
@@ -26,13 +27,11 @@ PJRT_FFI_Extension* get_pjrt_ffi_extension(PJRTPlugin* plugin) {
   throw std::runtime_error("PJRT FFI Extension not found");
 }
 
-// Constrain custom call arguments to 1-dimensional buffers of F32 data type.
-using BufferF32 = xla::ffi::BufferR1<xla::ffi::DataType::F32>;
-
 // Implement a custom call as a C++ function. Note that we can use `Buffer` type
 // defined by XLA FFI that gives us access to buffer data type and shape.
 xla::ffi::Error do_custom_call() {
-    return xla::ffi::Error(xla::ffi::ErrorCode::kOk, "Custom call executed successfully");
+  return xla::ffi::Error(xla::ffi::ErrorCode::kOk,
+                         "Custom call executed successfully");
 }
 
 XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_custom_call);
@@ -59,6 +58,6 @@ bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
     register_ffi_handlers(plugin.get());
     return true;
   }
-  
+
   return false;
 }
