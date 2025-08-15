@@ -11,7 +11,8 @@ func.func @main(
   %0 = "stablehlo.add"(%x, %x) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
   stablehlo.custom_call @my_custom_call() {
   call_target_name = "test_handler",
-  has_side_effect = true
+  has_side_effect = true,
+  api_version = 4 : i32
 } : () -> ()
   "func.return"(%0): (tensor<2x2xf32>) -> ()
 }
