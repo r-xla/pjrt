@@ -37,3 +37,7 @@ for (file in HEADER_FILES) {
     cat("Applied macro definition edit to:", dest, "\n")
   }
 }
+
+for (file in fs::dir_ls("tools/headers/patch/")) {
+  system(sprintf("git apply %s", file))
+}
