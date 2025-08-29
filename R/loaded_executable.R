@@ -20,7 +20,7 @@ pjrt_execute <- function(executable, ..., execution_options = NULL) {
   }
   check_loaded_executable(executable)
   input <- list(...)
-  lapply(input, check_buffer)
+  lapply(input, assert_buffer)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()

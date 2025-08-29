@@ -1,7 +1,9 @@
 #include "utils.h"
 
-#include <memory>
 #include <optional>
+#include <stdexcept>
+
+#include "xla/pjrt/c/pjrt_c_api.h"
 
 void check_err(const PJRT_Api *api, PJRT_Error *err) {
   if (err) {
@@ -13,7 +15,7 @@ void check_err(const PJRT_Api *api, PJRT_Error *err) {
   }
 }
 
-size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {
+size_t sizeof_pjrt_buffer_type(int type) {
   switch (type) {
     case PJRT_Buffer_Type_F32:
       return 4;
@@ -70,3 +72,5 @@ std::optional<std::vector<int64_t>> get_byte_strides(
   }
   return byte_strides_opt;
 }
+
+// number_of_elements is defined inline in utils.h

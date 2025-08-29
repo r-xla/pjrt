@@ -29,20 +29,20 @@ impl_client_program_compile <- function(client, program, compile_options) {
     .Call(`_pjrt_impl_client_program_compile`, client, program, compile_options)
 }
 
-impl_client_buffer_from_double <- function(client, data, dims, elt_type) {
-    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, elt_type)
+impl_client_buffer_from_double <- function(client, data, dims, etype) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, etype)
 }
 
-impl_client_buffer_from_integer <- function(client, data, dims, elt_type) {
-    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, elt_type)
+impl_client_buffer_from_integer <- function(client, data, dims, etype) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, etype)
 }
 
-impl_client_buffer_from_logical <- function(client, data, dims, elt_type) {
-    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims, elt_type)
+impl_client_buffer_from_logical <- function(client, data, dims, etype) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims, etype)
 }
 
-impl_client_buffer_from_raw <- function(client, data, dims, elt_type, row_major = FALSE) {
-    .Call(`_pjrt_impl_client_buffer_from_raw`, client, data, dims, elt_type, row_major)
+impl_client_buffer_from_raw <- function(client, data, dims, etype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_raw`, client, data, dims, etype, row_major)
 }
 
 impl_client_buffer_to_array <- function(client, buffer) {
@@ -61,8 +61,8 @@ impl_loaded_executable_execute <- function(executable, input, execution_options)
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
-impl_buffer_element_type <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_element_type`, buffer)
+impl_buffer_etype <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_etype`, buffer)
 }
 
 impl_buffer_device <- function(buffer) {
@@ -89,8 +89,8 @@ impl_memory_to_string <- function(memory) {
     .Call(`_pjrt_impl_memory_to_string`, memory)
 }
 
-impl_element_type_as_string <- function(element_type) {
-    .Call(`_pjrt_impl_element_type_as_string`, element_type)
+impl_etype_as_string <- function(element_type) {
+    .Call(`_pjrt_impl_etype_as_string`, element_type)
 }
 
 impl_buffer_dimensions <- function(buffer) {
@@ -111,5 +111,9 @@ impl_plugin_attributes <- function(plugin) {
 
 impl_device_to_string <- function(device) {
     .Call(`_pjrt_impl_device_to_string`, device)
+}
+
+impl_buffer_print <- function(buffer, n, max_width, max_rows) {
+    invisible(.Call(`_pjrt_impl_buffer_print`, buffer, n, max_width, max_rows))
 }
 

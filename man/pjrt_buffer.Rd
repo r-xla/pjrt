@@ -13,13 +13,13 @@
 \alias{pjrt_scalar.raw}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, elt_type, client = pjrt_client(), ...)
+pjrt_buffer(data, etype, client = pjrt_client(), ...)
 
-pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
+pjrt_scalar(data, etype, client = pjrt_client(), ...)
 
 \method{pjrt_buffer}{logical}(
   data,
-  elt_type = "pred",
+  etype = "pred",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
@@ -27,7 +27,7 @@ pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
 
 \method{pjrt_buffer}{integer}(
   data,
-  elt_type = "i32",
+  etype = "i32",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
@@ -35,27 +35,27 @@ pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
 
 \method{pjrt_buffer}{double}(
   data,
-  elt_type = "f32",
+  etype = "f32",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
 )
 
-\method{pjrt_buffer}{raw}(data, ..., elt_type, client = pjrt_client(), shape, row_major)
+\method{pjrt_buffer}{raw}(data, ..., etype, client = pjrt_client(), shape, row_major)
 
-\method{pjrt_scalar}{logical}(data, elt_type = "pred", client = pjrt_client(), ...)
+\method{pjrt_scalar}{logical}(data, etype = "pred", client = pjrt_client(), ...)
 
-\method{pjrt_scalar}{integer}(data, elt_type = "i32", client = pjrt_client(), ...)
+\method{pjrt_scalar}{integer}(data, etype = "i32", client = pjrt_client(), ...)
 
-\method{pjrt_scalar}{double}(data, elt_type = "f32", client = pjrt_client(), ...)
+\method{pjrt_scalar}{double}(data, etype = "f32", client = pjrt_client(), ...)
 
-\method{pjrt_scalar}{raw}(data, ..., elt_type, client = pjrt_client())
+\method{pjrt_scalar}{raw}(data, ..., etype, client = pjrt_client())
 }
 \arguments{
 \item{data}{(any)\cr
 Data to convert to a \code{PJRTBuffer}.}
 
-\item{elt_type}{(\code{character(1)})\cr
+\item{etype}{(\code{character(1)})\cr
 The type of the buffer.
 Currently supported types are:
 \itemize{
@@ -95,7 +95,7 @@ R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar}
 
 \itemize{
 \item \code{\link[=device]{device()}} for the device of the buffer.
-\item \code{\link[=element_type]{element_type()}} for the element type of the buffer.
+\item \code{\link[=etype]{etype()}} for the element type of the buffer.
 }
 }
 
@@ -105,5 +105,11 @@ R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar}
 \item \code{\link[=as_array]{as_array()}} for an array.
 \item \code{\link[=as_raw]{as_raw()}} for a raw vector.
 }
+}
+
+\section{Buffer Overflow}{
+
+No checks are performed when converting an R object to a PJRT buffer.
+It is in the caller's responsibility to ensure that the data fits the selected element type.
 }
 

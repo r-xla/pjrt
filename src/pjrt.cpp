@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <numeric>
 
 #include "buffer.h"
 #include "client.h"
 #include "pjrt_types.h"
+#include "printer.h"
 #include "utils.h"
 
 // [[Rcpp::export()]]
@@ -165,108 +167,108 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string elt_type) {
-  if (elt_type == "f32") {
+    std::string etype) {
+  if (etype == "f32") {
     return create_buffer_from_array<float>(client, data, dims,
                                            PJRT_Buffer_Type_F32);
-  } else if (elt_type == "f64") {
+  } else if (etype == "f64") {
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
   } else {
-    Rcpp::stop("Unsupported floating point type: %s", elt_type.c_str());
+    Rcpp::stop("Unsupported floating point type: %s", etype.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string elt_type) {
-  if (elt_type == "i8") {
+    std::string etype) {
+  if (etype == "i8") {
     return create_buffer_from_array<int8_t>(client, data, dims,
                                             PJRT_Buffer_Type_S8);
-  } else if (elt_type == "i16") {
+  } else if (etype == "i16") {
     return create_buffer_from_array<int16_t>(client, data, dims,
                                              PJRT_Buffer_Type_S16);
-  } else if (elt_type == "i32") {
+  } else if (etype == "i32") {
     return create_buffer_from_array<int32_t>(client, data, dims,
                                              PJRT_Buffer_Type_S32);
-  } else if (elt_type == "i64") {
+  } else if (etype == "i64") {
     return create_buffer_from_array<int64_t>(client, data, dims,
                                              PJRT_Buffer_Type_S64);
-  } else if (elt_type == "ui8") {
+  } else if (etype == "ui8") {
     return create_buffer_from_array<uint8_t>(client, data, dims,
                                              PJRT_Buffer_Type_U8);
-  } else if (elt_type == "ui16") {
+  } else if (etype == "ui16") {
     return create_buffer_from_array<uint16_t>(client, data, dims,
                                               PJRT_Buffer_Type_U16);
-  } else if (elt_type == "ui32") {
+  } else if (etype == "ui32") {
     return create_buffer_from_array<uint32_t>(client, data, dims,
                                               PJRT_Buffer_Type_U32);
-  } else if (elt_type == "ui64") {
+  } else if (etype == "ui64") {
     return create_buffer_from_array<uint64_t>(client, data, dims,
                                               PJRT_Buffer_Type_U64);
-  } else if (elt_type == "f32") {
+  } else if (etype == "f32") {
     return create_buffer_from_array<float>(client, data, dims,
                                            PJRT_Buffer_Type_F32);
-  } else if (elt_type == "f64") {
+  } else if (etype == "f64") {
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
   } else {
-    Rcpp::stop("Unsupported type: %s", elt_type.c_str());
+    Rcpp::stop("Unsupported type: %s", etype.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string elt_type) {
-  if (elt_type == "pred") {
+    std::string etype) {
+  if (etype == "pred") {
     return create_buffer_from_array<uint8_t>(client, data, dims,
                                              PJRT_Buffer_Type_PRED);
   } else {
-    Rcpp::stop("Unsupported type: %s", elt_type.c_str());
+    Rcpp::stop("Unsupported type: %s", etype.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string elt_type, bool row_major = false) {
-  if (elt_type == "f32") {
+    std::string etype, bool row_major = false) {
+  if (etype == "f32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
                                   row_major);
-  } else if (elt_type == "f64") {
+  } else if (etype == "f64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F64,
                                   row_major);
-  } else if (elt_type == "i8") {
+  } else if (etype == "i8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S8,
                                   row_major);
-  } else if (elt_type == "i16") {
+  } else if (etype == "i16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S16,
                                   row_major);
-  } else if (elt_type == "i32") {
+  } else if (etype == "i32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S32,
                                   row_major);
-  } else if (elt_type == "i64") {
+  } else if (etype == "i64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S64,
                                   row_major);
-  } else if (elt_type == "ui8") {
+  } else if (etype == "ui8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U8,
                                   row_major);
-  } else if (elt_type == "ui16") {
+  } else if (etype == "ui16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U16,
                                   row_major);
-  } else if (elt_type == "ui32") {
+  } else if (etype == "ui32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U32,
                                   row_major);
-  } else if (elt_type == "ui64") {
+  } else if (etype == "ui64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U64,
                                   row_major);
-  } else if (elt_type == "pred") {
+  } else if (etype == "pred") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_PRED,
                                   row_major);
   } else {
-    Rcpp::stop("Unsupported type for raw data: %s", elt_type.c_str());
+    Rcpp::stop("Unsupported type for raw data: %s", etype.c_str());
   }
 }
 
@@ -278,8 +280,7 @@ SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
                              Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int r_type) {
   const auto dimensions = buffer->dimensions();
 
-  const auto numel = std::accumulate(dimensions.begin(), dimensions.end(), 1,
-                                     std::multiplies<int64_t>());
+  const auto numel = number_of_elements(dimensions);
 
   // Here, we first copy the data into a temporary vector because:
   // 1. We need to cast the data
@@ -365,8 +366,7 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
 
-  const auto numel = std::accumulate(dimensions.begin(), dimensions.end(), 1,
-                                     std::multiplies<int64_t>());
+  const auto numel = number_of_elements(dimensions);
 
   const size_t total_bytes = numel * sizeof_pjrt_buffer_type(element_type);
 
@@ -466,7 +466,7 @@ SEXP impl_loaded_executable_execute(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_element_type(
+Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_etype(
     Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   auto element_type =
       std::make_unique<rpjrt::PJRTElementType>(buffer->element_type());
@@ -514,7 +514,7 @@ std::string impl_memory_to_string(Rcpp::XPtr<rpjrt::PJRTMemory> memory) {
 }
 
 // [[Rcpp::export()]]
-std::string impl_element_type_as_string(
+std::string impl_etype_as_string(
     Rcpp::XPtr<rpjrt::PJRTElementType> element_type) {
   return element_type->as_string();
 }
