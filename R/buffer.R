@@ -375,23 +375,42 @@ print.PJRTDevice <- function(x, ...) {
   cat(sprintf("<%s>\n", as.character(x)))
 }
 
+#' @title Print a PJRT Buffer
+#' @description
+#' Print a [`PJRTBuffer`][pjrt_buffer].
+#' @param x (`PJRTBuffer`)\cr
+#'   The buffer.
+#' @param max_rows (`integer(1)`)\cr
+#'   The maximum number of rows to print, excluding header and footer.
+#' @param max_width (`integer(1)`)\cr
+#'   The maximum width of the printed buffer.
+#' @param max_rows_slice (`integer(1)`)\cr
+#'   The maximum number of rows to print for each slice.
+#' @param header (`logical(1)`)\cr
+#'   Whether to print the header.
+#' @param ... Additional arguments (unused).
 #' @export
 print.PJRTBuffer <- function(
   x,
-  n = getOption("pjrt.print_max", 30L),
-  max_width = getOption("pjrt.print_width", 85L),
-  max_rows = getOption("pjrt.print_rows", 30L),
-  print_dtype = TRUE,
+  max_rows = getOption("pjrt.print_max_rows", 30L),
+  max_width = getOption("pjrt.print_max_width", 85L),
+  max_rows_slice = getOption("pjrt.print_max_rows_slice", max_rows),
+  header = TRUE,
   ...
 ) {
-  if (print_dtype) {
+  assert_flag(header)
+  max_rows = assert_int(max_rows, coerce = TRUE)
+  max_width = assert_int(max_width, coerce = TRUE)
+  max_rows_slice = assert_int(max_rows_slice, coerce = TRUE)
+
+  if (header) {
     cat(sprintf("PJRTBuffer%s", dtype(x)), "\n")
   }
   impl_buffer_print(
     x,
-    n = as.integer(n),
+    max_rows = max_rows,
     max_width = as.integer(max_width),
-    max_rows = as.integer(max_rows)
+    max_rows_slice = max_rows_slice
   )
   invisible(x)
 }
@@ -399,16 +418,24 @@ print.PJRTBuffer <- function(
 
 #' @export
 as.character.PJRTDtype <- function(x, ...) {
-  sprintf("<%s: %s>", x$etype, paste(x$shape, collapse = ","))
+  sprintf(
+    "<%s%s>",
+    x$etype,
+    if (length(x$shape) > 0) {
+      paste0(": ", paste0(x$shape, collapse = "x"))
+    } else {
+      ""
+    }
+  )
 }
 
 #' @title Get the data type of a PJRTBuffer
 #' @description
-#' Get the data type of a PJRTBuffer.
+#' Get the data type of a buffer, which includes its [element type][etype] and [shape][shape].
 #'
 #' @param x [`PJRTBuffer`][pjrt_buffer]
 #'
-#' @return A `PJRTDtype` object.
+#' @return `PJRTDtype`
 #' @export
 dtype <- function(x) {
   assert_buffer(x)
@@ -417,7 +444,7 @@ dtype <- function(x) {
       etype = etype(x),
       shape = shape(x)
     ),
-    class = "PJRTDtype"
+    class = c("PJRTDtype", "list")
   )
 }
 
@@ -443,4 +470,14 @@ shape <- function(x) {
 #' @export
 shape.PJRTBuffer <- function(x) {
   impl_buffer_dimensions(x)
+}
+
+#' @export
+shape.PJRTDtype <- function(x) {
+  x$shape
+}
+
+#' @export
+etype.PJRTDtype <- function(x) {
+  x$etype
 }

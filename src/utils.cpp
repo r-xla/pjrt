@@ -73,4 +73,39 @@ std::optional<std::vector<int64_t>> get_byte_strides(
   return byte_strides_opt;
 }
 
+std::vector<int64_t> dims2strides(std::vector<int64_t> dims, bool row_major) {
+  std::vector<int64_t> strides(dims.size(), 1);
+
+  if (dims.size() <= 1) {
+    return strides;
+  }
+
+  if (row_major) {
+    for (int i = dims.size() - 2; i >= 0; --i) {
+      strides[i] = strides[i + 1] * dims[i + 1];
+    }
+  } else {
+    for (int i = 1; i < dims.size() ; ++i) {
+      strides[i] = strides[i - 1] * dims[i - 1];
+    }
+  }
+  return strides;
+}
+
+std::vector<int64_t> id2indices(int lid, std::vector<int64_t> strides) {
+  if (!strides.empty()) {
+    int64_t tmp = lid;
+    for (size_t k = 0; k < strides.size(); ++k) {
+      if (k + 1 < strides.size()) {
+        strides[k] = tmp / strides[k];
+        tmp = tmp % strides[k];
+      } else {
+        strides[k] = tmp;
+      }
+    }
+  }
+  return strides;
+}
+
+
 // number_of_elements is defined inline in utils.h

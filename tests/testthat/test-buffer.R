@@ -271,42 +271,42 @@ test_that("etype returns correct data types", {
   # Test logical buffer
   logical_data <- c(TRUE, FALSE, TRUE)
   buffer <- pjrt_buffer(logical_data)
-  dtype <- etype(buffer)
-  expect_true(is_etype(dtype))
-  expect_equal(as.character(dtype), "pred")
+  x <- etype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "pred")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
   buffer <- pjrt_buffer(integer_data, "i32")
-  dtype <- etype(buffer)
-  expect_true(is_etype(dtype))
-  expect_equal(as.character(dtype), "i32")
+  x <- etype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "i32")
 
   # Test unsigned integer buffer (8-bit)
   buffer <- pjrt_buffer(integer_data, "ui8")
-  dtype <- etype(buffer)
-  expect_true(is_etype(dtype))
-  expect_equal(as.character(dtype), "ui8")
+  x <- etype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "ui8")
 
   # Test double buffer (32-bit)
   double_data <- c(1.1, 2.2, 3.3)
   buffer <- pjrt_buffer(double_data, "f32")
-  dtype <- etype(buffer)
-  expect_true(is_etype(dtype))
-  expect_equal(as.character(dtype), "f32")
+  x <- etype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "f32")
 
   # Test double buffer (64-bit)
   buffer <- pjrt_buffer(double_data, "f64")
-  dtype <- etype(buffer)
-  expect_true(is_etype(dtype))
-  expect_equal(as.character(dtype), "f64")
+  x <- etype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "f64")
 
   # Test scalar buffer
   scalar_data <- 42L
   buffer <- pjrt_scalar(scalar_data)
-  dtype <- etype(buffer)
-  expect_true(is_etype(dtype))
-  expect_equal(as.character(dtype), "i32")
+  x <- etype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "i32")
 })
 
 test_that("R layout and PJRT layout (2D)", {
@@ -507,6 +507,4 @@ test_that("can specify dims", {
   expect_equal(shape(pjrt_buffer(1:4, shape = c(2, 2))), c(2, 2))
 })
 
-test_that("dtype", {
-
-})
+test_that("dtype", {})

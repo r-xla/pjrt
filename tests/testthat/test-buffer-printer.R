@@ -83,3 +83,24 @@ test_that("alignment is as expected", {
 test_that("wide arrays", {
   expect_snapshot(pjrt_buffer(1:100, shape = c(1, 2, 50)))
 })
+
+test_that("scalar", {
+  expect_snapshot(pjrt_scalar(1))
+})
+
+
+test_that("printer options", {
+  # can restrict max_rows
+  x <- capture.output(print(pjrt_buffer(1:100), max_rows = 10))
+  expect_equal(length(x), 12)
+  # truncation not printed when everything is printed
+  x <- capture.output(print(pjrt_buffer(1:100), max_rows = 100))
+  expect_equal(length(x), 101)
+
+  # truncation is printed when not all columns are
+
+  x <- capture.output(print(pjrt_buffer(1:10000)))
+  expect_equal(length(x), 32)
+
+  # max_rows_slice
+})

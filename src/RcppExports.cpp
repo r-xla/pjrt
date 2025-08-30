@@ -345,15 +345,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_buffer_print
-void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int n, int max_width, int max_rows);
-RcppExport SEXP _pjrt_impl_buffer_print(SEXP bufferSEXP, SEXP nSEXP, SEXP max_widthSEXP, SEXP max_rowsSEXP) {
+void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows, int max_width, int max_rows_slice);
+RcppExport SEXP _pjrt_impl_buffer_print(SEXP bufferSEXP, SEXP max_rowsSEXP, SEXP max_widthSEXP, SEXP max_rows_sliceSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
-    Rcpp::traits::input_parameter< int >::type n(nSEXP);
-    Rcpp::traits::input_parameter< int >::type max_width(max_widthSEXP);
     Rcpp::traits::input_parameter< int >::type max_rows(max_rowsSEXP);
-    impl_buffer_print(buffer, n, max_width, max_rows);
+    Rcpp::traits::input_parameter< int >::type max_width(max_widthSEXP);
+    Rcpp::traits::input_parameter< int >::type max_rows_slice(max_rows_sliceSEXP);
+    impl_buffer_print(buffer, max_rows, max_width, max_rows_slice);
     return R_NilValue;
 END_RCPP
 }

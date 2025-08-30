@@ -10,8 +10,8 @@ dtype(x)
 \item{x}{\code{\link[=pjrt_buffer]{PJRTBuffer}}}
 }
 \value{
-A \code{PJRTDtype} object.
+\code{PJRTDtype}
 }
 \description{
-Get the data type of a PJRTBuffer.
+Get the data type of a buffer, which includes its \link[=etype]{element type} and \link{shape}.
 }

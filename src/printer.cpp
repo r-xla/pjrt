@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -88,9 +89,8 @@ static std::vector<CopyT> buffer_to_host_copy(rpjrt::PJRTBuffer *buf,
 // function to format the values
 template <typename T, typename Formatter>
 static std::pair<int64_t, size_t> col_info_for_printing(
-    std::span<const T> values, int64_t rows, int64_t cols, int64_t c_start,
+    std::span<const T> values, int64_t cols, int64_t c_start,
     int64_t rows_to_print, int max_width, Formatter format_value) {
-  if (rows_to_print > rows) rows_to_print = rows;
   int64_t c_end = c_start - 1;
   size_t uniform_width_running = 0;
   size_t uniform_width_best = 0;
@@ -123,7 +123,7 @@ static std::pair<int64_t, size_t> col_info_for_printing(
 
   // If nothing fit within max_width, fall back to single column at c_start
   if (c_end < c_start) {
-    // this should never happen
+    // this should never happen, but just to be sure
     c_end = c_start;
   }
 
@@ -131,16 +131,14 @@ static std::pair<int64_t, size_t> col_info_for_printing(
 }
 
 template <typename T, typename Formatter>
-static int64_t build_buffer_lines_subset(std::span<const T> values,
-                                         int64_t rows, int64_t cols,
+static std::pair<int64_t, int64_t> build_buffer_lines_subset(std::span<const T> values,
+                                         int64_t cols,
                                          int64_t c_start, int64_t rows_to_print,
                                          int max_width,
                                          std::vector<std::string> &lines,
                                          Formatter format_value) {
-  if (rows_to_print > rows) rows_to_print = rows;
-
   auto [c_end, uniform_width] = col_info_for_printing<T, Formatter>(
-      values, rows, cols, c_start, rows_to_print, max_width, format_value);
+      values, cols, c_start, rows_to_print, max_width, format_value);
 
   // Emit subset header if we are not showing all columns
   bool subset = !(c_start == 0 && c_end == cols - 1);
@@ -152,8 +150,11 @@ static int64_t build_buffer_lines_subset(std::span<const T> values,
 
   // uniform_width already computed together with c_end
 
-  for (int64_t r = 0; r < rows_to_print; ++r) {
+  int64_t r = 0;
+  for (r = 0; r < rows_to_print; ++r) {
     std::ostringstream line;
+    // Prefix one leading space for each printed row line
+    line << ' ';
     int64_t base = r * cols;
     for (int64_t c = c_start; c <= c_end; ++c) {
       std::string tok = format_value(values[static_cast<size_t>(base + c)]);
@@ -164,7 +165,7 @@ static int64_t build_buffer_lines_subset(std::span<const T> values,
     lines.push_back(line.str());
   }
 
-  return c_end;
+  return {r, c_end};
 }
 
 // Create a contiguous span over the last two dimensions for a given leading
@@ -188,20 +189,20 @@ static std::span<const T> make_last2_contiguous_span(
 
 // Core printer for a typed host vector using a value formatter and an optional
 // scale-prefix emitter. Prints last two dims as matrix, chunks columns to fit
-// max_width, and limits rows to max_rows.
+// max_width, and limits rows to max_rows_slice.
 template <typename CopyT, typename Formatter, typename PrefixFn>
 static void print_with_formatter_fn(
-    const std::vector<int64_t> &dimensions, int max_width, int max_rows,
-    std::vector<std::string> &cont, bool &truncated,
+    const std::vector<int64_t> &dimensions, int max_width, int max_rows_slice,
+    int &rows_left, std::vector<std::string> &cont, bool &truncated,
     const std::vector<CopyT> &temp_vec, Formatter formatter,
     PrefixFn maybe_insert_scale_prefix = []() {}) {
   const int ndim = dimensions.size();
 
-  // Normalize dims so the last two are the matrix view
+  // pseudo_dims are used so we don't have to treat the 0d and 1d cases special
   std::vector<int64_t> pseudo_dims;
-  // we print it like a 1x1 matrix
+  // for the 0d case we treat it as 1x1 matrix
   if (ndim == 0) pseudo_dims = {1, 1};
-  // we print it like a nx1 matrix, i.e. like a column vector
+  // for the 1d case we treat it as nx1 matrix
   else if (ndim == 1)
     pseudo_dims = {dimensions[0], 1};
   else
@@ -213,27 +214,18 @@ static void print_with_formatter_fn(
 
   std::vector<int64_t> lead_dims;
   if (nprint > 2) lead_dims.assign(pseudo_dims.begin(), pseudo_dims.end() - 2);
-  int64_t lead_count = 1;
-  for (auto d : lead_dims) lead_count *= d;
+  int64_t lead_count = number_of_elements(lead_dims);
 
-  std::vector<int64_t> lead_stride(lead_dims.size(), 1);
-  for (int i = static_cast<int>(lead_dims.size()) - 2; i >= 0; --i)
-    lead_stride[i] = lead_stride[i + 1] * lead_dims[i + 1];
+  std::vector<int64_t> lead_strides =  dims2strides(lead_dims, true);
+
+  std::vector<int64_t> lead_index = {};
+  int64_t lid = 0;
+  // iterate over leading dimensions to print slices
+
 
   for (int64_t lid = 0; lid < std::max<int64_t>(lead_count, 1); ++lid) {
-    std::vector<int64_t> lead_index(lead_dims.size(), 0);
-    if (!lead_dims.empty()) {
-      int64_t tmp = lid;
-      for (size_t k = 0; k < lead_dims.size(); ++k) {
-        if (k + 1 < lead_stride.size()) {
-          lead_index[k] = tmp / lead_stride[k];
-          tmp = tmp % lead_stride[k];
-        } else {
-          lead_index[k] = tmp;
-        }
-      }
-    }
-
+    lead_index = id2indices(lid, lead_strides);
+    // information on slice
     if (!lead_index.empty()) {
       std::ostringstream hdr;
       hdr << "(";
@@ -245,34 +237,48 @@ static void print_with_formatter_fn(
       cont.push_back(hdr.str());
     }
 
+    // one global scale prefix
     if (lid == 0) maybe_insert_scale_prefix();
 
-    // Extract this slice as a contiguous span (last 2 dims are row-major
-    // contiguous)
+    // Extract this slice as a contiguous span (because of row-major ordering, this data is contigous)
     std::span<const CopyT> slice =
         make_last2_contiguous_span<CopyT>(temp_vec, pseudo_dims, lead_index);
 
+    // now do the actual data printing
     int64_t rows_to_print = rows;
-    if (max_rows > 0)
-      rows_to_print = std::min<int64_t>(rows_to_print, max_rows);
-    if (rows_to_print < rows) truncated = true;
+    if (max_rows_slice > 0)
+      rows_to_print = std::min<int64_t>(rows_to_print, max_rows_slice);
+    if (rows_left >= 0)
+      rows_to_print = std::min<int64_t>(rows_to_print, rows_left);
 
     int64_t c_start = 0;
+    // iterate over the rows and print line by line.
     while (c_start < cols) {
-      int64_t c_end = build_buffer_lines_subset<CopyT>(
-          slice, rows, cols, c_start, rows_to_print, max_width, cont,
+      auto [r_end, c_end] = build_buffer_lines_subset<CopyT>(
+          slice, cols, c_start, rows_to_print, max_width, cont,
           formatter);
-      if (c_end < cols - 1) truncated = true;
+      if ((c_end < cols - 1) | (r_end != rows)) truncated = true;
       c_start = c_end + 1;
+
+      if (rows_left >= 0) {
+        rows_left -= rows_to_print;
+        if (rows_left <= 0)
+         return;
+      }
     }
 
     if (lid + 1 < std::max<int64_t>(lead_count, 1)) cont.push_back("");
   }
+  // We definitely truncated if we didn't exhaust all the leading dims,
+  // (but we might have also truncated individual slices)
+  if (lid != (lead_count - 1)) {
+    truncated = false;
+  }
 }
 
 // [[Rcpp::export()]]
-void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int n,
-                       int max_width, int max_rows) {
+void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
+                       int max_width, int max_rows_slice) {
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
 
@@ -280,13 +286,14 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int n,
 
   std::vector<std::string> cont;
   bool truncated = false;
+  int rows_left = (max_rows == -1 ? -1 : max_rows);
 
   // Generic printer that takes a value vector and a formatter
   // No-op; replaced by print_with_formatter_fn
 
   // Float handler
-  auto handle_float = [buffer, numel, &cont, &truncated, dimensions, max_width,
-                       max_rows](auto fp_tag) {
+  auto handle_float = [buffer, numel, &cont, &truncated, &rows_left, dimensions, max_width,
+                       max_rows_slice](auto fp_tag) {
     using FP = decltype(fp_tag);
     std::vector<FP> temp_vec = buffer_to_host_copy<FP>(buffer.get(), numel);
     auto [mode, scale_exp] = choose_float_print_mode<FP>(temp_vec);
@@ -319,13 +326,13 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int n,
                          : static_cast<double>(v));
       return s.str();
     };
-    print_with_formatter_fn<FP>(dimensions, max_width, max_rows, cont,
+    print_with_formatter_fn<FP>(dimensions, max_width, max_rows_slice, rows_left, cont,
                                 truncated, temp_vec, fmt, maybe_prefix);
   };
 
   // Integer handler (scientific if >6 digits)
-  auto handle_integer = [buffer, numel, &cont, &truncated, dimensions,
-                         max_width, max_rows](auto int_tag) {
+  auto handle_integer = [buffer, numel, &cont, &truncated, &rows_left, dimensions,
+                         max_width, max_rows_slice](auto int_tag) {
     using IT = decltype(int_tag);
     std::vector<IT> temp_vec = buffer_to_host_copy<IT>(buffer.get(), numel);
     auto noop = []() {};
@@ -352,18 +359,18 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int n,
       else
         return std::to_string(static_cast<unsigned long long>(v));
     };
-    print_with_formatter_fn<IT>(dimensions, max_width, max_rows, cont,
+    print_with_formatter_fn<IT>(dimensions, max_width, max_rows_slice, rows_left, cont,
                                 truncated, temp_vec, fmt, noop);
   };
 
   // Logical handler (predicates)
-  auto handle_logical = [buffer, numel, &cont, &truncated, dimensions,
-                         max_width, max_rows]() {
+  auto handle_logical = [buffer, numel, &cont, &truncated, &rows_left, dimensions,
+                         max_width, max_rows_slice]() {
     using BT = uint8_t;
     std::vector<BT> temp_vec = buffer_to_host_copy<BT>(buffer.get(), numel);
     auto noop = []() {};
     auto fmt = [](const BT &v) { return std::string(v ? "true" : "false"); };
-    print_with_formatter_fn<BT>(dimensions, max_width, max_rows, cont,
+    print_with_formatter_fn<BT>(dimensions, max_width, max_rows_slice, rows_left, cont,
                                 truncated, temp_vec, fmt, noop);
   };
 
@@ -405,18 +412,11 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int n,
       Rcpp::stop("Unsupported buffer element type for printing.");
   }
 
-  // Append truncation notice if rows or columns were limited
   if (truncated) {
-    cont.push_back("... [output was truncated, set n = -1 to see all]");
-  }
-
-  if (n != -1 && n > 1 && static_cast<int>(cont.size()) > n) {
-    cont.erase(cont.begin() + n, cont.end() - 1);
+    cont.push_back(" ... [output was truncated, set max_rows = -1 to see all]");
   }
 
   for (int i = 0; i < static_cast<int>(cont.size()); ++i) {
-    Rcpp::Rcout << cont[i];
-    if (i != static_cast<int>(cont.size()) - 1) Rcpp::Rcout << '\n';
+    Rcpp::Rcout << cont[i] << '\n';
   }
-  Rcpp::Rcout << std::endl;
 }
