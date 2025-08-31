@@ -59,21 +59,19 @@ test_that("1d vector", {
 })
 
 test_that("pjrt_buffer print integers and logicals correctly", {
-  skip_if(is_cuda() || is_metal())
   int_mat <- matrix(c(-12L, 3L, 45L, -7L), nrow = 2)
   buf_int <- pjrt_buffer(int_mat, etype = "i32")
   expect_snapshot(print(buf_int))
 
   log_mat <- matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2)
   buf_log <- pjrt_buffer(log_mat, etype = "pred")
-  expect_snapshot(print(buf_log))
+  expect_snapshot(buf_log)
 })
 
 test_that("printer shows last two dims as matrix for high-rank arrays", {
-  skip_if(is_cuda() || is_metal())
   x <- array(1:20, dim = c(1, 1, 1, 1, 1, 5, 4))
   buf <- pjrt_buffer(x, etype = "i32")
-  expect_snapshot(print(buf))
+  expect_snapshot(buf)
 })
 
 test_that("alignment is as expected", {

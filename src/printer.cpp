@@ -315,16 +315,19 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
                        max_width, max_rows_slice](auto fp_tag) {
     using FP = decltype(fp_tag);
     std::vector<FP> temp_vec = buffer_to_host_copy<FP>(buffer.get(), numel);
-    auto [mode, scale_exp] = choose_float_print_mode<FP>(temp_vec);
+    auto mode_scale = choose_float_print_mode<FP>(temp_vec);
+    FloatPrintMode mode = mode_scale.first;
+    int scale_exp = mode_scale.second;
     bool use_scientific = (mode == FloatPrintMode::Scientific);
     double denom = (mode == FloatPrintMode::Scaled)
                        ? std::pow(10.0, static_cast<double>(scale_exp))
                        : 1.0;
     bool inserted_scale_prefix = false;
-    auto maybe_prefix = [&cont, mode, scale_exp, &inserted_scale_prefix]() {
-      if (!inserted_scale_prefix && mode == FloatPrintMode::Scaled) {
+    auto maybe_prefix = [&cont, mode_copy = mode, scale_exp_copy = scale_exp,
+                         &inserted_scale_prefix]() {
+      if (!inserted_scale_prefix && mode_copy == FloatPrintMode::Scaled) {
         std::ostringstream p;
-        int e = scale_exp;
+        int e = scale_exp_copy;
         char sign = (e >= 0) ? '+' : '-';
         int abse = std::abs(e);
         std::ostringstream exp_ss;

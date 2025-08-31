@@ -341,7 +341,7 @@
 ---
 
     Code
-      print(buf_log)
+      buf_log
     Output
       PJRTBuffer<pred: 2x2> 
         true  true
@@ -350,7 +350,7 @@
 # printer shows last two dims as matrix for high-rank arrays
 
     Code
-      print(buf)
+      buf
     Output
       PJRTBuffer<i32: 1x1x1x1x1x5x4> 
       (1,1,1,1,1,.,.) =
