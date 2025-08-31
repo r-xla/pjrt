@@ -92,20 +92,14 @@ std::vector<int64_t> dims2strides(std::vector<int64_t> dims, bool row_major) {
   return strides;
 }
 
-std::vector<int64_t> id2indices(int lid, std::vector<int64_t> strides) {
-  if (!strides.empty()) {
-    int64_t tmp = lid;
-    for (size_t k = 0; k < strides.size(); ++k) {
-      if (k + 1 < strides.size()) {
-        int64_t divisor = strides[k];
-        strides[k] = tmp / divisor;
-        tmp = tmp % divisor;
-      } else {
-        strides[k] = tmp;
-      }
-    }
+std::vector<int64_t> id2indices(int lid, const std::vector<int64_t> strides) {
+  std::vector<int64_t> idx(strides.size());
+  for (size_t k = 0; k < strides.size(); ++k) {
+    const int64_t s = strides[k];
+    idx[k] = lid / s;
+    lid %= s;
   }
-  return strides;
+  return idx;
 }
 
 // number_of_elements is defined inline in utils.h

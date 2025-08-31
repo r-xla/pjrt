@@ -55,4 +55,4 @@ inline int64_t number_of_elements(const std::vector<int64_t> &dims) {
                          std::multiplies<int64_t>());
 }
 
-std::vector<int64_t> id2indices(int lid, std::vector<int64_t> strides);
+std::vector<int64_t> id2indices(int lid, const std::vector<int64_t> strides);
