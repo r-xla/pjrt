@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "buffer.h"
-#include "pjrt_types.h"
 #include "utils.h"
 
 // For floats, formatting is defined globally per slice
@@ -32,6 +31,7 @@ template <typename T>
   requires std::is_floating_point_v<T>
 static std::pair<FloatPrintMode, int> choose_float_print_mode(
     const std::vector<T> &values) {
+
   // Find smallest and largest absolute magnitudes across finite, non-zero
   // values
   double min_abs = std::numeric_limits<double>::infinity();
@@ -51,15 +51,29 @@ static std::pair<FloatPrintMode, int> choose_float_print_mode(
   // Values are in a reasonable range for fixed formatting
   if (min_abs > 1e-4 && max_abs < 1e6) return {FloatPrintMode::Fixed, 1};
 
+  // nicer printer when there is only one value
+  if (values.size() == 1) {
+    return {FloatPrintMode::Scientific, 1};
+  }
+
   // Now we check whether all values have the same exponent,
   // if so, we use it for scaling
 
   // Helper to get an integer exponent close to log10(x)
   auto nearest_exp = [](double x) {
     if (x == 0.0 || !std::isfinite(x)) return 0;
-    auto s = std::format("{:.0e}", x);  // e.g. "1e+03"
+    std::ostringstream oss;
+    oss.setf(std::ios::scientific, std::ios::floatfield);
+    oss.precision(0);
+    oss << x;
+    std::string s = oss.str();  // e.g., "1e+03"
     auto p = s.find('e');
-    return std::stoi(s.substr(p + 1));
+    if (p == std::string::npos) return 0;
+    try {
+      return std::stoi(s.substr(p + 1));
+    } catch (...) {
+      return 0;
+    }
   };
   int min_e = nearest_exp(min_abs);
   int max_e = nearest_exp(max_abs);
@@ -257,14 +271,23 @@ static void print_with_formatter_fn(
       auto [r_end, c_end] = build_buffer_lines_subset<CopyT>(
           slice, cols, c_start, rows_to_print, max_width, cont,
           formatter);
-      if ((c_end < cols - 1) | (r_end != rows)) truncated = true;
+      if (r_end != rows) {
+        truncated = true;
+      }
       c_start = c_end + 1;
 
       if (rows_left >= 0) {
         rows_left -= rows_to_print;
-        if (rows_left <= 0)
-         return;
+        if (rows_left <= 0) {
+          if (c_start != cols) {
+            truncated = true;
+          }
+          return;
+        }
       }
+    }
+    if (c_start != cols) {
+      truncated = true;
     }
 
     if (lid + 1 < std::max<int64_t>(lead_count, 1)) cont.push_back("");

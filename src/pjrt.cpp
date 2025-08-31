@@ -175,7 +175,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
   } else {
-    Rcpp::stop("Unsupported floating point type: %s", etype.c_str());
+    Rcpp::stop("Can only create f{32,64} from R double, but requested type is %s", etype.c_str());
   }
 }
 

@@ -1,5 +1,6 @@
 #' @import checkmate
 #' @importFrom safetensors safe_tensor_buffer safe_tensor_meta
+#' @importFrom S7 method<-
 NULL
 
 register_namespace_callback = function(pkgname, namespace, callback) {
@@ -48,4 +49,5 @@ register_namespace_callback = function(pkgname, namespace, callback) {
       packages = "pjrt"
     )
   })
+  S7::methods_register()
 }

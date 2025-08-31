@@ -399,85 +399,50 @@ print.PJRTBuffer <- function(
   ...
 ) {
   assert_flag(header)
-  max_rows = assert_int(max_rows, coerce = TRUE)
-  max_width = assert_int(max_width, coerce = TRUE)
-  max_rows_slice = assert_int(max_rows_slice, coerce = TRUE)
+  max_rows <- assert_int(max_rows, coerce = TRUE)
+  max_width <- assert_int(max_width, coerce = TRUE)
+  max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE)
 
   if (header) {
-    cat(sprintf("PJRTBuffer%s", dtype(x)), "\n")
+    shp <- shape(x)
+    shape_str <- if (length(shp)) {
+      paste0(": ", paste0(shp, collapse = "x"))
+    } else {
+      ""
+    }
+    cat(sprintf("PJRTBuffer<%s%s>", etype(x), shape_str), "\n")
   }
   impl_buffer_print(
     x,
     max_rows = max_rows,
-    max_width = as.integer(max_width),
+    max_width = max_width,
     max_rows_slice = max_rows_slice
   )
   invisible(x)
 }
 
 
-#' @export
-as.character.PJRTDtype <- function(x, ...) {
-  sprintf(
-    "<%s%s>",
-    x$etype,
-    if (length(x$shape) > 0) {
-      paste0(": ", paste0(x$shape, collapse = "x"))
-    } else {
-      ""
-    }
-  )
-}
-
-#' @title Get the data type of a PJRTBuffer
+#' @title Shape
 #' @description
-#' Get the data type of a buffer, which includes its [element type][etype] and [shape][shape].
+#' Get shape of an object.
 #'
-#' @param x [`PJRTBuffer`][pjrt_buffer]
-#'
-#' @return `PJRTDtype`
-#' @export
-dtype <- function(x) {
-  assert_buffer(x)
-  structure(
-    list(
-      etype = etype(x),
-      shape = shape(x)
-    ),
-    class = c("PJRTDtype", "list")
-  )
-}
-
-
-#' @export
-print.PJRTDtype <- function(x, ...) {
-  cat(as.character(x), "\n")
-}
-
-
-#' @title Get the shape of a PJRTBuffer
-#' @description
-#' Get the shape of a PJRTBuffer.
+#' You can implement this generic instead of `dim()` when your object can
+#' also have singular shapes (`integer()`), which is generally risky
+#' with `dim()`.
 #'
 #' @param x (any)\cr
+#'   Object.
 #'
 #' @return `integer()`
 #' @export
-shape <- function(x) {
-  UseMethod("shape")
-}
+shape <- S7::new_generic("shape", "x", function(x) {
+  S7::S7_dispatch()
+})
 
-#' @export
-shape.PJRTBuffer <- function(x) {
+S7::method(shape, S7::new_S3_class("PJRTBuffer")) <- function(x) {
   impl_buffer_dimensions(x)
 }
 
-#' @export
-shape.PJRTDtype <- function(x) {
-  x$shape
-}
-
-#' @export
-etype.PJRTDtype <- function(x) {
-  x$etype
+method(shape, NULL) <- function(x) {
+  dim(x)
 }

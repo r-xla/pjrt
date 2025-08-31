@@ -2,16 +2,21 @@
 % Please edit documentation in R/buffer.R
 \name{shape}
 \alias{shape}
-\title{Get the shape of a PJRTBuffer}
+\title{Shape}
 \usage{
 shape(x)
 }
 \arguments{
-\item{x}{(any)\cr}
+\item{x}{(any)\cr
+Object.}
 }
 \value{
 \code{integer()}
 }
 \description{
-Get the shape of a PJRTBuffer.
+Get shape of an object.
+
+You can implement this generic instead of \code{dim()} when your object can
+also have singular shapes (\code{integer()}), which is generally risky
+with \code{dim()}.
 }

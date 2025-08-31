@@ -82,25 +82,43 @@ test_that("alignment is as expected", {
 
 test_that("wide arrays", {
   expect_snapshot(pjrt_buffer(1:100, shape = c(1, 2, 50)))
+  expect_snapshot(pjrt_buffer(1:1000, shape = c(1, 2, 500)))
 })
 
 test_that("scalar", {
-  expect_snapshot(pjrt_scalar(1))
-})
+  expect_snapshot(pjrt_scalar(1, "f32"))
+  expect_snapshot(pjrt_scalar(-10.1213, "f64"))
 
+  # no prefix when printing just one element
+  expect_snapshot(pjrt_scalar(10^6, "f32"))
+  expect_snapshot(pjrt_scalar(-10^6, "f32"))
+  expect_snapshot(pjrt_scalar(10^5, "f32"))
+  expect_snapshot(pjrt_scalar(-10^5, "f32"))
+
+  expect_snapshot(pjrt_scalar(250L, "ui8"))
+  expect_snapshot(pjrt_scalar(12L, "ui16"))
+  expect_snapshot(pjrt_scalar(0L, "ui32"))
+  expect_snapshot(pjrt_scalar(998L, "ui64"))
+
+  expect_snapshot(pjrt_scalar(14L, "i8"))
+  expect_snapshot(pjrt_scalar(-12L, "i16"))
+  expect_snapshot(pjrt_scalar(0L, "i32"))
+  expect_snapshot(pjrt_scalar(998L, "i64"))
+
+  expect_snapshot(pjrt_scalar(TRUE))
+  expect_snapshot(pjrt_scalar(FALSE))
+})
 
 test_that("printer options", {
   # can restrict max_rows
-  x <- capture.output(print(pjrt_buffer(1:100), max_rows = 10))
-  expect_equal(length(x), 12)
+  expect_snapshot(print(pjrt_buffer(1:100), max_rows = 10))
+
   # truncation not printed when everything is printed
-  x <- capture.output(print(pjrt_buffer(1:100), max_rows = 100))
-  expect_equal(length(x), 101)
+  expect_snapshot(print(pjrt_buffer(1:100), max_rows = 100))
 
   # truncation is printed when not all columns are
+  expect_snapshot(print(pjrt_buffer(1:10000)))
 
-  x <- capture.output(print(pjrt_buffer(1:10000)))
-  expect_equal(length(x), 32)
-
-  # max_rows_slice
+  # truncation is printed when not all rows are
+  expect_snapshot(print(pjrt_buffer(1:11, shape = c(11, 1)), max_rows = 10))
 })

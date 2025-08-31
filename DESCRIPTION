@@ -19,7 +19,8 @@ Imports:
     fs,
     Rcpp,
     rlang,
-    safetensors
+    safetensors,
+    S7
 Suggests:
     testthat (>= 3.0.0)
 LinkingTo:
