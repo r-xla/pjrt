@@ -96,6 +96,7 @@ R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar}
 \itemize{
 \item \code{\link[=device]{device()}} for the device of the buffer.
 \item \code{\link[=etype]{etype()}} for the element type of the buffer.
+\item \code{\link[=shape]{shape()}} for the shape of the buffer.
 }
 }
 

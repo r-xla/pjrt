@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Rcpp.h>
+
 #include "buffer.h"
 
 // Exposed printer function used by R wrapper

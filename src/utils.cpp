@@ -85,7 +85,7 @@ std::vector<int64_t> dims2strides(std::vector<int64_t> dims, bool row_major) {
       strides[i] = strides[i + 1] * dims[i + 1];
     }
   } else {
-    for (int i = 1; i < dims.size() ; ++i) {
+    for (int i = 1; i < dims.size(); ++i) {
       strides[i] = strides[i - 1] * dims[i - 1];
     }
   }
@@ -106,6 +106,5 @@ std::vector<int64_t> id2indices(int lid, std::vector<int64_t> strides) {
   }
   return strides;
 }
-
 
 // number_of_elements is defined inline in utils.h

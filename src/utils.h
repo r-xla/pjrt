@@ -2,8 +2,9 @@
 #include <numeric>
 #include <optional>
 #include <vector>
-#include "xla/pjrt/c/pjrt_c_api.h"
+
 #include "utils.h"
+#include "xla/pjrt/c/pjrt_c_api.h"
 
 void check_err(const PJRT_Api *api, PJRT_Error *err);
 

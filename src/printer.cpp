@@ -31,7 +31,6 @@ template <typename T>
   requires std::is_floating_point_v<T>
 static std::pair<FloatPrintMode, int> choose_float_print_mode(
     const std::vector<T> &values) {
-
   // Find smallest and largest absolute magnitudes across finite, non-zero
   // values
   double min_abs = std::numeric_limits<double>::infinity();
@@ -145,12 +144,10 @@ static std::pair<int64_t, size_t> col_info_for_printing(
 }
 
 template <typename T, typename Formatter>
-static std::pair<int64_t, int64_t> build_buffer_lines_subset(std::span<const T> values,
-                                         int64_t cols,
-                                         int64_t c_start, int64_t rows_to_print,
-                                         int max_width,
-                                         std::vector<std::string> &lines,
-                                         Formatter format_value) {
+static std::pair<int64_t, int64_t> build_buffer_lines_subset(
+    std::span<const T> values, int64_t cols, int64_t c_start,
+    int64_t rows_to_print, int max_width, std::vector<std::string> &lines,
+    Formatter format_value) {
   auto [c_end, uniform_width] = col_info_for_printing<T, Formatter>(
       values, cols, c_start, rows_to_print, max_width, format_value);
 
@@ -230,12 +227,11 @@ static void print_with_formatter_fn(
   if (nprint > 2) lead_dims.assign(pseudo_dims.begin(), pseudo_dims.end() - 2);
   int64_t lead_count = number_of_elements(lead_dims);
 
-  std::vector<int64_t> lead_strides =  dims2strides(lead_dims, true);
+  std::vector<int64_t> lead_strides = dims2strides(lead_dims, true);
 
   std::vector<int64_t> lead_index = {};
   int64_t lid = 0;
   // iterate over leading dimensions to print slices
-
 
   for (int64_t lid = 0; lid < std::max<int64_t>(lead_count, 1); ++lid) {
     lead_index = id2indices(lid, lead_strides);
@@ -254,7 +250,8 @@ static void print_with_formatter_fn(
     // one global scale prefix
     if (lid == 0) maybe_insert_scale_prefix();
 
-    // Extract this slice as a contiguous span (because of row-major ordering, this data is contigous)
+    // Extract this slice as a contiguous span (because of row-major ordering,
+    // this data is contigous)
     std::span<const CopyT> slice =
         make_last2_contiguous_span<CopyT>(temp_vec, pseudo_dims, lead_index);
 
@@ -269,8 +266,7 @@ static void print_with_formatter_fn(
     // iterate over the rows and print line by line.
     while (c_start < cols) {
       auto [r_end, c_end] = build_buffer_lines_subset<CopyT>(
-          slice, cols, c_start, rows_to_print, max_width, cont,
-          formatter);
+          slice, cols, c_start, rows_to_print, max_width, cont, formatter);
       if (r_end != rows) {
         truncated = true;
       }
@@ -315,8 +311,8 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
   // No-op; replaced by print_with_formatter_fn
 
   // Float handler
-  auto handle_float = [buffer, numel, &cont, &truncated, &rows_left, dimensions, max_width,
-                       max_rows_slice](auto fp_tag) {
+  auto handle_float = [buffer, numel, &cont, &truncated, &rows_left, dimensions,
+                       max_width, max_rows_slice](auto fp_tag) {
     using FP = decltype(fp_tag);
     std::vector<FP> temp_vec = buffer_to_host_copy<FP>(buffer.get(), numel);
     auto [mode, scale_exp] = choose_float_print_mode<FP>(temp_vec);
@@ -349,13 +345,14 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
                          : static_cast<double>(v));
       return s.str();
     };
-    print_with_formatter_fn<FP>(dimensions, max_width, max_rows_slice, rows_left, cont,
-                                truncated, temp_vec, fmt, maybe_prefix);
+    print_with_formatter_fn<FP>(dimensions, max_width, max_rows_slice,
+                                rows_left, cont, truncated, temp_vec, fmt,
+                                maybe_prefix);
   };
 
   // Integer handler (scientific if >6 digits)
-  auto handle_integer = [buffer, numel, &cont, &truncated, &rows_left, dimensions,
-                         max_width, max_rows_slice](auto int_tag) {
+  auto handle_integer = [buffer, numel, &cont, &truncated, &rows_left,
+                         dimensions, max_width, max_rows_slice](auto int_tag) {
     using IT = decltype(int_tag);
     std::vector<IT> temp_vec = buffer_to_host_copy<IT>(buffer.get(), numel);
     auto noop = []() {};
@@ -382,19 +379,21 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
       else
         return std::to_string(static_cast<unsigned long long>(v));
     };
-    print_with_formatter_fn<IT>(dimensions, max_width, max_rows_slice, rows_left, cont,
-                                truncated, temp_vec, fmt, noop);
+    print_with_formatter_fn<IT>(dimensions, max_width, max_rows_slice,
+                                rows_left, cont, truncated, temp_vec, fmt,
+                                noop);
   };
 
   // Logical handler (predicates)
-  auto handle_logical = [buffer, numel, &cont, &truncated, &rows_left, dimensions,
-                         max_width, max_rows_slice]() {
+  auto handle_logical = [buffer, numel, &cont, &truncated, &rows_left,
+                         dimensions, max_width, max_rows_slice]() {
     using BT = uint8_t;
     std::vector<BT> temp_vec = buffer_to_host_copy<BT>(buffer.get(), numel);
     auto noop = []() {};
     auto fmt = [](const BT &v) { return std::string(v ? "true" : "false"); };
-    print_with_formatter_fn<BT>(dimensions, max_width, max_rows_slice, rows_left, cont,
-                                truncated, temp_vec, fmt, noop);
+    print_with_formatter_fn<BT>(dimensions, max_width, max_rows_slice,
+                                rows_left, cont, truncated, temp_vec, fmt,
+                                noop);
   };
 
   switch (element_type) {

@@ -18,6 +18,7 @@ is_buffer <- function(x) {
 #' @section Extractors:
 #' * [`device()`] for the device of the buffer.
 #' * [`etype()`] for the element type of the buffer.
+#' * [`shape()`] for the shape of the buffer.
 #'
 #' @section Converters:
 #' * [`as_array()`] for an array.
