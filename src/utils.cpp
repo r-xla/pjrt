@@ -97,8 +97,9 @@ std::vector<int64_t> id2indices(int lid, std::vector<int64_t> strides) {
     int64_t tmp = lid;
     for (size_t k = 0; k < strides.size(); ++k) {
       if (k + 1 < strides.size()) {
-        strides[k] = tmp / strides[k];
-        tmp = tmp % strides[k];
+        int64_t divisor = strides[k];
+        strides[k] = tmp / divisor;
+        tmp = tmp % divisor;
       } else {
         strides[k] = tmp;
       }
