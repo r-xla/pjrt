@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <numeric>
 
-#include "buffer-printer.h"
 #include "buffer.h"
+#include "buffer_printer.h"
 #include "client.h"
 #include "pjrt_types.h"
 #include "utils.h"

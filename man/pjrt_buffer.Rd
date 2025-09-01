@@ -90,7 +90,7 @@ Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars
 
 \strong{Important}:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (buffer overflow) and that no NA values are present.
+the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
 }
 \section{Extractors}{
 
@@ -107,12 +107,6 @@ the selected element type (buffer overflow) and that no NA values are present.
 \item \code{\link[=as_array]{as_array()}} for an array.
 \item \code{\link[=as_raw]{as_raw()}} for a raw vector.
 }
-}
-
-\section{Buffer Overflow}{
-
-No checks are performed when converting an R object to a PJRT buffer.
-It is in the caller's responsibility to ensure that the data fits the selected element type.
 }
 
 \section{Scalars}{

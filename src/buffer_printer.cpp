@@ -1,4 +1,4 @@
-#include "buffer-printer.h"
+#include "buffer_printer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -151,22 +151,18 @@ static std::pair<int64_t, size_t> col_info_for_printing(
 }
 
 // Build aligned lines for a subset of columns [c0, c1] and first rows_to_print
-// rows values: the slice of the data to be printed rows: the number of rows in
-// the array cols: the number of columns in the array c0: the starting column
-// index c1: the ending column index rows_to_print: the (maximum) number of rows
-// to print lines: the output lines. This is modified in-place format_value: a
-// function to format the values
+// row
 template <typename T, typename F>
   requires std::is_floating_point_v<T> || std::is_integral_v<T> ||
            std::is_same_v<T, bool>
 static std::pair<int64_t, int64_t> build_buffer_lines_subset(
-    const std::span<T> values, int64_t ncols, int64_t c_start,
+    const std::span<T> slice, int64_t ncols, int64_t c_start,
     int64_t rows_to_print, int max_width, std::vector<std::string> &lines,
     F fmt) {
   // it's possible that c_end = s_start and uniform_width = 0
   // in this case we print exactly one column
   auto [c_end, uniform_width] = col_info_for_printing<T, F>(
-      values, ncols, c_start, rows_to_print, max_width, fmt);
+      slice, ncols, c_start, rows_to_print, max_width, fmt);
 
   // Emit subset header if we are not showing all columns
   bool subset = !(c_start == 0 && c_end == ncols - 1);
@@ -179,11 +175,10 @@ static std::pair<int64_t, int64_t> build_buffer_lines_subset(
   int64_t r = 0;
   for (r = 0; r < rows_to_print; ++r) {
     std::ostringstream line;
-    // Prefix one leading space for each printed row line
     line << ' ';
     int64_t base = r * ncols;
     for (int64_t c = c_start; c <= c_end; ++c) {
-      std::string tok = fmt(values[static_cast<size_t>(base + c)]);
+      std::string tok = fmt(slice[static_cast<size_t>(base + c)]);
       if (c > c_start) line << ' ';
       for (size_t pad = tok.size(); pad < uniform_width; ++pad) line << ' ';
       line << tok;
@@ -213,15 +208,13 @@ static std::span<const T> make_last2_contiguous_span(
                             static_cast<size_t>(nrows * ncols));
 }
 
-// Core printer for a typed host vector using a value formatter and an optional
-// scale-prefix emitter. Prints last two dims as matrix, chunks columns to fit
-// max_width, and limits rows to max_rows_slice.
+// core printer
 template <typename CopyT>
   requires std::is_floating_point_v<CopyT> || std::is_integral_v<CopyT> ||
            std::is_same_v<CopyT, bool>
 static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
                                     int max_width, int max_rows_slice,
-                                    int &rows_left,
+                                    int rows_left,
                                     std::vector<std::string> &cont,
                                     const std::vector<CopyT> &temp_vec) {
   const int ndim = dimensions.size();
@@ -380,28 +373,28 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
   std::vector<std::string> cont;
   int rows_left = (max_rows == -1 ? -1 : max_rows);
 
-  auto handle_float = [buffer, numel, &cont, &rows_left, dimensions, max_width,
+  auto handle_float = [buffer, numel, &cont, rows_left, dimensions, max_width,
                        max_rows_slice](auto fp_tag) {
     using FP = decltype(fp_tag);
     std::vector<FP> temp_vec = buffer_to_host_copy<FP>(buffer.get(), numel);
-    print_with_formatter_fn<FP>(dimensions, max_width, max_rows_slice,
-                                rows_left, cont, temp_vec);
+    print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
+                            cont, temp_vec);
   };
 
-  auto handle_integer = [buffer, numel, &cont, &rows_left, dimensions,
-                         max_width, max_rows_slice](auto int_tag) {
+  auto handle_integer = [buffer, numel, &cont, rows_left, dimensions, max_width,
+                         max_rows_slice](auto int_tag) {
     using IT = decltype(int_tag);
     std::vector<IT> temp_vec = buffer_to_host_copy<IT>(buffer.get(), numel);
-    print_with_formatter_fn<IT>(dimensions, max_width, max_rows_slice,
-                                rows_left, cont, temp_vec);
+    print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
+                            cont, temp_vec);
   };
 
-  auto handle_logical = [buffer, numel, &cont, &rows_left, dimensions,
-                         max_width, max_rows_slice]() {
+  auto handle_logical = [buffer, numel, &cont, rows_left, dimensions, max_width,
+                         max_rows_slice]() {
     using BT = uint8_t;
     std::vector<BT> temp_vec = buffer_to_host_copy<BT>(buffer.get(), numel);
-    print_with_formatter_fn<BT>(dimensions, max_width, max_rows_slice,
-                                rows_left, cont, temp_vec);
+    print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
+                            cont, temp_vec);
   };
 
   switch (element_type) {
