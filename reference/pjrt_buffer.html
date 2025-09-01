@@ -8,10 +8,16 @@
 </script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Create a PJRT Buffer — pjrt_buffer"><meta name="description" content="Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 pjrt_buffer will create a array with dimensions (1) for a vector of length 1, while
-pjrt_scalar will create a 0-dimensional array for an R vector of length 1."><meta property="og:description" content="Create a PJRT Buffer from an R object.
+pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
+Important:
+No checks are performed when creating the buffer, so you need to ensure that the data fits
+the selected element type (buffer overflow) and that no NA values are present."><meta property="og:description" content="Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 pjrt_buffer will create a array with dimensions (1) for a vector of length 1, while
-pjrt_scalar will create a 0-dimensional array for an R vector of length 1."></head><body>
+pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
+Important:
+No checks are performed when creating the buffer, so you need to ensure that the data fits
+the selected element type (buffer overflow) and that no NA values are present."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -56,6 +62,9 @@ pjrt_scalar will create a 0-dimensional array for an R vector of length 1."></he
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 <code>pjrt_buffer</code> will create a array with dimensions <code>(1)</code> for a vector of length 1, while
 <code>pjrt_scalar</code> will create a 0-dimensional array for an R vector of length 1.</p>
+<p><strong>Important</strong>:
+No checks are performed when creating the buffer, so you need to ensure that the data fits
+the selected element type (buffer overflow) and that no NA values are present.</p>
     </div>
 
     <div class="section level2">
@@ -153,10 +162,6 @@ R uses column-major format.</p></dd>
     <p><code>PJRTBuffer</code></p>
     </div>
     <div class="section level2">
-    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>R does not have 0-dimensional arrays, hence we need the extra <code>pjrt_scalar</code> function.</p>
-    </div>
-    <div class="section level2">
     <h2 id="extractors">Extractors<a class="anchor" aria-label="anchor" href="#extractors"></a></h2>
 
 
@@ -177,6 +182,13 @@ R uses column-major format.</p></dd>
 
 <p>No checks are performed when converting an R object to a PJRT buffer.
 It is in the caller's responsibility to ensure that the data fits the selected element type.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="scalars">Scalars<a class="anchor" aria-label="anchor" href="#scalars"></a></h2>
+
+
+<p>When calling this function on a vector of length 1, the resulting shape is <code>1L</code>.
+To create a 0-dimensional buffer, use <code>pjrt_scalar</code> where the resulting shape is <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
