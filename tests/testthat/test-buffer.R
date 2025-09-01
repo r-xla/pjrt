@@ -272,40 +272,40 @@ test_that("dtype returns correct data types", {
   logical_data <- c(TRUE, FALSE, TRUE)
   buffer <- pjrt_buffer(logical_data)
   x <- dtype(buffer)
-  expect_true(is_etype(x))
+  expect_true(is_dtype(x))
   expect_equal(as.character(x), "pred")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
   buffer <- pjrt_buffer(integer_data, "i32")
   x <- dtype(buffer)
-  expect_true(is_etype(x))
+  expect_true(is_dtype(x))
   expect_equal(as.character(x), "i32")
 
   # Test unsigned integer buffer (8-bit)
   buffer <- pjrt_buffer(integer_data, "ui8")
   x <- dtype(buffer)
-  expect_true(is_etype(x))
+  expect_true(is_dtype(x))
   expect_equal(as.character(x), "ui8")
 
   # Test double buffer (32-bit)
   double_data <- c(1.1, 2.2, 3.3)
   buffer <- pjrt_buffer(double_data, "f32")
   x <- dtype(buffer)
-  expect_true(is_etype(x))
+  expect_true(is_dtype(x))
   expect_equal(as.character(x), "f32")
 
   # Test double buffer (64-bit)
   buffer <- pjrt_buffer(double_data, "f64")
   x <- dtype(buffer)
-  expect_true(is_etype(x))
+  expect_true(is_dtype(x))
   expect_equal(as.character(x), "f64")
 
   # Test scalar buffer
   scalar_data <- 42L
   buffer <- pjrt_scalar(scalar_data)
   x <- dtype(buffer)
-  expect_true(is_etype(x))
+  expect_true(is_dtype(x))
   expect_equal(as.character(x), "i32")
 })
 

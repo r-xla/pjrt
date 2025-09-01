@@ -247,7 +247,7 @@ pjrt_scalar.raw <- function(
 #' @export
 dtype <- function(buffer) {
   check_buffer(buffer)
-  impl_buffer_etype(buffer)
+  impl_buffer_dtype(buffer)
 }
 
 #' Gets the memory of a Pjrt buffer
@@ -262,7 +262,7 @@ print.PJRTMemory <- function(x, ...) {
   cat(sprintf("<PJRTMemory %s>\n", impl_memory_debug_string(x)))
 }
 
-is_etype <- function(x) {
+is_dtype <- function(x) {
   inherits(x, "PJRTElementType")
 }
 
@@ -277,7 +277,7 @@ is_etype <- function(x) {
 #' @return A string representation of the element type.
 #' @export
 as.character.PJRTElementType <- function(x, ...) {
-  tolower(impl_etype_as_string(x))
+  tolower(impl_dtype_as_string(x))
 }
 
 #' @export

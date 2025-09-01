@@ -213,14 +213,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_buffer_etype
-Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_etype(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
-RcppExport SEXP _pjrt_impl_buffer_etype(SEXP bufferSEXP) {
+// impl_buffer_dtype
+Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_dtype(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_buffer_dtype(SEXP bufferSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_buffer_etype(buffer));
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_dtype(buffer));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -290,14 +290,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_etype_as_string
-std::string impl_etype_as_string(Rcpp::XPtr<rpjrt::PJRTElementType> element_type);
-RcppExport SEXP _pjrt_impl_etype_as_string(SEXP element_typeSEXP) {
+// impl_dtype_as_string
+std::string impl_dtype_as_string(Rcpp::XPtr<rpjrt::PJRTElementType> element_type);
+RcppExport SEXP _pjrt_impl_dtype_as_string(SEXP element_typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTElementType> >::type element_type(element_typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_etype_as_string(element_type));
+    rcpp_result_gen = Rcpp::wrap(impl_dtype_as_string(element_type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -375,14 +375,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_to_raw", (DL_FUNC) &_pjrt_impl_client_buffer_to_raw, 3},
     {"_pjrt_impl_client_platform_name", (DL_FUNC) &_pjrt_impl_client_platform_name, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
-    {"_pjrt_impl_buffer_etype", (DL_FUNC) &_pjrt_impl_buffer_etype, 1},
+    {"_pjrt_impl_buffer_dtype", (DL_FUNC) &_pjrt_impl_buffer_dtype, 1},
     {"_pjrt_impl_buffer_device", (DL_FUNC) &_pjrt_impl_buffer_device, 1},
     {"_pjrt_impl_buffer_memory", (DL_FUNC) &_pjrt_impl_buffer_memory, 1},
     {"_pjrt_impl_memory_debug_string", (DL_FUNC) &_pjrt_impl_memory_debug_string, 1},
     {"_pjrt_impl_memory_id", (DL_FUNC) &_pjrt_impl_memory_id, 1},
     {"_pjrt_impl_memory_kind", (DL_FUNC) &_pjrt_impl_memory_kind, 1},
     {"_pjrt_impl_memory_to_string", (DL_FUNC) &_pjrt_impl_memory_to_string, 1},
-    {"_pjrt_impl_etype_as_string", (DL_FUNC) &_pjrt_impl_etype_as_string, 1},
+    {"_pjrt_impl_dtype_as_string", (DL_FUNC) &_pjrt_impl_dtype_as_string, 1},
     {"_pjrt_impl_buffer_dimensions", (DL_FUNC) &_pjrt_impl_buffer_dimensions, 1},
     {"_pjrt_impl_execution_options_create", (DL_FUNC) &_pjrt_impl_execution_options_create, 2},
     {"_pjrt_impl_plugin_pjrt_api_version", (DL_FUNC) &_pjrt_impl_plugin_pjrt_api_version, 1},
