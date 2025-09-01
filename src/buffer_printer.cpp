@@ -151,7 +151,6 @@ static std::pair<int64_t, size_t> col_info_for_printing(
 }
 
 // Build aligned lines for a subset of columns [c0, c1] and first rows_to_print
-// row
 template <typename T, typename F>
   requires std::is_floating_point_v<T> || std::is_integral_v<T> ||
            std::is_same_v<T, bool>
