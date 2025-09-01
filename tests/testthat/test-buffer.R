@@ -1,12 +1,12 @@
 # Helper function to check scalar roundtrip
 test_pjrt_scalar <- function(
   data,
-  etype = NULL,
+  dtype = NULL,
   tolerance = testthat::testthat_tolerance()
 ) {
   stopifnot(is.atomic(data) && length(data) == 1)
   args <- list(data = data)
-  args$etype <- etype
+  args$dtype <- dtype
   buffer <- do.call(pjrt_scalar, args)
 
   expect_class(buffer, "PJRTBuffer")
@@ -49,11 +49,11 @@ test_pjrt_scalar <- function(
 # Helper function to check buffer roundtrip
 test_pjrt_buffer <- function(
   data,
-  etype = NULL,
+  dtype = NULL,
   tolerance = testthat::testthat_tolerance()
 ) {
   args <- list(data = data)
-  args$etype <- etype
+  args$dtype <- dtype
   buffer <- do.call(pjrt_buffer, args)
 
   expect_class(buffer, "PJRTBuffer")
@@ -189,43 +189,43 @@ test_that("raw", {
   # Because powers are floating point operations we sample from a bit below the
   # available range to ensure that we stay within as we otherwise get overflows
   test_cases <- list(
-    f32 = list(data = matrix(runif(4), nrow = 2), etype = "f32"),
-    f64 = list(data = matrix(runif(6), nrow = 3), etype = "f64"),
+    f32 = list(data = matrix(runif(4), nrow = 2), dtype = "f32"),
+    f64 = list(data = matrix(runif(6), nrow = 3), dtype = "f64"),
 
-    i8 = list(data = sample_signed(6, c(3, 2)), etype = "i8"),
-    i16 = list(data = sample_signed(14, c(4, 3)), etype = "i16"),
-    i32 = list(data = sample_signed(30, c(4, 3, 1)), etype = "i32"),
-    i64 = list(data = sample_signed(30, c(2, 3, 7)), etype = "i64"),
+    i8 = list(data = sample_signed(6, c(3, 2)), dtype = "i8"),
+    i16 = list(data = sample_signed(14, c(4, 3)), dtype = "i16"),
+    i32 = list(data = sample_signed(30, c(4, 3, 1)), dtype = "i32"),
+    i64 = list(data = sample_signed(30, c(2, 3, 7)), dtype = "i64"),
 
-    ui8 = list(data = sample_unsigned(6, c(1, 1)), etype = "ui8"),
-    ui16 = list(data = sample_unsigned(14, c(2, 1)), etype = "ui16"),
-    ui32 = list(data = sample_unsigned(30, c(2, 2, 2)), etype = "ui32"),
-    ui64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), etype = "ui64"),
+    ui8 = list(data = sample_unsigned(6, c(1, 1)), dtype = "ui8"),
+    ui16 = list(data = sample_unsigned(14, c(2, 1)), dtype = "ui16"),
+    ui32 = list(data = sample_unsigned(30, c(2, 2, 2)), dtype = "ui32"),
+    ui64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), dtype = "ui64"),
 
     pred = list(
       data = matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2),
-      etype = "pred"
+      dtype = "pred"
     )
   )
 
   for (test_name in names(test_cases)) {
     test_case <- test_cases[[test_name]]
     original_data <- test_case$data
-    etype <- test_case$etype
+    dtype <- test_case$dtype
 
     # Full roundtrip: R → PJRT buffer → raw → PJRT buffer → R
-    buf1 <- pjrt_buffer(original_data, etype = etype)
+    buf1 <- pjrt_buffer(original_data, dtype = dtype)
     raw_data <- as_raw(buf1, row_major = FALSE)
     buf2 <- pjrt_buffer(
       raw_data,
-      etype = etype,
+      dtype = dtype,
       shape = dim(original_data),
       row_major = FALSE
     )
     roundtrip_data <- as_array(buf2)
 
     # Compare original with roundtrip
-    if (etype %in% c("f32", "f64")) {
+    if (dtype %in% c("f32", "f64")) {
       expect_equal(roundtrip_data, original_data, tolerance = 1e-6)
     } else {
       expect_equal(roundtrip_data, original_data)
@@ -242,15 +242,15 @@ test_that("roundtrip tests for scalars", {
     pred = TRUE
   )
 
-  for (etype in names(test_scalars)) {
-    original <- test_scalars[[etype]]
+  for (dtype in names(test_scalars)) {
+    original <- test_scalars[[dtype]]
 
-    buf1 <- pjrt_scalar(original, etype = etype)
+    buf1 <- pjrt_scalar(original, dtype = dtype)
     raw_data <- as_raw(buf1, row_major = FALSE)
-    buf2 <- pjrt_scalar(raw_data, etype = etype)
+    buf2 <- pjrt_scalar(raw_data, dtype = dtype)
     roundtrip <- as_array(buf2)
 
-    if (etype %in% c("f32", "f64")) {
+    if (dtype %in% c("f32", "f64")) {
       expect_equal(
         roundtrip,
         original,
@@ -267,44 +267,44 @@ test_that("roundtrip tests for scalars", {
   }
 })
 
-test_that("etype returns correct data types", {
+test_that("dtype returns correct data types", {
   # Test logical buffer
   logical_data <- c(TRUE, FALSE, TRUE)
   buffer <- pjrt_buffer(logical_data)
-  x <- etype(buffer)
+  x <- dtype(buffer)
   expect_true(is_etype(x))
   expect_equal(as.character(x), "pred")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
   buffer <- pjrt_buffer(integer_data, "i32")
-  x <- etype(buffer)
+  x <- dtype(buffer)
   expect_true(is_etype(x))
   expect_equal(as.character(x), "i32")
 
   # Test unsigned integer buffer (8-bit)
   buffer <- pjrt_buffer(integer_data, "ui8")
-  x <- etype(buffer)
+  x <- dtype(buffer)
   expect_true(is_etype(x))
   expect_equal(as.character(x), "ui8")
 
   # Test double buffer (32-bit)
   double_data <- c(1.1, 2.2, 3.3)
   buffer <- pjrt_buffer(double_data, "f32")
-  x <- etype(buffer)
+  x <- dtype(buffer)
   expect_true(is_etype(x))
   expect_equal(as.character(x), "f32")
 
   # Test double buffer (64-bit)
   buffer <- pjrt_buffer(double_data, "f64")
-  x <- etype(buffer)
+  x <- dtype(buffer)
   expect_true(is_etype(x))
   expect_equal(as.character(x), "f64")
 
   # Test scalar buffer
   scalar_data <- 42L
   buffer <- pjrt_scalar(scalar_data)
-  x <- etype(buffer)
+  x <- dtype(buffer)
   expect_true(is_etype(x))
   expect_equal(as.character(x), "i32")
 })
@@ -417,14 +417,14 @@ test_that("buffer <-> raw: row_major parameter", {
     # buf1: [1, 2, 3, 4, 5, 6] that represents [[1, 2], [3, 4], [5, 6]]
     buf1 <- pjrt_buffer(
       data_raw,
-      etype = "ui8",
+      dtype = "ui8",
       row_major = TRUE,
       shape = c(3, 2)
     )
     # buf2: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
     buf2 <- pjrt_buffer(
       data_raw,
-      etype = "ui8",
+      dtype = "ui8",
       row_major = FALSE,
       shape = c(2, 3)
     )
@@ -439,7 +439,7 @@ test_that("buffer <-> raw: row_major parameter", {
     # buf: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
     buf <- pjrt_buffer(
       data_raw,
-      etype = "ui8",
+      dtype = "ui8",
       row_major = FALSE,
       shape = c(2, 3)
     )

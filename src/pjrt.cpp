@@ -167,110 +167,110 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string etype) {
-  if (etype == "f32") {
+    std::string dtype) {
+  if (dtype == "f32") {
     return create_buffer_from_array<float>(client, data, dims,
                                            PJRT_Buffer_Type_F32);
-  } else if (etype == "f64") {
+  } else if (dtype == "f64") {
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
   } else {
     Rcpp::stop(
         "Can only create f{32,64} from R double, but requested type is %s",
-        etype.c_str());
+        dtype.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string etype) {
-  if (etype == "i8") {
+    std::string dtype) {
+  if (dtype == "i8") {
     return create_buffer_from_array<int8_t>(client, data, dims,
                                             PJRT_Buffer_Type_S8);
-  } else if (etype == "i16") {
+  } else if (dtype == "i16") {
     return create_buffer_from_array<int16_t>(client, data, dims,
                                              PJRT_Buffer_Type_S16);
-  } else if (etype == "i32") {
+  } else if (dtype == "i32") {
     return create_buffer_from_array<int32_t>(client, data, dims,
                                              PJRT_Buffer_Type_S32);
-  } else if (etype == "i64") {
+  } else if (dtype == "i64") {
     return create_buffer_from_array<int64_t>(client, data, dims,
                                              PJRT_Buffer_Type_S64);
-  } else if (etype == "ui8") {
+  } else if (dtype == "ui8") {
     return create_buffer_from_array<uint8_t>(client, data, dims,
                                              PJRT_Buffer_Type_U8);
-  } else if (etype == "ui16") {
+  } else if (dtype == "ui16") {
     return create_buffer_from_array<uint16_t>(client, data, dims,
                                               PJRT_Buffer_Type_U16);
-  } else if (etype == "ui32") {
+  } else if (dtype == "ui32") {
     return create_buffer_from_array<uint32_t>(client, data, dims,
                                               PJRT_Buffer_Type_U32);
-  } else if (etype == "ui64") {
+  } else if (dtype == "ui64") {
     return create_buffer_from_array<uint64_t>(client, data, dims,
                                               PJRT_Buffer_Type_U64);
-  } else if (etype == "f32") {
+  } else if (dtype == "f32") {
     return create_buffer_from_array<float>(client, data, dims,
                                            PJRT_Buffer_Type_F32);
-  } else if (etype == "f64") {
+  } else if (dtype == "f64") {
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
   } else {
-    Rcpp::stop("Unsupported type: %s", etype.c_str());
+    Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string etype) {
-  if (etype == "pred") {
+    std::string dtype) {
+  if (dtype == "pred") {
     return create_buffer_from_array<uint8_t>(client, data, dims,
                                              PJRT_Buffer_Type_PRED);
   } else {
-    Rcpp::stop("Unsupported type: %s", etype.c_str());
+    Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
 }
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string etype, bool row_major = false) {
-  if (etype == "f32") {
+    std::string dtype, bool row_major = false) {
+  if (dtype == "f32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
                                   row_major);
-  } else if (etype == "f64") {
+  } else if (dtype == "f64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F64,
                                   row_major);
-  } else if (etype == "i8") {
+  } else if (dtype == "i8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S8,
                                   row_major);
-  } else if (etype == "i16") {
+  } else if (dtype == "i16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S16,
                                   row_major);
-  } else if (etype == "i32") {
+  } else if (dtype == "i32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S32,
                                   row_major);
-  } else if (etype == "i64") {
+  } else if (dtype == "i64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_S64,
                                   row_major);
-  } else if (etype == "ui8") {
+  } else if (dtype == "ui8") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U8,
                                   row_major);
-  } else if (etype == "ui16") {
+  } else if (dtype == "ui16") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U16,
                                   row_major);
-  } else if (etype == "ui32") {
+  } else if (dtype == "ui32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U32,
                                   row_major);
-  } else if (etype == "ui64") {
+  } else if (dtype == "ui64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U64,
                                   row_major);
-  } else if (etype == "pred") {
+  } else if (dtype == "pred") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_PRED,
                                   row_major);
   } else {
-    Rcpp::stop("Unsupported type for raw data: %s", etype.c_str());
+    Rcpp::stop("Unsupported type for raw data: %s", dtype.c_str());
   }
 }
 

@@ -2,8 +2,8 @@ skip_if_not_installed("safetensors")
 
 test_that("can write a safetensors file (pjrt)", {
   buffers <- list(
-    x = pjrt_buffer(array(rnorm(100), dim = c(10, 10)), etype = "f32"),
-    y = pjrt_buffer(array(1:20, dim = c(4, 5)), etype = "i32")
+    x = pjrt_buffer(array(rnorm(100), dim = c(10, 10)), dtype = "f32"),
+    y = pjrt_buffer(array(1:20, dim = c(4, 5)), dtype = "i32")
   )
 
   tmp <- tempfile(fileext = ".safetensors")
@@ -41,7 +41,7 @@ test_that("Can write safetensors (different data types)", {
     )
 
     x <- list(
-      x = pjrt_buffer(array(x, dim = c(5, 2)), etype = type$pjrt_type)
+      x = pjrt_buffer(array(x, dim = c(5, 2)), dtype = type$pjrt_type)
     )
 
     tmp <- tempfile(fileext = ".safetensors")

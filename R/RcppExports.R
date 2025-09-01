@@ -33,20 +33,20 @@ impl_client_program_compile <- function(client, program, compile_options) {
     .Call(`_pjrt_impl_client_program_compile`, client, program, compile_options)
 }
 
-impl_client_buffer_from_double <- function(client, data, dims, etype) {
-    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, etype)
+impl_client_buffer_from_double <- function(client, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, dtype)
 }
 
-impl_client_buffer_from_integer <- function(client, data, dims, etype) {
-    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, etype)
+impl_client_buffer_from_integer <- function(client, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, dtype)
 }
 
-impl_client_buffer_from_logical <- function(client, data, dims, etype) {
-    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims, etype)
+impl_client_buffer_from_logical <- function(client, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims, dtype)
 }
 
-impl_client_buffer_from_raw <- function(client, data, dims, etype, row_major = FALSE) {
-    .Call(`_pjrt_impl_client_buffer_from_raw`, client, data, dims, etype, row_major)
+impl_client_buffer_from_raw <- function(client, data, dims, dtype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_raw`, client, data, dims, dtype, row_major)
 }
 
 impl_client_buffer_to_array <- function(client, buffer) {

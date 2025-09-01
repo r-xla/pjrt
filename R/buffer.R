@@ -21,7 +21,7 @@ is_buffer <- function(x) {
 #'
 #' @section Extractors:
 #' * [`device()`] for the device of the buffer.
-#' * [`etype()`] for the element type of the buffer.
+#' * [`dtype()`] for the element type of the buffer.
 #' * [`shape()`] for the shape of the buffer.
 #'
 #' @section Converters:
@@ -34,7 +34,7 @@ is_buffer <- function(x) {
 #'
 #' @param data (any)\cr
 #'  Data to convert to a `PJRTBuffer`.
-#' @param etype (`character(1)`)\cr
+#' @param dtype (`character(1)`)\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
@@ -45,13 +45,13 @@ is_buffer <- function(x) {
 #' @template param_client
 #' @return `PJRTBuffer`
 #' @export
-pjrt_buffer <- function(data, etype, client = pjrt_client(), ...) {
+pjrt_buffer <- function(data, dtype, client = pjrt_client(), ...) {
   UseMethod("pjrt_buffer")
 }
 
 #' @rdname pjrt_buffer
 #' @export
-pjrt_scalar <- function(data, etype, client = pjrt_client(), ...) {
+pjrt_scalar <- function(data, dtype, client = pjrt_client(), ...) {
   UseMethod("pjrt_scalar")
 }
 
@@ -62,7 +62,7 @@ pjrt_scalar <- function(data, etype, client = pjrt_client(), ...) {
 #' @export
 pjrt_buffer.logical <- function(
   data,
-  etype = "pred",
+  dtype = "pred",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
@@ -77,7 +77,7 @@ pjrt_buffer.logical <- function(
     client = as_pjrt_client(client),
     data = data,
     dims = shape,
-    etype = etype
+    dtype = dtype
   )
 }
 
@@ -85,7 +85,7 @@ pjrt_buffer.logical <- function(
 #' @export
 pjrt_buffer.integer <- function(
   data,
-  etype = "i32",
+  dtype = "i32",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
@@ -100,7 +100,7 @@ pjrt_buffer.integer <- function(
     client = as_pjrt_client(client),
     data = data,
     dims = get_dims(data),
-    etype = etype
+    dtype = dtype
   )
 }
 
@@ -108,7 +108,7 @@ pjrt_buffer.integer <- function(
 #' @export
 pjrt_buffer.double <- function(
   data,
-  etype = "f32",
+  dtype = "f32",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
@@ -123,7 +123,7 @@ pjrt_buffer.double <- function(
     client = as_pjrt_client(client),
     data = data,
     dims = shape,
-    etype = etype
+    dtype = dtype
   )
 }
 
@@ -135,7 +135,7 @@ pjrt_buffer.double <- function(
 pjrt_buffer.raw <- function(
   data,
   ...,
-  etype,
+  dtype,
   client = pjrt_client(),
   shape,
   row_major
@@ -147,7 +147,7 @@ pjrt_buffer.raw <- function(
     data = data,
     dims = shape,
     client = as_pjrt_client(client),
-    etype = etype,
+    dtype = dtype,
     row_major = row_major
   )
 }
@@ -156,7 +156,7 @@ pjrt_buffer.raw <- function(
 #' @export
 pjrt_scalar.logical <- function(
   data,
-  etype = "pred",
+  dtype = "pred",
   client = pjrt_client(),
   ...
 ) {
@@ -170,7 +170,7 @@ pjrt_scalar.logical <- function(
     data,
     dims = integer(),
     client = as_pjrt_client(client),
-    etype = etype
+    dtype = dtype
   )
 }
 
@@ -178,7 +178,7 @@ pjrt_scalar.logical <- function(
 #' @export
 pjrt_scalar.integer <- function(
   data,
-  etype = "i32",
+  dtype = "i32",
   client = pjrt_client(),
   ...
 ) {
@@ -192,7 +192,7 @@ pjrt_scalar.integer <- function(
     data,
     dims = integer(),
     client = as_pjrt_client(client),
-    etype = etype
+    dtype = dtype
   )
 }
 
@@ -200,7 +200,7 @@ pjrt_scalar.integer <- function(
 #' @export
 pjrt_scalar.double <- function(
   data,
-  etype = "f32",
+  dtype = "f32",
   client = pjrt_client(),
   ...
 ) {
@@ -214,7 +214,7 @@ pjrt_scalar.double <- function(
     data,
     dims = integer(),
     client = as_pjrt_client(client),
-    etype = etype
+    dtype = dtype
   )
 }
 
@@ -223,7 +223,7 @@ pjrt_scalar.double <- function(
 pjrt_scalar.raw <- function(
   data,
   ...,
-  etype,
+  dtype,
   client = pjrt_client()
 ) {
   if (...length()) {
@@ -233,18 +233,19 @@ pjrt_scalar.raw <- function(
     data,
     dims = integer(),
     client = as_pjrt_client(client),
-    etype = etype,
+    dtype = dtype,
     row_major = FALSE
   )
 }
 
-#' Get the Element Type of a `PJRTBuffer`
+#' @title Data Type of Buffer
 #'
-#' @param buffer A PJRT buffer object.
+#' @param buffer ([`PJRTBuffer`][pjrt_buffer])\cr
+#'   Buffer.
 #'
 #' @return A PJRT element type object.
 #' @export
-etype <- function(buffer) {
+dtype <- function(buffer) {
   check_buffer(buffer)
   impl_buffer_etype(buffer)
 }
@@ -399,7 +400,7 @@ print.PJRTBuffer <- function(
     } else {
       ""
     }
-    cat(sprintf("PJRTBuffer<%s%s>", etype(x), shape_str), "\n")
+    cat(sprintf("PJRTBuffer<%s%s>", dtype(x), shape_str), "\n")
   }
   impl_buffer_print(
     x,
@@ -429,8 +430,4 @@ shape <- S7::new_generic("shape", "x", function(x) {
 
 S7::method(shape, S7::new_S3_class("PJRTBuffer")) <- function(x) {
   impl_buffer_dimensions(x)
-}
-
-method(shape, NULL) <- function(x) {
-  dim(x)
 }

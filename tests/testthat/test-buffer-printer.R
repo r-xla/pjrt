@@ -57,7 +57,7 @@ test_that("1d vector", {
 
 test_that("logicals", {
   log_mat <- matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2)
-  buf_log <- pjrt_buffer(log_mat, etype = "pred")
+  buf_log <- pjrt_buffer(log_mat, dtype = "pred")
   expect_snapshot(buf_log)
 })
 
