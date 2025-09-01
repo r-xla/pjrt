@@ -1,7 +1,9 @@
 #include "utils.h"
 
-#include <memory>
 #include <optional>
+#include <stdexcept>
+
+#include "xla/pjrt/c/pjrt_c_api.h"
 
 void check_err(const PJRT_Api *api, PJRT_Error *err) {
   if (err) {
@@ -69,4 +71,33 @@ std::optional<std::vector<int64_t>> get_byte_strides(
     byte_strides_opt = byte_strides;
   }
   return byte_strides_opt;
+}
+
+std::vector<int64_t> dims2strides(std::vector<int64_t> dims, bool row_major) {
+  std::vector<int64_t> strides(dims.size(), 1);
+
+  if (dims.size() <= 1) {
+    return strides;
+  }
+
+  if (row_major) {
+    for (int i = dims.size() - 2; i >= 0; --i) {
+      strides[i] = strides[i + 1] * dims[i + 1];
+    }
+  } else {
+    for (int i = 1; i < dims.size(); ++i) {
+      strides[i] = strides[i - 1] * dims[i - 1];
+    }
+  }
+  return strides;
+}
+
+std::vector<int64_t> id2indices(int lid, const std::vector<int64_t> strides) {
+  std::vector<int64_t> idx(strides.size());
+  for (size_t k = 0; k < strides.size(); ++k) {
+    const int64_t s = strides[k];
+    idx[k] = lid / s;
+    lid %= s;
+  }
+  return idx;
 }

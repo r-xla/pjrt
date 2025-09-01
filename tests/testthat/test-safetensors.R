@@ -2,8 +2,8 @@ skip_if_not_installed("safetensors")
 
 test_that("can write a safetensors file (pjrt)", {
   buffers <- list(
-    x = pjrt_buffer(array(rnorm(100), dim = c(10, 10)), elt_type = "f32"),
-    y = pjrt_buffer(array(1:20, dim = c(4, 5)), elt_type = "i32")
+    x = pjrt_buffer(array(rnorm(100), dim = c(10, 10)), dtype = "f32"),
+    y = pjrt_buffer(array(1:20, dim = c(4, 5)), dtype = "i32")
   )
 
   tmp <- tempfile(fileext = ".safetensors")
@@ -41,7 +41,7 @@ test_that("Can write safetensors (different data types)", {
     )
 
     x <- list(
-      x = pjrt_buffer(array(x, dim = c(5, 2)), elt_type = type$pjrt_type)
+      x = pjrt_buffer(array(x, dim = c(5, 2)), dtype = type$pjrt_type)
     )
 
     tmp <- tempfile(fileext = ".safetensors")
@@ -61,9 +61,9 @@ test_that("load a file (pjrt)", {
   )
   expect_equal(names(dict), c("hello", "world"))
 
-  expect_equal(dim(dict$hello), c(10, 10))
+  expect_equal(shape(dict$hello), c(10, 10))
   expect_true(all(as_array(dict$hello) == 1))
 
-  expect_equal(dim(dict$world), c(5, 10))
+  expect_equal(shape(dict$world), c(5, 10))
   expect_true(all(as_array(dict$world) == 0))
 })

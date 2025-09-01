@@ -13,13 +13,13 @@
 \alias{pjrt_scalar.raw}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, elt_type, client = pjrt_client(), ...)
+pjrt_buffer(data, dtype, client = pjrt_client(), ...)
 
-pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
+pjrt_scalar(data, dtype, client = pjrt_client(), ...)
 
 \method{pjrt_buffer}{logical}(
   data,
-  elt_type = "pred",
+  dtype = "pred",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
@@ -27,7 +27,7 @@ pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
 
 \method{pjrt_buffer}{integer}(
   data,
-  elt_type = "i32",
+  dtype = "i32",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
@@ -35,27 +35,27 @@ pjrt_scalar(data, elt_type, client = pjrt_client(), ...)
 
 \method{pjrt_buffer}{double}(
   data,
-  elt_type = "f32",
+  dtype = "f32",
   client = pjrt_client(),
   shape = get_dims(data),
   ...
 )
 
-\method{pjrt_buffer}{raw}(data, ..., elt_type, client = pjrt_client(), shape, row_major)
+\method{pjrt_buffer}{raw}(data, ..., dtype, client = pjrt_client(), shape, row_major)
 
-\method{pjrt_scalar}{logical}(data, elt_type = "pred", client = pjrt_client(), ...)
+\method{pjrt_scalar}{logical}(data, dtype = "pred", client = pjrt_client(), ...)
 
-\method{pjrt_scalar}{integer}(data, elt_type = "i32", client = pjrt_client(), ...)
+\method{pjrt_scalar}{integer}(data, dtype = "i32", client = pjrt_client(), ...)
 
-\method{pjrt_scalar}{double}(data, elt_type = "f32", client = pjrt_client(), ...)
+\method{pjrt_scalar}{double}(data, dtype = "f32", client = pjrt_client(), ...)
 
-\method{pjrt_scalar}{raw}(data, ..., elt_type, client = pjrt_client())
+\method{pjrt_scalar}{raw}(data, ..., dtype, client = pjrt_client())
 }
 \arguments{
 \item{data}{(any)\cr
 Data to convert to a \code{PJRTBuffer}.}
 
-\item{elt_type}{(\code{character(1)})\cr
+\item{dtype}{(\code{character(1)})\cr
 The type of the buffer.
 Currently supported types are:
 \itemize{
@@ -87,15 +87,17 @@ Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 \code{\link{pjrt_buffer}} will create a array with dimensions \code{(1)} for a vector of length 1, while
 \code{\link{pjrt_scalar}} will create a 0-dimensional array for an R vector of length 1.
-}
-\details{
-R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar} function.
+
+\strong{Important}:
+No checks are performed when creating the buffer, so you need to ensure that the data fits
+the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
 }
 \section{Extractors}{
 
 \itemize{
 \item \code{\link[=device]{device()}} for the device of the buffer.
-\item \code{\link[=element_type]{element_type()}} for the element type of the buffer.
+\item \code{\link[=dtype]{dtype()}} for the element type of the buffer.
+\item \code{\link[=shape]{shape()}} for the shape of the buffer.
 }
 }
 
@@ -105,5 +107,11 @@ R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar}
 \item \code{\link[=as_array]{as_array()}} for an array.
 \item \code{\link[=as_raw]{as_raw()}} for a raw vector.
 }
+}
+
+\section{Scalars}{
+
+When calling this function on a vector of length 1, the resulting shape is \code{1L}.
+To create a 0-dimensional buffer, use \code{pjrt_scalar} where the resulting shape is \code{integer()}.
 }
 

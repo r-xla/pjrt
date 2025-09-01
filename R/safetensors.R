@@ -6,7 +6,7 @@ pjrt_tensor_from_raw <- function(raw, meta, client = pjrt_client()) {
   pjrt_buffer(
     raw,
     shape = dims,
-    elt_type = safetensors_dtype_to_pjrt(meta$dtype),
+    dtype = safetensors_dtype_to_pjrt(meta$dtype),
     client = client,
     row_major = TRUE
   )
@@ -77,7 +77,7 @@ safe_tensor_buffer.PJRTBuffer <- function(x) {
 #' @export
 safe_tensor_meta.PJRTBuffer <- function(x) {
   list(
-    shape = as.list(dim(x)), # Convert to list to avoid simplification
-    dtype = pjrt_dtype_to_safetensors(as.character(element_type(x)))
+    shape = as.list(shape(x)), # Convert to list to avoid simplification
+    dtype = pjrt_dtype_to_safetensors(as.character(dtype(x)))
   )
 }

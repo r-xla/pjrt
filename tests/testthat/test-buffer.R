@@ -1,20 +1,20 @@
 # Helper function to check scalar roundtrip
 test_pjrt_scalar <- function(
   data,
-  elt_type = NULL,
+  dtype = NULL,
   tolerance = testthat::testthat_tolerance()
 ) {
   stopifnot(is.atomic(data) && length(data) == 1)
   args <- list(data = data)
-  args$elt_type <- elt_type
+  args$dtype <- dtype
   buffer <- do.call(pjrt_scalar, args)
 
   expect_class(buffer, "PJRTBuffer")
   result <- as_array(buffer)
-  expect_true(!is.array(result))
+  testthat::expect_true(!is.array(result))
 
   # Check that scalar becomes 1D array with length 1
-  expect_true(is.null(dim(result)))
+  testthat::expect_true(is.null(dim(result)))
 
   modify <- function(data) {
     data[1L] <- if (is.numeric(data)) {
@@ -31,13 +31,17 @@ test_pjrt_scalar <- function(
   data[1L] <- modify(data)
 
   result_after_modification <- as_array(buffer)
-  expect_equal(result_after_modification, original_data, tolerance = tolerance)
+  testthat::expect_equal(
+    result_after_modification,
+    original_data,
+    tolerance = tolerance
+  )
 
   # Test that modifying the result doesn't persist when recreating from buffer
   result[1L] <- modify(result)
 
   result_recreated <- as_array(buffer)
-  expect_equal(result_recreated, original_data, tolerance = tolerance)
+  testthat::expect_equal(result_recreated, original_data, tolerance = tolerance)
 
   TRUE
 }
@@ -45,20 +49,20 @@ test_pjrt_scalar <- function(
 # Helper function to check buffer roundtrip
 test_pjrt_buffer <- function(
   data,
-  elt_type = NULL,
+  dtype = NULL,
   tolerance = testthat::testthat_tolerance()
 ) {
   args <- list(data = data)
-  args$elt_type <- elt_type
+  args$dtype <- dtype
   buffer <- do.call(pjrt_buffer, args)
 
   expect_class(buffer, "PJRTBuffer")
   result <- as_array(buffer)
-  expect_true(is.array(result))
+  testthat::expect_true(is.array(result))
 
   data_arr <- as.array(data)
 
-  expect_equal(result, data_arr, tolerance = tolerance)
+  testthat::expect_equal(result, data_arr, tolerance = tolerance)
 
   modify_first <- function(data) {
     data[1L] +
@@ -74,10 +78,10 @@ test_pjrt_buffer <- function(
   # Check dimensions are preserved
   if (is.null(dim(data))) {
     # Vector should become 1D array
-    expect_equal(dim(result), length(data))
+    testthat::expect_equal(dim(result), length(data))
   } else {
     # Array should preserve dimensions
-    expect_equal(dim(result), dim(data))
+    testthat::expect_equal(dim(result), dim(data))
   }
 
   # Test that modifying the original data doesn't change the buffer
@@ -85,16 +89,20 @@ test_pjrt_buffer <- function(
   data[1L] <- modify_first(data)
 
   result_after_modification <- as_array(buffer)
-  expect_equal(result_after_modification, data_arr, tolerance = tolerance)
+  testthat::expect_equal(
+    result_after_modification,
+    data_arr,
+    tolerance = tolerance
+  )
 
   # Test that modifying the result doesn't persist when recreating from buffer
   result[1L] <- modify_first(result)
 
   result_recreated <- as_array(buffer)
   if (!is.null(tolerance)) {
-    expect_equal(result_recreated, data_arr, tolerance = tolerance)
+    testthat::expect_equal(result_recreated, data_arr, tolerance = tolerance)
   } else {
-    expect_equal(result_recreated, data_arr)
+    testthat::expect_equal(result_recreated, data_arr)
   }
 
   return(buffer)
@@ -181,43 +189,43 @@ test_that("raw", {
   # Because powers are floating point operations we sample from a bit below the
   # available range to ensure that we stay within as we otherwise get overflows
   test_cases <- list(
-    f32 = list(data = matrix(runif(4), nrow = 2), elt_type = "f32"),
-    f64 = list(data = matrix(runif(6), nrow = 3), elt_type = "f64"),
+    f32 = list(data = matrix(runif(4), nrow = 2), dtype = "f32"),
+    f64 = list(data = matrix(runif(6), nrow = 3), dtype = "f64"),
 
-    i8 = list(data = sample_signed(6, c(3, 2)), elt_type = "i8"),
-    i16 = list(data = sample_signed(14, c(4, 3)), elt_type = "i16"),
-    i32 = list(data = sample_signed(30, c(4, 3, 1)), elt_type = "i32"),
-    i64 = list(data = sample_signed(30, c(2, 3, 7)), elt_type = "i64"),
+    i8 = list(data = sample_signed(6, c(3, 2)), dtype = "i8"),
+    i16 = list(data = sample_signed(14, c(4, 3)), dtype = "i16"),
+    i32 = list(data = sample_signed(30, c(4, 3, 1)), dtype = "i32"),
+    i64 = list(data = sample_signed(30, c(2, 3, 7)), dtype = "i64"),
 
-    ui8 = list(data = sample_unsigned(6, c(1, 1)), elt_type = "ui8"),
-    ui16 = list(data = sample_unsigned(14, c(2, 1)), elt_type = "ui16"),
-    ui32 = list(data = sample_unsigned(30, c(2, 2, 2)), elt_type = "ui32"),
-    ui64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), elt_type = "ui64"),
+    ui8 = list(data = sample_unsigned(6, c(1, 1)), dtype = "ui8"),
+    ui16 = list(data = sample_unsigned(14, c(2, 1)), dtype = "ui16"),
+    ui32 = list(data = sample_unsigned(30, c(2, 2, 2)), dtype = "ui32"),
+    ui64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), dtype = "ui64"),
 
     pred = list(
       data = matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2),
-      elt_type = "pred"
+      dtype = "pred"
     )
   )
 
   for (test_name in names(test_cases)) {
     test_case <- test_cases[[test_name]]
     original_data <- test_case$data
-    elt_type <- test_case$elt_type
+    dtype <- test_case$dtype
 
     # Full roundtrip: R → PJRT buffer → raw → PJRT buffer → R
-    buf1 <- pjrt_buffer(original_data, elt_type = elt_type)
+    buf1 <- pjrt_buffer(original_data, dtype = dtype)
     raw_data <- as_raw(buf1, row_major = FALSE)
     buf2 <- pjrt_buffer(
       raw_data,
-      elt_type = elt_type,
+      dtype = dtype,
       shape = dim(original_data),
       row_major = FALSE
     )
     roundtrip_data <- as_array(buf2)
 
     # Compare original with roundtrip
-    if (elt_type %in% c("f32", "f64")) {
+    if (dtype %in% c("f32", "f64")) {
       expect_equal(roundtrip_data, original_data, tolerance = 1e-6)
     } else {
       expect_equal(roundtrip_data, original_data)
@@ -234,15 +242,15 @@ test_that("roundtrip tests for scalars", {
     pred = TRUE
   )
 
-  for (elt_type in names(test_scalars)) {
-    original <- test_scalars[[elt_type]]
+  for (dtype in names(test_scalars)) {
+    original <- test_scalars[[dtype]]
 
-    buf1 <- pjrt_scalar(original, elt_type = elt_type)
+    buf1 <- pjrt_scalar(original, dtype = dtype)
     raw_data <- as_raw(buf1, row_major = FALSE)
-    buf2 <- pjrt_scalar(raw_data, elt_type = elt_type)
+    buf2 <- pjrt_scalar(raw_data, dtype = dtype)
     roundtrip <- as_array(buf2)
 
-    if (elt_type %in% c("f32", "f64")) {
+    if (dtype %in% c("f32", "f64")) {
       expect_equal(
         roundtrip,
         original,
@@ -259,46 +267,46 @@ test_that("roundtrip tests for scalars", {
   }
 })
 
-test_that("element_type returns correct data types", {
+test_that("dtype returns correct data types", {
   # Test logical buffer
   logical_data <- c(TRUE, FALSE, TRUE)
   buffer <- pjrt_buffer(logical_data)
-  dtype <- element_type(buffer)
-  expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "pred")
+  x <- dtype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "pred")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
   buffer <- pjrt_buffer(integer_data, "i32")
-  dtype <- element_type(buffer)
-  expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "i32")
+  x <- dtype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "i32")
 
   # Test unsigned integer buffer (8-bit)
   buffer <- pjrt_buffer(integer_data, "ui8")
-  dtype <- element_type(buffer)
-  expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "ui8")
+  x <- dtype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "ui8")
 
   # Test double buffer (32-bit)
   double_data <- c(1.1, 2.2, 3.3)
   buffer <- pjrt_buffer(double_data, "f32")
-  dtype <- element_type(buffer)
-  expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "f32")
+  x <- dtype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "f32")
 
   # Test double buffer (64-bit)
   buffer <- pjrt_buffer(double_data, "f64")
-  dtype <- element_type(buffer)
-  expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "f64")
+  x <- dtype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "f64")
 
   # Test scalar buffer
   scalar_data <- 42L
   buffer <- pjrt_scalar(scalar_data)
-  dtype <- element_type(buffer)
-  expect_true(is_element_type(dtype))
-  expect_equal(as.character(dtype), "i32")
+  x <- dtype(buffer)
+  expect_true(is_etype(x))
+  expect_equal(as.character(x), "i32")
 })
 
 test_that("R layout and PJRT layout (2D)", {
@@ -409,14 +417,14 @@ test_that("buffer <-> raw: row_major parameter", {
     # buf1: [1, 2, 3, 4, 5, 6] that represents [[1, 2], [3, 4], [5, 6]]
     buf1 <- pjrt_buffer(
       data_raw,
-      elt_type = "ui8",
+      dtype = "ui8",
       row_major = TRUE,
       shape = c(3, 2)
     )
     # buf2: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
     buf2 <- pjrt_buffer(
       data_raw,
-      elt_type = "ui8",
+      dtype = "ui8",
       row_major = FALSE,
       shape = c(2, 3)
     )
@@ -431,7 +439,7 @@ test_that("buffer <-> raw: row_major parameter", {
     # buf: [1, 2, 3, 4, 5, 6] that represents [[1, 3, 5], [2, 4, 6]]
     buf <- pjrt_buffer(
       data_raw,
-      elt_type = "ui8",
+      dtype = "ui8",
       row_major = FALSE,
       shape = c(2, 3)
     )
@@ -462,7 +470,7 @@ test_that("tests can compare buffers", {
 
 test_that("No dim with pjrt_buffer", {
   skip_if(is_cuda() || is_metal())
-  expect_equal(dim(pjrt_buffer(1)), 1L)
+  expect_equal(shape(pjrt_buffer(1)), 1L)
 })
 
 test_that("device print", {
@@ -471,7 +479,7 @@ test_that("device print", {
 })
 
 test_that("dim is integer", {
-  expect_true(is.integer(dim(pjrt_buffer(1))))
+  expect_true(is.integer(shape(pjrt_buffer(1))))
 })
 
 test_that("can move back buffer without specifying client", {
@@ -496,5 +504,5 @@ test_that("can create f32 and f64 buffers from integer data", {
 })
 
 test_that("can specify dims", {
-  expect_equal(dim(pjrt_buffer(1:4, shape = c(2, 2))), c(2, 2))
+  expect_equal(shape(pjrt_buffer(1:4, shape = c(2, 2))), c(2, 2))
 })
