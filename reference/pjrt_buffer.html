@@ -69,14 +69,14 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, <span class="va">etype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, <span class="va">dtype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, <span class="va">etype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, <span class="va">dtype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'logical'</span></span>
 <span><span class="fu">pjrt_buffer</span><span class="op">(</span></span>
 <span>  <span class="va">data</span>,</span>
-<span>  etype <span class="op">=</span> <span class="st">"pred"</span>,</span>
+<span>  dtype <span class="op">=</span> <span class="st">"pred"</span>,</span>
 <span>  client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  shape <span class="op">=</span> <span class="fu">get_dims</span><span class="op">(</span><span class="va">data</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -85,7 +85,7 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 <span><span class="co"># S3 method for class 'integer'</span></span>
 <span><span class="fu">pjrt_buffer</span><span class="op">(</span></span>
 <span>  <span class="va">data</span>,</span>
-<span>  etype <span class="op">=</span> <span class="st">"i32"</span>,</span>
+<span>  dtype <span class="op">=</span> <span class="st">"i32"</span>,</span>
 <span>  client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  shape <span class="op">=</span> <span class="fu">get_dims</span><span class="op">(</span><span class="va">data</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -94,26 +94,26 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 <span><span class="co"># S3 method for class 'double'</span></span>
 <span><span class="fu">pjrt_buffer</span><span class="op">(</span></span>
 <span>  <span class="va">data</span>,</span>
-<span>  etype <span class="op">=</span> <span class="st">"f32"</span>,</span>
+<span>  dtype <span class="op">=</span> <span class="st">"f32"</span>,</span>
 <span>  client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  shape <span class="op">=</span> <span class="fu">get_dims</span><span class="op">(</span><span class="va">data</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'raw'</span></span>
-<span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, <span class="va">...</span>, <span class="va">etype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">shape</span>, <span class="va">row_major</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, <span class="va">...</span>, <span class="va">dtype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">shape</span>, <span class="va">row_major</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'logical'</span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, etype <span class="op">=</span> <span class="st">"pred"</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="st">"pred"</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'integer'</span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, etype <span class="op">=</span> <span class="st">"i32"</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="st">"i32"</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'double'</span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, etype <span class="op">=</span> <span class="st">"f32"</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="st">"f32"</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'raw'</span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, <span class="va">...</span>, <span class="va">etype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, <span class="va">...</span>, <span class="va">dtype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -125,7 +125,7 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 Data to convert to a <code>PJRTBuffer</code>.</p></dd>
 
 
-<dt id="arg-etype">etype<a class="anchor" aria-label="anchor" href="#arg-etype"></a></dt>
+<dt id="arg-dtype">dtype<a class="anchor" aria-label="anchor" href="#arg-dtype"></a></dt>
 <dd><p>(<code>character(1)</code>)<br>
 The type of the buffer.
 Currently supported types are:</p><ul><li><p><code>"pred"</code>: predicate (i.e. a boolean)</p></li>
@@ -166,7 +166,7 @@ R uses column-major format.</p></dd>
 
 
 <ul><li><p><code><a href="device.html">device()</a></code> for the device of the buffer.</p></li>
-<li><p><code><a href="etype.html">etype()</a></code> for the element type of the buffer.</p></li>
+<li><p><code><a href="dtype.html">dtype()</a></code> for the element type of the buffer.</p></li>
 <li><p><code><a href="shape.html">shape()</a></code> for the shape of the buffer.</p></li>
 </ul></div>
     <div class="section level2">
