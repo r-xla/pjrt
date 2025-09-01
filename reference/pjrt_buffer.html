@@ -11,13 +11,13 @@ pjrt_buffer will create a array with dimensions (1) for a vector of length 1, wh
 pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
 Important:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (buffer overflow) and that no NA values are present."><meta property="og:description" content="Create a PJRT Buffer from an R object.
+the selected element type (e.g., to prevent buffer overflow) and that no NA values are present."><meta property="og:description" content="Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 pjrt_buffer will create a array with dimensions (1) for a vector of length 1, while
 pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
 Important:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (buffer overflow) and that no NA values are present."></head><body>
+the selected element type (e.g., to prevent buffer overflow) and that no NA values are present."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -64,7 +64,7 @@ Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars
 <code>pjrt_scalar</code> will create a 0-dimensional array for an R vector of length 1.</p>
 <p><strong>Important</strong>:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (buffer overflow) and that no NA values are present.</p>
+the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.</p>
     </div>
 
     <div class="section level2">
@@ -176,13 +176,6 @@ R uses column-major format.</p></dd>
 <ul><li><p><code><a href="as_array.html">as_array()</a></code> for an array.</p></li>
 <li><p><code><a href="as_raw.html">as_raw()</a></code> for a raw vector.</p></li>
 </ul></div>
-    <div class="section level2">
-    <h2 id="buffer-overflow">Buffer Overflow<a class="anchor" aria-label="anchor" href="#buffer-overflow"></a></h2>
-
-
-<p>No checks are performed when converting an R object to a PJRT buffer.
-It is in the caller's responsibility to ensure that the data fits the selected element type.</p>
-    </div>
     <div class="section level2">
     <h2 id="scalars">Scalars<a class="anchor" aria-label="anchor" href="#scalars"></a></h2>
 
