@@ -21,7 +21,12 @@ The buffer.}
 The maximum number of rows to print, excluding header and footer.}
 
 \item{max_width}{(\code{integer(1)})\cr
-The maximum width of the printed buffer.}
+The maximum width (in characters) of the printed buffer.
+Set to negative values for no limit.
+Note that for very small values, the actual printed width might be slightly smaller
+as at least one column will be printed.
+Also, this limit only affects the printed rows containing the actual data,
+other rows might exceed the width.}
 
 \item{max_rows_slice}{(\code{integer(1)})\cr
 The maximum number of rows to print for each slice.}

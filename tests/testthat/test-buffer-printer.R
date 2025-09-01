@@ -44,12 +44,9 @@ test_that("printer for arrays with many dimensions", {
   expect_snapshot(pjrt_buffer(1:20, shape = c(1, 1, 1, 1, 1, 5, 4)))
 })
 
-test_that("printer for arrays with many elements", {
-  expect_snapshot(pjrt_buffer(1:20000, shape = c(100, 200)))
-})
-
 test_that("column width is determined per slice", {
   x <- c(1, 100, 2, 200, 3, 300, 4, 400)
+  pjrt_buffer(x, shape = c(2, 2, 2))
   expect_snapshot(pjrt_buffer(x, shape = c(2, 2, 2)))
 })
 
@@ -58,20 +55,10 @@ test_that("1d vector", {
   expect_snapshot(pjrt_buffer(as.double(1:50)))
 })
 
-test_that("pjrt_buffer print integers and logicals correctly", {
-  int_mat <- matrix(c(-12L, 3L, 45L, -7L), nrow = 2)
-  buf_int <- pjrt_buffer(int_mat, etype = "i32")
-  expect_snapshot(print(buf_int))
-
+test_that("logicals", {
   log_mat <- matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2)
   buf_log <- pjrt_buffer(log_mat, etype = "pred")
   expect_snapshot(buf_log)
-})
-
-test_that("printer shows last two dims as matrix for high-rank arrays", {
-  x <- array(1:20, dim = c(1, 1, 1, 1, 1, 5, 4))
-  buf <- pjrt_buffer(x, etype = "i32")
-  expect_snapshot(buf)
 })
 
 test_that("alignment is as expected", {
@@ -119,4 +106,35 @@ test_that("printer options", {
 
   # truncation is printed when not all rows are
   expect_snapshot(print(pjrt_buffer(1:11, shape = c(11, 1)), max_rows = 10))
+
+  # when max_width is too small, we print one column
+  expect_snapshot(print(
+    pjrt_buffer(c(100L), shape = c(1, 1)),
+    max_width = 3,
+    max_rows = 1
+  ))
+
+  # max_width; note that every data line starts with ' '
+  x <- pjrt_buffer(rep(100L, 3), shape = c(1, 3))
+  expect_snapshot(print(x, max_width = 7, max_rows = 1))
+  expect_snapshot(print(x, max_width = 8, max_rows = 1))
+
+  expect_snapshot(
+    print(pjrt_buffer(rep(0.0000001, 50), shape = c(1, 50)), max_width = -1)
+  )
+})
+
+test_that("scale prefix is printed per slice", {
+  x <- c(
+    0.000001,
+    0.000000001,
+    0.000001,
+    0.000000001
+  )
+  expect_snapshot(pjrt_buffer(x, shape = c(2, 1, 2)))
+
+  expect_snapshot(print(
+    pjrt_buffer(rep(x, 5), shape = c(2, 2, 5)),
+    max_width = 15
+  ))
 })

@@ -3,7 +3,6 @@
 S3method(as.character,PJRTDevice)
 S3method(as.character,PJRTElementType)
 S3method(device,PJRTBuffer)
-S3method(dim,PJRTBuffer)
 S3method(format,PJRTDevice)
 S3method(format,PJRTProgram)
 S3method(pjrt_buffer,double)

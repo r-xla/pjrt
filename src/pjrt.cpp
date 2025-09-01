@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <numeric>
 
+#include "buffer-printer.h"
 #include "buffer.h"
 #include "client.h"
 #include "pjrt_types.h"
-#include "printer.h"
 #include "utils.h"
 
 // [[Rcpp::export()]]

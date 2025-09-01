@@ -43,7 +43,7 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
   }
 }
 
-size_t sizeof_pjrt_buffer_type(int /*PJRT_Buffer_Type*/ type);
+size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type);
 
 bool format_is_irrelevant(const std::vector<int64_t> &dims);
 

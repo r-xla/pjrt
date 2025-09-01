@@ -61,9 +61,9 @@ test_that("load a file (pjrt)", {
   )
   expect_equal(names(dict), c("hello", "world"))
 
-  expect_equal(dim(dict$hello), c(10, 10))
+  expect_equal(shape(dict$hello), c(10, 10))
   expect_true(all(as_array(dict$hello) == 1))
 
-  expect_equal(dim(dict$world), c(5, 10))
+  expect_equal(shape(dict$world), c(5, 10))
   expect_true(all(as_array(dict$world) == 0))
 })

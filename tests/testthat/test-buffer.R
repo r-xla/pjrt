@@ -506,5 +506,3 @@ test_that("can create f32 and f64 buffers from integer data", {
 test_that("can specify dims", {
   expect_equal(shape(pjrt_buffer(1:4, shape = c(2, 2))), c(2, 2))
 })
-
-test_that("dtype", {})

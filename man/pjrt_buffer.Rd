@@ -87,9 +87,10 @@ Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 \code{\link{pjrt_buffer}} will create a array with dimensions \code{(1)} for a vector of length 1, while
 \code{\link{pjrt_scalar}} will create a 0-dimensional array for an R vector of length 1.
-}
-\details{
-R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar} function.
+
+\strong{Important}:
+No checks are performed when creating the buffer, so you need to ensure that the data fits
+the selected element type (buffer overflow) and that no NA values are present.
 }
 \section{Extractors}{
 
@@ -112,5 +113,11 @@ R does not have 0-dimensional arrays, hence we need the extra \code{pjrt_scalar}
 
 No checks are performed when converting an R object to a PJRT buffer.
 It is in the caller's responsibility to ensure that the data fits the selected element type.
+}
+
+\section{Scalars}{
+
+When calling this function on a vector of length 1, the resulting shape is \code{1L}.
+To create a 0-dimensional buffer, use \code{pjrt_scalar} where the resulting shape is \code{integer()}.
 }
 

@@ -1,4 +1,4 @@
-assert_buffer <- function(x) {
+check_buffer <- function(x) {
   stopifnot(is_buffer(x))
   invisible(NULL)
 }
@@ -15,6 +15,10 @@ is_buffer <- function(x) {
 #' [`pjrt_buffer`] will create a array with dimensions `(1)` for a vector of length 1, while
 #' [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
 #'
+#' **Important**:
+#' No checks are performed when creating the buffer, so you need to ensure that the data fits
+#' the selected element type (buffer overflow) and that no NA values are present.
+#'
 #' @section Extractors:
 #' * [`device()`] for the device of the buffer.
 #' * [`etype()`] for the element type of the buffer.
@@ -28,8 +32,9 @@ is_buffer <- function(x) {
 #' No checks are performed when converting an R object to a PJRT buffer.
 #' It is in the caller's responsibility to ensure that the data fits the selected element type.
 #'
-#' @details
-#' R does not have 0-dimensional arrays, hence we need the extra `pjrt_scalar` function.
+#' @section Scalars:
+#' When calling this function on a vector of length 1, the resulting shape is `1L`.
+#' To create a 0-dimensional buffer, use `pjrt_scalar` where the resulting shape is `integer()`.
 #'
 #' @param data (any)\cr
 #'  Data to convert to a `PJRTBuffer`.
@@ -244,14 +249,14 @@ pjrt_scalar.raw <- function(
 #' @return A PJRT element type object.
 #' @export
 etype <- function(buffer) {
-  assert_buffer(buffer)
+  check_buffer(buffer)
   impl_buffer_etype(buffer)
 }
 
 #' Gets the memory of a Pjrt buffer
 #' @noRd
 pjrt_memory <- function(buffer) {
-  assert_buffer(buffer)
+  check_buffer(buffer)
   impl_buffer_memory(buffer)
 }
 
@@ -278,31 +283,9 @@ as.character.PJRTElementType <- function(x, ...) {
   tolower(impl_etype_as_string(x))
 }
 
-#' Dimenson of `PJRTBuffer`
-#' Get the dimensions of a PJRT buffer
-#'
-#' @param x A PJRT buffer object.
-#'
-#' @return An integer vector of dimensions.
-#' @export
-dim.PJRTBuffer <- function(x) {
-  impl_buffer_dimensions(x)
-}
-
 #' @export
 print.PJRTElementType <- function(x, ...) {
   cat(sprintf("<%s>\n", as.character(x)))
-}
-
-#' Get the platform name of a PJRT client
-#'
-#' @param client A PJRT client object.
-#'
-#' @return A string representing the platform name.
-#' @export
-platform_name <- function(client = pjrt_client()) {
-  client <- as_pjrt_client(client)
-  impl_client_platform_name(client)
 }
 
 #' Convert a PJRT Buffer to an R object.
@@ -338,7 +321,7 @@ as_array <- function(buffer, client = pjrt_client()) {
 #' @return `raw()`
 #' @export
 as_raw <- function(buffer, client = pjrt_client(), row_major) {
-  assert_buffer(buffer)
+  check_buffer(buffer)
   check_client(client)
   impl_client_buffer_to_raw(client, buffer, row_major = row_major)
 }
@@ -384,7 +367,12 @@ print.PJRTDevice <- function(x, ...) {
 #' @param max_rows (`integer(1)`)\cr
 #'   The maximum number of rows to print, excluding header and footer.
 #' @param max_width (`integer(1)`)\cr
-#'   The maximum width of the printed buffer.
+#'   The maximum width (in characters) of the printed buffer.
+#'   Set to negative values for no limit.
+#'   Note that for very small values, the actual printed width might be slightly smaller
+#'   as at least one column will be printed.
+#'   Also, this limit only affects the printed rows containing the actual data,
+#'   other rows might exceed the width.
 #' @param max_rows_slice (`integer(1)`)\cr
 #'   The maximum number of rows to print for each slice.
 #' @param header (`logical(1)`)\cr
@@ -400,9 +388,13 @@ print.PJRTBuffer <- function(
   ...
 ) {
   assert_flag(header)
-  max_rows <- assert_int(max_rows, coerce = TRUE)
+  max_rows <- assert_int(max_rows, coerce = TRUE, lower = 1L)
   max_width <- assert_int(max_width, coerce = TRUE)
-  max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE)
+  if (max_width %in% c(0, 1L)) {
+    # we disallow 1, because every data line starts with ' '
+    stop("Either provide a negative value for max_width or a value > 1")
+  }
+  max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE, lower = 1L)
 
   if (header) {
     shp <- shape(x)
@@ -421,7 +413,6 @@ print.PJRTBuffer <- function(
   )
   invisible(x)
 }
-
 
 #' @title Shape
 #' @description

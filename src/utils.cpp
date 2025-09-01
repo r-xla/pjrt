@@ -15,7 +15,7 @@ void check_err(const PJRT_Api *api, PJRT_Error *err) {
   }
 }
 
-size_t sizeof_pjrt_buffer_type(int type) {
+size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {
   switch (type) {
     case PJRT_Buffer_Type_F32:
       return 4;
@@ -101,5 +101,3 @@ std::vector<int64_t> id2indices(int lid, const std::vector<int64_t> strides) {
   }
   return idx;
 }
-
-// number_of_elements is defined inline in utils.h

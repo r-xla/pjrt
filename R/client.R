@@ -66,6 +66,18 @@ as_pjrt_client <- function(x) {
   stop("Must be a PJRTClient or a platform name")
 }
 
+#' Get the platform name of a PJRT client
+#'
+#' @param client A PJRT client object.
+#'
+#' @return A string representing the platform name.
+#' @export
+platform_name <- function(client = pjrt_client()) {
+  client <- as_pjrt_client(client)
+  impl_client_platform_name(client)
+}
+
+
 check_client <- function(client) {
   stopifnot(inherits(client, "PJRTClient"))
   invisible(NULL)
