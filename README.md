@@ -1,6 +1,4 @@
 
-G— output: github_document —
-
 # pjrt
 
 <!-- badges: start -->

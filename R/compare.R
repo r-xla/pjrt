@@ -1,4 +1,4 @@
-compare_proxy.PJRTBuffer <- function(x, path) {
+compare_proxy.PJRTBuffer <- function(x, path) { # nolint
   list(
     object = list(
       x = as_array(x),

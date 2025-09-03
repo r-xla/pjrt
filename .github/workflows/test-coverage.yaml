@@ -7,7 +7,8 @@ on:
 
 name: test-coverage.yaml
 
-permissions: read-all
+permissions:
+  id-token: write
 
 jobs:
   test-coverage:
