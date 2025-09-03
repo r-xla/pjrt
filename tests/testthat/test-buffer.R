@@ -85,7 +85,6 @@ test_pjrt_buffer <- function(
   }
 
   # Test that modifying the original data doesn't change the buffer
-  original_data <- data
   data[1L] <- modify_first(data)
 
   result_after_modification <- as_array(buffer)
@@ -384,7 +383,7 @@ test_that("R layout and PJRT layout (3D)", {
 })
 
 test_that("buffer <-> raw: row_major parameter", {
-  types = list(
+  types <- list(
     list(pjrt_type = "ui8", rtype = "integer"),
     list(pjrt_type = "ui16", rtype = "integer"),
     list(pjrt_type = "ui32", rtype = "integer"),
