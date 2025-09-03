@@ -21,5 +21,4 @@ jobs:
 
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed != 0
-        run: |
-          run: exit 1
+        run: exit 1
