@@ -238,16 +238,8 @@ pjrt_scalar.raw <- function(
   )
 }
 
-#' @title Data Type of Buffer
-#'
-#' @param buffer ([`PJRTBuffer`][pjrt_buffer])\cr
-#'   Buffer.
-#'
-#' @return A PJRT element type object.
-#' @export
-dtype <- function(buffer) {
-  check_buffer(buffer)
-  impl_buffer_dtype(buffer)
+method(dtype, S7::new_S3_class("PJRTBuffer")) <- function(x) {
+  impl_buffer_dtype(x)
 }
 
 #' Gets the memory of a Pjrt buffer
@@ -411,22 +403,6 @@ print.PJRTBuffer <- function(
   invisible(x)
 }
 
-#' @title Shape
-#' @description
-#' Get shape of an object.
-#'
-#' You can implement this generic instead of `dim()` when your object can
-#' also have singular shapes (`integer()`), which is generally risky
-#' with `dim()`.
-#'
-#' @param x (any)\cr
-#'   Object.
-#'
-#' @return `integer()`
-#' @export
-shape <- S7::new_generic("shape", "x", function(x) {
-  S7::S7_dispatch()
-})
 
 S7::method(shape, S7::new_S3_class("PJRTBuffer")) <- function(x) {
   impl_buffer_dimensions(x)

@@ -1,0 +1,30 @@
+# Use legacy bundle on high-sierra or oldrel (latest protobuf requires C++17)
+if [ "x${OSTYPE:6:1}" = "x1" ] || [ "${R_VERSION:0:3}" = "4.2" ]; then
+bottle="https://github.com/autobrew/bundler/releases/download/protobuf-21.12/protobuf-3.12.4-high_sierra.tar.xz"
+else
+bottle="https://github.com/autobrew/bundler/releases/download/protobuf-21.12/protobuf-21.12-universal.tar.xz"
+fi
+
+# Skip if disabled
+if [ "$DISABLE_AUTOBREW" ]; then return 0; fi
+echo "Using autobrew bundle: $(basename $bottle)"
+
+# General setup
+BREWDIR="$PWD/.deps"
+mkdir -p $BREWDIR
+curl -sSL $bottle -o libs.tar.xz
+tar -xf libs.tar.xz --strip 1 -C $BREWDIR
+rm -f libs.tar.xz
+
+# Export flags
+PKG_CFLAGS="-DUSENEWAPI -I$BREWDIR/include"
+PKG_LIBS="-L$BREWDIR/lib -lprotobuf"
+PATH="$BREWDIR/bin:$PATH"
+
+# Workaround for protolite, remove when fixed
+echo "exit 0;" > "$BREWDIR/bin/pkg-config"
+chmod +x "$BREWDIR/bin/pkg-config"
+
+# Cleanup
+echo "rm -Rf .deps" >> cleanup
+chmod +x cleanup
