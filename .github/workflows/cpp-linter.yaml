@@ -25,6 +25,7 @@ jobs:
           style: file
           files-changed-only: false
           thread-comments: false
+          databse: ${{ github.workspace }}/
 
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed != 0
