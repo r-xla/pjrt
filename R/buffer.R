@@ -407,3 +407,8 @@ print.PJRTBuffer <- function(
 S7::method(shape, S7::new_S3_class("PJRTBuffer")) <- function(x) {
   impl_buffer_dimensions(x)
 }
+
+#' @export
+`==.PJRTElementType` <- function(e1, e2) {
+  identical(as.character(e1), as.character(e2))
+}

@@ -506,3 +506,13 @@ test_that("can create f32 and f64 buffers from integer data", {
 test_that("can specify dims", {
   expect_equal(shape(pjrt_buffer(1:4, shape = c(2, 2))), c(2, 2))
 })
+
+test_that("can compare dtypes", {
+  expect_true(dtype(pjrt_buffer(1, "f32")) == dtype(pjrt_buffer(1, "f32")))
+  expect_false(dtype(pjrt_buffer(1, "f32")) == dtype(pjrt_buffer(1, "f64")))
+  # can compare to character
+  expect_true(dtype(pjrt_buffer(1, "f32")) == "f32")
+  expect_true("f32" == dtype(pjrt_buffer(1, "f32")))
+  expect_false(dtype(pjrt_buffer(1, "f32")) == "f64")
+  expect_false("f64" == dtype(pjrt_buffer(1, "f32")))
+})
