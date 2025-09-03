@@ -1,2 +1,0 @@
-protobuf-static;https://github.com/autobrew/homebrew-cran/releases/download/protobuf-static-21.12/protobuf-static-21.12.big_sur.bottle.tar.gz
-protobuf-static;https://github.com/autobrew/homebrew-cran/releases/download/protobuf-static-21.12/protobuf-static-21.12.arm64_big_sur.bottle.tar.gz
