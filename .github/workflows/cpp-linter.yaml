@@ -39,6 +39,7 @@ jobs:
           files-changed-only: false
           thread-comments: false
           database: ${{ github.workspace }}/
+          extra-args: "-I${{ github.workspace }}/inst/include"
 
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed != 0
