@@ -37,6 +37,7 @@ jobs:
         with:
           style: file
           files-changed-only: false
+          version: '20'
           thread-comments: false
           database: ${{ github.workspace }}/
           extra-args: "-I${{ github.workspace }}/inst/include"
