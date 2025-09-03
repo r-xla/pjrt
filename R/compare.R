@@ -1,4 +1,5 @@
-compare_proxy.PJRTBuffer <- function(x, path) { # nolint
+# nolint start
+compare_proxy.PJRTBuffer <- function(x, path) {
   list(
     object = list(
       x = as_array(x),
@@ -8,6 +9,7 @@ compare_proxy.PJRTBuffer <- function(x, path) { # nolint
     path = path
   )
 }
+# nolint end
 
 # shamelessly copied from: https://github.com/tidyverse/readr/blob/e529cb2775f1b52a0dfa30dabc9f8e0014aa77e6/R/zzz.R
 register_s3_method <- function(pkg, generic, class, fun = NULL) {
