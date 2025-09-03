@@ -20,7 +20,11 @@ jobs:
 
       - name: Create compile_commands.json
         run: |
-          Rscript -e "pkgload::load_all()"
+          Rscript -e "pkgload:::generate_db()"
+
+      - name: List files
+        run: |
+          ls -la
 
       - name: Is compile_commands.json built?
         run: |
