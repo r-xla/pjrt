@@ -11,15 +11,16 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: r-lib/actions/setup-r@v2
-
-      - uses: r-lib/actions/setup-r@v2
         with:
-          extra-packages: any::devtools
           use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::pkgload
 
       - name: Create compile_commands.json
         run: |
-          Rscript -e "devtools::load_all()"
+          Rscript -e "pkgload::load_all()"
 
       - uses: cpp-linter/cpp-linter-action@main
         id: linter
