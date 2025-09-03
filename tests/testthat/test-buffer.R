@@ -529,3 +529,13 @@ test_that("prevent dubious recycling behavior", {
   x <- array(1:4, dim = c(1, 4))
   expect_error(pjrt_buffer(x, shape = c(1, 8)), "but shape is")
 })
+
+test_that("can compare dtypes", {
+  expect_true(dtype(pjrt_buffer(1, "f32")) == dtype(pjrt_buffer(1, "f32")))
+  expect_false(dtype(pjrt_buffer(1, "f32")) == dtype(pjrt_buffer(1, "f64")))
+  # can compare to character
+  expect_true(dtype(pjrt_buffer(1, "f32")) == "f32")
+  expect_true("f32" == dtype(pjrt_buffer(1, "f32")))
+  expect_false(dtype(pjrt_buffer(1, "f32")) == "f64")
+  expect_false("f64" == dtype(pjrt_buffer(1, "f32")))
+})
