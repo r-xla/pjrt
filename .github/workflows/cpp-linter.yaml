@@ -1,13 +1,8 @@
-name: cpp-linter
-
 on:
   push:
-    paths:
-      - "src/**"
+    branches: [main, master]
   pull_request:
-    paths:
-      - "src/**"
-
+name: Lint C++ Code
 
 jobs:
   cpp-linter:

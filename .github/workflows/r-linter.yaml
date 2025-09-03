@@ -5,7 +5,7 @@ on:
     branches: [main, master]
   pull_request:
 
-name: Check Code Style & Lint
+name: Lint R package
 
 jobs:
   check-code:
