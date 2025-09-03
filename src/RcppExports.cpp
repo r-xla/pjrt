@@ -11,19 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// impl_buffer_print
-void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows, int max_width, int max_rows_slice);
-RcppExport SEXP _pjrt_impl_buffer_print(SEXP bufferSEXP, SEXP max_rowsSEXP, SEXP max_widthSEXP, SEXP max_rows_sliceSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
-    Rcpp::traits::input_parameter< int >::type max_rows(max_rowsSEXP);
-    Rcpp::traits::input_parameter< int >::type max_width(max_widthSEXP);
-    Rcpp::traits::input_parameter< int >::type max_rows_slice(max_rows_sliceSEXP);
-    impl_buffer_print(buffer, max_rows, max_width, max_rows_slice);
-    return R_NilValue;
-END_RCPP
-}
 // impl_plugin_load
 Rcpp::XPtr<rpjrt::PJRTPlugin> impl_plugin_load(const std::string& path);
 RcppExport SEXP _pjrt_impl_plugin_load(SEXP pathSEXP) {
@@ -357,9 +344,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_buffer_print
+void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows, int max_width, int max_rows_slice);
+RcppExport SEXP _pjrt_impl_buffer_print(SEXP bufferSEXP, SEXP max_rowsSEXP, SEXP max_widthSEXP, SEXP max_rows_sliceSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
+    Rcpp::traits::input_parameter< int >::type max_rows(max_rowsSEXP);
+    Rcpp::traits::input_parameter< int >::type max_width(max_widthSEXP);
+    Rcpp::traits::input_parameter< int >::type max_rows_slice(max_rows_sliceSEXP);
+    impl_buffer_print(buffer, max_rows, max_width, max_rows_slice);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
     {"_pjrt_impl_plugin_client_create", (DL_FUNC) &_pjrt_impl_plugin_client_create, 1},
     {"_pjrt_impl_program_load", (DL_FUNC) &_pjrt_impl_program_load, 2},
@@ -388,6 +387,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_plugin_pjrt_api_version", (DL_FUNC) &_pjrt_impl_plugin_pjrt_api_version, 1},
     {"_pjrt_impl_plugin_attributes", (DL_FUNC) &_pjrt_impl_plugin_attributes, 1},
     {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
+    {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
     {NULL, NULL, 0}
 };
 

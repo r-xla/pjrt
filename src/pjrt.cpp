@@ -2,12 +2,12 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <numeric>
 
 #include "buffer.h"
 #include "buffer_printer.h"
 #include "client.h"
 #include "pjrt_types.h"
+#include "plugin.h"
 #include "utils.h"
 
 // [[Rcpp::export()]]
@@ -575,4 +575,10 @@ std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
   str_args.device_description = desc_args.device_description;
   check_err(api.get(), api->PJRT_DeviceDescription_ToString_(&str_args));
   return std::string(str_args.to_string, str_args.to_string_size);
+}
+
+// [[Rcpp::export()]]
+void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
+                       int max_width, int max_rows_slice) {
+  buffer_print(buffer, max_rows, max_width, max_rows_slice);
 }

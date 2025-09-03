@@ -1,12 +1,22 @@
 #pragma once
-
-#include "buffer.h"
-#include "client.h"
-#include "pjrt.h"
-#include "plugin.h"
-#include "program.h"
+#include "xla/pjrt/c/pjrt_c_api.h"
+#include <string>
+#include <Rcpp.h>
 
 namespace rpjrt {
+
+// Forward declarations for types referenced via Rcpp::XPtr in generated bindings
+class PJRTBuffer;
+class PJRTPlugin;
+class PJRTClient;
+class PJRTProgram;
+class PJRTBuildOptions;
+class PJRTCompileOptions;
+class PJRTLoadedExecutable;
+class PJRTDevice;
+class PJRTExecuteOptions;
+class PJRTMemory;
+class PJRTBufferMemoryLayout;
 
 class PJRTElementType {
  public:

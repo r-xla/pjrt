@@ -60,7 +60,7 @@ The type of the buffer.
 Currently supported types are:
 \itemize{
 \item \code{"pred"}: predicate (i.e. a boolean)
-\item \code{"{s,u}{8,16,32,64}"}: (Un)signed integer (for \code{integer} data).
+\item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 }}
 

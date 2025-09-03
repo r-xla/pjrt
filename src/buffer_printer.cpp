@@ -358,9 +358,8 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
   }
 }
 
-// [[Rcpp::export()]]
-void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
-                       int max_width, int max_rows_slice) {
+void buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
+                  int max_width, int max_rows_slice) {
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
 
