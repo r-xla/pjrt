@@ -42,12 +42,10 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           use_oidc: true
-          # Fail if error if not on PR, or if on PR and token is given
           fail_ci_if_error: true
           files: ./cobertura.xml
           plugins: noop
           disable_search: true
-          # actionlint: disable-next-line
 
       - name: Show testthat output
         if: always()
