@@ -40,7 +40,7 @@ jobs:
           version: '20'
           thread-comments: false
           database: ${{ github.workspace }}/
-          extra-args: "-I${{ github.workspace }}/inst/include"
+          extra-args: "-I${{ github.workspace }}/inst/include --std=c++20"
 
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed != 0
