@@ -11,7 +11,6 @@
 <url><loc>/reference/as_pjrt_plugin.html</loc></url>
 <url><loc>/reference/as_raw.html</loc></url>
 <url><loc>/reference/device.html</loc></url>
-<url><loc>/reference/dtype.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
 <url><loc>/reference/pjrt_buffer.html</loc></url>
 <url><loc>/reference/pjrt_client.html</loc></url>
@@ -23,6 +22,6 @@
 <url><loc>/reference/platform_name.html</loc></url>
 <url><loc>/reference/plugin_attributes.html</loc></url>
 <url><loc>/reference/print.PJRTBuffer.html</loc></url>
-<url><loc>/reference/shape.html</loc></url>
+<url><loc>/reference/reexports.html</loc></url>
 </urlset>
 
