@@ -53,7 +53,7 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Create a PJRT Buffer</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/prevent-recycling/R/buffer.R" class="external-link"><code>R/buffer.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feat-tooling/R/buffer.R" class="external-link"><code>R/buffer.R</code></a></small>
       <div class="d-none name"><code>pjrt_buffer.Rd</code></div>
     </div>
 
@@ -129,7 +129,7 @@ Data to convert to a <code>PJRTBuffer</code>.</p></dd>
 <dd><p>(<code>character(1)</code>)<br>
 The type of the buffer.
 Currently supported types are:</p><ul><li><p><code>"pred"</code>: predicate (i.e. a boolean)</p></li>
-<li><p><code>"{s,u}{8,16,32,64}"</code>: (Un)signed integer (for <code>integer</code> data).</p></li>
+<li><p><code>"{s,u}{8,16,32,64}"</code>: Signed and unsigned integer (for <code>integer</code> data).</p></li>
 <li><p><code>"f{32,64}"</code>: Floating point (for <code>double</code> or <code>integer</code> data).</p></li>
 </ul></dd>
 

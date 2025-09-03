@@ -98,17 +98,21 @@
 <span><span class="co">#&gt; ...</span></span>
 <span><span class="va">executable</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_compile.html">pjrt_compile</a></span><span class="op">(</span><span class="va">program</span>, client <span class="op">=</span> <span class="st">"cpu"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">5</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">x_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">x</span>, <span class="st">"f32"</span><span class="op">)</span></span>
-<span><span class="va">y_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">y</span>, <span class="st">"f32"</span><span class="op">)</span></span>
+<span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
+<span><span class="va">x</span></span>
+<span><span class="co">#&gt; PJRTBuffer&lt;f32: 2x2&gt; </span></span>
+<span><span class="co">#&gt;  1.0000 3.0000</span></span>
+<span><span class="co">#&gt;  2.0000 4.0000</span></span>
+<span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="fl">5</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
+<span><span class="va">y</span></span>
+<span><span class="co">#&gt; PJRTBuffer&lt;f32: 2x2&gt; </span></span>
+<span><span class="co">#&gt;  5.0000 7.0000</span></span>
+<span><span class="co">#&gt;  6.0000 8.0000</span></span>
 <span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">x_buffer</span>, <span class="va">y_buffer</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="reference/as_array.html">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      [,1] [,2]</span></span>
-<span><span class="co">#&gt; [1,]    6   10</span></span>
-<span><span class="co">#&gt; [2,]    8   12</span></span></code></pre></div>
+<span><span class="fu"><a href="reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">x</span>, <span class="va">y</span><span class="op">)</span></span>
+<span><span class="co">#&gt; PJRTBuffer&lt;f32: 2x2&gt; </span></span>
+<span><span class="co">#&gt;   6.0000 10.0000</span></span>
+<span><span class="co">#&gt;   8.0000 12.0000</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="main-features">Main Features<a class="anchor" aria-label="anchor" href="#main-features"></a>
@@ -156,7 +160,22 @@
 <div class="section level2">
 <h2 id="acknowledgements">Acknowledgements<a class="anchor" aria-label="anchor" href="#acknowledgements"></a>
 </h2>
-<p>The design of the {pjrt} package was inspired by the <a href="https://github.com/gomlx/gopjrt" class="external-link">gopjrt</a> implementation.</p>
+<ul>
+<li>The development of this package is supported by <a href="https://www.mardi4nfdi.de/about/mission" class="external-link">MaRDI</a>.</li>
+<li>Without <a href="https://openxla.org/" class="external-link">OpenXLA</a>, none of this would be possible.</li>
+<li>The design of the {pjrt} package was inspired by the <a href="https://github.com/gomlx/gopjrt" class="external-link">gopjrt</a> implementation.</li>
+<li>The project also uses various components from OpenXLA:
+<ul>
+<li>
+<a href="https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h" class="external-link">PJRT C API</a>.</li>
+<li>
+<a href="https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api_ffi_extension.h" class="external-link">PJRT C API FFI Extension</a>.</li>
+<li>Various protobuf files, see <code>./tools/copy-proto.R</code> for which ones.</li>
+<li>Plugin implementations for CPU and CUDA (we are using the builds from <a href="https://github.com/zml/pjrt-artifacts/" class="external-link">zml/pjrt-artifacts</a>).</li>
+</ul>
+</li>
+<li>For Metal, we are using the plugin implementation from <a href="https://pypi.org/project/jax-metal/" class="external-link">jax-metal</a>.</li>
+</ul>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">
