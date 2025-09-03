@@ -506,3 +506,26 @@ test_that("can create f32 and f64 buffers from integer data", {
 test_that("can specify dims", {
   expect_equal(shape(pjrt_buffer(1:4, shape = c(2, 2))), c(2, 2))
 })
+
+test_that("prevent dubious recycling behavior", {
+  expect_error(pjrt_buffer(1:2, shape = c(1, 4)), "but shape is")
+  expect_error(pjrt_buffer(c(1, 2), shape = c(1, 4)), "but shape is")
+  expect_error(pjrt_buffer(c(TRUE, FALSE), shape = c(1, 4)), "but shape is")
+
+  # but 1 element works:
+  expect_equal(
+    pjrt_buffer(1, shape = c(1, 4)),
+    pjrt_buffer(rep(1, 4), shape = c(1, 4))
+  )
+  expect_equal(
+    pjrt_buffer(1L, shape = c(1, 4)),
+    pjrt_buffer(rep(1L, 4), shape = c(1, 4))
+  )
+  expect_equal(
+    pjrt_buffer(TRUE, shape = c(1, 4)),
+    pjrt_buffer(rep(TRUE, 4), shape = c(1, 4))
+  )
+
+  x <- array(1:4, dim = c(1, 4))
+  expect_error(pjrt_buffer(x, shape = c(1, 8)), "but shape is")
+})

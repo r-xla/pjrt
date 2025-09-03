@@ -55,6 +55,24 @@ pjrt_scalar <- function(data, dtype, client = pjrt_client(), ...) {
   UseMethod("pjrt_scalar")
 }
 
+assert_data_shape <- function(data, shape) {
+  data_len <- length(data)
+  numel <- prod(shape)
+
+  if (data_len == numel) {
+    return(NULL)
+  } else if ((data_len == 1) && (numel != 0)) {
+    return(NULL)
+  } else {
+    stop(
+      "Data has length ",
+      data_len,
+      ", but shape is ",
+      paste0(shape, collapse = "x")
+    )
+  }
+}
+
 #' @rdname pjrt_buffer
 #' @param shape (`integer()`)\cr
 #'   The dimensions of the buffer.
@@ -70,6 +88,7 @@ pjrt_buffer.logical <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  assert_data_shape(data, shape)
   if (!is.array(data)) {
     data <- array(data, dim = shape)
   }
@@ -93,6 +112,7 @@ pjrt_buffer.integer <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  assert_data_shape(data, shape)
   if (!is.array(data)) {
     data <- array(data, dim = shape)
   }
@@ -116,6 +136,7 @@ pjrt_buffer.double <- function(
   if (...length()) {
     stop("Unused arguments")
   }
+  assert_data_shape(data, shape)
   if (!is.array(data)) {
     data <- array(data, dim = shape)
   }
