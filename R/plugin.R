@@ -99,7 +99,6 @@ plugin_url <- function(platform) {
 
   if (platform == "metal") {
     stopifnot(os == "darwin")
-    # start: nolint
     url <- if (arch == "arm64") {
       "https://files.pythonhosted.org/packages/09/dc/6d8fbfc29d902251cf333414cf7dcfaf4b252a9920c881354584ed36270d/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl" # nolint
     } else {

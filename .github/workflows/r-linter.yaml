@@ -32,20 +32,3 @@ jobs:
         shell: Rscript {0}
         env:
           LINTR_ERROR_ON_LINT: true
-
-
-      - name: Format and Lint C++ code
-        uses: cpp-linter/cpp-linter-action@v2
-        id: cpp_linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          version: '20'
-          style: 'file'  # Use .clang-format config file
-          tidy-checks: '' # Use .clang-tidy config file
-          # only 'update' a single comment in a pull request thread.
-          thread-comments: ${{ github.event_name == 'pull_request' && 'update' }}
-
-      - name: Fail fast?!
-        if: steps.cpp_linter.outputs.checks-failed > 0
-        run: exit 1

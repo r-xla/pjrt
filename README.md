@@ -95,10 +95,10 @@ pjrt_execute(executable, x, y)
 
 ## Acknowledgements
 
-- Without [OpenXLA](https://openxla.org/), none of this would be
-  possible.
 - The development of this package is supported by
   [MaRDI](https://www.mardi4nfdi.de/about/mission).
+- Without [OpenXLA](https://openxla.org/), none of this would be
+  possible.
 - The design of the {pjrt} package was inspired by the
   [gopjrt](https://github.com/gomlx/gopjrt) implementation.
 - The project also uses various components from OpenXLA:
