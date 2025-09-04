@@ -108,11 +108,13 @@ test_that("printer options", {
   expect_snapshot(print(pjrt_buffer(1:11, shape = c(11, 1)), max_rows = 10))
 
   # when max_width is too small, we print one column
-  expect_snapshot(print(
-    pjrt_buffer(c(100L), shape = c(1, 1)),
-    max_width = 3,
-    max_rows = 1
-  ))
+  expect_snapshot(
+    print(
+      pjrt_buffer(c(100L), shape = c(1, 1)),
+      max_width = 3,
+      max_rows = 1
+    )
+  )
 
   # max_width; note that every data line starts with ' '
   x <- pjrt_buffer(rep(100L, 3), shape = c(1, 3))
@@ -133,8 +135,10 @@ test_that("scale prefix is printed per slice", {
   )
   expect_snapshot(pjrt_buffer(x, shape = c(2, 1, 2)))
 
-  expect_snapshot(print(
-    pjrt_buffer(rep(x, 5), shape = c(2, 2, 5)),
-    max_width = 15
-  ))
+  expect_snapshot(
+    print(
+      pjrt_buffer(rep(x, 5), shape = c(2, 2, 5)),
+      max_width = 15
+    )
+  )
 })

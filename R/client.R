@@ -77,7 +77,6 @@ platform_name <- function(client = pjrt_client()) {
   impl_client_platform_name(client)
 }
 
-
 check_client <- function(client) {
   stopifnot(inherits(client, "PJRTClient"))
   invisible(NULL)

@@ -34,7 +34,6 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
   setHook(packageEvent(pkgname, "onUnload"), remove_hooks, action = "append")
 }
 
-
 .onLoad <- function(libname, pkgname) {
   # this allows for tests without as_array() conversion
   register_s3_method("waldo", "compare_proxy", "PJRTBuffer")

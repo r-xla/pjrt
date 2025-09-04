@@ -54,12 +54,12 @@ program
 #> ...
 executable <- pjrt_compile(program, client = "cpu")
 
-x <- pjrt_buffer(as.double(1:4), shape = c(2, 2), dtype = "f32")
+x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2, 2), dtype = "f32")
 x
 #> PJRTBuffer<f32: 2x2> 
 #>  1.0000 3.0000
 #>  2.0000 4.0000
-y <- pjrt_buffer(as.double(5:8), shape = c(2, 2), dtype = "f32")
+y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
 y
 #> PJRTBuffer<f32: 2x2> 
 #>  5.0000 7.0000
