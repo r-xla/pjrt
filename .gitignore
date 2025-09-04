@@ -1,8 +1,8 @@
 compile_commands.json
 .cache
 configure.log
-src/proto/
 README.html
 src/Makevars
 docs
 .vscode/
+src/proto/xla/
