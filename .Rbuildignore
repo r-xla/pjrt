@@ -17,3 +17,4 @@
 air.toml
 .lintr
 .clang-tidy
+Makefile
