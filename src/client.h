@@ -1,10 +1,8 @@
 #pragma once
 #include <optional>
-#include <span>
 #include <vector>
 
 #include "buffer.h"
-#include "pjrt.h"
 #include "program.h"
 #include "proto/xla/pjrt/proto/compile_options.pb.h"
 

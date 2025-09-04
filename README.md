@@ -1,6 +1,4 @@
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 # pjrt
 
 <!-- badges: start -->
@@ -31,8 +29,8 @@ pak::pak("r-xla/pjrt")
 
 ## Quickstart
 
-Below, we create and run a stableHLO program that adds two f32 tensors
-of shape (2, 2).
+Below, we create and run a stableHLO program that adds two `f32` tensors
+of shape `(2, 2)`.
 
 ``` r
 library(pjrt)
@@ -56,17 +54,21 @@ program
 #> ...
 executable <- pjrt_compile(program, client = "cpu")
 
-x <- matrix(as.double(1:4), nrow = 2)
-y <- matrix(as.double(5:8), nrow = 2)
-x_buffer <- pjrt_buffer(x, "f32")
-y_buffer <- pjrt_buffer(y, "f32")
+x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2, 2), dtype = "f32")
+x
+#> PJRTBuffer<f32: 2x2> 
+#>  1.0000 3.0000
+#>  2.0000 4.0000
+y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
+y
+#> PJRTBuffer<f32: 2x2> 
+#>  5.0000 7.0000
+#>  6.0000 8.0000
 
-result <- pjrt_execute(executable, x_buffer, y_buffer)
-
-as_array(result)
-#>      [,1] [,2]
-#> [1,]    6   10
-#> [2,]    8   12
+pjrt_execute(executable, x, y)
+#> PJRTBuffer<f32: 2x2> 
+#>   6.0000 10.0000
+#>   8.0000 12.0000
 ```
 
 ## Main Features
@@ -93,5 +95,19 @@ as_array(result)
 
 ## Acknowledgements
 
-The design of the {pjrt} package was inspired by the
-[gopjrt](https://github.com/gomlx/gopjrt) implementation.
+- The development of this package is supported by
+  [MaRDI](https://www.mardi4nfdi.de/about/mission).
+- Without [OpenXLA](https://openxla.org/), none of this would be
+  possible.
+- The design of the {pjrt} package was inspired by the
+  [gopjrt](https://github.com/gomlx/gopjrt) implementation.
+- The project also uses various components from OpenXLA:
+  - [PJRT C
+    API](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api.h).
+  - [PJRT C API FFI
+    Extension](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api_ffi_extension.h).
+  - Various protobuf files, see `./tools/copy-proto.R` for which ones.
+  - Plugin implementations for CPU and CUDA (we are using the builds
+    from [zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts/)).
+- For Metal, we are using the plugin implementation from
+  [jax-metal](https://pypi.org/project/jax-metal/).

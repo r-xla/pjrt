@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
 
-    name: ${{ matrix.config.os }} - ${{ matrix.config.platform }} (${{ matrix.config.r }})
+    name: ${{ matrix.config.os }} - ${{ matrix.config.platform }} (${{ matrix.config.r }})${{ matrix.config.depends_only && ' – noSuggests' || '' }}
 
     strategy:
       fail-fast: false
@@ -22,9 +22,10 @@ jobs:
         config:
           - { os: "macos", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cpu" }
+          - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
           - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "windows", r: "release", platform: "cpu"}
-          - { os: "macos", r: null, platform: "metal"}
+          - { os: "macos", platform: "metal"}
 
         include:
           - config: {os: "ubuntu", platform: "cuda"}
@@ -81,3 +82,6 @@ jobs:
           upload-snapshots: true
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
           upload-results: true
+        env:
+          _R_CHECK_DEPENDS_ONLY_: ${{ matrix.config.depends_only && 'TRUE' || 'FALSE' }}
+          NOT_CRAN: ${{ matrix.config.depends_only && 'FALSE' || 'TRUE' }}

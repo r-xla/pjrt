@@ -38,7 +38,7 @@ is_buffer <- function(x) {
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
-#'   - `"{s,u}{8,16,32,64}"`: (Un)signed integer (for `integer` data).
+#'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
 #' @param ... (any)\cr
 #'   Additional arguments.

@@ -3,7 +3,6 @@
 #include <Rcpp.h>
 
 #include "client.h"
-#include "pjrt.h"
 
 namespace rpjrt {
 

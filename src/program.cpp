@@ -2,7 +2,7 @@
 
 #include <fstream>
 
-#include "proto/xla/xla.pb.h"
+#include "xla/service/hlo.pb.h"
 
 namespace rpjrt {
 

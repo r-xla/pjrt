@@ -1,0 +1,2 @@
+Checks: "-*,readability-inconsistent-declaration-parameter"
+HeaderFilterRegex: './src/.*'

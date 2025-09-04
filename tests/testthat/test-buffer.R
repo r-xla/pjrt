@@ -85,7 +85,6 @@ test_pjrt_buffer <- function(
   }
 
   # Test that modifying the original data doesn't change the buffer
-  original_data <- data
   data[1L] <- modify_first(data)
 
   result_after_modification <- as_array(buffer)
@@ -342,13 +341,15 @@ test_that("R layout and PJRT layout (3D)", {
     i2_buf <- pjrt_scalar(i2, "i32")
     i3_buf <- pjrt_scalar(i3, "i32")
 
-    result <- as_array(pjrt_execute(
-      executable,
-      x_buf,
-      i1_buf,
-      i2_buf,
-      i3_buf
-    ))
+    result <- as_array(
+      pjrt_execute(
+        executable,
+        x_buf,
+        i1_buf,
+        i2_buf,
+        i3_buf
+      )
+    )
     expect_equal(x[i1 + 1, i2 + 1, i3 + 1], result)
   }
   for (i1 in 0:1) {
@@ -384,7 +385,7 @@ test_that("R layout and PJRT layout (3D)", {
 })
 
 test_that("buffer <-> raw: row_major parameter", {
-  types = list(
+  types <- list(
     list(pjrt_type = "ui8", rtype = "integer"),
     list(pjrt_type = "ui16", rtype = "integer"),
     list(pjrt_type = "ui32", rtype = "integer"),
