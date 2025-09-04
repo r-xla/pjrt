@@ -22,7 +22,7 @@ jobs:
 
       - name: Create compile_commands.json
         run: |
-          Rscript -e "devtools:::install()"
+          Rscript -e "devtools:::load_all()"
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
