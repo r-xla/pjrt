@@ -7,20 +7,6 @@
 
 namespace rpjrt {
 
-// Forward declarations for types referenced via Rcpp::XPtr in generated
-// bindings
-class PJRTBuffer;
-class PJRTPlugin;
-class PJRTClient;
-class PJRTProgram;
-class PJRTBuildOptions;
-class PJRTCompileOptions;
-class PJRTLoadedExecutable;
-class PJRTDevice;
-class PJRTExecuteOptions;
-class PJRTMemory;
-class PJRTBufferMemoryLayout;
-
 class PJRTElementType {
  public:
   explicit PJRTElementType(PJRT_Buffer_Type type) : element_type_(type) {}
