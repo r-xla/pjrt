@@ -20,11 +20,6 @@ jobs:
           extra-packages: any::lintr, local::.
           needs: lint
 
-      - name: Format R Code
-        uses: rstudio/shiny-workflows/format-r-code@v1
-        with:
-          check: true
-
       - name: Lint R Code
         run: lintr::lint_package()
         shell: Rscript {0}
