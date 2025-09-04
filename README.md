@@ -29,8 +29,8 @@ pak::pak("r-xla/pjrt")
 
 ## Quickstart
 
-Below, we create and run a stableHLO program that adds two f32 tensors
-of shape (2, 2).
+Below, we create and run a stableHLO program that adds two `f32` tensors
+of shape `(2, 2)`.
 
 ``` r
 library(pjrt)
