@@ -33,7 +33,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          style: file
+          style: ''
           tidy-checks: ''
           files-changed-only: false
           version: '20'
