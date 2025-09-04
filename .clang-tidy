@@ -1,2 +1,2 @@
-HeaderFilterRegex: '.*/src/.*'
-
+Checks: "-*,readability-inconsistent-declaration-parameter"
+HeaderFilterRegex: './src/.*'
