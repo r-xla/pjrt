@@ -15,17 +15,13 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: github::r-lib/pkgload
+          extra-packages: any::devtools github::r-lib/pkgload
 
       - name: Create compile_commands.json
         run: |
-          Rscript -e "pkgload:::generate_db()"
+          Rscript -e "devtools::install()"
 
-      - name: List files
-        run: |
-          ls -la
-
-      - name: Is compile_commands.json built?
+      - name: Print compile_commands.json
         run: |
           cat ${{ github.workspace }}/compile_commands.json
 
