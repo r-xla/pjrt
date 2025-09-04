@@ -1,2 +1,9 @@
 [format]
-skip = ["compare_proxy.PJRTBuffer"]
+line-width = 120
+indent-width = 2
+indent-style = "space"
+line-ending = "lf"
+persistent-line-breaks = true
+exclude = []
+default-exclude = true
+skip = []
