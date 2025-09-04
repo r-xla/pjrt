@@ -15,7 +15,7 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::devtools github::r-lib/pkgload
+          extra-packages: any::devtools github::sebffischer/pkgload@fix-file-pattern
 
       - name: Create compile_commands.json
         run: |
