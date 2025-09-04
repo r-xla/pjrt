@@ -10,6 +10,20 @@
 
 namespace rpjrt {
 
+class PJRTElementType {
+ public:
+  explicit PJRTElementType(PJRT_Buffer_Type type);
+
+  PJRT_Buffer_Type get_type() const;
+
+  int as_integer() const;
+
+  std::string as_string() const;
+
+ private:
+  PJRT_Buffer_Type element_type_;
+};
+
 class PJRTMemory {
  public:
   PJRT_Memory* memory;

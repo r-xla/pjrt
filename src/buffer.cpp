@@ -1,9 +1,50 @@
 #include "buffer.h"
 
+#include <Rcpp.h>
+
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
+
+PJRTElementType::PJRTElementType(PJRT_Buffer_Type type) : element_type_(type) {}
+
+PJRT_Buffer_Type PJRTElementType::get_type() const { return element_type_; }
+
+int PJRTElementType::as_integer() const {
+  return static_cast<int>(element_type_);
+}
+
+std::string PJRTElementType::as_string() const {
+  switch (element_type_) {
+    case PJRT_Buffer_Type_INVALID:
+      return "INVALID";
+    case PJRT_Buffer_Type_PRED:
+      return "pred";
+    case PJRT_Buffer_Type_S8:
+      return "i8";
+    case PJRT_Buffer_Type_S16:
+      return "i16";
+    case PJRT_Buffer_Type_S32:
+      return "i32";
+    case PJRT_Buffer_Type_S64:
+      return "i64";
+    case PJRT_Buffer_Type_U8:
+      return "ui8";
+    case PJRT_Buffer_Type_U16:
+      return "ui16";
+    case PJRT_Buffer_Type_U32:
+      return "ui32";
+    case PJRT_Buffer_Type_U64:
+      return "ui64";
+    case PJRT_Buffer_Type_F32:
+      return "f32";
+    case PJRT_Buffer_Type_F64:
+      return "f64";
+    default:
+      Rcpp::stop("Unknown element type: %d", as_integer());
+  }
+}
 
 PJRTMemory::PJRTMemory(PJRT_Memory *memory, std::shared_ptr<PJRT_Api> api)
     : memory(memory), api(api) {}
