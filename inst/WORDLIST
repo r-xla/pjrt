@@ -4,12 +4,11 @@ CUDA
 FFI
 Lifecycle
 MaRDI
+ORCID
 OpenXLA
-PJRTBuffer
 Quickstart
 RunTime
 TPU
-Un
 WSL
 XLA
 codecov
@@ -26,4 +25,3 @@ safetensors
 stableHLO
 stablehlo
 zml
-macOS
