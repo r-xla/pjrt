@@ -6,12 +6,10 @@
 <url><loc>/index.html</loc></url>
 <url><loc>/news/index.html</loc></url>
 <url><loc>/reference/as.character.PJRTElementType.html</loc></url>
-<url><loc>/reference/as_array.html</loc></url>
 <url><loc>/reference/as_pjrt_client.html</loc></url>
 <url><loc>/reference/as_pjrt_plugin.html</loc></url>
-<url><loc>/reference/as_raw.html</loc></url>
-<url><loc>/reference/device.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/pjrt-package.html</loc></url>
 <url><loc>/reference/pjrt_buffer.html</loc></url>
 <url><loc>/reference/pjrt_client.html</loc></url>
 <url><loc>/reference/pjrt_compile.html</loc></url>
