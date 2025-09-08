@@ -263,6 +263,17 @@ method(dtype, S7::new_S3_class("PJRTBuffer")) <- function(x) {
   impl_buffer_dtype(x)
 }
 
+method(as_array, S7::new_S3_class("PJRTBuffer")) <- function(x, client = pjrt_client(), ...) {
+  client <- as_pjrt_client(client)
+  impl_client_buffer_to_array(client, x)
+}
+
+method(as_raw, S7::new_S3_class("PJRTBuffer")) <- function(x, client = pjrt_client(), row_major, ...) {
+  client <- as_pjrt_client(client)
+  assert_flag(row_major)
+  impl_client_buffer_to_raw(client, x, row_major = row_major)
+}
+
 #' Gets the memory of a Pjrt buffer
 #' @noRd
 pjrt_memory <- function(buffer) {
@@ -298,59 +309,7 @@ print.PJRTElementType <- function(x, ...) {
   cat(sprintf("<%s>\n", as.character(x)))
 }
 
-#' Convert a PJRT Buffer to an R object.
-#'
-#' @description
-#' Copy a [`PJRTBuffer`][pjrt_buffer] to an R object.
-#' For 0-dimensional PJRT buffers, the R object will be a vector of length 1 and otherwise an array.
-#'
-#' @details
-#' Moving the buffer to the host requires to:
-#' 1. Copy the data from the PJRT device to the CPU.
-#' 2. Transpose the data, because PJRT returns it in row-major order but R uses column-major order.
-#'
-#' @template param_buffer
-#' @template param_client
-#' @export
-as_array <- function(buffer, client = pjrt_client()) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_to_array(client, buffer)
-}
-
-#' Convert a PJRT Buffer to a raw R vector.
-#'
-#' @description
-#' Copy a [`PJRTBuffer`][pjrt_buffer] to a raw R vector containing the buffer data as bytes.
-#' Any shape information is lost.
-#'
-#' @template param_buffer
-#' @template param_client
-#' @param row_major (`logical(1)`)\cr
-#'   Whether to return the data in row-major format (TRUE) or column-major format (FALSE).
-#'   R uses column-major format.
-#' @return `raw()`
-#' @export
-as_raw <- function(buffer, client = pjrt_client(), row_major) {
-  check_buffer(buffer)
-  check_client(client)
-  impl_client_buffer_to_raw(client, buffer, row_major = row_major)
-}
-
-#' Device of a PJRTBuffer
-#'
-#' @description
-#' Get the device of a [`PJRTBuffer`][pjrt_buffer].
-#'
-#' @param x (any)\cr
-#'   Object for which to get the `PJRTDevice`.
-#' @return `PJRTDevice`
-#' @export
-device <- function(x) {
-  UseMethod("device")
-}
-
-#' @export
-device.PJRTBuffer <- function(x) {
+method(device, S7::new_S3_class("PJRTBuffer")) <- function(x) {
   impl_buffer_device(x)
 }
 
