@@ -35,15 +35,11 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 
   result <- impl_loaded_executable_execute(executable, input, execution_options)
 
-  if (is.list(result)) {
-    return(result)
+  if (simplify && length(result) == 1L) {
+    return(result[[1]])
   }
 
-  if (simplify) {
-    return(result)
-  }
-
-  list(result)
+  result
 }
 
 check_loaded_executable <- function(x) {
