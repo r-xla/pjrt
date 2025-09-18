@@ -4,7 +4,7 @@
 \alias{pjrt_execute}
 \title{Execute a PJRT program}
 \usage{
-pjrt_execute(executable, ..., execution_options = NULL)
+pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 }
 \arguments{
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
@@ -16,6 +16,10 @@ Named are ignored and arguments are passed in order.}
 
 \item{execution_options}{(\code{PJRTExecuteOptions})\cr
 Optional execution options for configuring buffer donation and other settings.}
+
+\item{simplify}{(\code{logical(1)})\cr
+If \code{TRUE} (default), a single output is returned as a \code{PJRTBuffer}.
+If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBuffer}.}
 }
 \value{
 \code{PJRTBuffer} | \code{list} of \code{PJRTBuffer}s
