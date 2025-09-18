@@ -45,7 +45,7 @@ Arguments are passed by position and names are ignored."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Execute a PJRT program</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/main/R/loaded_executable.R" class="external-link"><code>R/loaded_executable.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feat-simplify/R/loaded_executable.R" class="external-link"><code>R/loaded_executable.R</code></a></small>
       <div class="d-none name"><code>pjrt_execute.Rd</code></div>
     </div>
 
@@ -57,7 +57,7 @@ Arguments are passed by position and names are ignored.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_execute</span><span class="op">(</span><span class="va">executable</span>, <span class="va">...</span>, execution_options <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_execute</span><span class="op">(</span><span class="va">executable</span>, <span class="va">...</span>, execution_options <span class="op">=</span> <span class="cn">NULL</span>, simplify <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -78,6 +78,12 @@ Named are ignored and arguments are passed in order.</p></dd>
 <dt id="arg-execution-options">execution_options<a class="anchor" aria-label="anchor" href="#arg-execution-options"></a></dt>
 <dd><p>(<code>PJRTExecuteOptions</code>)<br>
 Optional execution options for configuring buffer donation and other settings.</p></dd>
+
+
+<dt id="arg-simplify">simplify<a class="anchor" aria-label="anchor" href="#arg-simplify"></a></dt>
+<dd><p>(<code>logical(1)</code>)<br>
+If <code>TRUE</code> (default), a single output is returned as a <code>PJRTBuffer</code>.
+If <code>FALSE</code>, a single output is returned as a <code>list</code> of length 1 containing a <code>PJRTBuffer</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
