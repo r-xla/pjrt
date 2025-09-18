@@ -452,19 +452,13 @@ SEXP impl_loaded_executable_execute(
 
   auto outs = executable->execute(inputs, *execution_options);
 
-  if (outs.size() == 1) {
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[0].release(), true);
+  Rcpp::List result(outs.size());
+  for (size_t i = 0; i < outs.size(); ++i) {
+    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[i].release(), true);
     xptr.attr("class") = "PJRTBuffer";
-    return xptr;
-  } else {
-    Rcpp::List result(outs.size());
-    for (size_t i = 0; i < outs.size(); ++i) {
-      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(outs[i].release(), true);
-      xptr.attr("class") = "PJRTBuffer";
-      result[i] = xptr;
-    }
-    return result;
+    result[i] = xptr;
   }
+  return result;
 }
 
 // [[Rcpp::export()]]

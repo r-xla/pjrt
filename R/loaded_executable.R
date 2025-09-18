@@ -12,9 +12,12 @@
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
 #'   Optional execution options for configuring buffer donation and other settings.
+#' @param simplify (`logical(1)`)\cr
+#'   If `TRUE` (default), a single output is returned as a `PJRTBuffer`.
+#'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBuffer`.
 #' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
 #' @export
-pjrt_execute <- function(executable, ..., execution_options = NULL) {
+pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = TRUE) {
   if (!is.null(...names())) {
     stop("Expected unnamed arguments")
   }
@@ -28,7 +31,15 @@ pjrt_execute <- function(executable, ..., execution_options = NULL) {
     check_execution_options(execution_options)
   }
 
-  impl_loaded_executable_execute(executable, input, execution_options)
+  assert_flag(simplify)
+
+  result <- impl_loaded_executable_execute(executable, input, execution_options)
+
+  if (simplify && length(result) == 1L) {
+    return(result[[1]])
+  }
+
+  result
 }
 
 check_loaded_executable <- function(x) {
