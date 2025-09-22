@@ -1,6 +1,6 @@
 #' @import checkmate
 #' @importFrom safetensors safe_tensor_buffer safe_tensor_meta
-#' @importFrom S7 method<-
+#' @importFrom S7 method<- new_generic
 #' @importFrom tengen shape dtype
 NULL
 

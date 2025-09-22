@@ -53,8 +53,8 @@ impl_client_buffer_to_raw <- function(client, buffer, row_major = FALSE) {
     .Call(`_pjrt_impl_client_buffer_to_raw`, client, buffer, row_major)
 }
 
-impl_client_platform_name <- function(client) {
-    .Call(`_pjrt_impl_client_platform_name`, client)
+impl_client_platform <- function(client) {
+    .Call(`_pjrt_impl_client_platform`, client)
 }
 
 impl_loaded_executable_execute <- function(executable, input, execution_options) {

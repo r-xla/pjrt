@@ -20,7 +20,7 @@ Create a PJRT client for a specific device.
 \section{Extractors}{
 
 \itemize{
-\item \code{\link[=platform_name]{platform_name()}} for a \code{character(1)} representation of the platform.
+\item \code{\link[=platform]{platform()}} for a \code{character(1)} representation of the platform.
 }
 }
 

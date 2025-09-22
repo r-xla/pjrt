@@ -26,7 +26,7 @@ pjrt_compile <- function(
 #' Create a PJRT client for a specific device.
 #'
 #' @section Extractors:
-#' * [`platform_name()`] for a `character(1)` representation of the platform.
+#' * [`platform()`] for a `character(1)` representation of the platform.
 #'
 #' @param platform (`character(1)` | `NULL`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
@@ -66,15 +66,17 @@ as_pjrt_client <- function(x) {
   stop("Must be a PJRTClient or a platform name")
 }
 
-#' Get the platform name of a PJRT client
-#'
-#' @param client A PJRT client object.
-#'
-#' @return A string representing the platform name.
+#' @title Platform Name
+#' @description
+#' Get the platform name of a PJRT buffer.
+#' @param x (`PJRTBuffer`)\cr
+#'   The buffer.
+#' @param ... Additional arguments (unused).
+#' @return A string representation of the platform name.
 #' @export
-platform_name <- function(client = pjrt_client()) {
-  client <- as_pjrt_client(client)
-  impl_client_platform_name(client)
+platform <- S7::new_generic("platform", "x")
+S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
+  impl_client_platform(x)
 }
 
 check_client <- function(client) {

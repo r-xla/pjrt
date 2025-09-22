@@ -313,6 +313,23 @@ method(device, S7::new_S3_class("PJRTBuffer")) <- function(x) {
   impl_buffer_device(x)
 }
 
+
+#' @include client.R
+S7::method(platform, S7::new_S3_class("PJRTBuffer")) <- function(x) {
+  desc <- as.character(device(x))
+  # Known prefixes map to platform names
+  # e.g., "CpuDevice(id=0)", "CudaDevice(id=0)", "MetalDevice(id=0)"
+  prefix <- tolower(regmatches(desc, regexpr("^[A-Za-z]+(?=Device)", desc, perl = TRUE)))
+  switch(
+    prefix,
+    cpu = "cpu",
+    cuda = "cuda",
+    metal = "metal",
+    # fallback: return the prefix itself
+    prefix
+  )
+}
+
 #' @export
 as.character.PJRTDevice <- function(x, ...) {
   impl_device_to_string(x)
