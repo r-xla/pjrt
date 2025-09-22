@@ -220,7 +220,7 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   return out;
 };
 
-std::string PJRTClient::platform_name() {
+std::string PJRTClient::platform() {
   PJRT_Client_PlatformName_Args args{};
   args.struct_size = sizeof(PJRT_Client_PlatformName_Args);
   args.client = this->client;

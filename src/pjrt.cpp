@@ -435,8 +435,8 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
-std::string impl_client_platform_name(Rcpp::XPtr<rpjrt::PJRTClient> client) {
-  return client->platform_name();
+std::string impl_client_platform(Rcpp::XPtr<rpjrt::PJRTClient> client) {
+  return client->platform();
 }
 
 // [[Rcpp::export()]]

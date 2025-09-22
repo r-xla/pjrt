@@ -34,3 +34,18 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000
 SystemRequirements: C++20, libprotobuf, protobuf-compiler
+Collate: 
+    'RcppExports.R'
+    'client.R'
+    'buffer.R'
+    'compare.R'
+    'execution_options.R'
+    'loaded_executable.R'
+    'package.R'
+    'pjrt-package.R'
+    'plugin.R'
+    'program.R'
+    'reexports.R'
+    'safetensors.R'
+    'utils.R'
+    'zzz.R'
