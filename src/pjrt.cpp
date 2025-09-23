@@ -121,7 +121,16 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
                        std::is_same_v<T, uint16_t> ||
                        std::is_same_v<T, uint32_t> ||
                        std::is_same_v<T, uint64_t>) {
-    std::copy(INTEGER(data), INTEGER(data) + len, temp_vec.data());
+    if (TYPEOF(data) == INTSXP) {
+      std::copy(INTEGER(data), INTEGER(data) + len, temp_vec.data());
+    } else if (TYPEOF(data) == REALSXP) {
+      // Convert double data to integer types by truncation toward zero
+      for (int i = 0; i < len; ++i) {
+        temp_vec[i] = static_cast<T>(REAL(data)[i]);
+      }
+    } else {
+      Rcpp::stop("Cannot convert R type %d to integer", TYPEOF(data));
+    }
   } else if constexpr (std::is_same_v<T, bool>) {
     std::copy(LOGICAL(data), LOGICAL(data) + len, temp_vec.data());
   } else if constexpr (std::is_same_v<T, uint8_t>) {
@@ -135,6 +144,11 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
     } else if (TYPEOF(data) == INTSXP) {
       // Regular integer data
       std::copy(INTEGER(data), INTEGER(data) + len, temp_vec.data());
+    } else if (TYPEOF(data) == REALSXP) {
+      // Convert double data to uint8
+      for (int i = 0; i < len; ++i) {
+        temp_vec[i] = static_cast<uint8_t>(REAL(data)[i]);
+      }
     } else {
       Rcpp::stop("Unsupported R type: %d", TYPEOF(data));
     }
@@ -174,10 +188,32 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
   } else if (dtype == "f64") {
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
+  } else if (dtype == "i8") {
+    return create_buffer_from_array<int8_t>(client, data, dims,
+                                            PJRT_Buffer_Type_S8);
+  } else if (dtype == "i16") {
+    return create_buffer_from_array<int16_t>(client, data, dims,
+                                             PJRT_Buffer_Type_S16);
+  } else if (dtype == "i32") {
+    return create_buffer_from_array<int32_t>(client, data, dims,
+                                             PJRT_Buffer_Type_S32);
+  } else if (dtype == "i64") {
+    return create_buffer_from_array<int64_t>(client, data, dims,
+                                             PJRT_Buffer_Type_S64);
+  } else if (dtype == "ui8") {
+    return create_buffer_from_array<uint8_t>(client, data, dims,
+                                             PJRT_Buffer_Type_U8);
+  } else if (dtype == "ui16") {
+    return create_buffer_from_array<uint16_t>(client, data, dims,
+                                              PJRT_Buffer_Type_U16);
+  } else if (dtype == "ui32") {
+    return create_buffer_from_array<uint32_t>(client, data, dims,
+                                              PJRT_Buffer_Type_U32);
+  } else if (dtype == "ui64") {
+    return create_buffer_from_array<uint64_t>(client, data, dims,
+                                              PJRT_Buffer_Type_U64);
   } else {
-    Rcpp::stop(
-        "Can only create f{32,64} from R double, but requested type is %s",
-        dtype.c_str());
+    Rcpp::stop("Unsupported type for R double input: %s", dtype.c_str());
   }
 }
 

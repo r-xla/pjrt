@@ -504,6 +504,24 @@ test_that("can create f32 and f64 buffers from integer data", {
   )
 })
 
+test_that("can create integer buffers from double data", {
+  expect_equal(
+    pjrt_buffer(c(1, 2, 3, 4), "i32"),
+    pjrt_buffer(1:4, "i32")
+  )
+
+  expect_equal(
+    pjrt_buffer(c(1, 2, 3, 4), "i16", shape = c(2, 2)),
+    pjrt_buffer(matrix(1:4, nrow = 2, ncol = 2), "i16")
+  )
+
+  buf <- pjrt_buffer(c(1.9, -2.1, 3.0), "i32")
+  expect_equal(as_array(buf), array(c(1L, -2L, 3L)))
+
+  buf_u8 <- pjrt_buffer(c(0, 127, 255), "ui8")
+  expect_equal(as_array(buf_u8), array(as.integer(c(0, 127, 255))))
+})
+
 test_that("can specify dims", {
   expect_equal(shape(pjrt_buffer(1:4, shape = c(2, 2))), c(2, 2))
 })
