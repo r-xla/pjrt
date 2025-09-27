@@ -95,7 +95,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
     bool row_major = false) {
   int len = Rf_length(data);
   if (len == 0) {
-    Rcpp::stop("Data must be a non-empty vector.");
+    if (!std::any_of(dims.begin(), dims.end(),
+                     [](int64_t dim) { return dim == 0; })) {
+      Rcpp::stop("Data must be a non-empty vector.");
+    }
   }
 
   // This stores the result of the type-cast
@@ -284,6 +287,18 @@ SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   const auto numel = number_of_elements(dimensions);
 
+  // Handle empty tensors (numel == 0) - return empty array with correct
+  // dimensions
+  if (numel == 0) {
+    SEXP out = PROTECT(Rf_allocVector(r_type, 0));
+    if (dimensions.size() > 0) {
+      Rcpp::IntegerVector dims(dimensions.begin(), dimensions.end());
+      Rf_setAttrib(out, R_DimSymbol, dims);
+    }
+    UNPROTECT(1);
+    return out;
+  }
+
   // Here, we first copy the data into a temporary vector because:
   // 1. We need to cast the data
   // 2. We might need to transpose the data
@@ -369,6 +384,11 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
   const auto element_type = buffer->element_type();
 
   const auto numel = number_of_elements(dimensions);
+
+  // Handle empty tensors (numel == 0) - return empty raw vector
+  if (numel == 0) {
+    return Rcpp::RawVector(0);
+  }
 
   const size_t total_bytes = numel * sizeof_pjrt_buffer_type(element_type);
 

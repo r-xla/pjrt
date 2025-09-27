@@ -15,6 +15,8 @@ is_buffer <- function(x) {
 #' [`pjrt_buffer`] will create a array with dimensions `(1)` for a vector of length 1, while
 #' [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
 #'
+#' To create an empty buffer (at least one dimension must be 0), use [`pjrt_empty`].
+#'
 #' **Important**:
 #' No checks are performed when creating the buffer, so you need to ensure that the data fits
 #' the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
@@ -55,6 +57,17 @@ pjrt_scalar <- function(data, dtype, client = pjrt_client(), ...) {
   UseMethod("pjrt_scalar")
 }
 
+#' @rdname pjrt_buffer
+#' @export
+pjrt_empty <- function(dtype, shape, client = pjrt_client(), ...) {
+  if (dtype == "pred") {
+    data <- logical()
+  } else {
+    data <- integer()
+  }
+  pjrt_buffer(array(data, dim = shape), dtype, client, ...)
+}
+
 assert_data_shape <- function(data, shape) {
   data_len <- length(data)
   numel <- prod(shape)
@@ -67,8 +80,9 @@ assert_data_shape <- function(data, shape) {
     stop(
       "Data has length ",
       data_len,
-      ", but shape is ",
-      paste0(shape, collapse = "x")
+      ", but specified shape is (",
+      paste0(shape, collapse = "x"),
+      ")"
     )
   }
 }
