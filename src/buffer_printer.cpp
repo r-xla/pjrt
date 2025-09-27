@@ -368,7 +368,6 @@ void buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
 
   int64_t numel = dimensions.empty() ? 1 : number_of_elements(dimensions);
 
-  // Handle empty tensors (numel == 0) - just print empty message
   if (numel == 0) {
     return;
   }
