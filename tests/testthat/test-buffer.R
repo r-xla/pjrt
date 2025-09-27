@@ -158,9 +158,9 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
 
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
-  expect_error(pjrt_buffer(logical(0)), "Data must be a non-empty vector")
-  expect_error(pjrt_buffer(integer(0)), "Data must be a non-empty vector")
-  expect_error(pjrt_buffer(numeric(0)), "Data must be a non-empty vector")
+  expect_error(pjrt_buffer(logical(0)), "but specified shape is ()")
+  expect_error(pjrt_buffer(integer(0)), "but specified shape is ()")
+  expect_error(pjrt_buffer(numeric(0)), "but specified shape is ()")
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {

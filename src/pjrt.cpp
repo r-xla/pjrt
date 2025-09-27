@@ -95,7 +95,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
     bool row_major = false) {
   int len = Rf_length(data);
   if (len == 0) {
-    Rcpp::stop("Data must be a non-empty vector.");
+    if (!std::any_of(dims.begin(), dims.end(),
+                     [](int64_t dim) { return dim == 0; })) {
+      Rcpp::stop("Data must be a non-empty vector.");
+    }
   }
 
   // This stores the result of the type-cast

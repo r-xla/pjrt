@@ -3,6 +3,7 @@
 \name{pjrt_buffer}
 \alias{pjrt_buffer}
 \alias{pjrt_scalar}
+\alias{pjrt_empty}
 \alias{pjrt_buffer.logical}
 \alias{pjrt_buffer.integer}
 \alias{pjrt_buffer.double}
@@ -16,6 +17,8 @@
 pjrt_buffer(data, dtype, client = pjrt_client(), ...)
 
 pjrt_scalar(data, dtype, client = pjrt_client(), ...)
+
+pjrt_empty(dtype, shape, client = pjrt_client(), ...)
 
 \method{pjrt_buffer}{logical}(
   data,
@@ -87,6 +90,8 @@ Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 \code{\link{pjrt_buffer}} will create a array with dimensions \code{(1)} for a vector of length 1, while
 \code{\link{pjrt_scalar}} will create a 0-dimensional array for an R vector of length 1.
+
+To create an empty buffer (at least one dimension must be 0), use \code{\link{pjrt_empty}}.
 
 \strong{Important}:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
