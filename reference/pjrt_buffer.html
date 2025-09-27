@@ -9,12 +9,14 @@
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 pjrt_buffer will create a array with dimensions (1) for a vector of length 1, while
 pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
+To create an empty buffer (at least one dimension must be 0), use pjrt_empty.
 Important:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
 the selected element type (e.g., to prevent buffer overflow) and that no NA values are present."><meta property="og:description" content="Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 pjrt_buffer will create a array with dimensions (1) for a vector of length 1, while
 pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
+To create an empty buffer (at least one dimension must be 0), use pjrt_empty.
 Important:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
 the selected element type (e.g., to prevent buffer overflow) and that no NA values are present."></head><body>
@@ -53,7 +55,7 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Create a PJRT Buffer</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/main/R/buffer.R" class="external-link"><code>R/buffer.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/fix-empty-tensor/R/buffer.R" class="external-link"><code>R/buffer.R</code></a></small>
       <div class="d-none name"><code>pjrt_buffer.Rd</code></div>
     </div>
 
@@ -62,6 +64,7 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 <code>pjrt_buffer</code> will create a array with dimensions <code>(1)</code> for a vector of length 1, while
 <code>pjrt_scalar</code> will create a 0-dimensional array for an R vector of length 1.</p>
+<p>To create an empty buffer (at least one dimension must be 0), use <code>pjrt_empty</code>.</p>
 <p><strong>Important</strong>:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
 the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.</p>
@@ -72,6 +75,8 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, <span class="va">dtype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, <span class="va">dtype</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">pjrt_empty</span><span class="op">(</span><span class="va">dtype</span>, <span class="va">shape</span>, client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'logical'</span></span>
 <span><span class="fu">pjrt_buffer</span><span class="op">(</span></span>
