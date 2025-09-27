@@ -509,9 +509,9 @@ test_that("can specify dims", {
 })
 
 test_that("prevent dubious recycling behavior", {
-  expect_error(pjrt_buffer(1:2, shape = c(1, 4)), "but shape is")
-  expect_error(pjrt_buffer(c(1, 2), shape = c(1, 4)), "but shape is")
-  expect_error(pjrt_buffer(c(TRUE, FALSE), shape = c(1, 4)), "but shape is")
+  expect_error(pjrt_buffer(1:2, shape = c(1, 4)), "but specified shape is")
+  expect_error(pjrt_buffer(c(1, 2), shape = c(1, 4)), "but specified shape is")
+  expect_error(pjrt_buffer(c(TRUE, FALSE), shape = c(1, 4)), "but specified shape is")
 
   # but 1 element works:
   expect_equal(
@@ -528,7 +528,7 @@ test_that("prevent dubious recycling behavior", {
   )
 
   x <- array(1:4, dim = c(1, 4))
-  expect_error(pjrt_buffer(x, shape = c(1, 8)), "but shape is")
+  expect_error(pjrt_buffer(x, shape = c(1, 8)), "but specified shape is")
 })
 
 test_that("can compare dtypes", {
