@@ -42,20 +42,30 @@ is_buffer <- function(x) {
 #'   - `"pred"`: predicate (i.e. a boolean)
 #'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
+#' @param shape (`integer()`)\cr
+#'   The dimensions of the buffer.
+#'   The default is to infer them from the data if possible.
 #' @param ... (any)\cr
 #'   Additional arguments.
+#'   For `raw` types, this includes:
+#'   - `row_major`: Whether to read the data in row-major format or column-major format.
+#'     R uses column-major format.
 #' @template param_client
 #' @return `PJRTBuffer`
 #' @export
-pjrt_buffer <- function(data, dtype, client = pjrt_client(), ...) {
-  UseMethod("pjrt_buffer")
-}
+pjrt_buffer <- S7::new_generic(
+  "pjrt_buffer",
+  "data",
+  function(data, dtype = NULL, client = pjrt_client(), shape = NULL, ...) {
+    S7::S7_dispatch()
+  }
+)
 
 #' @rdname pjrt_buffer
 #' @export
-pjrt_scalar <- function(data, dtype, client = pjrt_client(), ...) {
-  UseMethod("pjrt_scalar")
-}
+pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, client = pjrt_client(), ...) {
+  S7::S7_dispatch()
+})
 
 #' @rdname pjrt_buffer
 #' @export
@@ -87,18 +97,15 @@ assert_data_shape <- function(data, shape) {
   }
 }
 
-#' @rdname pjrt_buffer
-#' @param shape (`integer()`)\cr
-#'   The dimensions of the buffer.
-#'   The default is to infer them from the data.
-#' @export
-pjrt_buffer.logical <- function(
+S7::method(pjrt_buffer, S7::class_logical) <- function(
   data,
-  dtype = "pred",
+  dtype = NULL,
   client = pjrt_client(),
-  shape = get_dims(data),
+  shape = NULL,
   ...
 ) {
+  dtype <- dtype %??% "pred"
+  shape <- shape %??% get_dims(data)
   if (...length()) {
     stop("Unused arguments")
   }
@@ -114,15 +121,15 @@ pjrt_buffer.logical <- function(
   )
 }
 
-#' @rdname pjrt_buffer
-#' @export
-pjrt_buffer.integer <- function(
+S7::method(pjrt_buffer, S7::class_integer) <- function(
   data,
-  dtype = "i32",
+  dtype = NULL,
   client = pjrt_client(),
-  shape = get_dims(data),
+  shape = NULL,
   ...
 ) {
+  dtype <- dtype %??% "i32"
+  shape <- shape %??% get_dims(data)
   if (...length()) {
     stop("Unused arguments")
   }
@@ -138,15 +145,15 @@ pjrt_buffer.integer <- function(
   )
 }
 
-#' @rdname pjrt_buffer
-#' @export
-pjrt_buffer.double <- function(
+S7::method(pjrt_buffer, S7::class_double) <- function(
   data,
-  dtype = "f32",
+  dtype = NULL,
   client = pjrt_client(),
-  shape = get_dims(data),
+  shape = NULL,
   ...
 ) {
+  dtype <- dtype %??% "f32"
+  shape <- shape %??% get_dims(data)
   if (...length()) {
     stop("Unused arguments")
   }
@@ -162,19 +169,20 @@ pjrt_buffer.double <- function(
   )
 }
 
-#' @rdname pjrt_buffer
-#' @param row_major (logical(1))\cr
-#'   Whether to read the data in row-major format or column-major format.
-#'   R uses column-major format.
-#' @export
-pjrt_buffer.raw <- function(
+S7::method(pjrt_buffer, S7::class_raw) <- function(
   data,
   ...,
-  dtype,
+  dtype = NULL,
   client = pjrt_client(),
-  shape,
+  shape = NULL,
   row_major
 ) {
+  if (is.null(shape)) {
+    stop("shape must be provided")
+  }
+  if (is.null(dtype)) {
+    stop("dtype must be provided")
+  }
   if (...length()) {
     stop("Unused arguments")
   }
@@ -187,14 +195,13 @@ pjrt_buffer.raw <- function(
   )
 }
 
-#' @rdname pjrt_buffer
-#' @export
-pjrt_scalar.logical <- function(
+S7::method(pjrt_scalar, S7::class_logical) <- function(
   data,
-  dtype = "pred",
+  dtype = NULL,
   client = pjrt_client(),
   ...
 ) {
+  dtype <- dtype %??% "pred"
   if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
@@ -209,14 +216,13 @@ pjrt_scalar.logical <- function(
   )
 }
 
-#' @rdname pjrt_buffer
-#' @export
-pjrt_scalar.integer <- function(
+S7::method(pjrt_scalar, S7::class_integer) <- function(
   data,
-  dtype = "i32",
+  dtype = NULL,
   client = pjrt_client(),
   ...
 ) {
+  dtype <- dtype %??% "i32"
   if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
@@ -231,14 +237,13 @@ pjrt_scalar.integer <- function(
   )
 }
 
-#' @rdname pjrt_buffer
-#' @export
-pjrt_scalar.double <- function(
+S7::method(pjrt_scalar, S7::class_double) <- function(
   data,
-  dtype = "f32",
+  dtype = NULL,
   client = pjrt_client(),
   ...
 ) {
+  dtype <- dtype %??% "f32"
   if (length(data) != 1) {
     stop("data must be an atomic vector of length 1")
   }
@@ -253,14 +258,15 @@ pjrt_scalar.double <- function(
   )
 }
 
-#' @rdname pjrt_buffer
-#' @export
-pjrt_scalar.raw <- function(
+S7::method(pjrt_scalar, S7::class_raw) <- function(
   data,
   ...,
-  dtype,
+  dtype = NULL,
   client = pjrt_client()
 ) {
+  if (is.null(dtype)) {
+    stop("dtype must be provided")
+  }
   if (...length()) {
     stop("Unused arguments")
   }

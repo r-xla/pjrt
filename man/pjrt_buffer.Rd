@@ -4,55 +4,13 @@
 \alias{pjrt_buffer}
 \alias{pjrt_scalar}
 \alias{pjrt_empty}
-\alias{pjrt_buffer.logical}
-\alias{pjrt_buffer.integer}
-\alias{pjrt_buffer.double}
-\alias{pjrt_buffer.raw}
-\alias{pjrt_scalar.logical}
-\alias{pjrt_scalar.integer}
-\alias{pjrt_scalar.double}
-\alias{pjrt_scalar.raw}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, dtype, client = pjrt_client(), ...)
+pjrt_buffer(data, dtype = NULL, client = pjrt_client(), shape = NULL, ...)
 
-pjrt_scalar(data, dtype, client = pjrt_client(), ...)
+pjrt_scalar(data, dtype = NULL, client = pjrt_client(), ...)
 
 pjrt_empty(dtype, shape, client = pjrt_client(), ...)
-
-\method{pjrt_buffer}{logical}(
-  data,
-  dtype = "pred",
-  client = pjrt_client(),
-  shape = get_dims(data),
-  ...
-)
-
-\method{pjrt_buffer}{integer}(
-  data,
-  dtype = "i32",
-  client = pjrt_client(),
-  shape = get_dims(data),
-  ...
-)
-
-\method{pjrt_buffer}{double}(
-  data,
-  dtype = "f32",
-  client = pjrt_client(),
-  shape = get_dims(data),
-  ...
-)
-
-\method{pjrt_buffer}{raw}(data, ..., dtype, client = pjrt_client(), shape, row_major)
-
-\method{pjrt_scalar}{logical}(data, dtype = "pred", client = pjrt_client(), ...)
-
-\method{pjrt_scalar}{integer}(data, dtype = "i32", client = pjrt_client(), ...)
-
-\method{pjrt_scalar}{double}(data, dtype = "f32", client = pjrt_client(), ...)
-
-\method{pjrt_scalar}{raw}(data, ..., dtype, client = pjrt_client())
 }
 \arguments{
 \item{data}{(any)\cr
@@ -71,16 +29,17 @@ Currently supported types are:
 A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
 from which the client will be created.}
 
-\item{...}{(any)\cr
-Additional arguments.}
-
 \item{shape}{(\code{integer()})\cr
 The dimensions of the buffer.
-The default is to infer them from the data.}
+The default is to infer them from the data if possible.}
 
-\item{row_major}{(logical(1))\cr
-Whether to read the data in row-major format or column-major format.
-R uses column-major format.}
+\item{...}{(any)\cr
+Additional arguments.
+For \code{raw} types, this includes:
+\itemize{
+\item \code{row_major}: Whether to read the data in row-major format or column-major format.
+R uses column-major format.
+}}
 }
 \value{
 \code{PJRTBuffer}
