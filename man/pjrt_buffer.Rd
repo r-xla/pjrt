@@ -59,17 +59,17 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 \section{Extractors}{
 
 \itemize{
-\item \code{\link[=device]{device()}} for the device of the buffer.
+\item \code{\link[tengen:device]{tengen::device()}} for the device of the buffer.
 \item \code{\link[=elt_type]{elt_type()}} for the element type of the buffer.
-\item \code{\link[=shape]{shape()}} for the shape of the buffer.
+\item \code{\link[tengen:shape]{tengen::shape()}} for the shape of the buffer.
 }
 }
 
 \section{Converters}{
 
 \itemize{
-\item \code{\link[=as_array]{as_array()}} for an array.
-\item \code{\link[=as_raw]{as_raw()}} for a raw vector.
+\item \code{\link[tengen:as_array]{tengen::as_array()}} for an array.
+\item \code{\link[tengen:as_raw]{tengen::as_raw()}} for a raw vector.
 }
 }
 
