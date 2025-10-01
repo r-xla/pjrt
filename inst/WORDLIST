@@ -6,7 +6,6 @@ Lifecycle
 MaRDI
 ORCID
 OpenXLA
-Quickstart
 RunTime
 TPU
 WSL
@@ -25,4 +24,3 @@ safetensors
 stableHLO
 stablehlo
 zml
-macOS
