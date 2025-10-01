@@ -200,14 +200,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_buffer_dtype
-Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_dtype(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
-RcppExport SEXP _pjrt_impl_buffer_dtype(SEXP bufferSEXP) {
+// impl_buffer_elt_type
+Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_buffer_elt_type(SEXP bufferSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_buffer_dtype(buffer));
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_elt_type(buffer));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -374,7 +374,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_to_raw", (DL_FUNC) &_pjrt_impl_client_buffer_to_raw, 3},
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
-    {"_pjrt_impl_buffer_dtype", (DL_FUNC) &_pjrt_impl_buffer_dtype, 1},
+    {"_pjrt_impl_buffer_elt_type", (DL_FUNC) &_pjrt_impl_buffer_elt_type, 1},
     {"_pjrt_impl_buffer_device", (DL_FUNC) &_pjrt_impl_buffer_device, 1},
     {"_pjrt_impl_buffer_memory", (DL_FUNC) &_pjrt_impl_buffer_memory, 1},
     {"_pjrt_impl_memory_debug_string", (DL_FUNC) &_pjrt_impl_memory_debug_string, 1},
