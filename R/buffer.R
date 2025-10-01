@@ -23,7 +23,7 @@ is_buffer <- function(x) {
 #'
 #' @section Extractors:
 #' * [`device()`] for the device of the buffer.
-#' * [`dtype()`] for the element type of the buffer.
+#' * [`elt_type()`] for the element type of the buffer.
 #' * [`shape()`] for the shape of the buffer.
 #'
 #' @section Converters:
@@ -279,8 +279,14 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
   )
 }
 
-method(dtype, S7::new_S3_class("PJRTBuffer")) <- function(x) {
-  impl_buffer_dtype(x)
+#' @title Element Type
+#' @description
+#' Get the element type of a buffer.
+#' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
+#'   Buffer.
+#' @export
+elt_type <- function(x) {
+  impl_buffer_elt_type(x)
 }
 
 method(as_array, S7::new_S3_class("PJRTBuffer")) <- function(x, client = pjrt_client(), ...) {
@@ -306,7 +312,7 @@ print.PJRTMemory <- function(x, ...) {
   cat(sprintf("<PJRTMemory %s>\n", impl_memory_debug_string(x)))
 }
 
-is_dtype <- function(x) {
+is_elt_type <- function(x) {
   inherits(x, "PJRTElementType")
 }
 
@@ -402,7 +408,7 @@ print.PJRTBuffer <- function(
     } else {
       ""
     }
-    cat(sprintf("PJRTBuffer<%s%s>", dtype(x), shape_str), "\n")
+    cat(sprintf("PJRTBuffer<%s%s>", elt_type(x), shape_str), "\n")
   }
   impl_buffer_print(
     x,

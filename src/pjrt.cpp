@@ -482,7 +482,7 @@ SEXP impl_loaded_executable_execute(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_dtype(
+Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(
     Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   auto element_type =
       std::make_unique<rpjrt::PJRTElementType>(buffer->element_type());

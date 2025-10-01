@@ -60,7 +60,7 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 
 \itemize{
 \item \code{\link[=device]{device()}} for the device of the buffer.
-\item \code{\link[=dtype]{dtype()}} for the element type of the buffer.
+\item \code{\link[=elt_type]{elt_type()}} for the element type of the buffer.
 \item \code{\link[=shape]{shape()}} for the shape of the buffer.
 }
 }

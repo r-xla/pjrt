@@ -61,8 +61,8 @@ impl_loaded_executable_execute <- function(executable, input, execution_options)
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
-impl_buffer_dtype <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_dtype`, buffer)
+impl_buffer_elt_type <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_elt_type`, buffer)
 }
 
 impl_buffer_device <- function(buffer) {

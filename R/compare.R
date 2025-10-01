@@ -4,7 +4,7 @@ compare_proxy.PJRTBuffer <- function(x, path) { # nolint
     object = list(
       x = as_array(x),
       dim = shape(x),
-      dtype = as.character(dtype(x)),
+      dtype = as.character(elt_type(x)),
       attr = attributes(x)
     ),
     path = path
