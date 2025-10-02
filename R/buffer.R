@@ -408,7 +408,7 @@ print.PJRTBuffer <- function(
     } else {
       ""
     }
-    cat(sprintf("PJRTBuffer<%s%s>", elt_type(x), shape_str), "\n")
+    cat(sprintf("%s<%s%s>", class(x)[[1L]], elt_type(x), shape_str), "\n")
   }
   impl_buffer_print(
     x,
