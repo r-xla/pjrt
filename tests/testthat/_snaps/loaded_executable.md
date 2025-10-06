@@ -3,5 +3,5 @@
     Code
       print(result)
     Output
-      PJRTBuffer<i64: 0> 
+      PJRTBuffer{0xi64} 
 

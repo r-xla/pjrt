@@ -404,11 +404,11 @@ print.PJRTBuffer <- function(
   if (header) {
     shp <- shape(x)
     shape_str <- if (length(shp)) {
-      paste0(": ", paste0(shp, collapse = "x"))
+      paste0(paste0(shp, collapse = "x"), "x")
     } else {
       ""
     }
-    cat(sprintf("%s<%s%s>", class(x)[[1L]], elt_type(x), shape_str), "\n")
+    cat(sprintf("%s{%s%s}", class(x)[[1L]], shape_str, elt_type(x)), "\n")
   }
   impl_buffer_print(
     x,

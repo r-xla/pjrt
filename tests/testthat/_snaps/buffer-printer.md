@@ -3,7 +3,7 @@
     Code
       pjrt_buffer(1L, "i8")
     Output
-      PJRTBuffer<i8: 1> 
+      PJRTBuffer{1xi8} 
        1
 
 ---
@@ -11,7 +11,7 @@
     Code
       pjrt_buffer(1L, "i16")
     Output
-      PJRTBuffer<i16: 1> 
+      PJRTBuffer{1xi16} 
        1
 
 ---
@@ -19,7 +19,7 @@
     Code
       pjrt_buffer(1L, "i32")
     Output
-      PJRTBuffer<i32: 1> 
+      PJRTBuffer{1xi32} 
        1
 
 ---
@@ -27,7 +27,7 @@
     Code
       pjrt_buffer(1L, "ui8")
     Output
-      PJRTBuffer<ui8: 1> 
+      PJRTBuffer{1xui8} 
        1
 
 ---
@@ -35,7 +35,7 @@
     Code
       pjrt_buffer(1L, "ui16")
     Output
-      PJRTBuffer<ui16: 1> 
+      PJRTBuffer{1xui16} 
        1
 
 ---
@@ -43,7 +43,7 @@
     Code
       pjrt_buffer(1L, "ui32")
     Output
-      PJRTBuffer<ui32: 1> 
+      PJRTBuffer{1xui32} 
        1
 
 ---
@@ -51,7 +51,7 @@
     Code
       pjrt_buffer(c(1L, 2L, 3L))
     Output
-      PJRTBuffer<i32: 3> 
+      PJRTBuffer{3xi32} 
        1
        2
        3
@@ -61,7 +61,7 @@
     Code
       pjrt_buffer(matrix(1:10, nrow = 2))
     Output
-      PJRTBuffer<i32: 2x5> 
+      PJRTBuffer{2x5xi32} 
         1  3  5  7  9
         2  4  6  8 10
 
@@ -70,7 +70,7 @@
     Code
       pjrt_buffer(x)
     Output
-      PJRTBuffer<i32: 2x2> 
+      PJRTBuffer{2x2xi32} 
        1.0000e+07 3.0000e+07
        2.0000e+07          1
 
@@ -79,7 +79,7 @@
     Code
       pjrt_buffer(c(Inf, -Inf, NaN, 1))
     Output
-      PJRTBuffer<f32: 4> 
+      PJRTBuffer{4xf32} 
           inf
          -inf
           nan
@@ -90,7 +90,7 @@
     Code
       pjrt_buffer(c(Inf, Inf, NA, 100011.234567))
     Output
-      PJRTBuffer<f32: 4> 
+      PJRTBuffer{4xf32} 
                inf
                inf
                nan
@@ -101,7 +101,7 @@
     Code
       pjrt_buffer(c(Inf, Inf, NA, 100011.234567), shape = c(1, 4))
     Output
-      PJRTBuffer<f32: 1x4> 
+      PJRTBuffer{1x4xf32} 
                inf         inf         nan 100011.2344
 
 # Up to 6 digits are printed for integers
@@ -109,7 +109,7 @@
     Code
       pjrt_buffer(1234567L)
     Output
-      PJRTBuffer<i32: 1> 
+      PJRTBuffer{1xi32} 
        1.2346e+06
 
 ---
@@ -117,7 +117,7 @@
     Code
       pjrt_buffer(-1234567L)
     Output
-      PJRTBuffer<i32: 1> 
+      PJRTBuffer{1xi32} 
        -1.2346e+06
 
 ---
@@ -125,7 +125,7 @@
     Code
       pjrt_buffer(123456L)
     Output
-      PJRTBuffer<i32: 1> 
+      PJRTBuffer{1xi32} 
        123456
 
 ---
@@ -133,7 +133,7 @@
     Code
       pjrt_buffer(-123456L)
     Output
-      PJRTBuffer<i32: 1> 
+      PJRTBuffer{1xi32} 
        -123456
 
 # printer for doubles
@@ -141,7 +141,7 @@
     Code
       pjrt_buffer(1:10, "f32")
     Output
-      PJRTBuffer<f32: 10> 
+      PJRTBuffer{10xf32} 
         1.0000
         2.0000
         3.0000
@@ -158,7 +158,7 @@
     Code
       pjrt_buffer(1:10, "f64")
     Output
-      PJRTBuffer<f64: 10> 
+      PJRTBuffer{10xf64} 
         1.0000
         2.0000
         3.0000
@@ -175,7 +175,7 @@
     Code
       pjrt_buffer(1e-10)
     Output
-      PJRTBuffer<f32: 1> 
+      PJRTBuffer{1xf32} 
        1.0000e-10
 
 ---
@@ -183,7 +183,7 @@
     Code
       pjrt_buffer(c(1e+10, 1e-10))
     Output
-      PJRTBuffer<f32: 2> 
+      PJRTBuffer{2xf32} 
        1.0000e+10
        1.0000e-10
 
@@ -192,7 +192,7 @@
     Code
       pjrt_buffer(1:20, shape = c(1, 1, 1, 1, 1, 5, 4))
     Output
-      PJRTBuffer<i32: 1x1x1x1x1x5x4> 
+      PJRTBuffer{1x1x1x1x1x5x4xi32} 
       (1,1,1,1,1,.,.) =
         1  6 11 16
         2  7 12 17
@@ -205,7 +205,7 @@
     Code
       pjrt_buffer(x, shape = c(2, 2, 2))
     Output
-      PJRTBuffer<f32: 2x2x2> 
+      PJRTBuffer{2x2x2xf32} 
       (1,.,.) =
        1.0000 3.0000
        2.0000 4.0000
@@ -219,7 +219,7 @@
     Code
       pjrt_buffer(1:50L)
     Output
-      PJRTBuffer<i32: 50> 
+      PJRTBuffer{50xi32} 
         1
         2
         3
@@ -257,7 +257,7 @@
     Code
       pjrt_buffer(as.double(1:50))
     Output
-      PJRTBuffer<f32: 50> 
+      PJRTBuffer{50xf32} 
         1.0000
         2.0000
         3.0000
@@ -295,7 +295,7 @@
     Code
       buf_log
     Output
-      PJRTBuffer<pred: 2x2> 
+      PJRTBuffer{2x2xpred} 
        1 1
        0 0
 
@@ -304,7 +304,7 @@
     Code
       pjrt_buffer(c(1000L, 1L, 10L, 100L), shape = c(1, 4))
     Output
-      PJRTBuffer<i32: 1x4> 
+      PJRTBuffer{1x4xi32} 
        1000    1   10  100
 
 # wide arrays
@@ -312,7 +312,7 @@
     Code
       pjrt_buffer(1:100, shape = c(1, 2, 50))
     Output
-      PJRTBuffer<i32: 1x2x50> 
+      PJRTBuffer{1x2x50xi32} 
       (1,.,.) =
       Columns 1 to 28
         1  3  5  7  9 11 13 15 17 19 21 23 25 27 29 31 33 35 37 39 41 43 45 47 49 51 53 55
@@ -329,7 +329,7 @@
     Code
       pjrt_buffer(1:1000, shape = c(1, 2, 500))
     Output
-      PJRTBuffer<i32: 1x2x500> 
+      PJRTBuffer{1x2x500xi32} 
       (1,.,.) =
       Columns 1 to 28
         1  3  5  7  9 11 13 15 17 19 21 23 25 27 29 31 33 35 37 39 41 43 45 47 49 51 53 55
@@ -383,7 +383,7 @@
     Code
       pjrt_scalar(1, "f32")
     Output
-      PJRTBuffer<f32> 
+      PJRTBuffer{f32} 
        1.0000
 
 ---
@@ -391,7 +391,7 @@
     Code
       pjrt_scalar(-10.1213, "f64")
     Output
-      PJRTBuffer<f64> 
+      PJRTBuffer{f64} 
        -10.1213
 
 ---
@@ -399,7 +399,7 @@
     Code
       pjrt_scalar(10^6, "f32")
     Output
-      PJRTBuffer<f32> 
+      PJRTBuffer{f32} 
        1.0000e+06
 
 ---
@@ -407,7 +407,7 @@
     Code
       pjrt_scalar(-10^6, "f32")
     Output
-      PJRTBuffer<f32> 
+      PJRTBuffer{f32} 
        -1.0000e+06
 
 ---
@@ -415,7 +415,7 @@
     Code
       pjrt_scalar(10^5, "f32")
     Output
-      PJRTBuffer<f32> 
+      PJRTBuffer{f32} 
        100000.0000
 
 ---
@@ -423,7 +423,7 @@
     Code
       pjrt_scalar(-10^5, "f32")
     Output
-      PJRTBuffer<f32> 
+      PJRTBuffer{f32} 
        -100000.0000
 
 ---
@@ -431,7 +431,7 @@
     Code
       pjrt_scalar(250L, "ui8")
     Output
-      PJRTBuffer<ui8> 
+      PJRTBuffer{ui8} 
        250
 
 ---
@@ -439,7 +439,7 @@
     Code
       pjrt_scalar(12L, "ui16")
     Output
-      PJRTBuffer<ui16> 
+      PJRTBuffer{ui16} 
        12
 
 ---
@@ -447,7 +447,7 @@
     Code
       pjrt_scalar(0L, "ui32")
     Output
-      PJRTBuffer<ui32> 
+      PJRTBuffer{ui32} 
        0
 
 ---
@@ -455,7 +455,7 @@
     Code
       pjrt_scalar(998L, "ui64")
     Output
-      PJRTBuffer<ui64> 
+      PJRTBuffer{ui64} 
        998
 
 ---
@@ -463,7 +463,7 @@
     Code
       pjrt_scalar(14L, "i8")
     Output
-      PJRTBuffer<i8> 
+      PJRTBuffer{i8} 
        14
 
 ---
@@ -471,7 +471,7 @@
     Code
       pjrt_scalar(-12L, "i16")
     Output
-      PJRTBuffer<i16> 
+      PJRTBuffer{i16} 
        -12
 
 ---
@@ -479,7 +479,7 @@
     Code
       pjrt_scalar(0L, "i32")
     Output
-      PJRTBuffer<i32> 
+      PJRTBuffer{i32} 
        0
 
 ---
@@ -487,7 +487,7 @@
     Code
       pjrt_scalar(998L, "i64")
     Output
-      PJRTBuffer<i64> 
+      PJRTBuffer{i64} 
        998
 
 ---
@@ -495,7 +495,7 @@
     Code
       pjrt_scalar(TRUE)
     Output
-      PJRTBuffer<pred> 
+      PJRTBuffer{pred} 
        1
 
 ---
@@ -503,7 +503,7 @@
     Code
       pjrt_scalar(FALSE)
     Output
-      PJRTBuffer<pred> 
+      PJRTBuffer{pred} 
        0
 
 # printer options
@@ -511,7 +511,7 @@
     Code
       print(pjrt_buffer(1:100), max_rows = 10)
     Output
-      PJRTBuffer<i32: 100> 
+      PJRTBuffer{100xi32} 
         1
         2
         3
@@ -529,7 +529,7 @@
     Code
       print(pjrt_buffer(1:100), max_rows = 100)
     Output
-      PJRTBuffer<i32: 100> 
+      PJRTBuffer{100xi32} 
          1
          2
          3
@@ -636,7 +636,7 @@
     Code
       print(pjrt_buffer(1:10000))
     Output
-      PJRTBuffer<i32: 10000> 
+      PJRTBuffer{10000xi32} 
         1
         2
         3
@@ -674,7 +674,7 @@
     Code
       print(pjrt_buffer(1:11, shape = c(11, 1)), max_rows = 10)
     Output
-      PJRTBuffer<i32: 11x1> 
+      PJRTBuffer{11x1xi32} 
         1
         2
         3
@@ -692,7 +692,7 @@
     Code
       print(pjrt_buffer(c(100L), shape = c(1, 1)), max_width = 3, max_rows = 1)
     Output
-      PJRTBuffer<i32: 1x1> 
+      PJRTBuffer{1x1xi32} 
        100
 
 ---
@@ -700,7 +700,7 @@
     Code
       print(x, max_width = 7, max_rows = 1)
     Output
-      PJRTBuffer<i32: 1x3> 
+      PJRTBuffer{1x3xi32} 
       Columns 1 to 1
        100
        ... [output was truncated, set max_rows = -1 to see all]
@@ -710,7 +710,7 @@
     Code
       print(x, max_width = 8, max_rows = 1)
     Output
-      PJRTBuffer<i32: 1x3> 
+      PJRTBuffer{1x3xi32} 
       Columns 1 to 2
        100 100
        ... [output was truncated, set max_rows = -1 to see all]
@@ -720,7 +720,7 @@
     Code
       print(pjrt_buffer(rep(1e-07, 50), shape = c(1, 50)), max_width = -1)
     Output
-      PJRTBuffer<f32: 1x50> 
+      PJRTBuffer{1x50xf32} 
       1e+07 *
        1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000
 
@@ -729,7 +729,7 @@
     Code
       pjrt_buffer(x, shape = c(2, 1, 2))
     Output
-      PJRTBuffer<f32: 2x1x2> 
+      PJRTBuffer{2x1x2xf32} 
       (1,.,.) =
       1e+07 *
        10.0000 10.0000
@@ -743,7 +743,7 @@
     Code
       print(pjrt_buffer(rep(x, 5), shape = c(2, 2, 5)), max_width = 15)
     Output
-      PJRTBuffer<f32: 2x2x5> 
+      PJRTBuffer{2x2x5xf32} 
       (1,.,.) =
       1e+07 *
       Columns 1 to 1
