@@ -540,3 +540,8 @@ test_that("can compare dtypes", {
   expect_false(elt_type(pjrt_buffer(1, "f32")) == "f64")
   expect_false("f64" == elt_type(pjrt_buffer(1, "f32")))
 })
+
+test_that("can change shape of array when creating buffer", {
+  x <- array(1L, dim = 1L)
+  expect_equal(shape(pjrt_buffer(x, shape = c(1, 1))), c(1, 1))
+})

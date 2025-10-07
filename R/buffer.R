@@ -110,9 +110,7 @@ S7::method(pjrt_buffer, S7::class_logical) <- function(
     stop("Unused arguments")
   }
   assert_data_shape(data, shape)
-  if (!is.array(data)) {
-    data <- array(data, dim = shape)
-  }
+  data <- array(data, dim = shape)
   impl_client_buffer_from_logical(
     client = as_pjrt_client(client),
     data = data,
@@ -134,9 +132,7 @@ S7::method(pjrt_buffer, S7::class_integer) <- function(
     stop("Unused arguments")
   }
   assert_data_shape(data, shape)
-  if (!is.array(data)) {
-    data <- array(data, dim = shape)
-  }
+  data <- array(data, dim = shape)
   impl_client_buffer_from_integer(
     client = as_pjrt_client(client),
     data = data,
@@ -158,9 +154,7 @@ S7::method(pjrt_buffer, S7::class_double) <- function(
     stop("Unused arguments")
   }
   assert_data_shape(data, shape)
-  if (!is.array(data)) {
-    data <- array(data, dim = shape)
-  }
+  data <- array(data, dim = shape)
   impl_client_buffer_from_double(
     client = as_pjrt_client(client),
     data = data,
