@@ -551,4 +551,8 @@ test_that("can create float from int", {
     pjrt_buffer(1:4, "f32"),
     pjrt_buffer(as.double(1:4), "f32")
   )
+  expect_equal(
+    pjrt_buffer(1:4, "f64"),
+    pjrt_buffer(as.double(1:4), "f64")
+  )
 })
