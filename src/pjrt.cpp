@@ -177,10 +177,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
   } else if (dtype == "f64") {
     return create_buffer_from_array<double>(client, data, dims,
                                             PJRT_Buffer_Type_F64);
+  } else if (dtype != "pred") {
+    Rcpp::NumericVector data_conv = Rcpp::as<Rcpp::NumericVector>(data);
+    return create_buffer_from_array<double>(client, data_conv, dims,
+                                            PJRT_Buffer_Type_F64);
   } else {
-    Rcpp::stop(
-        "Can only create f{32,64} from R double, but requested type is %s",
-        dtype.c_str());
+    Rcpp::stop("Internal error");
   }
 }
 

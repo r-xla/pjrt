@@ -545,3 +545,10 @@ test_that("can change shape of array when creating buffer", {
   x <- array(1L, dim = 1L)
   expect_equal(shape(pjrt_buffer(x, shape = c(1, 1))), c(1, 1))
 })
+
+test_that("can create float from int", {
+  expect_equal(
+    pjrt_buffer(1:4, "f32"),
+    pjrt_buffer(as.double(1:4), "f32")
+  )
+})
