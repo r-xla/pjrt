@@ -70,22 +70,27 @@ pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NUL
 #' @rdname pjrt_buffer
 #' @export
 pjrt_empty <- function(dtype, shape, client = pjrt_client(), ...) {
-  if (dtype == "pred") {
-    data <- logical()
+  data <- if (dtype == "pred") {
+    logical()
   } else {
-    data <- integer()
+    integer()
   }
   pjrt_buffer(array(data, dim = shape), dtype, client, ...)
 }
 
-assert_data_shape <- function(data, shape) {
+recycle_data <- function(data, shape) {
   data_len <- length(data)
-  numel <- prod(shape)
+  numel <- if (length(shape)) prod(shape) else 0
 
-  if (data_len == numel) {
-    return(NULL)
+  if (numel == 0) {
+    if (!any(shape == 0)) {
+      stop("Empty buffers must have at least one dimension equal to 0")
+    }
+    array(data, dim = shape)
+  } else if (data_len == numel) {
+    return(data)
   } else if ((data_len == 1) && (numel != 0)) {
-    return(NULL)
+    rep(data, numel)
   } else {
     stop(
       "Data has length ",
@@ -97,6 +102,21 @@ assert_data_shape <- function(data, shape) {
   }
 }
 
+convert_buffer_args <- function(data, dtype, client, shape, default, ...) {
+  dtype <- dtype %??% default
+  shape <- shape %??% get_dims(data)
+  if (...length()) {
+    stop("Unused arguments")
+  }
+  data <- recycle_data(data, shape)
+  list(
+    dtype = dtype,
+    client = client,
+    data = data,
+    dims = shape
+  )
+}
+
 S7::method(pjrt_buffer, S7::class_logical) <- function(
   data,
   dtype = NULL,
@@ -104,19 +124,7 @@ S7::method(pjrt_buffer, S7::class_logical) <- function(
   shape = NULL,
   ...
 ) {
-  dtype <- dtype %??% "pred"
-  shape <- shape %??% get_dims(data)
-  if (...length()) {
-    stop("Unused arguments")
-  }
-  assert_data_shape(data, shape)
-  data <- array(data, dim = shape)
-  impl_client_buffer_from_logical(
-    client = as_pjrt_client(client),
-    data = data,
-    dims = shape,
-    dtype = dtype
-  )
+  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, client, shape, "pred", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_integer) <- function(
@@ -126,19 +134,7 @@ S7::method(pjrt_buffer, S7::class_integer) <- function(
   shape = NULL,
   ...
 ) {
-  dtype <- dtype %??% "i32"
-  shape <- shape %??% get_dims(data)
-  if (...length()) {
-    stop("Unused arguments")
-  }
-  assert_data_shape(data, shape)
-  data <- array(data, dim = shape)
-  impl_client_buffer_from_integer(
-    client = as_pjrt_client(client),
-    data = data,
-    dims = get_dims(data),
-    dtype = dtype
-  )
+  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, client, shape, "i32", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_double) <- function(
@@ -148,19 +144,7 @@ S7::method(pjrt_buffer, S7::class_double) <- function(
   shape = NULL,
   ...
 ) {
-  dtype <- dtype %??% "f32"
-  shape <- shape %??% get_dims(data)
-  if (...length()) {
-    stop("Unused arguments")
-  }
-  assert_data_shape(data, shape)
-  data <- array(data, dim = shape)
-  impl_client_buffer_from_double(
-    client = as_pjrt_client(client),
-    data = data,
-    dims = shape,
-    dtype = dtype
-  )
+  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, client, shape, "f32", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_raw) <- function(

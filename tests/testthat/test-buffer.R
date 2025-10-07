@@ -158,9 +158,9 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
 
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
-  expect_error(pjrt_buffer(logical(0)), "but specified shape is ()")
-  expect_error(pjrt_buffer(integer(0)), "but specified shape is ()")
-  expect_error(pjrt_buffer(numeric(0)), "but specified shape is ()")
+  expect_error(pjrt_buffer(logical(0)), "Empty buffers must have at least one dimension equal to 0")
+  expect_error(pjrt_buffer(integer(0)), "Empty buffers must have at least one dimension equal to 0")
+  expect_error(pjrt_buffer(numeric(0)), "Empty buffers must have at least one dimension equal to 0")
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {
@@ -554,5 +554,12 @@ test_that("can create float from int", {
   expect_equal(
     pjrt_buffer(1:4, "f64"),
     pjrt_buffer(as.double(1:4), "f64")
+  )
+})
+
+test_that("create 0-dim array from integer", {
+  expect_equal(
+    as_array(pjrt_buffer(integer(), "f32", shape = c(0, 1, 2))),
+    array(integer(), dim = c(0, 1, 2))
   )
 })
