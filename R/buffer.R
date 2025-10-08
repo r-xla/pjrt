@@ -22,13 +22,18 @@ is_buffer <- function(x) {
 #' the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
 #'
 #' @section Extractors:
-#' * [`device()`] for the device of the buffer.
-#' * [`elt_type()`] for the element type of the buffer.
-#' * [`shape()`] for the shape of the buffer.
+#' * [`platform()`] -> `character(1)`: for the platform name of the buffer (`"cpu"`, `"cuda"`, ...).
+#' * [`device()`] -> `PJRTDevice`: for the device of the buffer (also includes device number)
+#' * [`elt_type()`] -> `PJRTElementType`: for the element type of the buffer.
+#' * [`shape()`] -> `integer()`: for the shape of the buffer.
 #'
 #' @section Converters:
-#' * [`as_array()`] for an array.
-#' * [`as_raw()`] for a raw vector.
+#' * [`as_array()`] -> `array` | `vector`: for converting back to R (`vector` is only used for shape `integer()`).
+#' * [`as_raw()`] -> `raw` for a raw vector.
+#'
+#' @section Reading and Writing:
+#' * [`safetensors::safe_save_file`] for writing to a safetensors file.
+#' * [`safetensors::safe_load_file`] for reading from a safetensors file.
 #'
 #' @section Scalars:
 #' When calling this function on a vector of length 1, the resulting shape is `1L`.
@@ -36,7 +41,7 @@ is_buffer <- function(x) {
 #'
 #' @param data (any)\cr
 #'  Data to convert to a `PJRTBuffer`.
-#' @param dtype (`character(1)`)\cr
+#' @param dtype (`NULL` | `character(1)`)\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
@@ -56,29 +61,51 @@ is_buffer <- function(x) {
 pjrt_buffer <- S7::new_generic(
   "pjrt_buffer",
   "data",
-  function(data, dtype = NULL, client = pjrt_client(), shape = NULL, ...) {
+  function(data, dtype = NULL, client = NULL, shape = NULL, ...) {
+    client <- as_pjrt_client(client)
     S7::S7_dispatch()
   }
 )
 
-#' @rdname pjrt_buffer
-#' @export
-pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, client = pjrt_client(), ...) {
-  S7::S7_dispatch()
-})
+buffer_identity <- function(data, dtype = NULL, client = NULL, shape = NULL, ...) {
+  if (!is.null(dtype) && !identical(dtype, as.character(elt_type(data)))) {
+    stop("Must use the same data type as the data")
+  }
+  if (!is.null(client) && !identical(as.character(client), platform(data))) {
+    stop("Must use the same client as the data")
+  }
+  if (!is.null(shape) && !identical(shape, shape(data))) {
+    stop("Must use the same shape as the data")
+  }
+  data
+}
+
+method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
 
 #' @rdname pjrt_buffer
 #' @export
-pjrt_empty <- function(dtype, shape, client = pjrt_client(), ...) {
+pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, client = NULL, ...) {
+  client <- as_pjrt_client(client)
+  S7::S7_dispatch()
+})
+
+method(pjrt_scalar, S7::new_S3_class("PJRTBuffer")) <- function(data, dtype = NULL, client = NULL, ...) {
+  buffer_identity(data, dtype, client, shape = integer())
+}
+
+#' @rdname pjrt_buffer
+#' @export
+pjrt_empty <- function(dtype, shape, client = NULL) {
   if (!any(shape == 0)) {
     stop("Empty buffers must have at least one dimension equal to 0")
   }
+  client <- as_pjrt_client(client)
   data <- if (identical(dtype, "pred")) {
     logical()
   } else {
     integer()
   }
-  pjrt_buffer(array(data, dim = shape), dtype, client, ...)
+  pjrt_buffer(array(data, dim = shape), dtype, client)
 }
 
 recycle_data <- function(data, shape) {
@@ -112,6 +139,7 @@ convert_buffer_args <- function(data, dtype, client, shape, default, ...) {
     stop("Unused arguments")
   }
   data <- recycle_data(data, shape)
+  client <- client %??% pjrt_client()
   list(
     dtype = dtype,
     client = as_pjrt_client(client),
@@ -123,7 +151,7 @@ convert_buffer_args <- function(data, dtype, client, shape, default, ...) {
 S7::method(pjrt_buffer, S7::class_logical) <- function(
   data,
   dtype = NULL,
-  client = pjrt_client(),
+  client = NULL,
   shape = NULL,
   ...
 ) {
@@ -133,7 +161,7 @@ S7::method(pjrt_buffer, S7::class_logical) <- function(
 S7::method(pjrt_buffer, S7::class_integer) <- function(
   data,
   dtype = NULL,
-  client = pjrt_client(),
+  client = NULL,
   shape = NULL,
   ...
 ) {
@@ -143,7 +171,7 @@ S7::method(pjrt_buffer, S7::class_integer) <- function(
 S7::method(pjrt_buffer, S7::class_double) <- function(
   data,
   dtype = NULL,
-  client = pjrt_client(),
+  client = NULL,
   shape = NULL,
   ...
 ) {
@@ -154,7 +182,7 @@ S7::method(pjrt_buffer, S7::class_raw) <- function(
   data,
   ...,
   dtype = NULL,
-  client = pjrt_client(),
+  client = NULL,
   shape = NULL,
   row_major
 ) {
@@ -179,7 +207,7 @@ S7::method(pjrt_buffer, S7::class_raw) <- function(
 S7::method(pjrt_scalar, S7::class_logical) <- function(
   data,
   dtype = NULL,
-  client = pjrt_client(),
+  client = NULL,
   ...
 ) {
   dtype <- dtype %??% "pred"
@@ -200,7 +228,7 @@ S7::method(pjrt_scalar, S7::class_logical) <- function(
 S7::method(pjrt_scalar, S7::class_integer) <- function(
   data,
   dtype = NULL,
-  client = pjrt_client(),
+  client = NULL,
   ...
 ) {
   dtype <- dtype %??% "i32"
@@ -221,7 +249,7 @@ S7::method(pjrt_scalar, S7::class_integer) <- function(
 S7::method(pjrt_scalar, S7::class_double) <- function(
   data,
   dtype = NULL,
-  client = pjrt_client(),
+  client = NULL,
   ...
 ) {
   dtype <- dtype %??% "f32"
@@ -243,7 +271,7 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
   data,
   ...,
   dtype = NULL,
-  client = pjrt_client()
+  client = NULL
 ) {
   if (is.null(dtype)) {
     stop("dtype must be provided")
@@ -270,12 +298,12 @@ elt_type <- function(x) {
   impl_buffer_elt_type(x)
 }
 
-method(as_array, S7::new_S3_class("PJRTBuffer")) <- function(x, client = pjrt_client(), ...) {
+method(as_array, S7::new_S3_class("PJRTBuffer")) <- function(x, client = NULL, ...) {
   client <- as_pjrt_client(client)
   impl_client_buffer_to_array(client, x)
 }
 
-method(as_raw, S7::new_S3_class("PJRTBuffer")) <- function(x, client = pjrt_client(), row_major, ...) {
+method(as_raw, S7::new_S3_class("PJRTBuffer")) <- function(x, client = NULL, row_major, ...) {
   client <- as_pjrt_client(client)
   assert_flag(row_major)
   impl_client_buffer_to_raw(client, x, row_major = row_major)
@@ -323,11 +351,9 @@ method(device, S7::new_S3_class("PJRTBuffer")) <- function(x) {
 
 #' @include client.R
 S7::method(platform, S7::new_S3_class("PJRTBuffer")) <- function(x) {
+  # Retrieve the device description and extract the platform prefix
   desc <- as.character(device(x))
-  # Known prefixes map to platform names
-  # e.g., "CpuDevice(id=0)", "CudaDevice(id=0)", "MetalDevice(id=0)"
-  prefix <- tolower(regmatches(desc, regexpr("^[A-Za-z]+(?=Device)", desc, perl = TRUE)))
-  tolower(prefix)
+  tolower(regmatches(desc, regexpr("^[A-Za-z]+(?=Device)", desc, perl = TRUE)))
 }
 
 #' @export

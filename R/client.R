@@ -63,6 +63,10 @@ as_pjrt_client <- function(x) {
     return(pjrt_client(x))
   }
 
+  if (is.null(x)) {
+    return(pjrt_client())
+  }
+
   stop("Must be a PJRTClient or a platform name")
 }
 
@@ -72,11 +76,26 @@ as_pjrt_client <- function(x) {
 #' @param x (`PJRTBuffer`)\cr
 #'   The buffer.
 #' @param ... Additional arguments (unused).
-#' @return A string representation of the platform name.
+#' @return `character(1)`
 #' @export
 platform <- S7::new_generic("platform", "x")
 S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
   impl_client_platform(x)
+}
+
+#' @export
+as.character.PJRTClient <- function(x, ...) {
+  platform(x)
+}
+
+#' @export
+format.PJRTClient <- function(x, ...) {
+  as.character(x)
+}
+
+#' @export
+print.PJRTClient <- function(x, ...) {
+  cat(sprintf("<PJRTClient:%s>\n", platform(x)))
 }
 
 check_client <- function(client) {

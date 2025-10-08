@@ -463,6 +463,14 @@ test_that("device works", {
   expect_snapshot(as.character(device(buf)))
 })
 
+test_that("platform for PJRTBuffer", {
+  buf_cpu <- pjrt_buffer(1, client = pjrt_client("cpu"))
+  expect_equal(platform(buf_cpu), "cpu")
+  skip_if(!is_cuda())
+  buf_cuda <- pjrt_buffer(1, client = pjrt_client("cuda"))
+  expect_equal(platform(buf_cuda), "cuda")
+})
+
 test_that("tests can compare buffers", {
   expect_equal(pjrt_buffer(1), pjrt_buffer(1))
   expect_failure(expect_equal(pjrt_buffer(1), pjrt_buffer(2)))
@@ -566,4 +574,19 @@ test_that("create 0-dim array from integer", {
 
 test_that("empty buffer assertion", {
   expect_error(pjrt_empty("f32", c(1, 2, 3)), "Empty buffers must have at least one dimension equal to 0")
+})
+
+test_that("identity of buffer", {
+  x <- pjrt_buffer(1, client = "cpu")
+  expect_equal(pjrt_buffer(x), x)
+  expect_error(pjrt_buffer(x, dtype = "i32"), "Must use the same data type as the data")
+  expect_error(pjrt_buffer(x, shape = c(1, 2)), "Must use the same shape as the data")
+  skip_if(!is_cuda())
+  expect_error(pjrt_buffer(x, client = pjrt_client("cuda")), "Must use the same client as the data")
+
+  x <- pjrt_scalar(1, client = "cpu")
+  expect_equal(pjrt_scalar(x), x)
+  expect_error(pjrt_scalar(x, dtype = "i32"), "Must use the same data type as the data")
+  skip_if(!is_cuda())
+  expect_error(pjrt_scalar(x, client = pjrt_client("cuda")), "Must use the same client as the data")
 })
