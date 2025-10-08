@@ -93,7 +93,12 @@ Data to convert to a <code>PJRTBuffer</code>.</p></dd>
 The type of the buffer.
 Currently supported types are:</p><ul><li><p><code>"pred"</code>: predicate (i.e. a boolean)</p></li>
 <li><p><code>"{s,u}{8,16,32,64}"</code>: Signed and unsigned integer (for <code>integer</code> data).</p></li>
-<li><p><code>"f{32,64}"</code>: Floating point (for <code>double</code> or <code>integer</code> data).</p></li>
+<li><p><code>"f{32,64}"</code>: Floating point (for <code>double</code> or <code>integer</code> data).
+The default (<code>NULL</code>) depends on the method:</p></li>
+<li><p><code>logical</code> -&gt; <code>"pred"</code></p></li>
+<li><p><code>integer</code> -&gt; <code>"i32"</code></p></li>
+<li><p><code>double</code> -&gt; <code>"f32"</code></p></li>
+<li><p><code>raw</code> -&gt; must be supplied</p></li>
 </ul></dd>
 
 
@@ -104,9 +109,10 @@ from which the client will be created.</p></dd>
 
 
 <dt id="arg-shape">shape<a class="anchor" aria-label="anchor" href="#arg-shape"></a></dt>
-<dd><p>(<code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>)<br>
+<dd><p>(<code>NULL</code> | <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>)<br>
 The dimensions of the buffer.
-The default is to infer them from the data if possible.</p></dd>
+The default (<code>NULL</code>) is to infer them from the data if possible.
+The default (<code>NULL</code>) depends on the method.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
