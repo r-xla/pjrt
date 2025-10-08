@@ -563,3 +563,7 @@ test_that("create 0-dim array from integer", {
     array(integer(), dim = c(0, 1, 2))
   )
 })
+
+test_that("empty buffer assertion", {
+  expect_error(pjrt_empty("f32", c(1, 2, 3)), "Empty buffers must have at least one dimension equal to 0")
+})

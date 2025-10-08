@@ -70,7 +70,10 @@ pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NUL
 #' @rdname pjrt_buffer
 #' @export
 pjrt_empty <- function(dtype, shape, client = pjrt_client(), ...) {
-  data <- if (dtype == "pred") {
+  if (!any(shape == 0)) {
+    stop("Empty buffers must have at least one dimension equal to 0")
+  }
+  data <- if (identical(dtype, "pred")) {
     logical()
   } else {
     integer()
