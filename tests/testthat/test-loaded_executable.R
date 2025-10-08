@@ -49,3 +49,10 @@ test_that("can execute empty constant", {
   expect_snapshot(print(result))
   expect_equal(as_array(result), array(integer(), 0L))
 })
+
+test_that("print works", {
+  path <- system.file("programs/stablehlo-empty-constant.mlir", package = "pjrt")
+  program <- pjrt_program(path = path, format = "mlir")
+  executable <- pjrt_compile(program)
+  expect_snapshot(executable)
+})

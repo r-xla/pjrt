@@ -158,9 +158,9 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
 
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
-  expect_error(pjrt_buffer(logical(0)), "Empty buffers must have at least one dimension equal to 0")
-  expect_error(pjrt_buffer(integer(0)), "Empty buffers must have at least one dimension equal to 0")
-  expect_error(pjrt_buffer(numeric(0)), "Empty buffers must have at least one dimension equal to 0")
+  expect_error(pjrt_buffer(logical(0), shape = c(1, 4)), "but specified shape is")
+  expect_error(pjrt_buffer(integer(0), shape = c(1, 4)), "but specified shape is")
+  expect_error(pjrt_buffer(numeric(0), shape = c(1, 4)), "but specified shape is")
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {
@@ -518,6 +518,7 @@ test_that("can specify dims", {
 
 test_that("prevent dubious recycling behavior", {
   expect_error(pjrt_buffer(1:2, shape = c(1, 4)), "but specified shape is")
+  expect_error(pjrt_buffer(1:2, shape = c(1, 4)), "but specified shape is")
   expect_error(pjrt_buffer(c(1, 2), shape = c(1, 4)), "but specified shape is")
   expect_error(pjrt_buffer(c(TRUE, FALSE), shape = c(1, 4)), "but specified shape is")
 
@@ -589,4 +590,9 @@ test_that("identity of buffer", {
   expect_error(pjrt_scalar(x, dtype = "i32"), "Must use the same data type as the data")
   skip_if(!is_cuda())
   expect_error(pjrt_scalar(x, client = pjrt_client("cuda")), "Must use the same client as the data")
+})
+
+test_that("recycle scalar to any length", {
+  x <- pjrt_buffer(1, shape = c(1, 2))
+  expect_equal(shape(x), c(1, 2))
 })

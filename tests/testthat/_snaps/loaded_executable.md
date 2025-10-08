@@ -5,3 +5,10 @@
     Output
       PJRTBuffer{0xi64} 
 
+# print works
+
+    Code
+      executable
+    Output
+      <PJRTLoadedExecutable>
+

@@ -47,9 +47,18 @@ is_buffer <- function(x) {
 #'   - `"pred"`: predicate (i.e. a boolean)
 #'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
-#' @param shape (`integer()`)\cr
+#'   The default (`NULL`) depends on the method:
+#'   - `logical` -> `"pred"`
+#'   - `integer` -> `"i32"`
+#'   - `double` -> `"f32"`
+#'   - `raw` -> must be supplied
+#' @param shape (`NULL` | `integer()`)\cr
 #'   The dimensions of the buffer.
-#'   The default is to infer them from the data if possible.
+#'   The default (`NULL`) is to infer them from the data if possible.
+#'   The default (`NULL`) depends on the method.
+#' @param client (`NULL` | `PJRTClient` | `character(1)`)\cr
+#'   A [`PJRTClient`][pjrt_client] oject or the name of the platform to use ("cpu", "cuda", ...).
+#'   The default (`NULL`) uses the environment variable `PJRT_PLATFORM` or defaults to "cpu".
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:
@@ -110,7 +119,7 @@ pjrt_empty <- function(dtype, shape, client = NULL) {
 
 recycle_data <- function(data, shape) {
   data_len <- length(data)
-  numel <- if (length(shape)) prod(shape) else 0
+  numel <- if (length(shape)) prod(shape) else 1L
 
   if (numel == 0) {
     if (!any(shape == 0)) {
@@ -132,13 +141,15 @@ recycle_data <- function(data, shape) {
   }
 }
 
-convert_buffer_args <- function(data, dtype, client, shape, default, ...) {
+convert_buffer_args <- function(data, dtype, client, shape, default, recycle = TRUE, ...) {
   dtype <- dtype %??% default
   shape <- shape %??% get_dims(data)
   if (...length()) {
     stop("Unused arguments")
   }
-  data <- recycle_data(data, shape)
+  if (recycle) {
+    data <- recycle_data(data, shape)
+  }
   client <- client %??% pjrt_client()
   list(
     dtype = dtype,
@@ -210,19 +221,10 @@ S7::method(pjrt_scalar, S7::class_logical) <- function(
   client = NULL,
   ...
 ) {
-  dtype <- dtype %??% "pred"
   if (length(data) != 1) {
-    stop("data must be an atomic vector of length 1")
+    stop("data must have length 1")
   }
-  if (...length()) {
-    stop("Unused arguments")
-  }
-  impl_client_buffer_from_logical(
-    data,
-    dims = integer(),
-    client = as_pjrt_client(client),
-    dtype = dtype
-  )
+  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, client, integer(), "pred", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_integer) <- function(
@@ -231,19 +233,10 @@ S7::method(pjrt_scalar, S7::class_integer) <- function(
   client = NULL,
   ...
 ) {
-  dtype <- dtype %??% "i32"
   if (length(data) != 1) {
-    stop("data must be an atomic vector of length 1")
+    stop("data must have length 1")
   }
-  if (...length()) {
-    stop("Unused arguments")
-  }
-  impl_client_buffer_from_integer(
-    data,
-    dims = integer(),
-    client = as_pjrt_client(client),
-    dtype = dtype
-  )
+  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, client, integer(), "i32", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_double) <- function(
@@ -252,19 +245,10 @@ S7::method(pjrt_scalar, S7::class_double) <- function(
   client = NULL,
   ...
 ) {
-  dtype <- dtype %??% "f32"
   if (length(data) != 1) {
-    stop("data must be an atomic vector of length 1")
+    stop("data must have length 1")
   }
-  if (...length()) {
-    stop("Unused arguments")
-  }
-  impl_client_buffer_from_double(
-    data,
-    dims = integer(),
-    client = as_pjrt_client(client),
-    dtype = dtype
-  )
+  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, client, integer(), "f32", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_raw) <- function(
@@ -276,16 +260,7 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
   if (is.null(dtype)) {
     stop("dtype must be provided")
   }
-  if (...length()) {
-    stop("Unused arguments")
-  }
-  impl_client_buffer_from_raw(
-    data,
-    dims = integer(),
-    client = as_pjrt_client(client),
-    dtype = dtype,
-    row_major = FALSE
-  )
+  do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, client, integer(), "f32", recycle = FALSE, ...))
 }
 
 #' @title Element Type

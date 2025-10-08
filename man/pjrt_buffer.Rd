@@ -23,15 +23,21 @@ Currently supported types are:
 \item \code{"pred"}: predicate (i.e. a boolean)
 \item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
+The default (\code{NULL}) depends on the method:
+\item \code{logical} -> \code{"pred"}
+\item \code{integer} -> \code{"i32"}
+\item \code{double} -> \code{"f32"}
+\item \code{raw} -> must be supplied
 }}
 
 \item{client}{(\code{PJRTClient} | \code{character(1)})\cr
 A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
 from which the client will be created.}
 
-\item{shape}{(\code{integer()})\cr
+\item{shape}{(\code{NULL} | \code{integer()})\cr
 The dimensions of the buffer.
-The default is to infer them from the data if possible.}
+The default (\code{NULL}) is to infer them from the data if possible.
+The default (\code{NULL}) depends on the method.}
 
 \item{...}{(any)\cr
 Additional arguments.

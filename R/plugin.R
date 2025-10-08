@@ -22,7 +22,7 @@ check_plugin <- function(plugin) {
 #' Create a PJRT plugin for a specific platform.
 #'
 #' @section Extractors:
-#' * [`plugin_attributes()`] for a named `list()` of attributes.
+#' * [`plugin_attributes()`] -> `list()`: for the attributes of the plugin.
 #'
 #' @param platform (`character(1)`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
@@ -33,7 +33,11 @@ pjrt_plugin <- function(platform) {
     return(the$plugins[[platform]])
   }
 
-  the$plugins[[platform]] <- impl_plugin_load(plugin_path(platform))
+  plugin <- impl_plugin_load(plugin_path(platform))
+  attributes(plugin) <- list(platform = platform)
+  class(plugin) <- "PJRTPlugin"
+  the$plugins[[platform]] <- plugin
+  plugin
 }
 
 plugin_path <- function(platform) {
@@ -230,4 +234,10 @@ as_pjrt_plugin <- function(x) {
   } else {
     stop("Invalid plugin: ", class(x))
   }
+}
+
+#' @export
+print.PJRTPlugin <- function(x, ...) {
+  cat(sprintf("<PJRTPlugin:%s>\n", attr(x, "platform")))
+  invisible(x)
 }

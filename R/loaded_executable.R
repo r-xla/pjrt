@@ -42,6 +42,12 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   result
 }
 
+#' @export
+print.PJRTLoadedExecutable <- function(x, ...) {
+  cat("<PJRTLoadedExecutable>\n")
+  invisible(x)
+}
+
 check_loaded_executable <- function(x) {
   stopifnot(inherits(x, "PJRTLoadedExecutable"))
   invisible(NULL)
