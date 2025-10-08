@@ -114,7 +114,7 @@ convert_buffer_args <- function(data, dtype, client, shape, default, ...) {
   data <- recycle_data(data, shape)
   list(
     dtype = dtype,
-    client = client,
+    client = as_pjrt_client(client),
     data = data,
     dims = shape
   )
