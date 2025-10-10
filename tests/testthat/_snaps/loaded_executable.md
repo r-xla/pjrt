@@ -3,7 +3,8 @@
     Code
       print(result)
     Output
-      PJRTBuffer{0xi64} 
+      PJRTBuffer 
+      [ CPUi64{0} ] 
 
 # print works
 

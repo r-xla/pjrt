@@ -386,11 +386,11 @@ print.PJRTBuffer <- function(
   if (header) {
     shp <- shape(x)
     shape_str <- if (length(shp)) {
-      paste0(paste0(shp, collapse = "x"), "x")
+      paste0(paste0(shp, collapse = "x"))
     } else {
       ""
     }
-    cat(sprintf("%s{%s%s}", class(x)[[1L]], shape_str, elt_type(x)), "\n")
+    cat(class(x)[[1L]], "\n")
   }
   impl_buffer_print(
     x,
@@ -398,6 +398,7 @@ print.PJRTBuffer <- function(
     max_width = max_width,
     max_rows_slice = max_rows_slice
   )
+  cat(sprintf("[ %s%s{%s} ]", toupper(platform(x)), elt_type(x), shape_str), "\n")
   invisible(x)
 }
 

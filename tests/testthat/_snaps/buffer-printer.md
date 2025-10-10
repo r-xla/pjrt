@@ -3,145 +3,161 @@
     Code
       pjrt_buffer(1L, "i8")
     Output
-      PJRTBuffer{1xi8} 
+      PJRTBuffer 
        1
+      [ CPUi8{1} ] 
 
 ---
 
     Code
       pjrt_buffer(1L, "i16")
     Output
-      PJRTBuffer{1xi16} 
+      PJRTBuffer 
        1
+      [ CPUi16{1} ] 
 
 ---
 
     Code
       pjrt_buffer(1L, "i32")
     Output
-      PJRTBuffer{1xi32} 
+      PJRTBuffer 
        1
+      [ CPUi32{1} ] 
 
 ---
 
     Code
       pjrt_buffer(1L, "ui8")
     Output
-      PJRTBuffer{1xui8} 
+      PJRTBuffer 
        1
+      [ CPUui8{1} ] 
 
 ---
 
     Code
       pjrt_buffer(1L, "ui16")
     Output
-      PJRTBuffer{1xui16} 
+      PJRTBuffer 
        1
+      [ CPUui16{1} ] 
 
 ---
 
     Code
       pjrt_buffer(1L, "ui32")
     Output
-      PJRTBuffer{1xui32} 
+      PJRTBuffer 
        1
+      [ CPUui32{1} ] 
 
 ---
 
     Code
       pjrt_buffer(c(1L, 2L, 3L))
     Output
-      PJRTBuffer{3xi32} 
+      PJRTBuffer 
        1
        2
        3
+      [ CPUi32{3} ] 
 
 ---
 
     Code
       pjrt_buffer(matrix(1:10, nrow = 2))
     Output
-      PJRTBuffer{2x5xi32} 
+      PJRTBuffer 
         1  3  5  7  9
         2  4  6  8 10
+      [ CPUi32{2x5} ] 
 
 # printer for integers with large difference
 
     Code
       pjrt_buffer(x)
     Output
-      PJRTBuffer{2x2xi32} 
+      PJRTBuffer 
        1.0000e+07 3.0000e+07
        2.0000e+07          1
+      [ CPUi32{2x2} ] 
 
 # inf, nan
 
     Code
       pjrt_buffer(c(Inf, -Inf, NaN, 1))
     Output
-      PJRTBuffer{4xf32} 
+      PJRTBuffer 
           inf
          -inf
           nan
        1.0000
+      [ CPUf32{4} ] 
 
 ---
 
     Code
       pjrt_buffer(c(Inf, Inf, NA, 100011.234567))
     Output
-      PJRTBuffer{4xf32} 
+      PJRTBuffer 
                inf
                inf
                nan
        100011.2344
+      [ CPUf32{4} ] 
 
 ---
 
     Code
       pjrt_buffer(c(Inf, Inf, NA, 100011.234567), shape = c(1, 4))
     Output
-      PJRTBuffer{1x4xf32} 
+      PJRTBuffer 
                inf         inf         nan 100011.2344
+      [ CPUf32{1x4} ] 
 
 # Up to 6 digits are printed for integers
 
     Code
       pjrt_buffer(1234567L)
     Output
-      PJRTBuffer{1xi32} 
+      PJRTBuffer 
        1.2346e+06
+      [ CPUi32{1} ] 
 
 ---
 
     Code
       pjrt_buffer(-1234567L)
     Output
-      PJRTBuffer{1xi32} 
+      PJRTBuffer 
        -1.2346e+06
+      [ CPUi32{1} ] 
 
 ---
 
     Code
       pjrt_buffer(123456L)
     Output
-      PJRTBuffer{1xi32} 
+      PJRTBuffer 
        123456
+      [ CPUi32{1} ] 
 
 ---
 
     Code
       pjrt_buffer(-123456L)
     Output
-      PJRTBuffer{1xi32} 
+      PJRTBuffer 
        -123456
+      [ CPUi32{1} ] 
 
 # printer for doubles
 
     Code
       pjrt_buffer(1:10, "f32")
     Output
-      PJRTBuffer{10xf32} 
+      PJRTBuffer 
         1.0000
         2.0000
         3.0000
@@ -152,13 +168,14 @@
         8.0000
         9.0000
        10.0000
+      [ CPUf32{10} ] 
 
 ---
 
     Code
       pjrt_buffer(1:10, "f64")
     Output
-      PJRTBuffer{10xf64} 
+      PJRTBuffer 
         1.0000
         2.0000
         3.0000
@@ -169,43 +186,47 @@
         8.0000
         9.0000
        10.0000
+      [ CPUf64{10} ] 
 
 ---
 
     Code
       pjrt_buffer(1e-10)
     Output
-      PJRTBuffer{1xf32} 
+      PJRTBuffer 
        1.0000e-10
+      [ CPUf32{1} ] 
 
 ---
 
     Code
       pjrt_buffer(c(1e+10, 1e-10))
     Output
-      PJRTBuffer{2xf32} 
+      PJRTBuffer 
        1.0000e+10
        1.0000e-10
+      [ CPUf32{2} ] 
 
 # printer for arrays with many dimensions
 
     Code
       pjrt_buffer(1:20, shape = c(1, 1, 1, 1, 1, 5, 4))
     Output
-      PJRTBuffer{1x1x1x1x1x5x4xi32} 
+      PJRTBuffer 
       (1,1,1,1,1,.,.) =
         1  6 11 16
         2  7 12 17
         3  8 13 18
         4  9 14 19
         5 10 15 20
+      [ CPUi32{1x1x1x1x1x5x4} ] 
 
 # column width is determined per slice
 
     Code
       pjrt_buffer(x, shape = c(2, 2, 2))
     Output
-      PJRTBuffer{2x2x2xf32} 
+      PJRTBuffer 
       (1,.,.) =
        1.0000 3.0000
        2.0000 4.0000
@@ -213,13 +234,14 @@
       (2,.,.) =
        100.0000 300.0000
        200.0000 400.0000
+      [ CPUf32{2x2x2} ] 
 
 # 1d vector
 
     Code
       pjrt_buffer(1:50L)
     Output
-      PJRTBuffer{50xi32} 
+      PJRTBuffer 
         1
         2
         3
@@ -251,13 +273,14 @@
        29
        30
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{50} ] 
 
 ---
 
     Code
       pjrt_buffer(as.double(1:50))
     Output
-      PJRTBuffer{50xf32} 
+      PJRTBuffer 
         1.0000
         2.0000
         3.0000
@@ -289,30 +312,33 @@
        29.0000
        30.0000
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUf32{50} ] 
 
 # logicals
 
     Code
       buf_log
     Output
-      PJRTBuffer{2x2xpred} 
+      PJRTBuffer 
        1 1
        0 0
+      [ CPUpred{2x2} ] 
 
 # alignment is as expected
 
     Code
       pjrt_buffer(c(1000L, 1L, 10L, 100L), shape = c(1, 4))
     Output
-      PJRTBuffer{1x4xi32} 
+      PJRTBuffer 
        1000    1   10  100
+      [ CPUi32{1x4} ] 
 
 # wide arrays
 
     Code
       pjrt_buffer(1:100, shape = c(1, 2, 50))
     Output
-      PJRTBuffer{1x2x50xi32} 
+      PJRTBuffer 
       (1,.,.) =
       Columns 1 to 28
         1  3  5  7  9 11 13 15 17 19 21 23 25 27 29 31 33 35 37 39 41 43 45 47 49 51 53 55
@@ -323,13 +349,14 @@
       Columns 50 to 50
         99
        100
+      [ CPUi32{1x2x50} ] 
 
 ---
 
     Code
       pjrt_buffer(1:1000, shape = c(1, 2, 500))
     Output
-      PJRTBuffer{1x2x500xi32} 
+      PJRTBuffer 
       (1,.,.) =
       Columns 1 to 28
         1  3  5  7  9 11 13 15 17 19 21 23 25 27 29 31 33 35 37 39 41 43 45 47 49 51 53 55
@@ -377,141 +404,158 @@
        603 605 607 609 611 613 615 617 619 621 623 625 627 629 631 633 635 637 639 641 643
        604 606 608 610 612 614 616 618 620 622 624 626 628 630 632 634 636 638 640 642 644
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{1x2x500} ] 
 
 # scalar
 
     Code
       pjrt_scalar(1, "f32")
     Output
-      PJRTBuffer{f32} 
+      PJRTBuffer 
        1.0000
+      [ CPUf32{} ] 
 
 ---
 
     Code
       pjrt_scalar(-10.1213, "f64")
     Output
-      PJRTBuffer{f64} 
+      PJRTBuffer 
        -10.1213
+      [ CPUf64{} ] 
 
 ---
 
     Code
       pjrt_scalar(10^6, "f32")
     Output
-      PJRTBuffer{f32} 
+      PJRTBuffer 
        1.0000e+06
+      [ CPUf32{} ] 
 
 ---
 
     Code
       pjrt_scalar(-10^6, "f32")
     Output
-      PJRTBuffer{f32} 
+      PJRTBuffer 
        -1.0000e+06
+      [ CPUf32{} ] 
 
 ---
 
     Code
       pjrt_scalar(10^5, "f32")
     Output
-      PJRTBuffer{f32} 
+      PJRTBuffer 
        100000.0000
+      [ CPUf32{} ] 
 
 ---
 
     Code
       pjrt_scalar(-10^5, "f32")
     Output
-      PJRTBuffer{f32} 
+      PJRTBuffer 
        -100000.0000
+      [ CPUf32{} ] 
 
 ---
 
     Code
       pjrt_scalar(250L, "ui8")
     Output
-      PJRTBuffer{ui8} 
+      PJRTBuffer 
        250
+      [ CPUui8{} ] 
 
 ---
 
     Code
       pjrt_scalar(12L, "ui16")
     Output
-      PJRTBuffer{ui16} 
+      PJRTBuffer 
        12
+      [ CPUui16{} ] 
 
 ---
 
     Code
       pjrt_scalar(0L, "ui32")
     Output
-      PJRTBuffer{ui32} 
+      PJRTBuffer 
        0
+      [ CPUui32{} ] 
 
 ---
 
     Code
       pjrt_scalar(998L, "ui64")
     Output
-      PJRTBuffer{ui64} 
+      PJRTBuffer 
        998
+      [ CPUui64{} ] 
 
 ---
 
     Code
       pjrt_scalar(14L, "i8")
     Output
-      PJRTBuffer{i8} 
+      PJRTBuffer 
        14
+      [ CPUi8{} ] 
 
 ---
 
     Code
       pjrt_scalar(-12L, "i16")
     Output
-      PJRTBuffer{i16} 
+      PJRTBuffer 
        -12
+      [ CPUi16{} ] 
 
 ---
 
     Code
       pjrt_scalar(0L, "i32")
     Output
-      PJRTBuffer{i32} 
+      PJRTBuffer 
        0
+      [ CPUi32{} ] 
 
 ---
 
     Code
       pjrt_scalar(998L, "i64")
     Output
-      PJRTBuffer{i64} 
+      PJRTBuffer 
        998
+      [ CPUi64{} ] 
 
 ---
 
     Code
       pjrt_scalar(TRUE)
     Output
-      PJRTBuffer{pred} 
+      PJRTBuffer 
        1
+      [ CPUpred{} ] 
 
 ---
 
     Code
       pjrt_scalar(FALSE)
     Output
-      PJRTBuffer{pred} 
+      PJRTBuffer 
        0
+      [ CPUpred{} ] 
 
 # printer options
 
     Code
       print(pjrt_buffer(1:100), max_rows = 10)
     Output
-      PJRTBuffer{100xi32} 
+      PJRTBuffer 
         1
         2
         3
@@ -523,13 +567,14 @@
         9
        10
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{100} ] 
 
 ---
 
     Code
       print(pjrt_buffer(1:100), max_rows = 100)
     Output
-      PJRTBuffer{100xi32} 
+      PJRTBuffer 
          1
          2
          3
@@ -630,13 +675,14 @@
         98
         99
        100
+      [ CPUi32{100} ] 
 
 ---
 
     Code
       print(pjrt_buffer(1:10000))
     Output
-      PJRTBuffer{10000xi32} 
+      PJRTBuffer 
         1
         2
         3
@@ -668,13 +714,14 @@
        29
        30
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{10000} ] 
 
 ---
 
     Code
       print(pjrt_buffer(1:11, shape = c(11, 1)), max_rows = 10)
     Output
-      PJRTBuffer{11x1xi32} 
+      PJRTBuffer 
         1
         2
         3
@@ -686,50 +733,55 @@
         9
        10
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{11x1} ] 
 
 ---
 
     Code
       print(pjrt_buffer(c(100L), shape = c(1, 1)), max_width = 3, max_rows = 1)
     Output
-      PJRTBuffer{1x1xi32} 
+      PJRTBuffer 
        100
+      [ CPUi32{1x1} ] 
 
 ---
 
     Code
       print(x, max_width = 7, max_rows = 1)
     Output
-      PJRTBuffer{1x3xi32} 
+      PJRTBuffer 
       Columns 1 to 1
        100
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{1x3} ] 
 
 ---
 
     Code
       print(x, max_width = 8, max_rows = 1)
     Output
-      PJRTBuffer{1x3xi32} 
+      PJRTBuffer 
       Columns 1 to 2
        100 100
        ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{1x3} ] 
 
 ---
 
     Code
       print(pjrt_buffer(rep(1e-07, 50), shape = c(1, 50)), max_width = -1)
     Output
-      PJRTBuffer{1x50xf32} 
+      PJRTBuffer 
       1e+07 *
        1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000
+      [ CPUf32{1x50} ] 
 
 # scale prefix is printed per slice
 
     Code
       pjrt_buffer(x, shape = c(2, 1, 2))
     Output
-      PJRTBuffer{2x1x2xf32} 
+      PJRTBuffer 
       (1,.,.) =
       1e+07 *
        10.0000 10.0000
@@ -737,13 +789,14 @@
       (2,.,.) =
       1e+10 *
        10.0000 10.0000
+      [ CPUf32{2x1x2} ] 
 
 ---
 
     Code
       print(pjrt_buffer(rep(x, 5), shape = c(2, 2, 5)), max_width = 15)
     Output
-      PJRTBuffer{2x2x5xf32} 
+      PJRTBuffer 
       (1,.,.) =
       1e+07 *
       Columns 1 to 1
@@ -779,4 +832,5 @@
       Columns 5 to 5
        10.0000
        10.0000
+      [ CPUf32{2x2x5} ] 
 

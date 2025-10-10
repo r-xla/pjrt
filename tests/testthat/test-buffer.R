@@ -596,3 +596,9 @@ test_that("recycle scalar to any length", {
   x <- pjrt_buffer(1, shape = c(1, 2))
   expect_equal(shape(x), c(1, 2))
 })
+
+test_that("can create dtype 'pred' from double", {
+  expect_equal(pjrt_buffer(1, dtype = "pred"), pjrt_buffer(TRUE))
+  expect_equal(pjrt_buffer(c(0, 1, 2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
+  expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
+})
