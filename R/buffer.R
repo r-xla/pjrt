@@ -384,13 +384,13 @@ print.PJRTBuffer <- function(
   max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE, lower = 1L)
 
   if (header) {
-    shp <- shape(x)
-    shape_str <- if (length(shp)) {
-      paste0(paste0(shp, collapse = "x"))
-    } else {
-      ""
-    }
     cat(class(x)[[1L]], "\n")
+  }
+  shp <- shape(x)
+  shape_str <- if (length(shp)) {
+    paste0(paste0(shp, collapse = "x"))
+  } else {
+    ""
   }
   impl_buffer_print(
     x,
