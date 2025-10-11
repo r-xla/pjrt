@@ -326,9 +326,9 @@ method(device, S7::new_S3_class("PJRTBuffer")) <- function(x) {
 
 #' @include client.R
 S7::method(platform, S7::new_S3_class("PJRTBuffer")) <- function(x) {
-  # Retrieve the device description and extract the platform prefix
   desc <- as.character(device(x))
-  tolower(regmatches(desc, regexpr("^[A-Za-z]+(?=Device)", desc, perl = TRUE)))
+  letters_only <- regmatches(desc, regexpr("^[A-Za-z]+", desc, perl = TRUE))
+  tolower(sub("Device$", "", letters_only))
 }
 
 #' @export

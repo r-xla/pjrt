@@ -1,4 +1,7 @@
+# we skip snapshot tests on metal and cuda, because the printer prints the platform name
+
 test_that("printer for integers", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_buffer(1L, "i8"))
   expect_snapshot(pjrt_buffer(1L, "i16"))
   expect_snapshot(pjrt_buffer(1L, "i32"))
@@ -12,17 +15,20 @@ test_that("printer for integers", {
 })
 
 test_that("printer for integers with large difference", {
+  skip_if(is_metal() | is_cuda())
   x <- matrix(as.integer(c(1:3 * 10000000L, 1L)), nrow = 2)
   expect_snapshot(pjrt_buffer(x))
 })
 
 test_that("inf, nan", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_buffer(c(Inf, -Inf, NaN, 1)))
   expect_snapshot(pjrt_buffer(c(Inf, Inf, NA, 100011.234567)))
   expect_snapshot(pjrt_buffer(c(Inf, Inf, NA, 100011.234567), shape = c(1, 4)))
 })
 
 test_that("Up to 6 digits are printed for integers", {
+  skip_if(is_metal() | is_cuda())
   # up to 6 digits are printed
   expect_snapshot(pjrt_buffer(1234567L))
   expect_snapshot(pjrt_buffer(-1234567L))
@@ -31,6 +37,7 @@ test_that("Up to 6 digits are printed for integers", {
 })
 
 test_that("printer for doubles", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_buffer(1:10, "f32"))
   expect_snapshot(pjrt_buffer(1:10, "f64"))
 
@@ -41,36 +48,43 @@ test_that("printer for doubles", {
 })
 
 test_that("printer for arrays with many dimensions", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_buffer(1:20, shape = c(1, 1, 1, 1, 1, 5, 4)))
 })
 
 test_that("column width is determined per slice", {
+  skip_if(is_metal() | is_cuda())
   x <- c(1, 100, 2, 200, 3, 300, 4, 400)
   pjrt_buffer(x, shape = c(2, 2, 2))
   expect_snapshot(pjrt_buffer(x, shape = c(2, 2, 2)))
 })
 
 test_that("1d vector", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_buffer(1:50L))
   expect_snapshot(pjrt_buffer(as.double(1:50)))
 })
 
 test_that("logicals", {
+  skip_if(is_metal() | is_cuda())
   log_mat <- matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2)
   buf_log <- pjrt_buffer(log_mat, dtype = "pred")
   expect_snapshot(buf_log)
 })
 
 test_that("alignment is as expected", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_buffer(c(1000L, 1L, 10L, 100L), shape = c(1, 4)))
 })
 
 test_that("wide arrays", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_buffer(1:100, shape = c(1, 2, 50)))
   expect_snapshot(pjrt_buffer(1:1000, shape = c(1, 2, 500)))
 })
 
 test_that("scalar", {
+  skip_if(is_metal() | is_cuda())
   expect_snapshot(pjrt_scalar(1, "f32"))
   expect_snapshot(pjrt_scalar(-10.1213, "f64"))
 
@@ -95,6 +109,7 @@ test_that("scalar", {
 })
 
 test_that("printer options", {
+  skip_if(is_metal() | is_cuda())
   # can restrict max_rows
   expect_snapshot(print(pjrt_buffer(1:100), max_rows = 10))
 
@@ -127,6 +142,7 @@ test_that("printer options", {
 })
 
 test_that("scale prefix is printed per slice", {
+  skip_if(is_metal() | is_cuda())
   x <- c(
     0.000001,
     0.000000001,
@@ -141,4 +157,14 @@ test_that("scale prefix is printed per slice", {
       max_width = 15
     )
   )
+})
+
+test_that("cuda", {
+  skip_if(!is_cuda())
+  expect_snapshot(pjrt_buffer(1:10, "f32", client = pjrt_client("cuda")))
+})
+
+test_that("metal", {
+  skip_if(!is_metal())
+  expect_snapshot(pjrt_buffer(1:10, "f32", client = pjrt_client("metal")))
 })

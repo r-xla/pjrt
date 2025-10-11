@@ -518,7 +518,6 @@ test_that("can specify dims", {
 
 test_that("prevent dubious recycling behavior", {
   expect_error(pjrt_buffer(1:2, shape = c(1, 4)), "but specified shape is")
-  expect_error(pjrt_buffer(1:2, shape = c(1, 4)), "but specified shape is")
   expect_error(pjrt_buffer(c(1, 2), shape = c(1, 4)), "but specified shape is")
   expect_error(pjrt_buffer(c(TRUE, FALSE), shape = c(1, 4)), "but specified shape is")
 
