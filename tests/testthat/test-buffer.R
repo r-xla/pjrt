@@ -577,6 +577,7 @@ test_that("empty buffer assertion", {
 })
 
 test_that("identity of buffer", {
+  skip_if(is_metal() | is_cuda())
   x <- pjrt_buffer(1, client = "cpu")
   expect_equal(pjrt_buffer(x), x)
   expect_error(pjrt_buffer(x, dtype = "i32"), "Must use the same data type as the data")

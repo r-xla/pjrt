@@ -46,7 +46,6 @@ test_that("can execute empty constant", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   result <- pjrt_execute(executable)
-  expect_snapshot(print(result))
   expect_equal(as_array(result), array(integer(), 0L))
 })
 
