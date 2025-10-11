@@ -6,32 +6,38 @@
 \alias{pjrt_empty}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, dtype = NULL, client = pjrt_client(), shape = NULL, ...)
+pjrt_buffer(data, dtype = NULL, client = NULL, shape = NULL, ...)
 
-pjrt_scalar(data, dtype = NULL, client = pjrt_client(), ...)
+pjrt_scalar(data, dtype = NULL, client = NULL, ...)
 
-pjrt_empty(dtype, shape, client = pjrt_client(), ...)
+pjrt_empty(dtype, shape, client = NULL)
 }
 \arguments{
 \item{data}{(any)\cr
 Data to convert to a \code{PJRTBuffer}.}
 
-\item{dtype}{(\code{character(1)})\cr
+\item{dtype}{(\code{NULL} | \code{character(1)})\cr
 The type of the buffer.
 Currently supported types are:
 \itemize{
 \item \code{"pred"}: predicate (i.e. a boolean)
 \item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
+The default (\code{NULL}) depends on the method:
+\item \code{logical} -> \code{"pred"}
+\item \code{integer} -> \code{"i32"}
+\item \code{double} -> \code{"f32"}
+\item \code{raw} -> must be supplied
 }}
 
 \item{client}{(\code{PJRTClient} | \code{character(1)})\cr
 A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
 from which the client will be created.}
 
-\item{shape}{(\code{integer()})\cr
+\item{shape}{(\code{NULL} | \code{integer()})\cr
 The dimensions of the buffer.
-The default is to infer them from the data if possible.}
+The default (\code{NULL}) is to infer them from the data if possible.
+The default (\code{NULL}) depends on the method.}
 
 \item{...}{(any)\cr
 Additional arguments.
@@ -59,17 +65,26 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 \section{Extractors}{
 
 \itemize{
-\item \code{\link[=device]{device()}} for the device of the buffer.
-\item \code{\link[=elt_type]{elt_type()}} for the element type of the buffer.
-\item \code{\link[=shape]{shape()}} for the shape of the buffer.
+\item \code{\link[=platform]{platform()}} -> \code{character(1)}: for the platform name of the buffer (\code{"cpu"}, \code{"cuda"}, ...).
+\item \code{\link[=device]{device()}} -> \code{PJRTDevice}: for the device of the buffer (also includes device number)
+\item \code{\link[=elt_type]{elt_type()}} -> \code{PJRTElementType}: for the element type of the buffer.
+\item \code{\link[=shape]{shape()}} -> \code{integer()}: for the shape of the buffer.
 }
 }
 
 \section{Converters}{
 
 \itemize{
-\item \code{\link[=as_array]{as_array()}} for an array.
-\item \code{\link[=as_raw]{as_raw()}} for a raw vector.
+\item \code{\link[=as_array]{as_array()}} -> \code{array} | \code{vector}: for converting back to R (\code{vector} is only used for shape \code{integer()}).
+\item \code{\link[=as_raw]{as_raw()}} -> \code{raw} for a raw vector.
+}
+}
+
+\section{Reading and Writing}{
+
+\itemize{
+\item \code{\link[safetensors:safe_save_file]{safetensors::safe_save_file}} for writing to a safetensors file.
+\item \code{\link[safetensors:safe_load_file]{safetensors::safe_load_file}} for reading from a safetensors file.
 }
 }
 

@@ -13,7 +13,7 @@ The buffer.}
 \item{...}{Additional arguments (unused).}
 }
 \value{
-A string representation of the platform name.
+\code{character(1)}
 }
 \description{
 Get the platform name of a PJRT buffer.

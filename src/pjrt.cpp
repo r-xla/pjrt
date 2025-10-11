@@ -207,22 +207,6 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
-    std::string dtype) {
-  if (dtype == "f32") {
-    return create_buffer_from_array<float>(client, data, dims,
-                                           PJRT_Buffer_Type_F32);
-  } else if (dtype == "f64") {
-    return create_buffer_from_array<double>(client, data, dims,
-                                            PJRT_Buffer_Type_F64);
-  } else {
-    Rcpp::NumericVector data_conv = Rcpp::as<Rcpp::NumericVector>(data);
-    return impl_client_buffer_from_integer(client, data_conv, dims, dtype);
-  }
-}
-
-// [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
     std::string dtype) {
@@ -273,6 +257,25 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
                                   row_major);
   } else {
     Rcpp::stop("Unsupported type for raw data: %s", dtype.c_str());
+  }
+}
+
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims,
+    std::string dtype) {
+  if (dtype == "f32") {
+    return create_buffer_from_array<float>(client, data, dims,
+                                           PJRT_Buffer_Type_F32);
+  } else if (dtype == "f64") {
+    return create_buffer_from_array<double>(client, data, dims,
+                                            PJRT_Buffer_Type_F64);
+  } else if (dtype == "pred") {
+    Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
+    return impl_client_buffer_from_logical(client, data_conv, dims, dtype);
+  } else {
+    Rcpp::NumericVector data_conv = Rcpp::as<Rcpp::NumericVector>(data);
+    return impl_client_buffer_from_integer(client, data_conv, dims, dtype);
   }
 }
 

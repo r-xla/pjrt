@@ -99,3 +99,7 @@ test_that("platform", {
   skip_if(!is_cuda())
   expect_equal(platform(pjrt_client("cuda")), "cuda")
 })
+
+test_that("printer", {
+  expect_snapshot(pjrt_client("cpu"))
+})

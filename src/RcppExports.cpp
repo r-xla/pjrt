@@ -108,20 +108,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_client_buffer_from_double
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_double(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
-    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
-    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double(client, data, dims, dtype));
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_client_buffer_from_logical
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, std::string dtype);
 RcppExport SEXP _pjrt_impl_client_buffer_from_logical(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
@@ -148,6 +134,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
     Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_raw(client, data, dims, dtype, row_major));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_client_buffer_from_double
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, std::vector<int64_t> dims, std::string dtype);
+RcppExport SEXP _pjrt_impl_client_buffer_from_double(SEXP clientSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double(client, data, dims, dtype));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -367,9 +367,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_compile_options_create", (DL_FUNC) &_pjrt_impl_compile_options_create, 1},
     {"_pjrt_impl_client_program_compile", (DL_FUNC) &_pjrt_impl_client_program_compile, 3},
     {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 4},
-    {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 4},
     {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 4},
     {"_pjrt_impl_client_buffer_from_raw", (DL_FUNC) &_pjrt_impl_client_buffer_from_raw, 5},
+    {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 4},
     {"_pjrt_impl_client_buffer_to_array", (DL_FUNC) &_pjrt_impl_client_buffer_to_array, 2},
     {"_pjrt_impl_client_buffer_to_raw", (DL_FUNC) &_pjrt_impl_client_buffer_to_raw, 3},
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},

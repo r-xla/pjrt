@@ -1,7 +1,7 @@
-# can execute empty constant
+# print works
 
     Code
-      print(result)
+      executable
     Output
-      PJRTBuffer{0xi64} 
+      <PJRTLoadedExecutable>
 

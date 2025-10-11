@@ -19,7 +19,7 @@ Create a PJRT plugin for a specific platform.
 \section{Extractors}{
 
 \itemize{
-\item \code{\link[=plugin_attributes]{plugin_attributes()}} for a named \code{list()} of attributes.
+\item \code{\link[=plugin_attributes]{plugin_attributes()}} -> \code{list()}: for the attributes of the plugin.
 }
 }
 

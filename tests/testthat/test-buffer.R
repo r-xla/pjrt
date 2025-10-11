@@ -158,9 +158,9 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
 
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
-  expect_error(pjrt_buffer(logical(0)), "but specified shape is ()")
-  expect_error(pjrt_buffer(integer(0)), "but specified shape is ()")
-  expect_error(pjrt_buffer(numeric(0)), "but specified shape is ()")
+  expect_error(pjrt_buffer(logical(0), shape = c(1, 4)), "but specified shape is")
+  expect_error(pjrt_buffer(integer(0), shape = c(1, 4)), "but specified shape is")
+  expect_error(pjrt_buffer(numeric(0), shape = c(1, 4)), "but specified shape is")
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {
@@ -463,6 +463,14 @@ test_that("device works", {
   expect_snapshot(as.character(device(buf)))
 })
 
+test_that("platform for PJRTBuffer", {
+  buf_cpu <- pjrt_buffer(1, client = pjrt_client("cpu"))
+  expect_equal(platform(buf_cpu), "cpu")
+  skip_if(!is_cuda())
+  buf_cuda <- pjrt_buffer(1, client = pjrt_client("cuda"))
+  expect_equal(platform(buf_cuda), "cuda")
+})
+
 test_that("tests can compare buffers", {
   expect_equal(pjrt_buffer(1), pjrt_buffer(1))
   expect_failure(expect_equal(pjrt_buffer(1), pjrt_buffer(2)))
@@ -555,4 +563,42 @@ test_that("can create float from int", {
     pjrt_buffer(1:4, "f64"),
     pjrt_buffer(as.double(1:4), "f64")
   )
+})
+
+test_that("create 0-dim array from integer", {
+  expect_equal(
+    as_array(pjrt_buffer(integer(), "f32", shape = c(0, 1, 2))),
+    array(integer(), dim = c(0, 1, 2))
+  )
+})
+
+test_that("empty buffer assertion", {
+  expect_error(pjrt_empty("f32", c(1, 2, 3)), "Empty buffers must have at least one dimension equal to 0")
+})
+
+test_that("identity of buffer", {
+  skip_if(is_metal() | is_cuda())
+  x <- pjrt_buffer(1, client = "cpu")
+  expect_equal(pjrt_buffer(x), x)
+  expect_error(pjrt_buffer(x, dtype = "i32"), "Must use the same data type as the data")
+  expect_error(pjrt_buffer(x, shape = c(1, 2)), "Must use the same shape as the data")
+  skip_if(!is_cuda())
+  expect_error(pjrt_buffer(x, client = pjrt_client("cuda")), "Must use the same client as the data")
+
+  x <- pjrt_scalar(1, client = "cpu")
+  expect_equal(pjrt_scalar(x), x)
+  expect_error(pjrt_scalar(x, dtype = "i32"), "Must use the same data type as the data")
+  skip_if(!is_cuda())
+  expect_error(pjrt_scalar(x, client = pjrt_client("cuda")), "Must use the same client as the data")
+})
+
+test_that("recycle scalar to any length", {
+  x <- pjrt_buffer(1, shape = c(1, 2))
+  expect_equal(shape(x), c(1, 2))
+})
+
+test_that("can create dtype 'pred' from double", {
+  expect_equal(pjrt_buffer(1, dtype = "pred"), pjrt_buffer(TRUE))
+  expect_equal(pjrt_buffer(c(0, 1, 2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
+  expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
 })

@@ -9,3 +9,7 @@ test_that("attributes work", {
     names(attrs)
   )
 })
+
+test_that("print works", {
+  expect_snapshot(pjrt_plugin("cpu"))
+})
