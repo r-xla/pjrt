@@ -273,12 +273,14 @@ elt_type <- function(x) {
   impl_buffer_elt_type(x)
 }
 
-method(as_array, S7::new_S3_class("PJRTBuffer")) <- function(x, client = NULL, ...) {
+#' @export
+as_array.PJRTBuffer <- function(x, client = NULL, ...) {
   client <- as_pjrt_client(client)
   impl_client_buffer_to_array(client, x)
 }
 
-method(as_raw, S7::new_S3_class("PJRTBuffer")) <- function(x, client = NULL, row_major, ...) {
+#' @export
+as_raw.PJRTBuffer <- function(x, client = NULL, row_major, ...) {
   client <- as_pjrt_client(client)
   assert_flag(row_major)
   impl_client_buffer_to_raw(client, x, row_major = row_major)
@@ -319,7 +321,8 @@ print.PJRTElementType <- function(x, ...) {
   cat(sprintf("<%s>\n", as.character(x)))
 }
 
-method(device, S7::new_S3_class("PJRTBuffer")) <- function(x) {
+#' @export
+device.PJRTBuffer <- function(x, ...) {
   impl_buffer_device(x)
 }
 
@@ -402,8 +405,8 @@ print.PJRTBuffer <- function(
   invisible(x)
 }
 
-
-S7::method(shape, S7::new_S3_class("PJRTBuffer")) <- function(x) {
+#' @export
+shape.PJRTBuffer <- function(x, ...) {
   impl_buffer_dimensions(x)
 }
 
