@@ -611,3 +611,7 @@ test_that("pjrt_buffer identit when working on a different client", {
   x <- pjrt_scalar(1, client = "cpu")
   expect_equal(x, pjrt_scalar(x, client = NULL))
 })
+
+test_that("Can create 'i32' from double", {
+  expect_equal(pjrt_buffer(1:4, dtype = "f32"), pjrt_buffer(as.double(1:4), dtype = "f32"))
+})

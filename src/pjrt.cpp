@@ -274,7 +274,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, data_conv, dims, dtype);
   } else {
-    Rcpp::NumericVector data_conv = Rcpp::as<Rcpp::NumericVector>(data);
+    Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
     return impl_client_buffer_from_integer(client, data_conv, dims, dtype);
   }
 }
