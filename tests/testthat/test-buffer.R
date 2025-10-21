@@ -603,6 +603,15 @@ test_that("can create dtype 'pred' from double", {
   expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
 })
 
+test_that("pjrt_buffer identit when working on a different client", {
+  skip_if(!(is_metal() || is_cuda()))
+  x <- pjrt_buffer(1, client = "cpu")
+  device <- if (is_metal()) "metal" else "cuda"
+  expect_equal(x, pjrt_buffer(x, client = NULL))
+  x <- pjrt_scalar(1, client = "cpu")
+  expect_equal(x, pjrt_scalar(x, client = NULL))
+})
+
 test_that("Can create 'i32' from double", {
   expect_equal(pjrt_buffer(1:4, dtype = "f32"), pjrt_buffer(as.double(1:4), dtype = "f32"))
 })

@@ -71,7 +71,6 @@ pjrt_buffer <- S7::new_generic(
   "pjrt_buffer",
   "data",
   function(data, dtype = NULL, client = NULL, shape = NULL, ...) {
-    client <- as_pjrt_client(client)
     S7::S7_dispatch()
   }
 )
@@ -94,7 +93,6 @@ method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
 #' @rdname pjrt_buffer
 #' @export
 pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, client = NULL, ...) {
-  client <- as_pjrt_client(client)
   S7::S7_dispatch()
 })
 
@@ -144,6 +142,7 @@ recycle_data <- function(data, shape) {
 convert_buffer_args <- function(data, dtype, client, shape, default, recycle = TRUE, ...) {
   dtype <- dtype %??% default
   shape <- shape %??% get_dims(data)
+  client <- as_pjrt_client(client)
   if (...length()) {
     stop("Unused arguments")
   }
