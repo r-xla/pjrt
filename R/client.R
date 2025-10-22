@@ -83,6 +83,17 @@ S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
   impl_client_platform(x)
 }
 
+#' @title Devices
+#' @description
+#' Get the addressable devices for a PJRT client.
+#' @param client ([`PJRTClient`][pjrt_client])\cr
+#'   Object convertible to a `PJRTClient`.
+#' @return `list` of `PJRTDevice`
+#' @export
+devices <- function(client = NULL) {
+  impl_client_devices(as_pjrt_client(client))
+}
+
 #' @export
 as.character.PJRTClient <- function(x, ...) {
   platform(x)
