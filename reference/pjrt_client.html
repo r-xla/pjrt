@@ -78,16 +78,9 @@ For CPU clients, you can pass <code>cpu_device_count</code> to specify the numbe
 
 
 <ul><li><p><code><a href="platform.html">platform()</a></code> for a <code>character(1)</code> representation of the platform.</p></li>
+<li><p><code><a href="devices.html">devices()</a></code> for a <code>list</code> of <code>PJRTDevice</code> objects.</p></li>
 </ul></div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">pjrt_client</span><span class="op">(</span><span class="st">"cpu"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;PJRTClient:cpu&gt;</span>
-<span class="r-in"><span><span class="fu">pjrt_client</span><span class="op">(</span><span class="st">"cpu"</span>, cpu_device_count <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in cli_abort("Can only specify client options the first time you create a client."):</span> could not find function "cli_abort"</span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 
