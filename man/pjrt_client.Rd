@@ -24,12 +24,7 @@ Create a PJRT client for a specific device.
 
 \itemize{
 \item \code{\link[=platform]{platform()}} for a \code{character(1)} representation of the platform.
+\item \code{\link[=devices]{devices()}} for a \code{list} of \code{PJRTDevice} objects.
 }
 }
 
-\examples{
-\dontshow{if (Sys.info()["sysname"] != "Windows") withAutoprint(\{ # examplesIf}
-pjrt_client("cpu")
-pjrt_client("cpu", cpu_device_count = 4)
-\dontshow{\}) # examplesIf}
-}

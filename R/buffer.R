@@ -172,7 +172,7 @@ S7::method(pjrt_buffer, S7::class_logical) <- function(
   shape = NULL,
   ...
 ) {
-  do.call(impl_buffer_from_logical, convert_buffer_args(data, dtype, device, shape, "pred", ...))
+  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, shape, "pred", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_integer) <- function(
@@ -182,7 +182,7 @@ S7::method(pjrt_buffer, S7::class_integer) <- function(
   shape = NULL,
   ...
 ) {
-  do.call(impl_buffer_from_integer, convert_buffer_args(data, dtype, device, shape, "i32", ...))
+  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, shape, "i32", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_double) <- function(
@@ -192,7 +192,7 @@ S7::method(pjrt_buffer, S7::class_double) <- function(
   shape = NULL,
   ...
 ) {
-  do.call(impl_buffer_from_double, convert_buffer_args(data, dtype, device, shape, "f32", ...))
+  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, shape, "f32", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_raw) <- function(
@@ -214,7 +214,7 @@ S7::method(pjrt_buffer, S7::class_raw) <- function(
   }
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
-  impl_buffer_from_raw(
+  impl_client_buffer_from_raw(
     client = client,
     device = device,
     data = data,
@@ -233,7 +233,7 @@ S7::method(pjrt_scalar, S7::class_logical) <- function(
   if (length(data) != 1) {
     stop("data must have length 1")
   }
-  do.call(impl_buffer_from_logical, convert_buffer_args(data, dtype, device, integer(), "pred", ...))
+  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, integer(), "pred", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_integer) <- function(
@@ -245,7 +245,7 @@ S7::method(pjrt_scalar, S7::class_integer) <- function(
   if (length(data) != 1) {
     stop("data must have length 1")
   }
-  do.call(impl_buffer_from_integer, convert_buffer_args(data, dtype, device, integer(), "i32", ...))
+  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, integer(), "i32", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_double) <- function(
@@ -257,7 +257,7 @@ S7::method(pjrt_scalar, S7::class_double) <- function(
   if (length(data) != 1) {
     stop("data must have length 1")
   }
-  do.call(impl_buffer_from_double, convert_buffer_args(data, dtype, device, integer(), "f32", ...))
+  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, integer(), "f32", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_raw) <- function(
@@ -269,7 +269,7 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
   if (is.null(dtype)) {
     stop("dtype must be provided")
   }
-  do.call(impl_buffer_from_raw, convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...))
+  do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...))
 }
 
 #' @title Element Type

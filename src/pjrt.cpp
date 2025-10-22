@@ -29,7 +29,6 @@ Rcpp::XPtr<rpjrt::PJRTClient> impl_plugin_client_create(
     Rcpp::CharacterVector names = opts.names();
     // We have ensured in the R side, that all optins are integers of length 1
     for (int i = 0; i < opts.size(); ++i) {
-      // assert it's an R integer of length 1
       std::string key = Rcpp::as<std::string>(names[i]);
       int64_t value = Rcpp::as<int64_t>(opts[i]);
       client_options.emplace_back(key, value);
@@ -185,7 +184,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_integer(
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype) {
   if (dtype == "i8") {
@@ -224,7 +223,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_integer(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_logical(
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype) {
   if (dtype == "pred") {
@@ -236,7 +235,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_logical(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_raw(
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype,
     bool row_major = false) {
@@ -279,7 +278,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_raw(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_double(
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype) {
   if (dtype == "f32") {
@@ -290,10 +289,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_from_double(
         client, data, dims, PJRT_Buffer_Type_F64, false, device->device);
   } else if (dtype == "pred") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
-    return impl_buffer_from_logical(client, device, data_conv, dims, dtype);
+    return impl_client_buffer_from_logical(client, device, data_conv, dims,
+                                           dtype);
   } else {
     Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
-    return impl_buffer_from_integer(client, device, data_conv, dims, dtype);
+    return impl_client_buffer_from_integer(client, device, data_conv, dims,
+                                           dtype);
   }
 }
 

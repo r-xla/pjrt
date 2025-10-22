@@ -12,10 +12,12 @@ Provides an R interface to PJRT (Pretty much Just another RunTime), which allows
 
 \itemize{
 \item \code{TF_CPP_MIN_LOG_LEVEL}: Logging level for PJRT C++ API:
+\itemize{
 \item 0: shows info, warnings and errors
 \item 1: shows warnings and errors
 \item 2: shows errors
 \item 3: shows nothing
+}
 \item \code{PJRT_PLATFORM}: Default platform to use, falls back to \code{"cpu"}.
 }
 }

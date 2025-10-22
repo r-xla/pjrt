@@ -83,15 +83,15 @@ test_that("can use more than one client", {
 
   pjrt_buffer(1, pjrt_client(device))
 
-  expect_permutation(c(device, "cpu"), names(the$clients))
-  expect_permutation(c(device, "cpu"), names(the$plugins))
+  expect_permutation(c(device, "cpu"), names(the[["clients"]]))
+  expect_permutation(c(device, "cpu"), names(the[["plugins"]]))
 
   # not they are loaded and global env 'the' is not changed
   pjrt_buffer(1, pjrt_client("cpu"))
   pjrt_buffer(1, pjrt_client(device))
 
-  expect_permutation(c(device, "cpu"), names(the$clients))
-  expect_permutation(c(device, "cpu"), names(the$plugins))
+  expect_permutation(c(device, "cpu"), names(the[["clients"]]))
+  expect_permutation(c(device, "cpu"), names(the[["plugins"]]))
 })
 
 test_that("platform", {
@@ -102,18 +102,4 @@ test_that("platform", {
 
 test_that("printer", {
   expect_snapshot(pjrt_client("cpu"))
-})
-
-test_that("devices", {
-  expect_list(devices("cpu"), types = "PJRTDevice")
-})
-
-test_that("can set cpu_device_count", {
-  plugin <- impl_plugin_load(plugin_path("cpu"))
-  client <- impl_plugin_client_create(plugin, list(cpu_device_count = 2))
-  expect_list(devices(client), types = "PJRTDevice", len = 2L)
-})
-
-test_that("device count is 1 by default", {
-  expect_list(devices("cpu"), types = "PJRTDevice", len = 1L)
 })

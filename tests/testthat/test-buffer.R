@@ -603,7 +603,7 @@ test_that("can create dtype 'pred' from double", {
   expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
 })
 
-test_that("pjrt_buffer identit when working on a different client", {
+test_that("pjrt_buffer identity when working on a different client", {
   skip_if(!(is_metal() || is_cuda()))
   x <- pjrt_buffer(1, device = "cpu")
   device <- if (is_metal()) "metal" else "cuda"

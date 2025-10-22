@@ -27,6 +27,7 @@ pjrt_compile <- function(
 #'
 #' @section Extractors:
 #' * [`platform()`] for a `character(1)` representation of the platform.
+#' * [`devices()`] for a `list` of `PJRTDevice` objects.
 #'
 #' @param platform (`character(1)` | `NULL`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
@@ -35,9 +36,6 @@ pjrt_compile <- function(
 #'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices (default: number of logical cores).
 #' @return `PJRTClient`
 #' @export
-#' @examplesIf Sys.info()["sysname"] != "Windows"
-#' pjrt_client("cpu")
-#' pjrt_client("cpu", cpu_device_count = 4)
 pjrt_client <- function(platform = NULL, ...) {
   if (is.null(platform)) {
     platform <- default_platform()
@@ -47,7 +45,7 @@ pjrt_client <- function(platform = NULL, ...) {
 }
 
 default_client_options <- function(platform) {
-  switch(platform, cpu = list(cpu_device_count = 1L), list())
+  switch(platform, cpu = list(cpu_device_count = pjrt_config()$cpu_device_count), list())
 }
 
 #' @title Convert to PJRT Client
@@ -104,6 +102,7 @@ devices <- function(client = NULL) {
 #'
 #' @param x (`PJRTDevice` | `character(1)` | `NULL`)\cr
 #'   Either a PJRT device object, a platform name (e.g., "cpu", "cuda", "metal"),
+#'   a device specification with index (e.g., "cpu:0", "cuda:1" for 0-based indexing),
 #'   or NULL (defaults to first CPU device).
 #' @return `PJRTDevice`
 #' @keywords internal
@@ -113,22 +112,26 @@ as_pjrt_device <- function(x) {
   }
 
   if (is.character(x) && length(x) == 1 && nchar(x) > 0) {
-    # Get the first device for this platform
-    client <- pjrt_client(x)
-    devs <- devices(client)
-    if (length(devs) == 0) {
-      stop("No devices available for platform: ", x)
+    # Parse device specification (e.g., "cpu:0" or just "cpu")
+    parts <- strsplit(x, ":", fixed = TRUE)[[1]]
+    platform_name <- parts[1]
+    device_index <- if (length(parts) > 1) {
+      x <- as.integer(parts[2L])
+      assert_int(x, lower = 0L, coerce = TRUE)
+    } else {
+      0L
     }
-    return(devs[[1]])
-  }
 
-  # Handle PJRTClient object
-  if (inherits(x, "PJRTClient")) {
-    devs <- devices(x)
-    if (length(devs) == 0) {
-      stop("No devices available")
+    # Get devices for this platform
+    client <- pjrt_client(platform_name)
+    devs <- devices(client)
+    if (!length(devs)) {
+      stop("No devices available for platform: ", platform_name)
     }
-    return(devs[[1]])
+    if (device_index >= length(devs)) {
+      cli_abort("Device index {device_index} out of range for platform {platform_name}")
+    }
+    return(devs[[device_index + 1]])
   }
 
   if (is.null(x)) {
@@ -156,7 +159,7 @@ client_from_device <- function(device) {
   if (!inherits(device, "PJRTDevice")) {
     stop("Must be a PJRTDevice")
   }
-  the$clients[[impl_device_platform(device)]]
+  the[["clients"]][[impl_device_platform(device)]]
 }
 
 #' @export

@@ -29,20 +29,20 @@ impl_client_program_compile <- function(client, program, compile_options) {
     .Call(`_pjrt_impl_client_program_compile`, client, program, compile_options)
 }
 
-impl_buffer_from_integer <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_buffer_from_integer`, client, device, data, dims, dtype)
+impl_client_buffer_from_integer <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype)
 }
 
-impl_buffer_from_logical <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_buffer_from_logical`, client, device, data, dims, dtype)
+impl_client_buffer_from_logical <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype)
 }
 
-impl_buffer_from_raw <- function(client, device, data, dims, dtype, row_major = FALSE) {
-    .Call(`_pjrt_impl_buffer_from_raw`, client, device, data, dims, dtype, row_major)
+impl_client_buffer_from_raw <- function(client, device, data, dims, dtype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_raw`, client, device, data, dims, dtype, row_major)
 }
 
-impl_buffer_from_double <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_buffer_from_double`, client, device, data, dims, dtype)
+impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
 }
 
 impl_client_buffer_to_array <- function(client, buffer) {

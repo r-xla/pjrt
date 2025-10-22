@@ -9,6 +9,7 @@ as_pjrt_device(x)
 \arguments{
 \item{x}{(\code{PJRTDevice} | \code{character(1)} | \code{NULL})\cr
 Either a PJRT device object, a platform name (e.g., "cpu", "cuda", "metal"),
+a device specification with index (e.g., "cpu:0", "cuda:1" for 0-based indexing),
 or NULL (defaults to first CPU device).}
 }
 \value{

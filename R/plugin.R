@@ -1,10 +1,13 @@
-the <- new.env(parent = emptyenv())
+the <- hashtab()
 
-the$plugins <- hashtab()
-the$clients <- hashtab()
+the[["plugins"]] <- hashtab()
+the[["clients"]] <- hashtab()
+the[["config"]] <- list(
+  cpu_device_count = 1L
+)
 
 plugin_client_create <- function(plugin, platform, options = list()) {
-  client <- the$clients[[platform]]
+  client <- the[["clients"]][[platform]]
   if (!is.null(client)) {
     if (length(options)) {
       cli_abort("Can only specify client options the first time you create a client.")
@@ -12,7 +15,9 @@ plugin_client_create <- function(plugin, platform, options = list()) {
     return(client)
   }
   opts <- default_client_options(platform)
-  opts[names(options)] <- options
+  if (length(options)) {
+    opts[names(options)] <- options
+  }
 
   check_plugin(plugin)
 
@@ -27,7 +32,7 @@ plugin_client_create <- function(plugin, platform, options = list()) {
   client <- withr::with_envvar(c(TF_CPP_MIN_LOG_LEVEL = "1"), {
     impl_plugin_client_create(plugin, opts)
   })
-  the$clients[[platform]] <- client
+  the[["clients"]][[platform]] <- client
   client
 }
 
@@ -48,14 +53,14 @@ check_plugin <- function(plugin) {
 #' @return `PJRTPlugin`
 #' @export
 pjrt_plugin <- function(platform) {
-  if (platform %in% names(the$plugins)) {
-    return(the$plugins[[platform]])
+  if (platform %in% names(the[["plugins"]])) {
+    return(the[["plugins"]][[platform]])
   }
 
   plugin <- impl_plugin_load(plugin_path(platform))
   attributes(plugin) <- list(platform = platform)
   class(plugin) <- "PJRTPlugin"
-  the$plugins[[platform]] <- plugin
+  the[["plugins"]][[platform]] <- plugin
   plugin
 }
 

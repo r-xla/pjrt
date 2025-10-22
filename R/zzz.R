@@ -1,9 +1,3 @@
-#' @import checkmate
-#' @importFrom safetensors safe_tensor_buffer safe_tensor_meta
-#' @importFrom S7 method<- new_generic class_logical class_raw class_integer class_double
-#' @importFrom tengen shape dtype
-NULL
-
 register_namespace_callback <- function(pkgname, namespace, callback) {
   assert_string(pkgname)
   assert_string(namespace)
