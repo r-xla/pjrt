@@ -103,3 +103,7 @@ test_that("platform", {
 test_that("printer", {
   expect_snapshot(pjrt_client("cpu"))
 })
+
+test_that("devices", {
+  expect_list(devices("cpu"), types = "PJRTDevice")
+})

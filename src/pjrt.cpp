@@ -289,8 +289,6 @@ SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   const auto numel = number_of_elements(dimensions);
 
-  // Handle empty tensors (numel == 0) - return empty array with correct
-  // dimensions
   if (numel == 0) {
     SEXP out = PROTECT(Rf_allocVector(r_type, 0));
     if (dimensions.size() > 0) {
@@ -332,7 +330,6 @@ SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
     Rcpp::stop("Unsupported R type: %d", r_type);
   }
 
-  // Set dimensions only once
   if (dimensions.size() > 0) {
     SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
     int *dim_data = INTEGER(dim_attr);
@@ -387,7 +384,6 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   const auto numel = number_of_elements(dimensions);
 
-  // Handle empty tensors (numel == 0) - return empty raw vector
   if (numel == 0) {
     return Rcpp::RawVector(0);
   }
@@ -459,6 +455,19 @@ Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 // [[Rcpp::export()]]
 std::string impl_client_platform(Rcpp::XPtr<rpjrt::PJRTClient> client) {
   return client->platform();
+}
+
+// [[Rcpp::export()]]
+Rcpp::List impl_client_devices(Rcpp::XPtr<rpjrt::PJRTClient> client) {
+  auto devs = client->devices();
+  Rcpp::List out(devs.size());
+  for (size_t i = 0; i < devs.size(); ++i) {
+    auto dev = std::make_unique<rpjrt::PJRTDevice>(devs[i], client->api);
+    Rcpp::XPtr<rpjrt::PJRTDevice> xptr(dev.release(), true);
+    xptr.attr("class") = "PJRTDevice";
+    out[i] = xptr;
+  }
+  return out;
 }
 
 // [[Rcpp::export()]]

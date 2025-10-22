@@ -187,6 +187,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_client_devices
+Rcpp::List impl_client_devices(Rcpp::XPtr<rpjrt::PJRTClient> client);
+RcppExport SEXP _pjrt_impl_client_devices(SEXP clientSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_devices(client));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_loaded_executable_execute
 SEXP impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
 RcppExport SEXP _pjrt_impl_loaded_executable_execute(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
@@ -373,6 +384,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_to_array", (DL_FUNC) &_pjrt_impl_client_buffer_to_array, 2},
     {"_pjrt_impl_client_buffer_to_raw", (DL_FUNC) &_pjrt_impl_client_buffer_to_raw, 3},
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},
+    {"_pjrt_impl_client_devices", (DL_FUNC) &_pjrt_impl_client_devices, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
     {"_pjrt_impl_buffer_elt_type", (DL_FUNC) &_pjrt_impl_buffer_elt_type, 1},
     {"_pjrt_impl_buffer_device", (DL_FUNC) &_pjrt_impl_buffer_device, 1},

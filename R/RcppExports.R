@@ -57,6 +57,10 @@ impl_client_platform <- function(client) {
     .Call(`_pjrt_impl_client_platform`, client)
 }
 
+impl_client_devices <- function(client) {
+    .Call(`_pjrt_impl_client_devices`, client)
+}
+
 impl_loaded_executable_execute <- function(executable, input, execution_options) {
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
