@@ -45,7 +45,7 @@ pjrt_client <- function(platform = NULL, ...) {
 }
 
 default_client_options <- function(platform) {
-  switch(platform, cpu = list(cpu_device_count = getOption("pjrt.cpu_device_count", 1L)), list())
+  switch(platform, cpu = list(cpu_device_count = Sys.getenv("PJRT_CPU_DEVICE_COUNT", 1L)), list())
 }
 
 #' @title Convert to PJRT Client

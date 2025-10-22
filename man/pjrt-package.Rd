@@ -19,13 +19,7 @@ Provides an R interface to PJRT (Pretty much Just another RunTime), which allows
 \item 3: shows nothing
 }
 \item \code{PJRT_PLATFORM}: Default platform to use, falls back to \code{"cpu"}.
-}
-}
-
-\section{Options}{
-
-\itemize{
-\item \code{pjrt.cpu_device_count}: The number of CPU devices to use.
+\item \code{PJRT_CPU_DEVICE_COUNT}: The number of CPU devices to use. Defaults to 1.
 }
 }
 

@@ -5,9 +5,7 @@
 #'   * 2: shows errors
 #'   * 3: shows nothing
 #' * `PJRT_PLATFORM`: Default platform to use, falls back to `"cpu"`.
-#'
-#' @section Options:
-#' * `pjrt.cpu_device_count`: The number of CPU devices to use.
+#' * `PJRT_CPU_DEVICE_COUNT`: The number of CPU devices to use. Defaults to 1.
 "_PACKAGE"
 
 ## usethis namespace: start
