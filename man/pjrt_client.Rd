@@ -12,7 +12,8 @@ Platform name (e.g., "cpu", "cuda", "metal").
 If \code{NULL}, use \code{PJRT_PLATFORM} environment variable or default to "cpu".}
 
 \item{...}{Additional options passed to the PJRT client creation.
-For CPU clients, you can pass \code{cpu_device_count} to specify the number of CPU devices (default: number of logical cores).}
+For CPU clients, you can pass \code{cpu_device_count} to specify the number of CPU devices.
+You can also configure this via \code{PJRT_CPU_DEVICE_COUNT} environment variable.}
 }
 \value{
 \code{PJRTClient}

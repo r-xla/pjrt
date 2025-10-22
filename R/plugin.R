@@ -21,7 +21,6 @@ plugin_client_create <- function(plugin, platform, options = list()) {
 
   check_plugin(plugin)
 
-  # Pass NULL if opts is empty, otherwise pass the opts list
   opts <- if (length(opts) > 0) opts else NULL
   lapply(opts, function(x) {
     if (!is.integer(x) || length(x) != 1) {
@@ -148,7 +147,7 @@ plugin_url <- function(platform) {
 
   if (os == "windows") {
     if (arch != "amd64") {
-      stop(
+      cli_abort(
         "Unsupported architecture for Windows: ",
         arch,
         ". Only 'amd64' is supported."
@@ -198,7 +197,7 @@ plugin_os <- function() {
   } else if (Sys.info()[["sysname"]] == "Windows") {
     return("windows")
   } else {
-    stop("Unsupported OS: ", Sys.info()[["sysname"]])
+    cli_abort("Unsupported OS: ", Sys.info()[["sysname"]])
   }
 }
 
@@ -212,7 +211,7 @@ plugin_arch <- function() {
   } else if (.Platform$r_arch == "arm64") {
     return("arm64")
   } else {
-    stop("Unsupported architecture: ", .Platform$r_arch)
+    cli_abort("Unsupported architecture: ", .Platform$r_arch)
   }
 }
 
@@ -256,7 +255,7 @@ as_pjrt_plugin <- function(x) {
   } else if (inherits(x, "PJRTPlugin")) {
     x
   } else {
-    stop("Invalid plugin: ", class(x))
+    cli_abort("Invalid plugin: ", class(x))
   }
 }
 

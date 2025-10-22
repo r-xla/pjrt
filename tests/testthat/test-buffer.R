@@ -22,7 +22,7 @@ test_pjrt_scalar <- function(
     } else if (is.logical(data)) {
       !data[1L]
     } else {
-      stop("Unsupported data type: ", typeof(data))
+      cli_abort("Unsupported data type: ", typeof(data))
     }
   }
 
@@ -71,7 +71,7 @@ test_pjrt_buffer <- function(
       } else if (is.logical(data)) {
         !data[1L]
       } else {
-        stop("Unsupported data type: ", typeof(data))
+        cli_abort("Unsupported data type: ", typeof(data))
       }
   }
 
@@ -407,9 +407,9 @@ test_that("buffer <-> raw: row_major parameter", {
       integer = 1:6L,
       double = as.double(1:6),
       logical = c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE),
-      stop()
+      cli_abort()
     )
-    size <- switch(rtype, integer = 4, double = 8, logical = 4, stop())
+    size <- switch(rtype, integer = 4, double = 8, logical = 4, cli_abort())
     data_raw <- writeBin(data_sexp, raw(), size = size)
 
     ## pjrt_buffer()

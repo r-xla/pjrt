@@ -78,18 +78,17 @@ pjrt_buffer <- S7::new_generic(
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   if (!is.null(dtype) && !identical(dtype, as.character(elt_type(data)))) {
-    stop("Must use the same data type as the data")
+    cli_abort("Must use the same data type as the data")
   }
   if (!is.null(device)) {
-    # Check if the device matches the buffer's device
     device <- as_pjrt_device(device)
     buf_dev <- device(data)
     if (device != buf_dev) {
-      stop("Must use the same device as the data")
+      cli_abort("Must use the same device as the data")
     }
   }
   if (!is.null(shape) && !identical(shape, shape(data))) {
-    stop("Must use the same shape as the data")
+    cli_abort("Must use the same shape as the data")
   }
   data
 }
@@ -110,7 +109,7 @@ method(pjrt_scalar, S7::new_S3_class("PJRTBuffer")) <- function(data, dtype = NU
 #' @export
 pjrt_empty <- function(dtype, shape, device = NULL) {
   if (!any(shape == 0)) {
-    stop("Empty buffers must have at least one dimension equal to 0")
+    cli_abort("Empty buffers must have at least one dimension equal to 0")
   }
   device <- as_pjrt_device(device)
   data <- if (identical(dtype, "pred")) {
@@ -127,7 +126,7 @@ recycle_data <- function(data, shape) {
 
   if (numel == 0) {
     if (!any(shape == 0)) {
-      stop("Empty buffers must have at least one dimension equal to 0")
+      cli_abort("Empty buffers must have at least one dimension equal to 0")
     }
     array(data, dim = shape)
   } else if (data_len == numel) {
@@ -135,12 +134,8 @@ recycle_data <- function(data, shape) {
   } else if ((data_len == 1) && (numel != 0)) {
     rep(data, numel)
   } else {
-    stop(
-      "Data has length ",
-      data_len,
-      ", but specified shape is (",
-      paste0(shape, collapse = "x"),
-      ")"
+    cli_abort(
+      "Data has length {data_len}, but specified shape is {paste0(shape, collapse = 'x')}"
     )
   }
 }
@@ -151,7 +146,7 @@ convert_buffer_args <- function(data, dtype, device, shape, default, recycle = T
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
   if (...length()) {
-    stop("Unused arguments")
+    cli_abort("Unused arguments")
   }
   if (recycle) {
     data <- recycle_data(data, shape)
@@ -204,13 +199,13 @@ S7::method(pjrt_buffer, S7::class_raw) <- function(
   row_major
 ) {
   if (is.null(shape)) {
-    stop("shape must be provided")
+    cli_abort("shape must be provided")
   }
   if (is.null(dtype)) {
-    stop("dtype must be provided")
+    cli_abort("dtype must be provided")
   }
   if (...length()) {
-    stop("Unused arguments")
+    cli_abort("Unused arguments")
   }
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
@@ -231,7 +226,7 @@ S7::method(pjrt_scalar, S7::class_logical) <- function(
   ...
 ) {
   if (length(data) != 1) {
-    stop("data must have length 1")
+    cli_abort("data must have length 1")
   }
   do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, integer(), "pred", ...))
 }
@@ -243,7 +238,7 @@ S7::method(pjrt_scalar, S7::class_integer) <- function(
   ...
 ) {
   if (length(data) != 1) {
-    stop("data must have length 1")
+    cli_abort("data must have length 1")
   }
   do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, integer(), "i32", ...))
 }
@@ -255,7 +250,7 @@ S7::method(pjrt_scalar, S7::class_double) <- function(
   ...
 ) {
   if (length(data) != 1) {
-    stop("data must have length 1")
+    cli_abort("data must have length 1")
   }
   do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, integer(), "f32", ...))
 }
@@ -267,7 +262,7 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
   device = NULL
 ) {
   if (is.null(dtype)) {
-    stop("dtype must be provided")
+    cli_abort("dtype must be provided")
   }
   do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...))
 }
@@ -391,7 +386,7 @@ print.PJRTBuffer <- function(
   max_width <- assert_int(max_width, coerce = TRUE)
   if (max_width %in% c(0, 1L)) {
     # we disallow 1, because every data line starts with ' '
-    stop("Either provide a negative value for max_width or a value > 1")
+    cli_abort("Either provide a negative value for max_width or a value > 1")
   }
   max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE, lower = 1L)
 

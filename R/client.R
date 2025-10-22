@@ -33,7 +33,8 @@ pjrt_compile <- function(
 #'   Platform name (e.g., "cpu", "cuda", "metal").
 #'   If `NULL`, use `PJRT_PLATFORM` environment variable or default to "cpu".
 #' @param ... Additional options passed to the PJRT client creation.
-#'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices (default: number of logical cores).
+#'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices.
+#'   You can also configure this via `PJRT_CPU_DEVICE_COUNT` environment variable.
 #' @return `PJRTClient`
 #' @export
 pjrt_client <- function(platform = NULL, ...) {
@@ -45,7 +46,7 @@ pjrt_client <- function(platform = NULL, ...) {
 }
 
 default_client_options <- function(platform) {
-  switch(platform, cpu = list(cpu_device_count = Sys.getenv("PJRT_CPU_DEVICE_COUNT", 1L)), list())
+  switch(platform, cpu = list(cpu_device_count = as.integer(Sys.getenv("PJRT_CPU_DEVICE_COUNT", 1L))), list())
 }
 
 #' @title Convert to PJRT Client
@@ -69,7 +70,7 @@ as_pjrt_client <- function(x) {
     return(pjrt_client())
   }
 
-  stop("Must be a PJRTClient or a platform name")
+  cli_abort("Must be a PJRTClient or a platform name")
 }
 
 #' @title Platform Name
@@ -125,7 +126,7 @@ as_pjrt_device <- function(x) {
     client <- pjrt_client(platform_name)
     devs <- devices(client)
     if (!length(devs)) {
-      stop("No devices available for platform: ", platform_name)
+      cli_abort("No devices available for platform: ", platform_name)
     }
     if (device_index >= length(devs)) {
       cli_abort("Device index {device_index} out of range for platform {platform_name}")
@@ -137,17 +138,17 @@ as_pjrt_device <- function(x) {
     client <- pjrt_client()
     devs <- devices(client)
     if (length(devs) == 0) {
-      stop("No devices available")
+      cli_abort("No devices available")
     }
     return(devs[[1]])
   }
 
-  stop("Must be a PJRTDevice, a PJRTClient, a platform name, or NULL")
+  cli_abort("Must be a PJRTDevice, a PJRTClient, a platform name, or NULL")
 }
 
 client_from_device <- function(device) {
   if (!inherits(device, "PJRTDevice")) {
-    stop("Must be a PJRTDevice")
+    cli_abort("Must be a PJRTDevice")
   }
   the[["clients"]][[platform(device)]]
 }
