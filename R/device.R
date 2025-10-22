@@ -1,6 +1,8 @@
 #' @title Create a PJRT Device
 #' @description
 #' Create a PJRT Device from an R object.
+#' @section Extractors:
+#' * [`platform()`] for a `character(1)` representation of the platform.
 #' @param device (any)\cr
 #'   The device.
 #' @return `PJRTDevice`
@@ -13,4 +15,10 @@ pjrt_device <- function(device) {
     return(as_pjrt_device(device))
   }
   cli_abort("Must be a PJRTDevice or a platform name")
+}
+
+
+#' @include client.R
+method(platform, S7::new_S3_class("PJRTDevice")) <- function(x) {
+  impl_device_platform(x)
 }

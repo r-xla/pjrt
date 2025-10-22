@@ -40,7 +40,6 @@ Collate:
     'client.R'
     'buffer.R'
     'compare.R'
-    'config.R'
     'device.R'
     'execution_options.R'
     'loaded_executable.R'

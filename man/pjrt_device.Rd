@@ -16,3 +16,10 @@ The device.}
 \description{
 Create a PJRT Device from an R object.
 }
+\section{Extractors}{
+
+\itemize{
+\item \code{\link[=platform]{platform()}} for a \code{character(1)} representation of the platform.
+}
+}
+

@@ -22,6 +22,13 @@ Provides an R interface to PJRT (Pretty much Just another RunTime), which allows
 }
 }
 
+\section{Options}{
+
+\itemize{
+\item \code{pjrt.cpu_device_count}: The number of CPU devices to use.
+}
+}
+
 \seealso{
 Useful links:
 \itemize{

@@ -45,7 +45,7 @@ pjrt_client <- function(platform = NULL, ...) {
 }
 
 default_client_options <- function(platform) {
-  switch(platform, cpu = list(cpu_device_count = pjrt_config()$cpu_device_count), list())
+  switch(platform, cpu = list(cpu_device_count = getOption("pjrt.cpu_device_count", 1L)), list())
 }
 
 #' @title Convert to PJRT Client
@@ -122,7 +122,6 @@ as_pjrt_device <- function(x) {
       0L
     }
 
-    # Get devices for this platform
     client <- pjrt_client(platform_name)
     devs <- devices(client)
     if (!length(devs)) {
@@ -135,7 +134,6 @@ as_pjrt_device <- function(x) {
   }
 
   if (is.null(x)) {
-    # Default to first device of default platform
     client <- pjrt_client()
     devs <- devices(client)
     if (length(devs) == 0) {
@@ -147,19 +145,11 @@ as_pjrt_device <- function(x) {
   stop("Must be a PJRTDevice, a PJRTClient, a platform name, or NULL")
 }
 
-#' @title Get Client from Device
-#' @description
-#' Get the client associated with a device by looking it up from the global cache.
-#'
-#' @param device (`PJRTDevice`)\cr
-#'   A PJRT device object.
-#' @return `PJRTClient`
-#' @keywords internal
 client_from_device <- function(device) {
   if (!inherits(device, "PJRTDevice")) {
     stop("Must be a PJRTDevice")
   }
-  the[["clients"]][[impl_device_platform(device)]]
+  the[["clients"]][[platform(device)]]
 }
 
 #' @export

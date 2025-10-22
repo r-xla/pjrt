@@ -41,8 +41,15 @@ test_that("device count is like it was setup in setup.R", {
 
 test_that("== for device", {
   skip_if(!(is_metal() || is_cuda()))
-  device_name <- if (is_metal()) "metal" else "cuda"
+  device_name <- Sys.getenv("PJRT_PLATFORM")
   expect_false(pjrt_device("cpu") == pjrt_device(device_name))
   expect_true(pjrt_device("cpu") == pjrt_device("cpu"))
   expect_true(pjrt_device(device_name) == pjrt_device(device_name))
+})
+
+test_that("platform", {
+  expect_equal(platform(pjrt_device("cpu")), "cpu")
+  skip_if(!(is_metal() || is_cuda()))
+  device_name <- Sys.getenv("PJRT_PLATFORM")
+  expect_equal(platform(pjrt_device(device_name)), device_name)
 })
