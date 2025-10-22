@@ -41,7 +41,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Create a Client</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/main/R/client.R" class="external-link"><code>R/client.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feat-buffer-device/R/client.R" class="external-link"><code>R/client.R</code></a></small>
       <div class="d-none name"><code>pjrt_client.Rd</code></div>
     </div>
 
@@ -51,7 +51,7 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_client</span><span class="op">(</span>platform <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_client</span><span class="op">(</span>platform <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -62,6 +62,11 @@
 <dd><p>(<code>character(1)</code> | <code>NULL</code>)<br>
 Platform name (e.g., "cpu", "cuda", "metal").
 If <code>NULL</code>, use <code>PJRT_PLATFORM</code> environment variable or default to "cpu".</p></dd>
+
+
+<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
+<dd><p>Additional options passed to the PJRT client creation.
+For CPU clients, you can pass <code>cpu_device_count</code> to specify the number of CPU devices (default: number of logical cores).</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -78,6 +83,9 @@ If <code>NULL</code>, use <code>PJRT_PLATFORM</code> environment variable or def
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">pjrt_client</span><span class="op">(</span><span class="st">"cpu"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;PJRTClient:cpu&gt;</span>
+<span class="r-in"><span><span class="fu">pjrt_client</span><span class="op">(</span><span class="st">"cpu"</span>, cpu_device_count <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in cli_abort("Can only specify client options the first time you create a client."):</span> could not find function "cli_abort"</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
