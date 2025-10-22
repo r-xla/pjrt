@@ -31,19 +31,23 @@ pjrt_compile <- function(
 #' @param platform (`character(1)` | `NULL`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
 #'   If `NULL`, use `PJRT_PLATFORM` environment variable or default to "cpu".
+#' @param ... Additional options passed to the PJRT client creation.
+#'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices (default: number of logical cores).
 #' @return `PJRTClient`
 #' @export
 #' @examplesIf Sys.info()["sysname"] != "Windows"
 #' pjrt_client("cpu")
-pjrt_client <- function(platform = NULL) {
+#' pjrt_client("cpu", cpu_device_count = 4)
+pjrt_client <- function(platform = NULL, ...) {
   if (is.null(platform)) {
     platform <- default_platform()
   }
 
-  if (platform %in% names(the$clients)) {
-    return(the$clients[[platform]])
-  }
-  plugin_client_create(pjrt_plugin(platform), platform)
+  plugin_client_create(pjrt_plugin(platform), platform, options = list(...))
+}
+
+default_client_options <- function(platform) {
+  switch(platform, cpu = list(cpu_device_count = 1L), list())
 }
 
 #' @title Convert to PJRT Client
@@ -92,6 +96,67 @@ S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
 #' @export
 devices <- function(client = NULL) {
   impl_client_devices(as_pjrt_client(client))
+}
+
+#' @title Convert to PJRT Device
+#' @description
+#' Convert a platform name or device to a PJRT device object.
+#'
+#' @param x (`PJRTDevice` | `character(1)` | `NULL`)\cr
+#'   Either a PJRT device object, a platform name (e.g., "cpu", "cuda", "metal"),
+#'   or NULL (defaults to first CPU device).
+#' @return `PJRTDevice`
+#' @keywords internal
+as_pjrt_device <- function(x) {
+  if (inherits(x, "PJRTDevice")) {
+    return(x)
+  }
+
+  if (is.character(x) && length(x) == 1 && nchar(x) > 0) {
+    # Get the first device for this platform
+    client <- pjrt_client(x)
+    devs <- devices(client)
+    if (length(devs) == 0) {
+      stop("No devices available for platform: ", x)
+    }
+    return(devs[[1]])
+  }
+
+  # Handle PJRTClient object
+  if (inherits(x, "PJRTClient")) {
+    devs <- devices(x)
+    if (length(devs) == 0) {
+      stop("No devices available")
+    }
+    return(devs[[1]])
+  }
+
+  if (is.null(x)) {
+    # Default to first device of default platform
+    client <- pjrt_client()
+    devs <- devices(client)
+    if (length(devs) == 0) {
+      stop("No devices available")
+    }
+    return(devs[[1]])
+  }
+
+  stop("Must be a PJRTDevice, a PJRTClient, a platform name, or NULL")
+}
+
+#' @title Get Client from Device
+#' @description
+#' Get the client associated with a device by looking it up from the global cache.
+#'
+#' @param device (`PJRTDevice`)\cr
+#'   A PJRT device object.
+#' @return `PJRTClient`
+#' @keywords internal
+client_from_device <- function(device) {
+  if (!inherits(device, "PJRTDevice")) {
+    stop("Must be a PJRTDevice")
+  }
+  the$clients[[impl_device_platform(device)]]
 }
 
 #' @export

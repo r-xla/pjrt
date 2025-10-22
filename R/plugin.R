@@ -1,15 +1,34 @@
 the <- new.env(parent = emptyenv())
 
-the$plugins <- list()
-the$clients <- list()
+the$plugins <- hashtab()
+the$clients <- hashtab()
 
-plugin_client_create <- function(plugin, platform, ...) {
-  if (platform %in% names(the$clients)) {
-    return(the$clients[[platform]])
+plugin_client_create <- function(plugin, platform, options = list()) {
+  client <- the$clients[[platform]]
+  if (!is.null(client)) {
+    if (length(options)) {
+      cli_abort("Can only specify client options the first time you create a client.")
+    }
+    return(client)
   }
+  opts <- default_client_options(platform)
+  opts[names(options)] <- options
 
   check_plugin(plugin)
-  the$clients[[platform]] <- impl_plugin_client_create(plugin)
+
+  # Pass NULL if opts is empty, otherwise pass the opts list
+  opts <- if (length(opts) > 0) opts else NULL
+  lapply(opts, function(x) {
+    if (!is.integer(x) || length(x) != 1) {
+      cli_abort("Client options must be integers of length 1")
+    }
+  })
+  # Otherwise, we get startup message w.r.t. the number of cpu devices
+  client <- withr::with_envvar(c(TF_CPP_MIN_LOG_LEVEL = "1"), {
+    impl_plugin_client_create(plugin, opts)
+  })
+  the$clients[[platform]] <- client
+  client
 }
 
 check_plugin <- function(plugin) {

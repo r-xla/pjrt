@@ -464,10 +464,10 @@ test_that("device works", {
 })
 
 test_that("platform for PJRTBuffer", {
-  buf_cpu <- pjrt_buffer(1, client = pjrt_client("cpu"))
+  buf_cpu <- pjrt_buffer(1, device = "cpu")
   expect_equal(platform(buf_cpu), "cpu")
   skip_if(!is_cuda())
-  buf_cuda <- pjrt_buffer(1, client = pjrt_client("cuda"))
+  buf_cuda <- pjrt_buffer(1, device = "cuda")
   expect_equal(platform(buf_cuda), "cuda")
 })
 
@@ -493,10 +493,10 @@ test_that("dim is integer", {
 
 test_that("can move back buffer without specifying client", {
   skip_if(!(is_metal() || is_cuda()))
-  client <- if (is_metal()) "metal" else "cuda"
-  x <- pjrt_buffer(1, client = client)
+  device_name <- if (is_metal()) "metal" else "cuda"
+  x <- pjrt_buffer(1, device = device_name)
   expect_equal(as_array(x), array(1))
-  y <- pjrt_scalar(1, client = client)
+  y <- pjrt_scalar(1, device = device_name)
   expect_equal(as_array(y), 1)
 })
 
@@ -578,18 +578,18 @@ test_that("empty buffer assertion", {
 
 test_that("identity of buffer", {
   skip_if(is_metal() | is_cuda())
-  x <- pjrt_buffer(1, client = "cpu")
+  x <- pjrt_buffer(1, device = "cpu")
   expect_equal(pjrt_buffer(x), x)
   expect_error(pjrt_buffer(x, dtype = "i32"), "Must use the same data type as the data")
   expect_error(pjrt_buffer(x, shape = c(1, 2)), "Must use the same shape as the data")
   skip_if(!is_cuda())
-  expect_error(pjrt_buffer(x, client = pjrt_client("cuda")), "Must use the same client as the data")
+  expect_error(pjrt_buffer(x, device = as_pjrt_device("cuda")), "Must use the same device as the data")
 
-  x <- pjrt_scalar(1, client = "cpu")
+  x <- pjrt_scalar(1, device = "cpu")
   expect_equal(pjrt_scalar(x), x)
   expect_error(pjrt_scalar(x, dtype = "i32"), "Must use the same data type as the data")
   skip_if(!is_cuda())
-  expect_error(pjrt_scalar(x, client = pjrt_client("cuda")), "Must use the same client as the data")
+  expect_error(pjrt_scalar(x, device = as_pjrt_device("cuda")), "Must use the same device as the data")
 })
 
 test_that("recycle scalar to any length", {
@@ -605,11 +605,11 @@ test_that("can create dtype 'pred' from double", {
 
 test_that("pjrt_buffer identit when working on a different client", {
   skip_if(!(is_metal() || is_cuda()))
-  x <- pjrt_buffer(1, client = "cpu")
+  x <- pjrt_buffer(1, device = "cpu")
   device <- if (is_metal()) "metal" else "cuda"
-  expect_equal(x, pjrt_buffer(x, client = NULL))
-  x <- pjrt_scalar(1, client = "cpu")
-  expect_equal(x, pjrt_scalar(x, client = NULL))
+  expect_equal(x, pjrt_buffer(x, device = NULL))
+  x <- pjrt_scalar(1, device = "cpu")
+  expect_equal(x, pjrt_scalar(x, device = NULL))
 })
 
 test_that("Can create 'i32' from double", {

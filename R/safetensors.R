@@ -1,5 +1,5 @@
-pjrt_tensor_from_raw <- function(raw, meta, client = pjrt_client()) {
-  client <- as_pjrt_client(client)
+pjrt_tensor_from_raw <- function(raw, meta, device = NULL) {
+  device <- as_pjrt_device(device)
 
   dims <- as.integer(meta$shape)
 
@@ -7,7 +7,7 @@ pjrt_tensor_from_raw <- function(raw, meta, client = pjrt_client()) {
     raw,
     shape = dims,
     dtype = safetensors_dtype_to_pjrt(meta$dtype),
-    client = client,
+    device = device,
     row_major = TRUE
   )
 }

@@ -107,3 +107,13 @@ test_that("printer", {
 test_that("devices", {
   expect_list(devices("cpu"), types = "PJRTDevice")
 })
+
+test_that("can set cpu_device_count", {
+  plugin <- impl_plugin_load(plugin_path("cpu"))
+  client <- impl_plugin_client_create(plugin, list(cpu_device_count = 2))
+  expect_list(devices(client), types = "PJRTDevice", len = 2L)
+})
+
+test_that("device count is 1 by default", {
+  expect_list(devices("cpu"), types = "PJRTDevice", len = 1L)
+})

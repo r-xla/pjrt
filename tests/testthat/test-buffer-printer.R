@@ -166,5 +166,5 @@ test_that("cuda", {
 
 test_that("metal", {
   skip_if(!is_metal())
-  expect_snapshot(pjrt_buffer(1:10, "f32", client = pjrt_client("metal")))
+  expect_snapshot(pjrt_buffer(1:10, "f32", device = "metal"))
 })

@@ -60,9 +60,13 @@ void BufferFromHostAndWait(const PJRT_Api *api,
 
 std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
     void *data, const std::optional<std::vector<int64_t>> &dims,
-    const std::optional<std::vector<int64_t>> &strides,
-    PJRT_Buffer_Type dtype) {
-  const auto devices = this->devices();
+    const std::optional<std::vector<int64_t>> &strides, PJRT_Buffer_Type dtype,
+    PJRT_Device *device) {
+  // If no device is specified, use the first device
+  if (device == nullptr) {
+    const auto devices = this->devices();
+    device = devices[0];
+  }
 
   // Initialize args to zero to ensure optional fields are null.
   PJRT_Client_BufferFromHostBuffer_Args args{};
@@ -78,7 +82,7 @@ std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
   args.num_byte_strides = strides.has_value() ? strides->size() : 0;
   args.host_buffer_semantics =
       PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
-  args.device = devices[0];
+  args.device = device;
   // No preallocated memory
   args.memory = nullptr;
 
