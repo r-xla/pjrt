@@ -837,7 +837,7 @@
 # metal
 
     Code
-      pjrt_buffer(1:10, "f32", client = pjrt_client("metal"))
+      pjrt_buffer(1:10, "f32", device = "metal")
     Output
       PJRTBuffer 
         1.0000
