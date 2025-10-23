@@ -161,10 +161,10 @@ test_that("scale prefix is printed per slice", {
 
 test_that("cuda", {
   skip_if(!is_cuda())
-  expect_snapshot(pjrt_buffer(1:10, "f32", client = pjrt_client("cuda")))
+  expect_snapshot(pjrt_buffer(1:10, "f32", device = "cuda"))
 })
 
 test_that("metal", {
   skip_if(!is_metal())
-  expect_snapshot(pjrt_buffer(1:10, "f32", client = pjrt_client("metal")))
+  expect_snapshot(pjrt_buffer(1:10, "f32", device = "metal"))
 })

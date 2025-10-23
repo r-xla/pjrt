@@ -5,8 +5,8 @@ impl_plugin_load <- function(path) {
     .Call(`_pjrt_impl_plugin_load`, path)
 }
 
-impl_plugin_client_create <- function(plugin) {
-    .Call(`_pjrt_impl_plugin_client_create`, plugin)
+impl_plugin_client_create <- function(plugin, options = NULL) {
+    .Call(`_pjrt_impl_plugin_client_create`, plugin, options)
 }
 
 impl_program_load <- function(fname, format) {
@@ -29,20 +29,20 @@ impl_client_program_compile <- function(client, program, compile_options) {
     .Call(`_pjrt_impl_client_program_compile`, client, program, compile_options)
 }
 
-impl_client_buffer_from_integer <- function(client, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_integer`, client, data, dims, dtype)
+impl_client_buffer_from_integer <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype)
 }
 
-impl_client_buffer_from_logical <- function(client, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_logical`, client, data, dims, dtype)
+impl_client_buffer_from_logical <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype)
 }
 
-impl_client_buffer_from_raw <- function(client, data, dims, dtype, row_major = FALSE) {
-    .Call(`_pjrt_impl_client_buffer_from_raw`, client, data, dims, dtype, row_major)
+impl_client_buffer_from_raw <- function(client, device, data, dims, dtype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_raw`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_double <- function(client, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_double`, client, data, dims, dtype)
+impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
 }
 
 impl_client_buffer_to_array <- function(client, buffer) {
@@ -115,6 +115,10 @@ impl_plugin_attributes <- function(plugin) {
 
 impl_device_to_string <- function(device) {
     .Call(`_pjrt_impl_device_to_string`, device)
+}
+
+impl_device_platform <- function(device) {
+    .Call(`_pjrt_impl_device_platform`, device)
 }
 
 impl_buffer_print <- function(buffer, max_rows, max_width, max_rows_slice) {

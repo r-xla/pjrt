@@ -27,23 +27,26 @@ pjrt_compile <- function(
 #'
 #' @section Extractors:
 #' * [`platform()`] for a `character(1)` representation of the platform.
+#' * [`devices()`] for a `list` of `PJRTDevice` objects.
 #'
 #' @param platform (`character(1)` | `NULL`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
 #'   If `NULL`, use `PJRT_PLATFORM` environment variable or default to "cpu".
+#' @param ... Additional options passed to the PJRT client creation.
+#'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices.
+#'   You can also configure this via `PJRT_CPU_DEVICE_COUNT` environment variable.
 #' @return `PJRTClient`
 #' @export
-#' @examplesIf Sys.info()["sysname"] != "Windows"
-#' pjrt_client("cpu")
-pjrt_client <- function(platform = NULL) {
+pjrt_client <- function(platform = NULL, ...) {
   if (is.null(platform)) {
     platform <- default_platform()
   }
 
-  if (platform %in% names(the$clients)) {
-    return(the$clients[[platform]])
-  }
-  plugin_client_create(pjrt_plugin(platform), platform)
+  plugin_client_create(pjrt_plugin(platform), platform, options = list(...))
+}
+
+default_client_options <- function(platform) {
+  switch(platform, cpu = list(cpu_device_count = as.integer(Sys.getenv("PJRT_CPU_DEVICE_COUNT", 1L))), list())
 }
 
 #' @title Convert to PJRT Client
@@ -67,7 +70,7 @@ as_pjrt_client <- function(x) {
     return(pjrt_client())
   }
 
-  stop("Must be a PJRTClient or a platform name")
+  cli_abort("Must be a PJRTClient or a platform name")
 }
 
 #' @title Platform Name
@@ -92,6 +95,62 @@ S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
 #' @export
 devices <- function(client = NULL) {
   impl_client_devices(as_pjrt_client(client))
+}
+
+#' @title Convert to PJRT Device
+#' @description
+#' Convert a platform name or device to a PJRT device object.
+#'
+#' @param x (`PJRTDevice` | `character(1)` | `NULL`)\cr
+#'   Either a PJRT device object, a platform name (e.g., "cpu", "cuda", "metal"),
+#'   a device specification with index (e.g., "cpu:0", "cuda:1" for 0-based indexing),
+#'   or NULL (defaults to first CPU device).
+#' @return `PJRTDevice`
+#' @keywords internal
+as_pjrt_device <- function(x) {
+  if (inherits(x, "PJRTDevice")) {
+    return(x)
+  }
+
+  if (is.character(x) && length(x) == 1 && nchar(x) > 0) {
+    # Parse device specification (e.g., "cpu:0" or just "cpu")
+    parts <- strsplit(x, ":", fixed = TRUE)[[1]]
+    platform_name <- parts[1]
+    device_index <- if (length(parts) > 1) {
+      x <- as.integer(parts[2L])
+      assert_int(x, lower = 0L, coerce = TRUE)
+    } else {
+      0L
+    }
+
+    client <- pjrt_client(platform_name)
+    devs <- devices(client)
+    if (!length(devs)) {
+      cli_abort("No devices available for platform: ", platform_name)
+    }
+    if (device_index >= length(devs)) {
+      cli_abort("Device index {device_index} out of range for platform {platform_name}")
+    }
+    return(devs[[device_index + 1]])
+  }
+
+  if (is.null(x)) {
+    client <- pjrt_client()
+    devs <- devices(client)
+    if (length(devs) == 0) {
+      cli_abort("No devices available")
+    }
+    return(devs[[1]])
+  }
+
+  cli_abort("Must be a PJRTDevice, a PJRTClient, a platform name, or NULL")
+}
+
+client_from_device <- function(device) {
+  if (!inherits(device, "PJRTDevice")) {
+    cli_abort("Must be a PJRTDevice")
+  }
+  the[["clients"]][[platform(device)]]
 }
 
 #' @export

@@ -56,34 +56,39 @@ is_buffer <- function(x) {
 #'   The dimensions of the buffer.
 #'   The default (`NULL`) is to infer them from the data if possible.
 #'   The default (`NULL`) depends on the method.
-#' @param client (`NULL` | `PJRTClient` | `character(1)`)\cr
-#'   A [`PJRTClient`][pjrt_client] oject or the name of the platform to use ("cpu", "cuda", ...).
-#'   The default (`NULL`) uses the environment variable `PJRT_PLATFORM` or defaults to "cpu".
+#' @param device (`NULL` | `PJRTDevice` | `character(1)`)\cr
+#'   A `PJRTDevice` object or the name of the platform to use ("cpu", "cuda", ...), in which
+#'   case the first device for that platform is used.
+#'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
+#'   environment variable.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:
 #'   - `row_major`: Whether to read the data in row-major format or column-major format.
 #'     R uses column-major format.
-#' @template param_client
 #' @return `PJRTBuffer`
 #' @export
 pjrt_buffer <- S7::new_generic(
   "pjrt_buffer",
   "data",
-  function(data, dtype = NULL, client = NULL, shape = NULL, ...) {
+  function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
     S7::S7_dispatch()
   }
 )
 
-buffer_identity <- function(data, dtype = NULL, client = NULL, shape = NULL, ...) {
+buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   if (!is.null(dtype) && !identical(dtype, as.character(elt_type(data)))) {
-    stop("Must use the same data type as the data")
+    cli_abort("Must use the same data type as the data")
   }
-  if (!is.null(client) && !identical(as.character(client), platform(data))) {
-    stop("Must use the same client as the data")
+  if (!is.null(device)) {
+    device <- as_pjrt_device(device)
+    buf_dev <- device(data)
+    if (device != buf_dev) {
+      cli_abort("Must use the same device as the data")
+    }
   }
   if (!is.null(shape) && !identical(shape, shape(data))) {
-    stop("Must use the same shape as the data")
+    cli_abort("Must use the same shape as the data")
   }
   data
 }
@@ -92,27 +97,27 @@ method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
 
 #' @rdname pjrt_buffer
 #' @export
-pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, client = NULL, ...) {
+pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, device = NULL, ...) {
   S7::S7_dispatch()
 })
 
-method(pjrt_scalar, S7::new_S3_class("PJRTBuffer")) <- function(data, dtype = NULL, client = NULL, ...) {
-  buffer_identity(data, dtype, client, shape = integer())
+method(pjrt_scalar, S7::new_S3_class("PJRTBuffer")) <- function(data, dtype = NULL, device = NULL, ...) {
+  buffer_identity(data, dtype, device, shape = integer())
 }
 
 #' @rdname pjrt_buffer
 #' @export
-pjrt_empty <- function(dtype, shape, client = NULL) {
+pjrt_empty <- function(dtype, shape, device = NULL) {
   if (!any(shape == 0)) {
-    stop("Empty buffers must have at least one dimension equal to 0")
+    cli_abort("Empty buffers must have at least one dimension equal to 0")
   }
-  client <- as_pjrt_client(client)
+  device <- as_pjrt_device(device)
   data <- if (identical(dtype, "pred")) {
     logical()
   } else {
     integer()
   }
-  pjrt_buffer(array(data, dim = shape), dtype, client)
+  pjrt_buffer(array(data, dim = shape), dtype, device)
 }
 
 recycle_data <- function(data, shape) {
@@ -121,7 +126,7 @@ recycle_data <- function(data, shape) {
 
   if (numel == 0) {
     if (!any(shape == 0)) {
-      stop("Empty buffers must have at least one dimension equal to 0")
+      cli_abort("Empty buffers must have at least one dimension equal to 0")
     }
     array(data, dim = shape)
   } else if (data_len == numel) {
@@ -129,30 +134,27 @@ recycle_data <- function(data, shape) {
   } else if ((data_len == 1) && (numel != 0)) {
     rep(data, numel)
   } else {
-    stop(
-      "Data has length ",
-      data_len,
-      ", but specified shape is (",
-      paste0(shape, collapse = "x"),
-      ")"
+    cli_abort(
+      "Data has length {data_len}, but specified shape is {paste0(shape, collapse = 'x')}"
     )
   }
 }
 
-convert_buffer_args <- function(data, dtype, client, shape, default, recycle = TRUE, ...) {
+convert_buffer_args <- function(data, dtype, device, shape, default, recycle = TRUE, ...) {
   dtype <- dtype %??% default
   shape <- shape %??% get_dims(data)
-  client <- as_pjrt_client(client)
+  device <- as_pjrt_device(device)
+  client <- client_from_device(device)
   if (...length()) {
-    stop("Unused arguments")
+    cli_abort("Unused arguments")
   }
   if (recycle) {
     data <- recycle_data(data, shape)
   }
-  client <- client %??% pjrt_client()
   list(
     dtype = dtype,
-    client = as_pjrt_client(client),
+    client = client,
+    device = device,
     data = data,
     dims = shape
   )
@@ -161,54 +163,57 @@ convert_buffer_args <- function(data, dtype, client, shape, default, recycle = T
 S7::method(pjrt_buffer, S7::class_logical) <- function(
   data,
   dtype = NULL,
-  client = NULL,
+  device = NULL,
   shape = NULL,
   ...
 ) {
-  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, client, shape, "pred", ...))
+  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, shape, "pred", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_integer) <- function(
   data,
   dtype = NULL,
-  client = NULL,
+  device = NULL,
   shape = NULL,
   ...
 ) {
-  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, client, shape, "i32", ...))
+  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, shape, "i32", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_double) <- function(
   data,
   dtype = NULL,
-  client = NULL,
+  device = NULL,
   shape = NULL,
   ...
 ) {
-  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, client, shape, "f32", ...))
+  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, shape, "f32", ...))
 }
 
 S7::method(pjrt_buffer, S7::class_raw) <- function(
   data,
   ...,
   dtype = NULL,
-  client = NULL,
+  device = NULL,
   shape = NULL,
   row_major
 ) {
   if (is.null(shape)) {
-    stop("shape must be provided")
+    cli_abort("shape must be provided")
   }
   if (is.null(dtype)) {
-    stop("dtype must be provided")
+    cli_abort("dtype must be provided")
   }
   if (...length()) {
-    stop("Unused arguments")
+    cli_abort("Unused arguments")
   }
+  device <- as_pjrt_device(device)
+  client <- client_from_device(device)
   impl_client_buffer_from_raw(
+    client = client,
+    device = device,
     data = data,
     dims = shape,
-    client = as_pjrt_client(client),
     dtype = dtype,
     row_major = row_major
   )
@@ -217,49 +222,49 @@ S7::method(pjrt_buffer, S7::class_raw) <- function(
 S7::method(pjrt_scalar, S7::class_logical) <- function(
   data,
   dtype = NULL,
-  client = NULL,
+  device = NULL,
   ...
 ) {
   if (length(data) != 1) {
-    stop("data must have length 1")
+    cli_abort("data must have length 1")
   }
-  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, client, integer(), "pred", ...))
+  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, integer(), "pred", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_integer) <- function(
   data,
   dtype = NULL,
-  client = NULL,
+  device = NULL,
   ...
 ) {
   if (length(data) != 1) {
-    stop("data must have length 1")
+    cli_abort("data must have length 1")
   }
-  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, client, integer(), "i32", ...))
+  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, integer(), "i32", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_double) <- function(
   data,
   dtype = NULL,
-  client = NULL,
+  device = NULL,
   ...
 ) {
   if (length(data) != 1) {
-    stop("data must have length 1")
+    cli_abort("data must have length 1")
   }
-  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, client, integer(), "f32", ...))
+  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, integer(), "f32", ...))
 }
 
 S7::method(pjrt_scalar, S7::class_raw) <- function(
   data,
   ...,
   dtype = NULL,
-  client = NULL
+  device = NULL
 ) {
   if (is.null(dtype)) {
-    stop("dtype must be provided")
+    cli_abort("dtype must be provided")
   }
-  do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, client, integer(), "f32", recycle = FALSE, ...))
+  do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...))
 }
 
 #' @title Element Type
@@ -381,7 +386,7 @@ print.PJRTBuffer <- function(
   max_width <- assert_int(max_width, coerce = TRUE)
   if (max_width %in% c(0, 1L)) {
     # we disallow 1, because every data line starts with ' '
-    stop("Either provide a negative value for max_width or a value > 1")
+    cli_abort("Either provide a negative value for max_width or a value > 1")
   }
   max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE, lower = 1L)
 
@@ -407,6 +412,19 @@ print.PJRTBuffer <- function(
 #' @export
 shape.PJRTBuffer <- function(x, ...) {
   impl_buffer_dimensions(x)
+}
+
+#' @export
+`==.PJRTDevice` <- function(e1, e2) {
+  if (!inherits(e2, "PJRTDevice")) {
+    return(FALSE)
+  }
+  identical(as.character(e1), as.character(e2))
+}
+
+#' @export
+`!=.PJRTDevice` <- function(e1, e2) {
+  !(e1 == e2)
 }
 
 #' @export

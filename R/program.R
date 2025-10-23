@@ -11,7 +11,7 @@
 #' @export
 pjrt_program <- function(src = NULL, path = NULL, format = c("mlir", "hlo")) {
   if (!xor(is.null(src), is.null(path))) {
-    stop("Either src or path must be provided")
+    cli_abort("Either src or path must be provided")
   }
   checkmate::assert(
     checkmate::check_string(src, null.ok = TRUE),

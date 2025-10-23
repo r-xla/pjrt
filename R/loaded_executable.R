@@ -19,7 +19,7 @@
 #' @export
 pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = TRUE) {
   if (!is.null(...names())) {
-    stop("Expected unnamed arguments")
+    cli_abort("Expected unnamed arguments")
   }
   check_loaded_executable(executable)
   input <- list(...)

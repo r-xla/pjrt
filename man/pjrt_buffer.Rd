@@ -6,11 +6,11 @@
 \alias{pjrt_empty}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, dtype = NULL, client = NULL, shape = NULL, ...)
+pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
 
-pjrt_scalar(data, dtype = NULL, client = NULL, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, ...)
 
-pjrt_empty(dtype, shape, client = NULL)
+pjrt_empty(dtype, shape, device = NULL)
 }
 \arguments{
 \item{data}{(any)\cr
@@ -30,9 +30,11 @@ The default (\code{NULL}) depends on the method:
 \item \code{raw} -> must be supplied
 }}
 
-\item{client}{(\code{PJRTClient} | \code{character(1)})\cr
-A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
-from which the client will be created.}
+\item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr
+A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...), in which
+case the first device for that platform is used.
+The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
+environment variable.}
 
 \item{shape}{(\code{NULL} | \code{integer()})\cr
 The dimensions of the buffer.

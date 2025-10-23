@@ -37,7 +37,7 @@ test_that("Can write safetensors (different data types)", {
       double = as.double(dat),
       integer = as.integer(dat),
       logical = as.logical(dat),
-      stop()
+      cli_abort()
     )
 
     x <- list(

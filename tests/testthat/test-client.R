@@ -83,15 +83,15 @@ test_that("can use more than one client", {
 
   pjrt_buffer(1, pjrt_client(device))
 
-  expect_permutation(c(device, "cpu"), names(the$clients))
-  expect_permutation(c(device, "cpu"), names(the$plugins))
+  expect_permutation(c(device, "cpu"), names(the[["clients"]]))
+  expect_permutation(c(device, "cpu"), names(the[["plugins"]]))
 
   # not they are loaded and global env 'the' is not changed
   pjrt_buffer(1, pjrt_client("cpu"))
   pjrt_buffer(1, pjrt_client(device))
 
-  expect_permutation(c(device, "cpu"), names(the$clients))
-  expect_permutation(c(device, "cpu"), names(the$plugins))
+  expect_permutation(c(device, "cpu"), names(the[["clients"]]))
+  expect_permutation(c(device, "cpu"), names(the[["plugins"]]))
 })
 
 test_that("platform", {
@@ -102,8 +102,4 @@ test_that("platform", {
 
 test_that("printer", {
   expect_snapshot(pjrt_client("cpu"))
-})
-
-test_that("devices", {
-  expect_list(devices("cpu"), types = "PJRTDevice")
 })

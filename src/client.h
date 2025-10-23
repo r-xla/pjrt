@@ -58,7 +58,7 @@ class PJRTClient {
   std::unique_ptr<PJRTBuffer> buffer_from_host(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
-      PJRT_Buffer_Type dtype);
+      PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);
   std::string platform();
 };
 

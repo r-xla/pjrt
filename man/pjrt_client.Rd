@@ -4,12 +4,16 @@
 \alias{pjrt_client}
 \title{Create a Client}
 \usage{
-pjrt_client(platform = NULL)
+pjrt_client(platform = NULL, ...)
 }
 \arguments{
 \item{platform}{(\code{character(1)} | \code{NULL})\cr
 Platform name (e.g., "cpu", "cuda", "metal").
 If \code{NULL}, use \code{PJRT_PLATFORM} environment variable or default to "cpu".}
+
+\item{...}{Additional options passed to the PJRT client creation.
+For CPU clients, you can pass \code{cpu_device_count} to specify the number of CPU devices.
+You can also configure this via \code{PJRT_CPU_DEVICE_COUNT} environment variable.}
 }
 \value{
 \code{PJRTClient}
@@ -21,11 +25,7 @@ Create a PJRT client for a specific device.
 
 \itemize{
 \item \code{\link[=platform]{platform()}} for a \code{character(1)} representation of the platform.
+\item \code{\link[=devices]{devices()}} for a \code{list} of \code{PJRTDevice} objects.
 }
 }
 
-\examples{
-\dontshow{if (Sys.info()["sysname"] != "Windows") withAutoprint(\{ # examplesIf}
-pjrt_client("cpu")
-\dontshow{\}) # examplesIf}
-}

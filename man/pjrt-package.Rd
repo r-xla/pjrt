@@ -8,6 +8,21 @@
 \description{
 Provides an R interface to PJRT (Pretty much Just another RunTime), which allows you to run XLA or stableHLO programs on a variety of hardware backends including CPU, GPU, and TPU.
 }
+\section{Environment Variables}{
+
+\itemize{
+\item \code{TF_CPP_MIN_LOG_LEVEL}: Logging level for PJRT C++ API:
+\itemize{
+\item 0: shows info, warnings and errors
+\item 1: shows warnings and errors
+\item 2: shows errors
+\item 3: shows nothing
+}
+\item \code{PJRT_PLATFORM}: Default platform to use, falls back to \code{"cpu"}.
+\item \code{PJRT_CPU_DEVICE_COUNT}: The number of CPU devices to use. Defaults to 1.
+}
+}
+
 \seealso{
 Useful links:
 \itemize{
@@ -26,4 +41,3 @@ Authors:
 }
 
 }
-\keyword{internal}

@@ -31,10 +31,28 @@ void PJRTPlugin::initialize() {
   }
 }
 
-std::unique_ptr<PJRTClient> PJRTPlugin::client_create() {
+std::unique_ptr<PJRTClient> PJRTPlugin::client_create(
+    const std::vector<std::pair<std::string, int64_t>> &options) {
   PJRT_Client_Create_Args args{};
-  args.num_options = 0;
   args.struct_size = sizeof(PJRT_Client_Create_Args);
+
+  // Convert options to PJRT_NamedValue array
+  std::vector<PJRT_NamedValue> named_values;
+  named_values.reserve(options.size());
+
+  for (const auto &opt : options) {
+    PJRT_NamedValue nv{};
+    nv.struct_size = sizeof(PJRT_NamedValue);
+    nv.name = opt.first.c_str();
+    nv.name_size = opt.first.size();
+    nv.type = PJRT_NamedValue_kInt64;
+    nv.int64_value = opt.second;
+    named_values.push_back(nv);
+  }
+
+  args.create_options = named_values.empty() ? nullptr : named_values.data();
+  args.num_options = named_values.size();
+
   check_err(this->api.get(), this->api->PJRT_Client_Create_(&args));
   return std::make_unique<PJRTClient>(args.client, this->api);
 }

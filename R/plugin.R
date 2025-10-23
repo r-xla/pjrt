@@ -1,15 +1,41 @@
-the <- new.env(parent = emptyenv())
+the <- hashtab()
 
-the$plugins <- list()
-the$clients <- list()
+the[["plugins"]] <- hashtab()
+the[["clients"]] <- hashtab()
+the[["config"]] <- list(
+  cpu_device_count = 1L
+)
 
-plugin_client_create <- function(plugin, platform, ...) {
-  if (platform %in% names(the$clients)) {
-    return(the$clients[[platform]])
+plugin_client_create <- function(plugin, platform, options = list()) {
+  client <- the[["clients"]][[platform]]
+  if (!is.null(client)) {
+    if (length(options)) {
+      cli_abort("Can only specify client options the first time you create a client.")
+    }
+    return(client)
+  }
+  opts <- default_client_options(platform)
+  if (length(options)) {
+    opts[names(options)] <- options
   }
 
   check_plugin(plugin)
-  the$clients[[platform]] <- impl_plugin_client_create(plugin)
+
+  opts <- if (length(opts) > 0) opts else NULL
+  lapply(opts, function(x) {
+    if (!is.integer(x) || length(x) != 1) {
+      cli_abort("Client options must be integers of length 1")
+    }
+  })
+  # Otherwise, we get startup message w.r.t. the number of cpu devices
+  client <- withr::with_envvar(c(TF_CPP_MIN_LOG_LEVEL = "1"), {
+    impl_plugin_client_create(plugin, opts)
+  })
+  the[["clients"]][[platform]] <- client
+  # in order to go from device -> client, we go through the platform name, which might
+  # not be the same as the "cuda" string, but might be "nvidia h100" etc.
+  the[["clients"]][[platform(devices(client)[[1L]])]] <- client
+  client
 }
 
 check_plugin <- function(plugin) {
@@ -29,14 +55,14 @@ check_plugin <- function(plugin) {
 #' @return `PJRTPlugin`
 #' @export
 pjrt_plugin <- function(platform) {
-  if (platform %in% names(the$plugins)) {
-    return(the$plugins[[platform]])
+  if (platform %in% names(the[["plugins"]])) {
+    return(the[["plugins"]][[platform]])
   }
 
   plugin <- impl_plugin_load(plugin_path(platform))
   attributes(plugin) <- list(platform = platform)
   class(plugin) <- "PJRTPlugin"
-  the$plugins[[platform]] <- plugin
+  the[["plugins"]][[platform]] <- plugin
   plugin
 }
 
@@ -124,7 +150,7 @@ plugin_url <- function(platform) {
 
   if (os == "windows") {
     if (arch != "amd64") {
-      stop(
+      cli_abort(
         "Unsupported architecture for Windows: ",
         arch,
         ". Only 'amd64' is supported."
@@ -174,7 +200,7 @@ plugin_os <- function() {
   } else if (Sys.info()[["sysname"]] == "Windows") {
     return("windows")
   } else {
-    stop("Unsupported OS: ", Sys.info()[["sysname"]])
+    cli_abort("Unsupported OS: ", Sys.info()[["sysname"]])
   }
 }
 
@@ -188,7 +214,7 @@ plugin_arch <- function() {
   } else if (.Platform$r_arch == "arm64") {
     return("arm64")
   } else {
-    stop("Unsupported architecture: ", .Platform$r_arch)
+    cli_abort("Unsupported architecture: ", .Platform$r_arch)
   }
 }
 
@@ -232,7 +258,7 @@ as_pjrt_plugin <- function(x) {
   } else if (inherits(x, "PJRTPlugin")) {
     x
   } else {
-    stop("Invalid plugin: ", class(x))
+    cli_abort("Invalid plugin: ", class(x))
   }
 }
 
