@@ -32,6 +32,9 @@ plugin_client_create <- function(plugin, platform, options = list()) {
     impl_plugin_client_create(plugin, opts)
   })
   the[["clients"]][[platform]] <- client
+  # in order to go from device -> client, we go through the platform name, which might
+  # not be the same as the "cuda" string, but might be "nvidia h100" etc.
+  the[["clients"]][[platform(devices(client)[[1L]])]] <- client
   client
 }
 
