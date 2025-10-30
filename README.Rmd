@@ -26,8 +26,20 @@ For a low-level R interface to *create* stableHLO programs, see the [stablehlo](
 
 ## Installation
 
+From GitHub:
+
 ```{r, eval = FALSE}
 pak::pak("r-xla/pjrt")
+```
+
+You can also install from [r-universe](https://r-xla.r-universe.dev/builds), by adding the code below to your `.Rprofile`.
+
+
+```{r}
+options(repos = c(
+  rxla = "https://r-xla.r-universe.dev",
+  CRAN = "https://cloud.r-project.org/"
+))
 ```
 
 ## Quick Start
