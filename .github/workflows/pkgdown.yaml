@@ -39,6 +39,8 @@ jobs:
         with:
           extra-packages: any::pkgdown
           needs: website
+          extra-repositories: https://r-xla.r-universe.dev
+
 
       - name: Install package
         run: R CMD INSTALL .
