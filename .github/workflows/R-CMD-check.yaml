@@ -77,7 +77,13 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
-          cache: false
+
+      - name: Install deps on cuda
+        if: ${{ matrix.config.platform == 'cuda' }}
+        run: |
+          Rscript -e 'install.packages("remotes")'
+          Rscript -e 'remotes::install_github("r-xla/tengen")'
+          Rscript -e 'remotes::install_github("r-xla/xlamisc")'
 
       - uses: r-lib/actions/check-r-package@v2
         with:
