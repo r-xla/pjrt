@@ -23,8 +23,21 @@ interface to *create* stableHLO programs, see the
 
 ## Installation
 
+From GitHub:
+
 ``` r
 pak::pak("r-xla/pjrt")
+```
+
+You can also install from
+[r-universe](https://r-xla.r-universe.dev/builds), by adding the code
+below to your `.Rprofile`.
+
+``` r
+options(repos = c(
+  rxla = "https://r-xla.r-universe.dev",
+  CRAN = "https://cloud.r-project.org/"
+))
 ```
 
 ## Quick Start
@@ -56,19 +69,22 @@ executable <- pjrt_compile(program, client = "cpu")
 
 x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2, 2), dtype = "f32")
 x
-#> PJRTBuffer<f32: 2x2> 
+#> PJRTBuffer 
 #>  1.0000 3.0000
 #>  2.0000 4.0000
+#> [ CPUf32{2x2} ]
 y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
 y
-#> PJRTBuffer<f32: 2x2> 
+#> PJRTBuffer 
 #>  5.0000 7.0000
 #>  6.0000 8.0000
+#> [ CPUf32{2x2} ]
 
 pjrt_execute(executable, x, y)
-#> PJRTBuffer<f32: 2x2> 
+#> PJRTBuffer 
 #>   6.0000 10.0000
 #>   8.0000 12.0000
+#> [ CPUf32{2x2} ]
 ```
 
 ## Main Features
