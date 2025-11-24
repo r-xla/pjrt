@@ -11,7 +11,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/feat-format-buffer/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/main/DESCRIPTION)
 
 Falbel D, Fischer S (2025). *pjrt: R Interface to PJRT*. R package
 version 0.0.0.9000, <https://r-xla.github.io/pjrt/>.
