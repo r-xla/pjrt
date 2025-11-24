@@ -103,5 +103,10 @@ CharacterVector format_raw_buffer_cpp(RawVector data, std::string dtype,
     result[i] = format_element(data.begin() + i * element_size, dtype);
   }
 
+  // Add dimensions attribute if rank > 0
+  if (rank > 0) {
+    result.attr("dim") = shape;
+  }
+
   return result;
 }

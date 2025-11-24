@@ -11,7 +11,7 @@ test_that("format_buffer works for integers", {
   check <- function(x, dtype) {
     buf <- pjrt_buffer(x, dtype = dtype)
     res <- format_buffer(buf)
-    expect_equal(res, as.character(x))
+    expect_equal(as.character(res), as.character(x))
   }
 
   check(-5:5, "i32")
@@ -46,7 +46,7 @@ test_that("format_buffer works for logicals", {
 
   buf <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
   res <- format_buffer(buf)
-  expect_equal(res, c("true", "false"))
+  expect_equal(res, array(c("true", "false"), dim = 2L))
 })
 
 test_that("format_buffer returns vector of characters", {
@@ -56,5 +56,16 @@ test_that("format_buffer returns vector of characters", {
   res <- format_buffer(buf)
   expect_length(res, 6)
   expect_type(res, "character")
-  expect_equal(res, c("1", "3", "5", "2", "4", "6"))
+  expect_equal(as.vector(res), as.character(1:6))
+})
+
+test_that("format_buffer preserves dimensions", {
+  dims <- c(2L, 3L)
+  buf <- pjrt_buffer(array(1:6, dim = dims), dtype = "i32")
+  expect_equal(format_buffer(buf), array(as.character(1:6), dim = dims))
+})
+
+test_that("format_buffer works with empty buffer", {
+  buf <- pjrt_empty("i32", shape = c(2, 3, 0))
+  expect_equal(format_buffer(buf), array(character(), dim = c(2, 3, 0)))
 })
