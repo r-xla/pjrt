@@ -42,6 +42,7 @@ Collate:
     'compare.R'
     'device.R'
     'execution_options.R'
+    'format.R'
     'loaded_executable.R'
     'package.R'
     'pjrt-package.R'
