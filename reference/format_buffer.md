@@ -1,7 +1,7 @@
 # Format Buffer Data
 
 Formats buffer data into a character vector of string representations of
-individual elements suitable for StableHLO.
+individual elements suitable for stableHLO.
 
 ## Usage
 
