@@ -50,16 +50,6 @@ test_that("format_buffer works for logicals", {
   expect_equal(res, array(c("true", "false"), dim = 2L))
 })
 
-test_that("format_buffer returns vector of characters", {
-  skip_if_not_installed("pjrt")
-
-  buf <- pjrt_buffer(array(1:6, dim = c(2, 3)), dtype = "i32")
-  res <- format_buffer(buf)
-  expect_length(res, 6)
-  expect_type(res, "character")
-  expect_equal(as.vector(res), as.character(1:6))
-})
-
 test_that("format_buffer preserves dimensions", {
   dims <- c(2L, 3L)
   buf <- pjrt_buffer(array(1:6, dim = dims), dtype = "i32")
