@@ -2,9 +2,10 @@ test_that("format_buffer works for floats", {
   expect_snapshot(format_buffer(pjrt_buffer(1.23, "f32")))
   expect_snapshot(format_buffer(pjrt_buffer(1.23, "f64")))
   expect_snapshot(format_buffer(pjrt_buffer(-3.33, "f64")))
-  expect_snapshot(format_buffer(pjrt_buffer(NaN, "f32")))
-  expect_snapshot(format_buffer(pjrt_buffer(Inf, "f32")))
-  expect_snapshot(format_buffer(pjrt_buffer(-Inf, "f32")))
+
+  expect_equal(format_buffer(pjrt_buffer(NaN, "f32")), "0x7FC00000")
+  expect_equal(format_buffer(pjrt_buffer(Inf, "f32")), "0x7F800000")
+  expect_equal(format_buffer(pjrt_buffer(-Inf, "f32")), "0xFF800000")
 })
 
 test_that("format_buffer works for integers", {
