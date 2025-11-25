@@ -4,7 +4,7 @@ Version: 0.0.0.9000
 Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = c("cre", "aut"),
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197")),
-    person("Daniel", "Falbel", , "daniel@posit.co", role = "aut", "cre",
+    person("Daniel", "Falbel", , "daniel@posit.co", role = "aut",
            comment = c(ORCID = "https://orcid.org/0009-0006-0143-2392"))
   )
 Description: Provides an R interface to PJRT (Pretty much Just another
