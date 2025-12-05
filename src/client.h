@@ -43,6 +43,9 @@ class PJRTLoadedExecutable {
   std::vector<std::unique_ptr<PJRTBuffer>> execute(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
+  std::vector<std::unique_ptr<PJRTLazyBuffer>> execute_lazy(
+      std::vector<PJRTBuffer *> input,
+      const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   ~PJRTLoadedExecutable();
 };
 

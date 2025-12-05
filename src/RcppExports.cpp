@@ -229,6 +229,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_loaded_executable_execute_lazy
+SEXP impl_loaded_executable_execute_lazy(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
+RcppExport SEXP _pjrt_impl_loaded_executable_execute_lazy(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> >::type executable(executableSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type input(inputSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTExecuteOptions> >::type execution_options(execution_optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_loaded_executable_execute_lazy(executable, input, execution_options));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_buffer_elt_type
 Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
 RcppExport SEXP _pjrt_impl_buffer_elt_type(SEXP bufferSEXP) {
@@ -397,6 +410,28 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// impl_lazy_buffer_is_ready
+bool impl_lazy_buffer_is_ready(Rcpp::XPtr<rpjrt::PJRTLazyBuffer> buffer);
+RcppExport SEXP _pjrt_impl_lazy_buffer_is_ready(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLazyBuffer> >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_lazy_buffer_is_ready(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_lazy_buffer_materialize
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_lazy_buffer_materialize(Rcpp::XPtr<rpjrt::PJRTLazyBuffer> buffer);
+RcppExport SEXP _pjrt_impl_lazy_buffer_materialize(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLazyBuffer> >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_lazy_buffer_materialize(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
@@ -416,6 +451,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},
     {"_pjrt_impl_client_devices", (DL_FUNC) &_pjrt_impl_client_devices, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
+    {"_pjrt_impl_loaded_executable_execute_lazy", (DL_FUNC) &_pjrt_impl_loaded_executable_execute_lazy, 3},
     {"_pjrt_impl_buffer_elt_type", (DL_FUNC) &_pjrt_impl_buffer_elt_type, 1},
     {"_pjrt_impl_buffer_device", (DL_FUNC) &_pjrt_impl_buffer_device, 1},
     {"_pjrt_impl_buffer_memory", (DL_FUNC) &_pjrt_impl_buffer_memory, 1},
@@ -431,6 +467,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
     {"_pjrt_impl_device_platform", (DL_FUNC) &_pjrt_impl_device_platform, 1},
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
+    {"_pjrt_impl_lazy_buffer_is_ready", (DL_FUNC) &_pjrt_impl_lazy_buffer_is_ready, 1},
+    {"_pjrt_impl_lazy_buffer_materialize", (DL_FUNC) &_pjrt_impl_lazy_buffer_materialize, 1},
     {NULL, NULL, 0}
 };
 
