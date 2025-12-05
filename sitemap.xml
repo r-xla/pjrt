@@ -13,13 +13,16 @@
 <url><loc>/reference/elt_type.html</loc></url>
 <url><loc>/reference/format_buffer.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/lazy_buffer_ready.html</loc></url>
 <url><loc>/reference/pjrt-package.html</loc></url>
 <url><loc>/reference/pjrt_buffer.html</loc></url>
 <url><loc>/reference/pjrt_client.html</loc></url>
 <url><loc>/reference/pjrt_compile.html</loc></url>
 <url><loc>/reference/pjrt_device.html</loc></url>
 <url><loc>/reference/pjrt_execute.html</loc></url>
+<url><loc>/reference/pjrt_execute_lazy.html</loc></url>
 <url><loc>/reference/pjrt_execution_options.html</loc></url>
+<url><loc>/reference/pjrt_lazy_buffer_materialize.html</loc></url>
 <url><loc>/reference/pjrt_plugin.html</loc></url>
 <url><loc>/reference/pjrt_program.html</loc></url>
 <url><loc>/reference/platform.html</loc></url>
