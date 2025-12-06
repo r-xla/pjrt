@@ -12,10 +12,3 @@ navbar:
   structure:
     left:  [intro, reference, news, articles]
     right: [search, github, lightswitch]
-
-
-articles:
-- title: Articles
-  navbar: ~
-  contents:
-  - internals

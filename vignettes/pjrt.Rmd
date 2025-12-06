@@ -1,5 +1,5 @@
 ---
-title: "Getting Started"
+title: "Overview"
 format:
   html:
     toc: true
@@ -21,12 +21,12 @@ knitr::opts_chunk$set(
 ## Main Classes
 
 The {pjrt} package provides an R interface to [PJRT](https://openxla.org/xla/pjrt).
-PJRT is part of the [OpenXLA](https://openxla.org/) project which is an open source compiler ecosystem for machine learning or more generally Accelerated Linear Algebra (XLA).
+PJRT is part of the [OpenXLA](https://openxla.org/) project, which is an open source compiler ecosystem for machine learning or more generally Accelerated Linear Algebra (XLA).
 It defines a standardized interface which serves as a portability layer that allows a single framework to be used with different hardware backends.
-PJRT defines what a concrete "backend" needs to be able to do in order to be useable with a frontend (like [JAX](https://jax.readthedocs.io/)) using PJRT.
+PJRT defines what a concrete "backend" needs to be able to do in order to be usable with a frontend (like [JAX](https://jax.readthedocs.io/)) using PJRT.
 Anyone can implement a specific PJRT plugin (`PJRTPlugin`) for a specific hardware backend.
 When using PJRT, such a plugin is loaded as a shared library and is wrapped in a PJRT client (`PJRTClient`).
-In this package, we currently support CPU plugins, NVIDIA GPU plugins and Metal (Apple GPU; experimental) plugins.
+In this package, we currently support CPU plugins, NVIDIA GPU plugins, and Metal (Apple GPU; experimental) plugins.
 
 When creating a plugin upon first use, the shared library is downloaded and cached.
 
@@ -52,7 +52,7 @@ the[["plugins"]][["cpu"]]
 ```
 
 A client can have one or more devices.
-This is not relevant for CPU clients, but in principle useful for GPUs, although this is not fully supported yet.
+This is not relevant for CPU clients, but is in principle useful for GPUs, although this is not fully supported yet.
 
 ```{r}
 cpu_devices <- devices(client)
@@ -63,7 +63,7 @@ The most important operations that a client supports are data handling, compilat
 
 ### Data Handling
 
-Using a client, we can move data from the host (standard R objects) to a specific device to create a buffer (`PJRTBuffer`) (aka tensor or array).
+Using a client, we can move data from the host (standard R objects) to a specific device to create a buffer (`PJRTBuffer`) (also known as a tensor or array).
 A buffer has a type, which consists of the types of the (homogenous) elements (`PJRTElementType`) and the shape.
 Scalars are represented as 0-dimensional buffers and dimensions can be 0.
 
@@ -88,13 +88,13 @@ host_data_from_buffer <- as_array(device_buffer)
 host_data_from_buffer
 ```
 
-In principle it is also supported to move data from one device to another, but this is not supported yet.
+In principle, it is also supported to move data from one device to another, but this is not supported yet.
 
 ### Compilation
 
 PJRT offers an interface to compile programs into executables.
-These programs can be written in HLO or the newer stableHLO.
-The [stablehlo](https://github.com/r-xla/stablehla) package allows to easily create stableHLO programs in R.
+These programs can be written in HLO or the newer StableHLO.
+The [stablehlo](https://github.com/r-xla/stablehla) package allows you to easily create StableHLO programs in R.
 Below, we define a simple program that adds two `f32` tensors of shape `(2, 2)`.
 
 ```{r}
@@ -117,7 +117,7 @@ program
 ```
 
 We can't really do anything with this, except for compiling it into an executable (`PJRTLoadedExecutable`).
-For compilation we need to specify the client to use, because the executable depends on the platform as the GPU-binary will differ from the CPU-binary.
+For compilation, we need to specify the client to use, because the executable depends on the platform as the GPU binary will differ from the CPU binary.
 
 ```{r}
 executable <- pjrt_compile(program, client = client)
@@ -135,7 +135,7 @@ result <- pjrt_execute(executable, device_buffer, device_buffer, simplify = FALS
 result[[1L]]
 ```
 
-It would have also been possible to pass execution options (`PJRTExecuteOptions`; creatable via `pjrt_execution_options`) to the execution.
+It would have also been possible to pass execution options (`PJRTExecuteOptions`) to the execution.
 
 ## Serialization
 

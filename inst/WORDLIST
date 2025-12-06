@@ -26,3 +26,6 @@ stablehlo
 zml
 macOS
 openxla
+GPUs
+StableHLO
+frontend
