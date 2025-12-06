@@ -1,13 +1,13 @@
 diff --git a/inst/include/xla/pjrt/c/pjrt_c_api.h b/inst/include/xla/pjrt/c/pjrt_c_api.h
-index 1cdbdbb..de7332f 100644
+index fd2dbad..94f8a3a 100644
 --- a/inst/include/xla/pjrt/c/pjrt_c_api.h
 +++ b/inst/include/xla/pjrt/c/pjrt_c_api.h
-@@ -2592,7 +2592,7 @@ typedef struct PJRT_Api {
+@@ -2684,7 +2684,7 @@ typedef struct PJRT_Api {
  
  enum {
    PJRT_Api_STRUCT_SIZE =
--      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_TopologyDescription_Deserialize)
-+      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_TopologyDescription_Deserialize_)
+-      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_LoadedExecutable_GetDeviceAssignment)
++      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_LoadedExecutable_GetDeviceAssignment_)
  };
  
  #undef _PJRT_API_STRUCT_FIELD

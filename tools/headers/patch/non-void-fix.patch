@@ -1,5 +1,5 @@
 diff --git a/inst/include/xla/ffi/api/api.h b/inst/include/xla/ffi/api/api.h
-index 20e927d..4885c3b 100644
+index d440584..a4275fb 100644
 --- a/inst/include/xla/ffi/api/api.h
 +++ b/inst/include/xla/ffi/api/api.h
 @@ -190,6 +190,7 @@ inline std::ostream& operator<<(std::ostream& os,
@@ -9,4 +9,4 @@ index 20e927d..4885c3b 100644
 +  throw std::runtime_error("unknown execution stage");
  }
  
- namespace xla::ffi {
+ //===----------------------------------------------------------------------===//

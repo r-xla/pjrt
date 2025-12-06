@@ -190,6 +190,7 @@ inline std::ostream& operator<<(std::ostream& os,
     case XLA_FFI_ExecutionStage_EXECUTE:
       return os << "execute";
   }
+  throw std::runtime_error("unknown execution stage");
 }
 
 //===----------------------------------------------------------------------===//
