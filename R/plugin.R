@@ -195,7 +195,7 @@ plugin_url <- function(platform) {
 
     # on windows download from our pre-built artifacts
     # TODO make this versioned.
-    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-windows-x86_64.zip"
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-5b41a39-windows-x86_64.zip"
     # windows files are zipped
     attr(url, "extract") <- function(path, cache_dir) {
       tmp <- tempfile()
@@ -225,7 +225,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "11.0.0"
+  "14.0.1"
 }
 
 plugin_os <- function() {
