@@ -41,7 +41,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>pjrt: R Interface to PJRT</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/ffi-extensions/R/pjrt-package.R" class="external-link"><code>R/pjrt-package.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/docs-env-variables/R/package.R" class="external-link"><code>R/package.R</code></a></small>
       <div class="d-none name"><code>pjrt-package.Rd</code></div>
     </div>
 
@@ -54,13 +54,27 @@
     <h2 id="environment-variables">Environment Variables<a class="anchor" aria-label="anchor" href="#environment-variables"></a></h2>
 
 
-<ul><li><p><code>TF_CPP_MIN_LOG_LEVEL</code>: Logging level for PJRT C++ API:</p><ul><li><p>0: shows info, warnings and errors</p></li>
+<p><strong>Configuration options provided by XLA</strong></p>
+<p>XLA provides various configuration options, but their documentation is scattered across
+various websites. The options include:</p><ul><li><p><code>TF_CPP_MIN_LOG_LEVEL</code>: Logging level for PJRT C++ API:</p><ul><li><p>0: shows info, warnings and errors</p></li>
 <li><p>1: shows warnings and errors</p></li>
 <li><p>2: shows errors</p></li>
 <li><p>3: shows nothing</p></li>
 </ul></li>
-<li><p><code>PJRT_PLATFORM</code>: Default platform to use, falls back to <code>"cpu"</code>.</p></li>
-<li><p><code>PJRT_CPU_DEVICE_COUNT</code>: The number of CPU devices to use. Defaults to 1.</p></li>
+<li><p><code>XLA_FLAGS</code>: See the <a href="https://openxla.org/xla/flags_guidance" class="external-link">openxla website</a> for
+more information.</p></li>
+</ul><p><strong>Configuration options provided by this package</strong></p><ul><li><p><code>PJRT_PLATFORM</code>: Default platform to use, falls back to <code>"cpu"</code>.</p></li>
+<li><p><code>PJRT_PLUGIN_PATH_&lt;PLATFORM&gt;</code>: Path to custom plugin library file for a specific
+platform (e.g., <code>PJRT_PLUGIN_PATH_CPU</code>, <code>PJRT_PLUGIN_PATH_CUDA</code>,
+<code>PJRT_PLUGIN_PATH_METAL</code>). If set, the package will use this path instead
+of downloading the plugin.</p></li>
+<li><p><code>PJRT_PLUGIN_URL_&lt;PLATFORM&gt;</code>: URL to download plugin from for a specific
+platform (e.g., <code>PJRT_PLUGIN_URL_CPU</code>, <code>PJRT_PLUGIN_URL_CUDA</code>,
+<code>PJRT_PLUGIN_URL_METAL</code>). If set, overrides the default plugin download URL.</p></li>
+<li><p><code>PJRT_ZML_ARTIFACT_VERSION</code>: Version of ZML artifacts to download.
+Only used when downloading plugins from zml/pjrt-artifacts.</p></li>
+<li><p><code>PJRT_CPU_DEVICE_COUNT</code>: The number of CPU devices to use. Defaults to 1.
+This is primarily intended for testing purposes.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
