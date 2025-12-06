@@ -41,7 +41,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Create a <code>PJRTProgram</code></h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/main/R/program.R" class="external-link"><code>R/program.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feat-docs/R/program.R" class="external-link"><code>R/program.R</code></a></small>
       <div class="d-none name"><code>pjrt_program.Rd</code></div>
     </div>
 
@@ -78,6 +78,20 @@ One of "mlir" or "hlo".</p></dd>
     <p><code>PJRTProgram</code></p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># plugin_is_downloaded()</span></span></span>
+<span class="r-in"><span><span class="co"># Create a program from source</span></span></span>
+<span class="r-in"><span><span class="va">src</span> <span class="op">&lt;-</span> <span class="st">"</span></span></span>
+<span class="r-in"><span><span class="st">func.func @main(%arg0: tensor&lt;2xf32&gt;) -&gt; tensor&lt;2xf32&gt; {</span></span></span>
+<span class="r-in"><span><span class="st">  return %arg0 : tensor&lt;2xf32&gt;</span></span></span>
+<span class="r-in"><span><span class="st">}</span></span></span>
+<span class="r-in"><span><span class="st">"</span></span></span>
+<span class="r-in"><span><span class="va">prog</span> <span class="op">&lt;-</span> <span class="fu">pjrt_program</span><span class="op">(</span>src <span class="op">=</span> <span class="va">src</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">prog</span></span></span>
+<span class="r-in"><span><span class="op">}</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

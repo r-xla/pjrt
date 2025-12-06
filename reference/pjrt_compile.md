@@ -33,3 +33,18 @@ pjrt_compile(
 ## Value
 
 `PJRTExecutable`
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded()
+# Create a simple program
+src <- r"(
+func.func @main(\%arg0: tensor<2xf32>) -> tensor<2xf32> {
+  return \%arg0 : tensor<2xf32>
+}
+)"
+prog <- pjrt_program(src = src)
+exec <- pjrt_compile(prog)
+}
+```

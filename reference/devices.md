@@ -18,3 +18,13 @@ devices(client = NULL)
 ## Value
 
 `list` of `PJRTDevice`
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded()
+# Create client (defaults to CPU)
+client <- pjrt_client()
+devices(client)
+}
+```

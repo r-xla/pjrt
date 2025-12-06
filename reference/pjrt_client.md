@@ -33,3 +33,13 @@ pjrt_client(platform = NULL, ...)
   platform.
 
 - [`devices()`](devices.md) for a `list` of `PJRTDevice` objects.
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded()
+# Create a client (defaults to CPU)
+client <- pjrt_client()
+client
+}
+```

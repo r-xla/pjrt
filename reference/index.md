@@ -44,5 +44,8 @@
 
 - [`plugin_attributes()`](plugin_attributes.md) : Get Plugin Attributes
 
+- [`plugin_is_downloaded()`](plugin_is_downloaded.md) : Check if Plugin
+  is Downloaded
+
 - [`print(`*`<PJRTBuffer>`*`)`](print.PJRTBuffer.md) : Print a PJRT
   Buffer

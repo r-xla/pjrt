@@ -24,3 +24,12 @@ pjrt_plugin(platform)
 - [`plugin_attributes()`](plugin_attributes.md) -\>
   [`list()`](https://rdrr.io/r/base/list.html): for the attributes of
   the plugin.
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded("cpu")
+plugin <- pjrt_plugin("cpu")
+plugin
+}
+```

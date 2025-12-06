@@ -41,7 +41,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Compile a Program</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/main/R/client.R" class="external-link"><code>R/client.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feat-docs/R/client.R" class="external-link"><code>R/client.R</code></a></small>
       <div class="d-none name"><code>pjrt_compile.Rd</code></div>
     </div>
 
@@ -83,6 +83,20 @@ from which the client will be created.</p></dd>
     <p><code>PJRTExecutable</code></p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># plugin_is_downloaded()</span></span></span>
+<span class="r-in"><span><span class="co"># Create a simple program</span></span></span>
+<span class="r-in"><span><span class="va">src</span> <span class="op">&lt;-</span> <span class="st">r"(</span></span></span>
+<span class="r-in"><span><span class="st">func.func @main(\%arg0: tensor&lt;2xf32&gt;) -&gt; tensor&lt;2xf32&gt; {</span></span></span>
+<span class="r-in"><span><span class="st">  return \%arg0 : tensor&lt;2xf32&gt;</span></span></span>
+<span class="r-in"><span><span class="st">}</span></span></span>
+<span class="r-in"><span><span class="st">)"</span></span></span>
+<span class="r-in"><span><span class="va">prog</span> <span class="op">&lt;-</span> <span class="fu"><a href="pjrt_program.html">pjrt_program</a></span><span class="op">(</span>src <span class="op">=</span> <span class="va">src</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">exec</span> <span class="op">&lt;-</span> <span class="fu">pjrt_compile</span><span class="op">(</span><span class="va">prog</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

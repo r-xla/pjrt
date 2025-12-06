@@ -115,3 +115,32 @@ pjrt_empty(dtype, shape, device = NULL)
 When calling this function on a vector of length 1, the resulting shape
 is `1L`. To create a 0-dimensional buffer, use `pjrt_scalar` where the
 resulting shape is [`integer()`](https://rdrr.io/r/base/integer.html).
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded()
+# Create a buffer from a numeric vector
+buf <- pjrt_buffer(c(1, 2, 3, 4))
+buf
+
+# Create a buffer from a matrix
+mat <- matrix(1:6, nrow = 2)
+buf <- pjrt_buffer(mat)
+buf
+
+# Create an integer buffer from an array
+arr <- array(1:8, dim = c(2, 2, 2))
+buf <- pjrt_buffer(arr)
+}
+if (FALSE) { # plugin_is_downloaded()
+# Create a scalar (0-dimensional array)
+scalar <- pjrt_scalar(42, dtype = "f32")
+scalar
+}
+if (FALSE) { # plugin_is_downloaded()
+# Create an empty buffer
+empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
+empty
+}
+```

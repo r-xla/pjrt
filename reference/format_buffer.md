@@ -20,3 +20,12 @@ format_buffer(buffer)
 
 [`character()`](https://rdrr.io/r/base/character.html) A character
 vector containing the formatted elements.
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded()
+buf <- pjrt_buffer(c(1.5, 2.5, 3.5))
+format_buffer(buf)
+}
+```

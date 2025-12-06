@@ -39,3 +39,27 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 ## Value
 
 `PJRTBuffer` \| `list` of `PJRTBuffer`s
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded()
+# Create and compile a simple identity program
+src <- r"(
+func.func @main(
+  \%x: tensor<2x2xf32>,
+  \%y: tensor<2x2xf32>
+) -> tensor<2x2xf32> {
+  \%0 = "stablehlo.add"(\%x, \%y) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
+  "func.return"(\%0): (tensor<2x2xf32>) -> ()
+}
+)"
+prog <- pjrt_program(src = src)
+exec <- pjrt_compile(prog)
+
+# Execute with input
+x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
+pjrt_execute(exec, x, y)
+}
+```

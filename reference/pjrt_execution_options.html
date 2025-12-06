@@ -51,7 +51,7 @@ via input-output aliasing (stableHLO attribute tf.aliasing_output)."></head><bod
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Create Execution Options</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/main/R/execution_options.R" class="external-link"><code>R/execution_options.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feat-docs/R/execution_options.R" class="external-link"><code>R/execution_options.R</code></a></small>
       <div class="d-none name"><code>pjrt_execution_options.Rd</code></div>
     </div>
 
@@ -75,7 +75,7 @@ via input-output aliasing (stableHLO attribute <code>tf.aliasing_output</code>).
 
 <dl><dt id="arg-non-donatable-input-indices">non_donatable_input_indices<a class="anchor" aria-label="anchor" href="#arg-non-donatable-input-indices"></a></dt>
 <dd><p>(<code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>)<br>
-A vector of input buffer indices that should not be donated during execution.
+A vector of input buffer indices that should not be donated during execution (0-based).
 Buffer donation allows the runtime to reuse input buffers for outputs when
 possible, which can improve performance. However, if an input buffer is
 referenced multiple times or needs to be preserved, it should be marked as
@@ -93,6 +93,17 @@ to detect scheduling errors in multi-host programs.</p></dd>
     <p><code>PJRTExecuteOptions</code></p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># plugin_is_downloaded()</span></span></span>
+<span class="r-in"><span><span class="co"># Create default execution options</span></span></span>
+<span class="r-in"><span><span class="va">opts</span> <span class="op">&lt;-</span> <span class="fu">pjrt_execution_options</span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Mark buffer 0 as non-donatable</span></span></span>
+<span class="r-in"><span><span class="va">opts</span> <span class="op">&lt;-</span> <span class="fu">pjrt_execution_options</span><span class="op">(</span>non_donatable_input_indices <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

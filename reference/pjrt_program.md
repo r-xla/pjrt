@@ -25,3 +25,18 @@ pjrt_program(src = NULL, path = NULL, format = c("mlir", "hlo"))
 ## Value
 
 `PJRTProgram`
+
+## Examples
+
+``` r
+if (FALSE) { # plugin_is_downloaded()
+# Create a program from source
+src <- "
+func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {
+  return %arg0 : tensor<2xf32>
+}
+"
+prog <- pjrt_program(src = src)
+prog
+}
+```
