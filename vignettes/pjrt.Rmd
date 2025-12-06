@@ -1,12 +1,9 @@
 ---
-title: "Overview"
-format:
-  html:
-    toc: true
-engine: knitr
+title: "Get Started"
+output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Overview}
-  %\VignetteEngine{knitr}
+  %\VignetteIndexEntry{Get Started}
+  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 

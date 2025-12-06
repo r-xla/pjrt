@@ -24,12 +24,14 @@ Imports:
     tengen,
     withr
 Suggests:
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp
-VignetteBuilder: 
+VignetteBuilder:
     knitr
-Additional_repositories:https://r-xla.r-universe.dev
+Additional_repositories: https://r-xla.r-universe.dev
 Config/build/compilation-database: true
 Config/testthat/edition: 3
 Encoding: UTF-8
