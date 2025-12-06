@@ -6,6 +6,18 @@ the[["config"]] <- list(
   cpu_device_count = 1L
 )
 
+#' @title Create PJRT Client
+#' @description
+#' Create a PJRT client for a specific plugin and platform.
+#'
+#' @param plugin (`PJRTPlugin`)\cr
+#'   The plugin to create a client for.
+#' @param platform (`character(1)`)\cr
+#'   The platform to create a client for.
+#' @param options (`list()`)\cr
+#'   Additional options to pass to the client.
+#' @return `PJRTClient`
+#' @export
 plugin_client_create <- function(plugin, platform, options = list()) {
   client <- the[["clients"]][[platform]]
   if (!is.null(client)) {
