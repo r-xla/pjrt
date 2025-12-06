@@ -13,3 +13,9 @@ Buffer.}
 \description{
 Get the element type of a buffer.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded("cpu")) withAutoprint(\{ # examplesIf}
+buf <- pjrt_buffer(c(1.0, 2.0, 3.0))
+elt_type(buf)
+\dontshow{\}) # examplesIf}
+}

@@ -18,3 +18,9 @@ The buffer.}
 \description{
 Get the platform name of a PJRT buffer.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+buf <- pjrt_buffer(c(1, 2, 3))
+platform(buf)
+\dontshow{\}) # examplesIf}
+}

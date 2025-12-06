@@ -16,3 +16,9 @@ A PJRT buffer object.}
 \description{
 Formats buffer data into a character vector of string representations of individual elements suitable for stableHLO.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+buf <- pjrt_buffer(c(1.5, 2.5, 3.5))
+format_buffer(buf)
+\dontshow{\}) # examplesIf}
+}

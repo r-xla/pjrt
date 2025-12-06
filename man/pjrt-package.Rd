@@ -33,11 +33,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Daniel Falbel \email{daniel@posit.co} (\href{https://orcid.org/0009-0006-0143-2392}{ORCID})
+\strong{Maintainer}: Sebastian Fischer \email{seb.fischer@tutamail.com} (\href{https://orcid.org/0000-0002-9609-3197}{ORCID})
 
 Authors:
 \itemize{
-  \item Sebastian Fischer \email{seb.fischer@tutamail.com} (\href{https://orcid.org/0000-0002-9609-3197}{ORCID})
+  \item Daniel Falbel \email{daniel@posit.co} (\href{https://orcid.org/0009-0006-0143-2392}{ORCID})
 }
 
 }
