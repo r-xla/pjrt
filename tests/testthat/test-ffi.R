@@ -1,4 +1,6 @@
-test_that("can load the ffi extension", {
+skip_if_metal("FFI extension not available on metal")
+
+test_that("can load the ffi extension", {  
   expect_true(test_get_extension(pjrt_plugin(Sys.getenv(
     "PJRT_PLATFORM",
     "cpu"
