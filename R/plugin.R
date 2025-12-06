@@ -65,6 +65,9 @@ check_plugin <- function(plugin) {
 #' @param platform (`character(1)`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
 #' @return `PJRTPlugin`
+#' @examplesIf plugin_is_downloaded("cpu")
+#' plugin <- pjrt_plugin("cpu")
+#' plugin
 #' @export
 pjrt_plugin <- function(platform) {
   if (platform %in% names(the[["plugins"]])) {
@@ -76,6 +79,26 @@ pjrt_plugin <- function(platform) {
   class(plugin) <- "PJRTPlugin"
   the[["plugins"]][[platform]] <- plugin
   plugin
+}
+
+platform_cache_dir <- function(platform) {
+  file.path(tools::R_user_dir("pjrt", which = "cache"), platform)
+}
+
+#' @title Check if Plugin is Downloaded
+#' @description
+#' Check if a plugin is downloaded.
+#'
+#' @param platform (`character(1)`)\cr
+#'   Platform name.
+#' @return `logical(1)`
+#' @examplesIf plugin_is_downloaded("cpu")
+#' # Check if CPU plugin is downloaded
+#' plugin_is_downloaded("cpu")
+#' @export
+plugin_is_downloaded <- function(platform = NULL) {
+  platform <- platform %||% Sys.getenv("PJRT_PLATFORM", "cpu")
+  dir.exists(platform_cache_dir(platform))
 }
 
 plugin_path <- function(platform) {
@@ -90,11 +113,20 @@ plugin_path <- function(platform) {
     return(envvar)
   }
 
-  cache_dir <- tools::R_user_dir("pjrt", which = "cache")
-
-  platform_cache_dir <- file.path(cache_dir, platform)
+  platform_cache_dir <- platform_cache_dir(platform)
 
   plugin_hash_path <- file.path(platform_cache_dir, "hash")
+
+  if (!dir.exists(platform_cache_dir)) {
+    plugin_download(platform_cache_dir, platform)
+  } else {
+    plugin_hash <- readLines(plugin_hash_path)
+    expected_hash <- rlang::hash(as.character(plugin_url(platform)))
+
+    if (plugin_hash != expected_hash) {
+      plugin_download(platform_cache_dir, platform)
+    }
+  }
 
   if (!file.exists(plugin_hash_path)) {
     plugin_download(platform_cache_dir, platform)
@@ -252,9 +284,9 @@ pjrt_api_version <- function(plugin = pjrt_plugin()) {
 #' @param plugin (`PJRTPlugin` | `character(1)`)\cr
 #'   The plugin (or platform name) to get the attributes of.
 #' @return named `list()`
-#' @export
-#' @examplesIf Sys.info()["sysname"] != "Windows"
+#' @examplesIf plugin_is_downloaded("cpu")
 #' plugin_attributes("cpu")
+#' @export
 plugin_attributes <- function(plugin) {
   plugin <- as_pjrt_plugin(plugin)
   impl_plugin_attributes(plugin)
@@ -267,6 +299,10 @@ plugin_attributes <- function(plugin) {
 #' @param x (any)\cr
 #'   Object to convert to a PJRT plugin. Currently supports `PJRTPlugin` and `character(1)`.
 #' @return `PJRTPlugin`
+#' @examplesIf plugin_is_downloaded("cpu")
+#' # Convert from platform name
+#' plugin <- as_pjrt_plugin("cpu")
+#' plugin
 #' @export
 as_pjrt_plugin <- function(x) {
   if (checkmate::test_string(x)) {

@@ -16,3 +16,10 @@ Object to convert to a PJRT plugin. Currently supports \code{PJRTPlugin} and \co
 \description{
 Convert a platform name to a PJRT plugin or verify that an object is already a plugin.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded("cpu")) withAutoprint(\{ # examplesIf}
+# Convert from platform name
+plugin <- as_pjrt_plugin("cpu")
+plugin
+\dontshow{\}) # examplesIf}
+}

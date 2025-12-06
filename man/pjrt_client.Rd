@@ -29,3 +29,10 @@ Create a PJRT client for a specific device.
 }
 }
 
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Create a client (defaults to CPU)
+client <- pjrt_client()
+client
+\dontshow{\}) # examplesIf}
+}

@@ -8,6 +8,15 @@
 #'   Compile options.
 #' @template param_client
 #' @return `PJRTExecutable`
+#' @examplesIf plugin_is_downloaded()
+#' # Create a simple program
+#' src <- r"(
+#' func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {
+#'   return %arg0 : tensor<2xf32>
+#' }
+#' )"
+#' prog <- pjrt_program(src = src)
+#' exec <- pjrt_compile(prog)
 #' @export
 pjrt_compile <- function(
   program,
@@ -36,6 +45,10 @@ pjrt_compile <- function(
 #'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices.
 #'   You can also configure this via `PJRT_CPU_DEVICE_COUNT` environment variable.
 #' @return `PJRTClient`
+#' @examplesIf plugin_is_downloaded()
+#' # Create a client (defaults to CPU)
+#' client <- pjrt_client()
+#' client
 #' @export
 pjrt_client <- function(platform = NULL, ...) {
   if (is.null(platform)) {
@@ -56,6 +69,10 @@ default_client_options <- function(platform) {
 #' @param x (`PJRTClient` | `character(1)`)\cr
 #'   Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "metal").
 #' @return `PJRTClient`
+#' @examplesIf plugin_is_downloaded()
+#' # Convert from platform name
+#' client <- as_pjrt_client("cpu")
+#' client
 #' @export
 as_pjrt_client <- function(x) {
   if (inherits(x, "PJRTClient")) {
@@ -80,8 +97,12 @@ as_pjrt_client <- function(x) {
 #'   The buffer.
 #' @param ... Additional arguments (unused).
 #' @return `character(1)`
+#' @examplesIf plugin_is_downloaded()
+#' buf <- pjrt_buffer(c(1, 2, 3))
+#' platform(buf)
 #' @export
 platform <- S7::new_generic("platform", "x")
+
 S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
   impl_client_platform(x)
 }
@@ -92,6 +113,10 @@ S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
 #' @param client ([`PJRTClient`][pjrt_client])\cr
 #'   Object convertible to a `PJRTClient`.
 #' @return `list` of `PJRTDevice`
+#' @examplesIf plugin_is_downloaded()
+#' # Create client (defaults to CPU)
+#' client <- pjrt_client()
+#' devices(client)
 #' @export
 devices <- function(client = NULL) {
   impl_client_devices(as_pjrt_client(client))

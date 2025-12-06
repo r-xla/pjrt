@@ -30,3 +30,24 @@ Execute a PJRT program with the given inputs and execution options.
 \strong{Important:}
 Arguments are passed by position and names are ignored.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Create and compile a simple identity program
+src <- r"(
+func.func @main(
+  \%x: tensor<2x2xf32>,
+  \%y: tensor<2x2xf32>
+) -> tensor<2x2xf32> {
+  \%0 = "stablehlo.add"(\%x, \%y) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
+  "func.return"(\%0): (tensor<2x2xf32>) -> ()
+}
+)"
+prog <- pjrt_program(src = src)
+exec <- pjrt_compile(prog)
+
+# Execute with input
+x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
+pjrt_execute(exec, x, y)
+\dontshow{\}) # examplesIf}
+}

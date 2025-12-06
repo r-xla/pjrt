@@ -96,3 +96,29 @@ When calling this function on a vector of length 1, the resulting shape is \code
 To create a 0-dimensional buffer, use \code{pjrt_scalar} where the resulting shape is \code{integer()}.
 }
 
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Create a buffer from a numeric vector
+buf <- pjrt_buffer(c(1, 2, 3, 4))
+buf
+
+# Create a buffer from a matrix
+mat <- matrix(1:6, nrow = 2)
+buf <- pjrt_buffer(mat)
+buf
+
+# Create an integer buffer from an array
+arr <- array(1:8, dim = c(2, 2, 2))
+buf <- pjrt_buffer(arr)
+\dontshow{\}) # examplesIf}
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Create a scalar (0-dimensional array)
+scalar <- pjrt_scalar(42, dtype = "f32")
+scalar
+\dontshow{\}) # examplesIf}
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Create an empty buffer
+empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
+empty
+\dontshow{\}) # examplesIf}
+}
