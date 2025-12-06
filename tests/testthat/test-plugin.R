@@ -13,3 +13,9 @@ test_that("attributes work", {
 test_that("print works", {
   expect_snapshot(pjrt_plugin("cpu"))
 })
+
+
+test_that("invalid plugin name does not create folder", {
+  expect_error(pjrt_plugin("abc"), "Invalid platform")
+  expect_false(dir.exists(file.path(tools::R_user_dir("pjrt", which = "cache"), "invalid")))
+})

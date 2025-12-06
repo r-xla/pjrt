@@ -67,6 +67,12 @@ pjrt_plugin <- function(platform) {
 }
 
 plugin_path <- function(platform) {
+  if (!(platform %in% c("cpu", "cuda", "metal"))) {
+    cli_abort(c(
+      i = "Invalid platform: {.val {platform}}",
+      x = "Must be one of: {.val cpu}, {.val cuda}, {.val metal}"
+    ))
+  }
   envvar <- Sys.getenv(paste0("PJRT_PLUGIN_PATH_", toupper(platform)), "")
   if (envvar != "") {
     return(envvar)
@@ -75,10 +81,6 @@ plugin_path <- function(platform) {
   cache_dir <- tools::R_user_dir("pjrt", which = "cache")
 
   platform_cache_dir <- file.path(cache_dir, platform)
-
-  if (!dir.exists(platform_cache_dir)) {
-    dir.create(platform_cache_dir, recursive = TRUE)
-  }
 
   plugin_hash_path <- file.path(platform_cache_dir, "hash")
 
@@ -104,7 +106,9 @@ plugin_download <- function(cache_dir, platform = NULL) {
   tempfile <- tempfile(fileext = ".tar.gz")
   utils::download.file(url, tempfile)
 
-  fs::dir_delete(cache_dir)
+  if (dir.exists(cache_dir)) {
+    fs::dir_delete(cache_dir)
+  }
   fs::dir_create(cache_dir, recurse = TRUE)
 
   plugin_hash <- rlang::hash(as.character(url))
