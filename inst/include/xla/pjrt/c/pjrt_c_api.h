@@ -2684,7 +2684,7 @@ typedef struct PJRT_Api {
 
 enum {
   PJRT_Api_STRUCT_SIZE =
-      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_LoadedExecutable_GetDeviceAssignment)
+      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_LoadedExecutable_GetDeviceAssignment_)
 };
 
 #undef _PJRT_API_STRUCT_FIELD
