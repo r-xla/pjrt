@@ -114,9 +114,7 @@ plugin_path <- function(platform) {
     if (plugin_hash != expected_hash) {
       plugin_download(platform_cache_dir, platform)
     }
-
   }
-
 
   if (!file.exists(plugin_hash_path)) {
     plugin_download(platform_cache_dir, platform)
