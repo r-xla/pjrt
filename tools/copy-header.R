@@ -1,7 +1,7 @@
 # Copies PJRT API headers from the XLA source directory to the R package.
 # Usage: Rscript tools/copy-header.R
 
-XLA_SRC <- Sys.getenv("XLA_SRC", "../xla")
+XLA_SRC <- Sys.getenv("XLA_SRC", "../../openxla/xla")
 if (!dir.exists(XLA_SRC)) {
   stop("XLA source directory does not exist: ", XLA_SRC)
 }
