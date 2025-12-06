@@ -189,7 +189,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "11.0.0"
+  "13.0.0"
 }
 
 plugin_os <- function() {
