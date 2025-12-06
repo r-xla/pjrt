@@ -8,6 +8,15 @@
 #' @param format (`character(1)`)
 #'   One of "mlir" or "hlo".
 #' @return `PJRTProgram`
+#' @examplesIf plugin_is_downloaded()
+#' # Create a program from source
+#' src <- "
+#' func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {
+#'   return %arg0 : tensor<2xf32>
+#' }
+#' "
+#' prog <- pjrt_program(src = src)
+#' prog
 #' @export
 pjrt_program <- function(src = NULL, path = NULL, format = c("mlir", "hlo")) {
   if (!xor(is.null(src), is.null(path))) {

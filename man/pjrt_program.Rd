@@ -22,3 +22,15 @@ One of "mlir" or "hlo".}
 \description{
 Create a program from a string or file path.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Create a program from source
+src <- "
+func.func @main(\%arg0: tensor<2xf32>) -> tensor<2xf32> {
+  return \%arg0 : tensor<2xf32>
+}
+"
+prog <- pjrt_program(src = src)
+prog
+\dontshow{\}) # examplesIf}
+}

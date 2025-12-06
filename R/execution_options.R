@@ -8,7 +8,7 @@
 #' via input-output aliasing (stableHLO attribute `tf.aliasing_output`).
 #'
 #' @param non_donatable_input_indices (`integer()`)\cr
-#'   A vector of input buffer indices that should not be donated during execution.
+#'   A vector of input buffer indices that should not be donated during execution (0-based).
 #'   Buffer donation allows the runtime to reuse input buffers for outputs when
 #'   possible, which can improve performance. However, if an input buffer is
 #'   referenced multiple times or needs to be preserved, it should be marked as
@@ -18,6 +18,12 @@
 #'   to detect scheduling errors in multi-host programs.
 #'
 #' @return `PJRTExecuteOptions`
+#' @examplesIf plugin_is_downloaded()
+#' # Create default execution options
+#' opts <- pjrt_execution_options()
+#'
+#' # Mark buffer 0 as non-donatable
+#' opts <- pjrt_execution_options(non_donatable_input_indices = 0L)
 #' @export
 pjrt_execution_options <- function(
   non_donatable_input_indices = integer(),

@@ -67,6 +67,20 @@ is_buffer <- function(x) {
 #'   - `row_major`: Whether to read the data in row-major format or column-major format.
 #'     R uses column-major format.
 #' @return `PJRTBuffer`
+#' @examplesIf plugin_is_downloaded()
+#' # Create a buffer from a numeric vector
+#' buf <- pjrt_buffer(c(1, 2, 3, 4))
+#' buf
+#'
+#' # Create a buffer from a matrix
+#' mat <- matrix(1:6, nrow = 2)
+#' buf <- pjrt_buffer(mat)
+#' buf
+#'
+#' # Create an integer buffer from an array
+#' arr <- array(1:8, dim = c(2, 2, 2))
+#' buf <- pjrt_buffer(arr)
+#'
 #' @export
 pjrt_buffer <- S7::new_generic(
   "pjrt_buffer",
@@ -96,6 +110,10 @@ buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...
 method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
 
 #' @rdname pjrt_buffer
+#' @examplesIf plugin_is_downloaded()
+#' # Create a scalar (0-dimensional array)
+#' scalar <- pjrt_scalar(42, dtype = "f32")
+#' scalar
 #' @export
 pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, device = NULL, ...) {
   S7::S7_dispatch()
@@ -106,6 +124,10 @@ method(pjrt_scalar, S7::new_S3_class("PJRTBuffer")) <- function(data, dtype = NU
 }
 
 #' @rdname pjrt_buffer
+#' @examplesIf plugin_is_downloaded()
+#' # Create an empty buffer
+#' empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
+#' empty
 #' @export
 pjrt_empty <- function(dtype, shape, device = NULL) {
   if (!any(shape == 0)) {
@@ -272,6 +294,9 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
 #' Get the element type of a buffer.
 #' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer.
+#' @examplesIf plugin_is_downloaded("cpu")
+#' buf <- pjrt_buffer(c(1.0, 2.0, 3.0))
+#' elt_type(buf)
 #' @export
 elt_type <- function(x) {
   impl_buffer_elt_type(x)
@@ -424,7 +449,7 @@ shape.PJRTBuffer <- function(x, ...) {
 
 #' @export
 `!=.PJRTDevice` <- function(e1, e2) {
-  !(e1 == e2)
+  !(e1 == e2) # nolint
 }
 
 #' @export

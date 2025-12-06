@@ -16,3 +16,10 @@ Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "metal").}
 \description{
 Convert a platform name to a PJRT client or verify that an object is already a client.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Convert from platform name
+client <- as_pjrt_client("cpu")
+client
+\dontshow{\}) # examplesIf}
+}

@@ -16,3 +16,10 @@ Object convertible to a \code{PJRTClient}.}
 \description{
 Get the addressable devices for a PJRT client.
 }
+\examples{
+\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+# Create client (defaults to CPU)
+client <- pjrt_client()
+devices(client)
+\dontshow{\}) # examplesIf}
+}
