@@ -24,8 +24,9 @@ as_pjrt_client(x)
 ## Examples
 
 ``` r
+if (FALSE) { # plugin_is_downloaded()
 # Convert from platform name
 client <- as_pjrt_client("cpu")
 client
-#> <PJRTClient:cpu>
+}
 ```

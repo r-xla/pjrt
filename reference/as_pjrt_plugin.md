@@ -24,8 +24,9 @@ as_pjrt_plugin(x)
 ## Examples
 
 ``` r
+if (FALSE) { # plugin_is_downloaded("cpu")
 # Convert from platform name
 plugin <- as_pjrt_plugin("cpu")
 plugin
-#> <PJRTPlugin:cpu>
+}
 ```

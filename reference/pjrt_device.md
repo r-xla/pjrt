@@ -27,13 +27,11 @@ pjrt_device(device)
 ## Examples
 
 ``` r
+if (FALSE) { # plugin_is_downloaded("cpu")
 # Show available devices for CPU client
 devices(pjrt_client("cpu"))
-#> [[1]]
-#> <CpuDevice(id=0)>
-#> 
 # Create device 0 for CPU client
 dev <- pjrt_device("cpu:0")
 dev
-#> <CpuDevice(id=0)>
+}
 ```

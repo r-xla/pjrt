@@ -30,14 +30,7 @@ named [`list()`](https://rdrr.io/r/base/list.html)
 ## Examples
 
 ``` r
+if (FALSE) { # plugin_is_downloaded("cpu")
 plugin_attributes("cpu")
-#> $xla_version
-#> [1] 2
-#> 
-#> $stablehlo_current_version
-#> [1]  1 12  1
-#> 
-#> $stablehlo_minimum_version
-#> [1] 0 9 0
-#> 
+}
 ```
