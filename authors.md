@@ -11,7 +11,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/docs-vignette/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/main/DESCRIPTION)
 
 Fischer S, Falbel D (2025). *pjrt: R Interface to PJRT*. R package
 version 0.0.0.9000, <https://r-xla.github.io/pjrt/>.
