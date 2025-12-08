@@ -137,7 +137,7 @@ It would have also been possible to pass execution options (`PJRTExecuteOptions`
 
 We support reading and writing buffers using the [safetensors](https://github.com/mlverse/safetensors) format, which allows storing named lists of buffers.
 
-```{r, eval = requireNamespace("safetensors", quietly = TRUE) && plugin_is_downloaded("cpu")}
+```{r, eval = requireNamespace("safetensors", quietly = TRUE) && pjrt::plugin_is_downloaded("cpu")}
 tmp <- tempfile(fileext = ".safetensors")
 safetensors::safe_save_file(list(x = result), tmp, framework = "pjrt")
 reloaded <- safetensors::safe_load_file(tmp, framework = "pjrt")
