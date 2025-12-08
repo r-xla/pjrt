@@ -14,8 +14,10 @@ jobs:
         with:
           use-public-rspm: true
           extra-repositories: https://r-xla.r-universe.dev
+      
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          cache: false
           extra-packages: any::devtools
 
       - name: Create compile_commands.json
