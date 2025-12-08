@@ -1,6 +1,7 @@
 #include "buffer.h"
 
 #include <Rcpp.h>
+#include <exception>
 
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
@@ -164,6 +165,158 @@ void PJRTBuffer::buffer_to_host(std::span<uint8_t> &host_buffer) {
 
   // Perform the copy and wait for it to complete
   BufferToHostAndWait(this->api.get(), &args);
+}
+
+PJRTLazyBuffer::EventHandle::EventHandle(PJRT_Event *event,
+                                         std::shared_ptr<PJRT_Api> api,
+                                         std::shared_ptr<void> owner,
+                                         PJRT_Event **event_slot,
+                                         std::shared_ptr<std::thread> worker,
+                                         std::shared_ptr<std::exception_ptr>
+                                             execution_error)
+    : event(event),
+      api(std::move(api)),
+      owner(std::move(owner)),
+      event_slot(event_slot),
+      worker(std::move(worker)),
+      execution_error(std::move(execution_error)) {}
+
+void PJRTLazyBuffer::EventHandle::AwaitAndDestroy() {
+  std::call_once(once, [&]() {
+    if (worker && worker->joinable()) {
+      worker->join();
+    }
+
+    std::exception_ptr pending_error =
+        execution_error ? *execution_error : std::exception_ptr();
+    if (event == nullptr && event_slot != nullptr) {
+      event = *event_slot;
+    }
+    if (event == nullptr) {
+      if (pending_error) std::rethrow_exception(pending_error);
+      return;
+    }
+
+    PJRT_Event_Await_Args await_args{};
+    await_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
+    await_args.event = event;
+    check_err(this->api.get(), this->api->PJRT_Event_Await_(&await_args));
+
+    PJRT_Event_Destroy_Args destroy_args{};
+    destroy_args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
+    destroy_args.event = event;
+    check_err(this->api.get(), this->api->PJRT_Event_Destroy_(&destroy_args));
+    event = nullptr;
+
+    if (pending_error) std::rethrow_exception(pending_error);
+  });
+}
+
+PJRTLazyBuffer::PJRTLazyBuffer(PJRT_Buffer *buffer, PJRT_Event *event,
+                               std::shared_ptr<PJRT_Api> api)
+    : pending_buffer(buffer),
+      buffer_slot(nullptr),
+      event(std::make_shared<EventHandle>(event, api)),
+      api(std::move(api)) {}
+
+PJRTLazyBuffer::PJRTLazyBuffer(PJRT_Buffer *buffer,
+                               std::shared_ptr<EventHandle> shared_event,
+                               std::shared_ptr<PJRT_Api> api,
+                               PJRT_Buffer **buffer_slot)
+    : pending_buffer(buffer),
+      buffer_slot(buffer_slot),
+      event(std::move(shared_event)),
+      api(std::move(api)) {}
+
+PJRTLazyBuffer::~PJRTLazyBuffer() { ensure_ready(); }
+
+void PJRTLazyBuffer::ensure_ready() {
+  if (resolved) return;
+
+  if (event) event->AwaitAndDestroy();
+
+  if (pending_buffer == nullptr && buffer_slot != nullptr) {
+    pending_buffer = *buffer_slot;
+  }
+
+  if (pending_buffer == nullptr) return;
+
+  resolved = std::make_unique<PJRTBuffer>(pending_buffer, this->api);
+}
+
+bool PJRTLazyBuffer::is_ready() {
+  if (resolved) return true;
+
+  if (pending_buffer == nullptr && buffer_slot != nullptr) {
+    pending_buffer = *buffer_slot;
+  }
+
+  if (!event) return pending_buffer != nullptr;
+  if (event->event == nullptr && event->event_slot != nullptr) {
+    event->event = *event->event_slot;
+  }
+  if (event->event == nullptr) return false;
+
+  PJRT_Event_IsReady_Args args{};
+  args.struct_size = PJRT_Event_IsReady_Args_STRUCT_SIZE;
+  args.event = event->event;
+  check_err(this->api.get(), this->api->PJRT_Event_IsReady_(&args));
+  return args.is_ready;
+}
+
+PJRTBuffer *PJRTLazyBuffer::operator->() {
+  ensure_ready();
+  return resolved.get();
+}
+
+PJRTBuffer &PJRTLazyBuffer::operator*() {
+  ensure_ready();
+  return *resolved;
+}
+
+std::unique_ptr<PJRTBuffer> PJRTLazyBuffer::materialize() {
+  ensure_ready();
+  if (pending_buffer == nullptr && buffer_slot != nullptr) {
+    pending_buffer = *buffer_slot;
+  }
+  if (!resolved && pending_buffer != nullptr) {
+    resolved = std::make_unique<PJRTBuffer>(pending_buffer, this->api);
+  }
+  pending_buffer = nullptr;
+  return std::move(resolved);
+}
+
+std::vector<int64_t> PJRTLazyBuffer::dimensions() {
+  return this->operator->()->dimensions();
+}
+
+std::unique_ptr<PJRTMemory> PJRTLazyBuffer::memory() {
+  return this->operator->()->memory();
+}
+
+std::unique_ptr<PJRTBufferMemoryLayout> PJRTLazyBuffer::memory_layout() {
+  return this->operator->()->memory_layout();
+}
+
+PJRT_Buffer_Type PJRTLazyBuffer::element_type() {
+  return this->operator->()->element_type();
+}
+
+std::unique_ptr<PJRTDevice> PJRTLazyBuffer::device() {
+  return this->operator->()->device();
+}
+
+std::shared_ptr<PJRT_Api> PJRTLazyBuffer::get_api() {
+  return this->operator->()->get_api();
+}
+
+void PJRTLazyBuffer::buffer_to_host(std::span<uint8_t> &host_buffer) {
+  this->operator->()->buffer_to_host(host_buffer);
+}
+
+PJRT_Buffer *PJRTLazyBuffer::raw_buffer() {
+  ensure_ready();
+  return resolved ? resolved->buffer : nullptr;
 }
 
 }  // namespace rpjrt

@@ -512,6 +512,28 @@ SEXP impl_loaded_executable_execute(
 }
 
 // [[Rcpp::export()]]
+SEXP impl_loaded_executable_execute_lazy(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
+    Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
+  std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
+  for (auto i = 0; i < input.size(); i++) {
+    auto elt = input[i];
+    auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
+    inputs[i] = buffer.get();
+  }
+
+  auto outs = executable->execute_lazy(inputs, *execution_options);
+
+  Rcpp::List result(outs.size());
+  for (size_t i = 0; i < outs.size(); ++i) {
+    Rcpp::XPtr<rpjrt::PJRTLazyBuffer> xptr(outs[i].release(), true);
+    xptr.attr("class") = "PJRTLazyBuffer";
+    result[i] = xptr;
+  }
+  return result;
+}
+
+// [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(
     Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   auto element_type =
@@ -644,4 +666,18 @@ std::string impl_device_platform(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
 void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
                        int max_width, int max_rows_slice) {
   buffer_print(buffer, max_rows, max_width, max_rows_slice);
+}
+
+// [[Rcpp::export()]]
+bool impl_lazy_buffer_is_ready(Rcpp::XPtr<rpjrt::PJRTLazyBuffer> buffer) {
+  return buffer->is_ready();
+}
+
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_lazy_buffer_materialize(
+    Rcpp::XPtr<rpjrt::PJRTLazyBuffer> buffer) {
+  auto real_buffer = buffer->materialize();
+  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(real_buffer.release(), true);
+  xptr.attr("class") = "PJRTBuffer";
+  return xptr;
 }

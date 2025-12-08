@@ -46,6 +46,7 @@ Collate:
     'device.R'
     'execution_options.R'
     'format.R'
+    'lazy_buffer.R'
     'loaded_executable.R'
     'package.R'
     'pjrt-package.R'

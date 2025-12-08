@@ -1,6 +1,8 @@
 #include "client.h"
 
+#include <exception>
 #include <memory>
+#include <thread>
 
 #include "buffer.h"
 #include "utils.h"
@@ -220,6 +222,103 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   destroy_exec_args.executable = get_exec_args.executable;
   check_err(this->api.get(),
             this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
+
+  return out;
+};
+
+std::vector<std::unique_ptr<PJRTLazyBuffer>> PJRTLoadedExecutable::execute_lazy(
+    std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
+  struct AsyncExecuteState {
+    PJRT_ExecuteOptions exec_options{};
+    PJRT_LoadedExecutable_Execute_Args exec_args{};
+    std::vector<PJRT_Buffer *> inner;
+    std::vector<PJRT_Buffer *const *> outer;
+    std::vector<PJRT_Buffer *> inner_out;
+    std::vector<PJRT_Buffer **> outer_out;
+    std::vector<PJRT_Event *> device_events;
+    PJRT_Executable *executable_handle = nullptr;
+    std::shared_ptr<std::thread> worker;
+    std::shared_ptr<PJRT_Api> api;
+    std::shared_ptr<std::exception_ptr> execution_error;
+  };
+
+  auto state = std::make_shared<AsyncExecuteState>();
+  state->api = api;
+  state->execution_error = std::make_shared<std::exception_ptr>();
+
+  state->exec_options.struct_size = sizeof(PJRT_ExecuteOptions);
+  state->exec_options.launch_id = options.launch_id;
+  state->exec_options.non_donatable_input_indices =
+      options.non_donatable_input_indices.empty()
+          ? nullptr
+          : options.non_donatable_input_indices.data();
+  state->exec_options.num_non_donatable_input_indices =
+      options.non_donatable_input_indices.size();
+
+  state->exec_args.struct_size = PJRT_LoadedExecutable_Execute_Args_STRUCT_SIZE;
+  state->exec_args.executable = this->executable;
+  state->exec_args.options = &state->exec_options;
+
+  state->inner.resize(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    state->inner[i] = input[i]->buffer;
+  }
+  if (input.empty()) {
+    state->outer = {nullptr};
+  } else {
+    state->outer = {state->inner.data()};
+  }
+  state->exec_args.argument_lists = state->outer.data();
+  state->exec_args.num_args = input.size();
+  state->exec_args.num_devices = 1;
+  state->exec_args.execute_device = nullptr;
+
+  PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
+  get_exec_args.struct_size = sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
+  get_exec_args.loaded_executable = this->executable;
+  check_err(this->api.get(),
+            this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args));
+
+  PJRT_Executable_NumOutputs_Args num_outputs_args{};
+  num_outputs_args.struct_size = sizeof(PJRT_Executable_NumOutputs_Args);
+  num_outputs_args.executable = get_exec_args.executable;
+  check_err(this->api.get(),
+            this->api->PJRT_Executable_NumOutputs_(&num_outputs_args));
+
+  size_t num_outputs = num_outputs_args.num_outputs;
+  state->inner_out.resize(num_outputs);
+  state->outer_out = {state->inner_out.data()};
+  state->exec_args.output_lists = state->outer_out.data();
+
+  state->device_events.resize(1, nullptr);
+  state->exec_args.device_complete_events = state->device_events.data();
+  state->executable_handle = get_exec_args.executable;
+
+  state->worker = std::make_shared<std::thread>([state]() {
+    try {
+      check_err(state->api.get(),
+                state->api->PJRT_LoadedExecutable_Execute_(&state->exec_args));
+    } catch (...) {
+      *state->execution_error = std::current_exception();
+    }
+
+    PJRT_Executable_Destroy_Args destroy_exec_args{};
+    destroy_exec_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
+    destroy_exec_args.executable = state->executable_handle;
+    check_err(state->api.get(),
+              state->api->PJRT_Executable_Destroy_(&destroy_exec_args));
+  });
+
+  auto shared_event = std::make_shared<PJRTLazyBuffer::EventHandle>(
+      nullptr, api, state, state->device_events.data(), state->worker,
+      state->execution_error);
+
+  std::vector<std::unique_ptr<PJRTLazyBuffer>> out;
+  out.reserve(num_outputs);
+  for (size_t i = 0; i < num_outputs; ++i) {
+    out.push_back(std::make_unique<PJRTLazyBuffer>(
+        state->outer_out[0][i], shared_event, api, &state->inner_out[i]));
+  }
 
   return out;
 };

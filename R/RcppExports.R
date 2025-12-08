@@ -69,6 +69,10 @@ impl_loaded_executable_execute <- function(executable, input, execution_options)
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
+impl_loaded_executable_execute_lazy <- function(executable, input, execution_options) {
+    .Call(`_pjrt_impl_loaded_executable_execute_lazy`, executable, input, execution_options)
+}
+
 impl_buffer_elt_type <- function(buffer) {
     .Call(`_pjrt_impl_buffer_elt_type`, buffer)
 }
@@ -127,5 +131,13 @@ impl_device_platform <- function(device) {
 
 impl_buffer_print <- function(buffer, max_rows, max_width, max_rows_slice) {
     invisible(.Call(`_pjrt_impl_buffer_print`, buffer, max_rows, max_width, max_rows_slice))
+}
+
+impl_lazy_buffer_is_ready <- function(buffer) {
+    .Call(`_pjrt_impl_lazy_buffer_is_ready`, buffer)
+}
+
+impl_lazy_buffer_materialize <- function(buffer) {
+    .Call(`_pjrt_impl_lazy_buffer_materialize`, buffer)
 }
 
