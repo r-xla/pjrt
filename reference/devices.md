@@ -22,9 +22,10 @@ devices(client = NULL)
 ## Examples
 
 ``` r
-if (FALSE) { # plugin_is_downloaded()
 # Create client (defaults to CPU)
 client <- pjrt_client()
 devices(client)
-}
+#> [[1]]
+#> <CpuDevice(id=0)>
+#> 
 ```

@@ -36,11 +36,9 @@ pjrt_execution_options(non_donatable_input_indices = integer(), launch_id = 0L)
 ## Examples
 
 ``` r
-if (FALSE) { # plugin_is_downloaded()
 # Create default execution options
 opts <- pjrt_execution_options()
 
 # Mark buffer 0 as non-donatable
 opts <- pjrt_execution_options(non_donatable_input_indices = 0L)
-}
 ```
