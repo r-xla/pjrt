@@ -18,8 +18,7 @@ elt_type(x)
 ## Examples
 
 ``` r
-if (FALSE) { # plugin_is_downloaded("cpu")
 buf <- pjrt_buffer(c(1.0, 2.0, 3.0))
 elt_type(buf)
-}
+#> <f32>
 ```

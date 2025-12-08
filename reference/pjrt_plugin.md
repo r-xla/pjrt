@@ -28,8 +28,7 @@ pjrt_plugin(platform)
 ## Examples
 
 ``` r
-if (FALSE) { # plugin_is_downloaded("cpu")
 plugin <- pjrt_plugin("cpu")
 plugin
-}
+#> <PJRTPlugin:cpu>
 ```

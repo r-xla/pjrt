@@ -43,7 +43,6 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 ## Examples
 
 ``` r
-if (FALSE) { # plugin_is_downloaded()
 # Create and compile a simple identity program
 src <- r"(
 func.func @main(
@@ -56,10 +55,12 @@ func.func @main(
 )"
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
+#> Error: -:3:3: error: unexpected character
+#> <unknown>:0: error: Failed to parse using StableHLO v1.12.1, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 
 # Execute with input
 x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
 pjrt_execute(exec, x, y)
-}
+#> Error: object 'exec' not found
 ```

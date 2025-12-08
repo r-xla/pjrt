@@ -44,6 +44,9 @@
 
 - [`plugin_attributes()`](plugin_attributes.md) : Get Plugin Attributes
 
+- [`plugin_client_create()`](plugin_client_create.md) : Create PJRT
+  Client
+
 - [`plugin_is_downloaded()`](plugin_is_downloaded.md) : Check if Plugin
   is Downloaded
 

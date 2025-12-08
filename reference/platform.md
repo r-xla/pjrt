@@ -26,8 +26,7 @@ platform(x, ...)
 ## Examples
 
 ``` r
-if (FALSE) { # plugin_is_downloaded()
 buf <- pjrt_buffer(c(1, 2, 3))
 platform(buf)
-}
+#> [1] "cpu"
 ```

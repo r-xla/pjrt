@@ -29,7 +29,6 @@ pjrt_program(src = NULL, path = NULL, format = c("mlir", "hlo"))
 ## Examples
 
 ``` r
-if (FALSE) { # plugin_is_downloaded()
 # Create a program from source
 src <- "
 func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {
@@ -38,5 +37,11 @@ func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {
 "
 prog <- pjrt_program(src = src)
 prog
-}
+#> PJRTProgram(format=mlir, code_size=92)
+#> 
+#> func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {
+#>   return %arg0 : tensor<2xf32>
+#> }
+#> 
+#>  
 ```
