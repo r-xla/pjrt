@@ -46,5 +46,5 @@ func.func @main(\%arg0: tensor<2xf32>) -> tensor<2xf32> {
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
 #> Error: -:2:17: error: unexpected character
-#> <unknown>:0: error: Failed to parse using StableHLO v1.12.1, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
+#> <unknown>:0: error: Failed to parse using StableHLO v1.13.2, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 ```

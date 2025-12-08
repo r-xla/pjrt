@@ -56,7 +56,7 @@ func.func @main(
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
 #> Error: -:3:3: error: unexpected character
-#> <unknown>:0: error: Failed to parse using StableHLO v1.12.1, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
+#> <unknown>:0: error: Failed to parse using StableHLO v1.13.2, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 
 # Execute with input
 x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
