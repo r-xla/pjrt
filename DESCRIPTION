@@ -19,16 +19,19 @@ Imports:
     fs,
     Rcpp,
     rlang,
+    S7,
     safetensors(>= 0.2.0),
     tengen,
-    S7,
     withr
 Suggests:
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp
-Additional_repositories:
-    https://r-xla.r-universe.dev
+VignetteBuilder:
+    knitr
+Additional_repositories: https://r-xla.r-universe.dev
 Config/build/compilation-database: true
 Config/testthat/edition: 3
 Encoding: UTF-8
