@@ -77,8 +77,8 @@ pjrt_plugin <- function(platform) {
   plugin <- impl_plugin_load(plugin_path(platform))
   attributes(plugin) <- list(platform = platform)
 
-  # register the print handler
-  if (!is_metal()) {
+  if (platform != "metal") {
+    # metal is not supported
     if (!ffi_register_print_tensor(plugin)) {
       cli::cli_warn(c(
         x = "Unable to register the print tensor handler.",
