@@ -3,7 +3,7 @@
 # Expects a xla source directory on the same root directory of this folder
 # Or the XLA_SRC environment variable to be set
 
-XLA_SRC <- Sys.getenv("XLA_SRC", "../xla")
+XLA_SRC <- Sys.getenv("XLA_SRC", "../../openxla/xla")
 
 if (!dir.exists(XLA_SRC)) {
   stop("XLA source directory does not exist: ", XLA_SRC)
