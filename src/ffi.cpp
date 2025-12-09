@@ -125,7 +125,7 @@ void register_ffi_handlers(PJRTPlugin* plugin,
 }  // namespace rpjrt
 
 // [[Rcpp::export]]
-bool ffi_register_print_tensor (Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
   const std::string platform_name = plugin.attr("platform");
 
   if (platform_name == "") {
