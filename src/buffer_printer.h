@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Rcpp.h>
+
 #include <string>
 #include <vector>
 

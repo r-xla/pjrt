@@ -151,7 +151,7 @@ bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
   } catch (const std::exception& e) {
     return false;
   }
-  
+
   return true;
 }
 
