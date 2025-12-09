@@ -122,7 +122,7 @@ void register_ffi_handlers(PJRTPlugin* plugin,
   check_err(plugin->api.get(), ffi_extension->register_handler(&args));
 
   args.handler = (void*)print_handler;
-  args.target_name = "print_handler";
+  args.target_name = "print_tensor";
   args.target_name_size = strlen(args.target_name);
 
   check_err(plugin->api.get(), ffi_extension->register_handler(&args));

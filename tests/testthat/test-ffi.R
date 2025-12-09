@@ -37,18 +37,18 @@ func.func @main(
   %i: tensor<4xi32>,
   %b: tensor<4xi1>
 ) -> (tensor<4xf32>, tensor<4xi32>, tensor<4xi1>) {
-  stablehlo.custom_call @print_handler(%f) {
-    call_target_name = "print_handler",
+  stablehlo.custom_call @print_tensor(%f) {
+    call_target_name = "print_tensor",
     has_side_effect = true,
     api_version = 4 : i32
   } : (tensor<4xf32>) -> ()
-  stablehlo.custom_call @print_handler(%i) {
-    call_target_name = "print_handler",
+  stablehlo.custom_call @print_tensor(%i) {
+    call_target_name = "print_tensor",
     has_side_effect = true,
     api_version = 4 : i32
   } : (tensor<4xi32>) -> ()
-  stablehlo.custom_call @print_handler(%b) {
-    call_target_name = "print_handler",
+  stablehlo.custom_call @print_tensor(%b) {
+    call_target_name = "print_tensor",
     backend_config = {
       print_header = "TestBuffer"
     },
