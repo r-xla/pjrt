@@ -120,15 +120,35 @@ void register_ffi_handlers(PJRTPlugin* plugin,
   args.platform_name_size = strlen(args.platform_name);
 
   check_err(plugin->api.get(), ffi_extension->register_handler(&args));
-
-  args.handler = (void*)print_handler;
-  args.target_name = "print_tensor";
-  args.target_name_size = strlen(args.target_name);
-
-  check_err(plugin->api.get(), ffi_extension->register_handler(&args));
 }
 
 }  // namespace rpjrt
+
+// [[Rcpp::export]]
+bool ffi_register_print_tensor (Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+  const std::string platform_name = plugin.attr("platform");
+
+  if (platform_name == "") {
+    return false;
+  }
+
+  PJRT_FFI_Register_Handler_Args args{};
+  args.struct_size = sizeof(PJRT_FFI_Register_Handler_Args);
+  args.handler = (void*)rpjrt::print_handler;
+  args.target_name = "print_tensor";
+  args.target_name_size = strlen(args.target_name);
+  args.platform_name = platform_name != "cuda" ? "host" : "cuda";
+  args.platform_name_size = strlen(args.platform_name);
+
+  try {
+    auto ffi_extension = get_pjrt_ffi_extension(plugin.get());
+    check_err(plugin->api.get(), ffi_extension->register_handler(&args));
+  } catch (const std::exception& e) {
+    return false;
+  }
+  
+  return true;
+}
 
 // [[Rcpp::export]]
 bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin,

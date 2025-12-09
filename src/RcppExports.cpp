@@ -11,6 +11,17 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// ffi_register_print_tensor
+bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin);
+RcppExport SEXP _pjrt_ffi_register_print_tensor(SEXP pluginSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTPlugin> >::type plugin(pluginSEXP);
+    rcpp_result_gen = Rcpp::wrap(ffi_register_print_tensor(plugin));
+    return rcpp_result_gen;
+END_RCPP
+}
 // test_get_extension
 bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin, const std::string& platform_name);
 RcppExport SEXP _pjrt_test_get_extension(SEXP pluginSEXP, SEXP platform_nameSEXP) {
@@ -411,6 +422,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_pjrt_ffi_register_print_tensor", (DL_FUNC) &_pjrt_ffi_register_print_tensor, 1},
     {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 2},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},

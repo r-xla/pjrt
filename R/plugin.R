@@ -76,6 +76,10 @@ pjrt_plugin <- function(platform) {
 
   plugin <- impl_plugin_load(plugin_path(platform))
   attributes(plugin) <- list(platform = platform)
+
+  # register the print handler
+  ffi_register_print_tensor(plugin)
+
   class(plugin) <- "PJRTPlugin"
   the[["plugins"]][[platform]] <- plugin
   plugin
