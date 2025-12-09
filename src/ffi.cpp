@@ -1,6 +1,7 @@
 #include "xla/ffi/api/ffi.h"
 
 #include <iostream>
+#include <string_view>
 #include "plugin.h"
 #include "utils.h"
 #include "buffer_printer.h"
@@ -67,7 +68,15 @@ xla::ffi::Error do_test_call() {
 
 XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 
-xla::ffi::Error do_print_call(AnyBuffer buffer) {
+constexpr std::string_view kPrintHeaderAttr = "print_header";
+
+xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
+  std::string_view header = "PJRTBuffer";
+  if (attrs.contains(kPrintHeaderAttr)) {
+    auto print_header = attrs.get<std::string_view>(kPrintHeaderAttr);
+    header = *print_header;
+  }
+
   const void* arg_data = buffer.untyped_data();
   const auto dimensions_span = buffer.dimensions();
   std::vector<int64_t> dimensions(dimensions_span.begin(),
@@ -81,7 +90,7 @@ xla::ffi::Error do_print_call(AnyBuffer buffer) {
   }
 
   auto lines = buffer_to_string_lines(arg_data, dimensions, element_type);
-  Rcpp::Rcout << "Buffer" << "\n";
+  Rcpp::Rcout << header << "\n";
   for (const auto& line : lines) {
     Rcpp::Rcout << line << '\n';
   }

@@ -48,6 +48,9 @@ func.func @main(
   } : (tensor<4xi32>) -> ()
   stablehlo.custom_call @print_handler(%b) {
     call_target_name = "print_handler",
+    backend_config = {
+      print_header = "TestBuffer"
+    },
     has_side_effect = true,
     api_version = 4 : i32
   } : (tensor<4xi1>) -> ()
