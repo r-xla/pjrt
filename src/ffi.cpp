@@ -75,10 +75,20 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
   std::string_view header = "PJRTBuffer";
   if (attrs.contains(kPrintHeaderAttr)) {
     auto print_header = attrs.get<std::string_view>(kPrintHeaderAttr);
-    header = *print_header;
+    if (print_header) {
+      header = *print_header;
+    }
   }
 
-  const void* arg_data = buffer.untyped_data();
+  const void* data = buffer.untyped_data();
+
+  if (!data) {
+    return xla::ffi::Error(
+      xla::ffi::ErrorCode::kDataLoss, 
+      "Could not find untyped data."
+    );
+  }
+
   const auto dimensions_span = buffer.dimensions();
   std::vector<int64_t> dimensions(dimensions_span.begin(),
                                   dimensions_span.end());
@@ -90,7 +100,7 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
     return xla::ffi::Error(xla::ffi::ErrorCode::kInvalidArgument, e.what());
   }
 
-  auto lines = buffer_to_string_lines(arg_data, dimensions, element_type);
+  auto lines = buffer_to_string_lines(data, dimensions, element_type);
   Rcpp::Rcout << header << "\n";
   for (const auto& line : lines) {
     Rcpp::Rcout << line << '\n';
