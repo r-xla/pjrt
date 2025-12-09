@@ -78,7 +78,12 @@ pjrt_plugin <- function(platform) {
   attributes(plugin) <- list(platform = platform)
 
   # register the print handler
-  ffi_register_print_tensor(plugin)
+  if (!ffi_register_print_tensor(plugin)) {
+    cli::cli_warn(c(
+      x = "Unable to register the print tensor handler.",
+      i = "Using the {.fn print_tensor} custom call won't be possible."
+    ))
+  }
 
   class(plugin) <- "PJRTPlugin"
   the[["plugins"]][[platform]] <- plugin
