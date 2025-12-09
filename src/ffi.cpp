@@ -36,7 +36,7 @@ xla::ffi::Error do_custom_call() {
 
 XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_custom_call);
 
-void register_ffi_handlers(PJRTPlugin* plugin) {
+void register_ffi_handlers(PJRTPlugin* plugin, const std::string& platform_name) {
   auto ffi_extension = get_pjrt_ffi_extension(plugin);
 
   PJRT_FFI_Register_Handler_Args args{};
@@ -44,7 +44,7 @@ void register_ffi_handlers(PJRTPlugin* plugin) {
   args.handler = (void*)test_handler;
   args.target_name = "test_handler";
   args.target_name_size = strlen(args.target_name);
-  args.platform_name = "Host";
+  args.platform_name = platform_name.c_str();
   args.platform_name_size = strlen(args.platform_name);
 
   check_err(plugin->api.get(), ffi_extension->register_handler(&args));
@@ -53,9 +53,9 @@ void register_ffi_handlers(PJRTPlugin* plugin) {
 }  // namespace rpjrt
 
 // [[Rcpp::export]]
-bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin, const std::string& platform_name) {
   if (rpjrt::get_pjrt_ffi_extension(plugin.get()) != nullptr) {
-    register_ffi_handlers(plugin.get());
+    register_ffi_handlers(plugin.get(), platform_name);
     return true;
   }
 
