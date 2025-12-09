@@ -3,7 +3,7 @@ skip_if_metal("FFI extension not available on metal")
 test_that("can load the ffi extension", {
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
   plugin <- pjrt_plugin(platform)
-  expect_true(test_get_extension(plugin, ifelse(platform!="cuda", "host", "cuda")))
+  expect_true(test_get_extension(plugin, ifelse(platform != "cuda", "host", "cuda")))
 })
 
 test_that("can use registered funs", {

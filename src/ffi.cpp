@@ -36,7 +36,8 @@ xla::ffi::Error do_custom_call() {
 
 XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_custom_call);
 
-void register_ffi_handlers(PJRTPlugin* plugin, const std::string& platform_name) {
+void register_ffi_handlers(PJRTPlugin* plugin,
+                           const std::string& platform_name) {
   auto ffi_extension = get_pjrt_ffi_extension(plugin);
 
   PJRT_FFI_Register_Handler_Args args{};
@@ -53,7 +54,8 @@ void register_ffi_handlers(PJRTPlugin* plugin, const std::string& platform_name)
 }  // namespace rpjrt
 
 // [[Rcpp::export]]
-bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin, const std::string& platform_name) {
+bool test_get_extension(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin,
+                        const std::string& platform_name) {
   if (rpjrt::get_pjrt_ffi_extension(plugin.get()) != nullptr) {
     register_ffi_handlers(plugin.get(), platform_name);
     return true;
