@@ -29,12 +29,19 @@ PJRT_FFI_Extension* get_pjrt_ffi_extension(PJRTPlugin* plugin) {
 
 // Implement a custom call as a C++ function. Note that we can use `Buffer` type
 // defined by XLA FFI that gives us access to buffer data type and shape.
-xla::ffi::Error do_custom_call() {
+xla::ffi::Error do_test_call() {
   return xla::ffi::Error(xla::ffi::ErrorCode::kOk,
                          "Custom call executed successfully");
 }
 
-XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_custom_call);
+XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
+
+xla::ffi::Error do_print_call(AnyBuffer buffer) {
+  const void* arg_data = buffer.untyped_data();
+  const auto dtype  = buffer.element_type();
+  return xla::ffi::Error(xla::ffi::ErrorCode::kOk,
+                         "Custom call executed successfully");
+}
 
 void register_ffi_handlers(PJRTPlugin* plugin,
                            const std::string& platform_name) {
