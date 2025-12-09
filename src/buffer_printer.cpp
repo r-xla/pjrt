@@ -7,9 +7,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
-#include <stdexcept>
 #include <span>
 #include <sstream>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -360,7 +360,7 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
 }
 
 std::vector<std::string> buffer_to_string_lines(
-    const void* data, const std::vector<int64_t>& dimensions,
+    const void *data, const std::vector<int64_t> &dimensions,
     PJRT_Buffer_Type element_type, int max_rows, int max_width,
     int max_rows_slice) {
   int64_t numel = dimensions.empty() ? 1 : number_of_elements(dimensions);
@@ -377,7 +377,7 @@ std::vector<std::string> buffer_to_string_lines(
 
   auto handle_float = [&](auto fp_tag) {
     using FP = decltype(fp_tag);
-    std::span<const FP> temp_span(static_cast<const FP*>(data),
+    std::span<const FP> temp_span(static_cast<const FP *>(data),
                                   static_cast<size_t>(numel));
     print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
                             cont, temp_span);
@@ -385,7 +385,7 @@ std::vector<std::string> buffer_to_string_lines(
 
   auto handle_integer = [&](auto int_tag) {
     using IT = decltype(int_tag);
-    std::span<const IT> temp_span(static_cast<const IT*>(data),
+    std::span<const IT> temp_span(static_cast<const IT *>(data),
                                   static_cast<size_t>(numel));
     print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
                             cont, temp_span);
@@ -393,7 +393,7 @@ std::vector<std::string> buffer_to_string_lines(
 
   auto handle_logical = [&]() {
     using BT = uint8_t;
-    std::span<const BT> temp_span(static_cast<const BT*>(data),
+    std::span<const BT> temp_span(static_cast<const BT *>(data),
                                   static_cast<size_t>(numel));
     print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
                             cont, temp_span);

@@ -30,7 +30,8 @@ func.func @main(
 })
 
 test_that("print handler prints input tensors", {
-  program <- pjrt_program(r"(
+  program <- pjrt_program(
+    r"(
 func.func @main(
   %f: tensor<4xf32>,
   %i: tensor<4xi32>,
@@ -56,7 +57,8 @@ func.func @main(
   } : (tensor<4xi1>) -> ()
   "func.return" (%f, %i, %b) : (tensor<4xf32>, tensor<4xi32>, tensor<4xi1>) -> ()
 }
-)")
+)"
+  )
 
   program <- pjrt_compile(program)
 

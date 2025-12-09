@@ -2,9 +2,10 @@
 
 #include <iostream>
 #include <string_view>
+
+#include "buffer_printer.h"
 #include "plugin.h"
 #include "utils.h"
-#include "buffer_printer.h"
 #include "xla/ffi/api/api.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "xla/pjrt/c/pjrt_c_api_ffi_extension.h"
@@ -95,7 +96,7 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
     Rcpp::Rcout << line << '\n';
   }
   Rcpp::Rcout << "[ " << buffer.element_type() << "{";
-  for (auto d: buffer.dimensions()) {
+  for (auto d : buffer.dimensions()) {
     Rcpp::Rcout << d << ",";
   }
   Rcpp::Rcout << "} ]" << "\n";
