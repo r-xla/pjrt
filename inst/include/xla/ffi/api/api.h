@@ -31,6 +31,7 @@ limitations under the License.
 #include <optional>
 #include <ostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -163,6 +164,7 @@ inline std::ostream& operator<<(std::ostream& os,
     case XLA_FFI_DataType_F8E8M0FNU:
       return os << "F8E8M0FNU";
   }
+  throw std::runtime_error("Unexpected type");
 }
 
 inline std::ostream& operator<<(std::ostream& os, const XLA_FFI_AttrType type) {
@@ -176,6 +178,7 @@ inline std::ostream& operator<<(std::ostream& os, const XLA_FFI_AttrType type) {
     case XLA_FFI_AttrType_STRING:
       return os << "string";
   }
+  throw std::runtime_error("Unexpected type");
 }
 
 inline std::ostream& operator<<(std::ostream& os,

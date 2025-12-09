@@ -39,5 +39,6 @@ for (file in HEADER_FILES) {
 }
 
 for (file in fs::dir_ls("tools/headers/patch/")) {
+  cat("Applying patch ", file, "\n")
   system(sprintf("git apply %s", file))
 }
