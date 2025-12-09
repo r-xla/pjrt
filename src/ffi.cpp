@@ -96,8 +96,13 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
     Rcpp::Rcout << line << '\n';
   }
   Rcpp::Rcout << "[ " << buffer.element_type() << "{";
-  for (auto d : buffer.dimensions()) {
-    Rcpp::Rcout << d << ",";
+
+  const auto dims = buffer.dimensions();
+  for (size_t i = 0; i < dims.size(); ++i) {
+    if (i != 0) {
+      Rcpp::Rcout << ',';
+    }
+    Rcpp::Rcout << dims[i];
   }
   Rcpp::Rcout << "} ]" << "\n";
 
