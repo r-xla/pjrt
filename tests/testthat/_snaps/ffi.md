@@ -1,0 +1,24 @@
+# print handler prints input tensors
+
+    Code
+      invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
+    Output
+      Buffer
+       1.0000
+       2.0000
+       3.0000
+       4.0000
+      [ F32{4,} ]
+      Buffer
+       5
+       6
+       7
+       8
+      [ S32{4,} ]
+      Buffer
+       1
+       0
+       1
+       0
+      [ PRED{4,} ]
+
