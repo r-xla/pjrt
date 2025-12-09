@@ -1,7 +1,9 @@
 #include "xla/ffi/api/ffi.h"
 
+#include <iostream>
 #include "plugin.h"
 #include "utils.h"
+#include "buffer_printer.h"
 #include "xla/ffi/api/api.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "xla/pjrt/c/pjrt_c_api_ffi_extension.h"
@@ -27,6 +29,35 @@ PJRT_FFI_Extension* get_pjrt_ffi_extension(PJRTPlugin* plugin) {
   throw std::runtime_error("PJRT FFI Extension not found");
 }
 
+PJRT_Buffer_Type to_pjrt_type(xla::ffi::DataType dtype) {
+  switch (dtype) {
+    case xla::ffi::DataType::F32:
+      return PJRT_Buffer_Type_F32;
+    case xla::ffi::DataType::F64:
+      return PJRT_Buffer_Type_F64;
+    case xla::ffi::DataType::S8:
+      return PJRT_Buffer_Type_S8;
+    case xla::ffi::DataType::S16:
+      return PJRT_Buffer_Type_S16;
+    case xla::ffi::DataType::S32:
+      return PJRT_Buffer_Type_S32;
+    case xla::ffi::DataType::S64:
+      return PJRT_Buffer_Type_S64;
+    case xla::ffi::DataType::U8:
+      return PJRT_Buffer_Type_U8;
+    case xla::ffi::DataType::U16:
+      return PJRT_Buffer_Type_U16;
+    case xla::ffi::DataType::U32:
+      return PJRT_Buffer_Type_U32;
+    case xla::ffi::DataType::U64:
+      return PJRT_Buffer_Type_U64;
+    case xla::ffi::DataType::PRED:
+      return PJRT_Buffer_Type_PRED;
+    default:
+      throw std::runtime_error("Unsupported buffer element type for printing.");
+  }
+}
+
 // Implement a custom call as a C++ function. Note that we can use `Buffer` type
 // defined by XLA FFI that gives us access to buffer data type and shape.
 xla::ffi::Error do_test_call() {
@@ -38,10 +69,33 @@ XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 
 xla::ffi::Error do_print_call(AnyBuffer buffer) {
   const void* arg_data = buffer.untyped_data();
-  const auto dtype  = buffer.element_type();
+  const auto dimensions_span = buffer.dimensions();
+  std::vector<int64_t> dimensions(dimensions_span.begin(),
+                                  dimensions_span.end());
+
+  PJRT_Buffer_Type element_type;
+  try {
+    element_type = to_pjrt_type(buffer.element_type());
+  } catch (const std::exception& e) {
+    return xla::ffi::Error(xla::ffi::ErrorCode::kInvalidArgument, e.what());
+  }
+
+  auto lines = buffer_to_string_lines(arg_data, dimensions, element_type);
+  Rcpp::Rcout << "Buffer" << "\n";
+  for (const auto& line : lines) {
+    Rcpp::Rcout << line << '\n';
+  }
+  Rcpp::Rcout << "[ " << buffer.element_type() << "{";
+  for (auto d: buffer.dimensions()) {
+    Rcpp::Rcout << d << ",";
+  }
+  Rcpp::Rcout << "} ]" << "\n";
+
   return xla::ffi::Error(xla::ffi::ErrorCode::kOk,
                          "Custom call executed successfully");
 }
+
+XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
 
 void register_ffi_handlers(PJRTPlugin* plugin,
                            const std::string& platform_name) {
@@ -54,6 +108,12 @@ void register_ffi_handlers(PJRTPlugin* plugin,
   args.target_name_size = strlen(args.target_name);
   args.platform_name = platform_name.c_str();
   args.platform_name_size = strlen(args.platform_name);
+
+  check_err(plugin->api.get(), ffi_extension->register_handler(&args));
+
+  args.handler = (void*)print_handler;
+  args.target_name = "print_handler";
+  args.target_name_size = strlen(args.target_name);
 
   check_err(plugin->api.get(), ffi_extension->register_handler(&args));
 }
