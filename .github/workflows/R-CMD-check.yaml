@@ -83,6 +83,7 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
+          cache: false
 
       - name: Install deps on cuda
         if: ${{ matrix.config.platform == 'cuda' }}
