@@ -1,7 +1,7 @@
 # Copies PJRT API headers from the XLA source directory to the R package.
 # Usage: Rscript tools/copy-header.R
 
-XLA_SRC <- Sys.getenv("XLA_SRC", "../xla")
+XLA_SRC <- Sys.getenv("XLA_SRC", "../../openxla/xla")
 if (!dir.exists(XLA_SRC)) {
   stop("XLA source directory does not exist: ", XLA_SRC)
 }
@@ -12,7 +12,10 @@ if (!dir.exists("inst/include")) {
 
 HEADER_FILES <- c(
   "xla/pjrt/c/pjrt_c_api.h",
-  "xla/pjrt/c/pjrt_c_api_ffi_extension.h"
+  "xla/pjrt/c/pjrt_c_api_ffi_extension.h",
+  "xla/ffi/api/c_api.h",
+  "xla/ffi/api/api.h",
+  "xla/ffi/api/ffi.h"
 )
 
 for (file in HEADER_FILES) {
@@ -33,4 +36,9 @@ for (file in HEADER_FILES) {
     writeLines(content, dest)
     cat("Applied macro definition edit to:", dest, "\n")
   }
+}
+
+for (file in fs::dir_ls("tools/headers/patch/")) {
+  cat("Applying patch ", file, "\n")
+  system(sprintf("git apply %s", file))
 }

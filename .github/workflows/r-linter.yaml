@@ -16,11 +16,11 @@ jobs:
           use-public-rspm: true
           extra-repositories: https://r-xla.r-universe.dev
 
-
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::lintr, local::.
           needs: lint
+          cache: false
 
       - name: Lint R Code
         run: lintr::lint_package()

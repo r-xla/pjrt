@@ -1,0 +1,40 @@
+diff --git a/inst/include/xla/ffi/api/api.h b/inst/include/xla/ffi/api/api.h
+index d440584..a4275fb 100644
+--- a/inst/include/xla/ffi/api/api.h
++++ b/inst/include/xla/ffi/api/api.h
+@@ -190,6 +190,7 @@ inline std::ostream& operator<<(std::ostream& os,
+     case XLA_FFI_ExecutionStage_EXECUTE:
+       return os << "execute";
+   }
++  throw std::runtime_error("unknown execution stage");
+ }
+ 
+ //===----------------------------------------------------------------------===//
+diff --git a/inst/include/xla/ffi/api/api.h b/inst/include/xla/ffi/api/api.h
+index a4275fb..e41d842 100644
+--- a/inst/include/xla/ffi/api/api.h
++++ b/inst/include/xla/ffi/api/api.h
+@@ -31,6 +31,7 @@ limitations under the License.
+ #include <optional>
+ #include <ostream>
+ #include <sstream>
++#include <stdexcept>
+ #include <string>
+ #include <string_view>
+ #include <tuple>
+@@ -163,6 +164,7 @@ inline std::ostream& operator<<(std::ostream& os,
+     case XLA_FFI_DataType_F8E8M0FNU:
+       return os << "F8E8M0FNU";
+   }
++  throw std::runtime_error("Unexpected type");
+ }
+ 
+ inline std::ostream& operator<<(std::ostream& os, const XLA_FFI_AttrType type) {
+@@ -176,6 +178,7 @@ inline std::ostream& operator<<(std::ostream& os, const XLA_FFI_AttrType type) {
+     case XLA_FFI_AttrType_STRING:
+       return os << "string";
+   }
++  throw std::runtime_error("Unexpected type");
+ }
+ 
+ inline std::ostream& operator<<(std::ostream& os,

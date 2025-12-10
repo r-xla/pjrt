@@ -76,6 +76,17 @@ pjrt_plugin <- function(platform) {
 
   plugin <- impl_plugin_load(plugin_path(platform))
   attributes(plugin) <- list(platform = platform)
+
+  if (platform != "metal") {
+    # metal is not supported
+    if (!ffi_register_print_tensor(plugin)) {
+      cli::cli_warn(c(
+        x = "Unable to register the print tensor handler.",
+        i = "Using the {.fn print_tensor} custom call won't be possible."
+      ))
+    }
+  }
+
   class(plugin) <- "PJRTPlugin"
   the[["plugins"]][[platform]] <- plugin
   plugin
@@ -207,7 +218,7 @@ plugin_url <- function(platform) {
 
     # on windows download from our pre-built artifacts
     # TODO make this versioned.
-    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-windows-x86_64.zip"
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-a4df377-windows-x86_64.zip"
     # windows files are zipped
     attr(url, "extract") <- function(path, cache_dir) {
       tmp <- tempfile()
@@ -237,7 +248,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "11.0.0"
+  "14.0.1"
 }
 
 plugin_os <- function() {
