@@ -66,7 +66,14 @@ func.func @main(
   buf_i32 <- pjrt_buffer(5:8, dtype = "i32")
   buf_pred <- pjrt_buffer(c(TRUE, FALSE, TRUE, FALSE))
 
-  expect_snapshot({
-    invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
-  })
+  if (!is_cuda()) {
+    expect_snapshot({
+      invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
+    })
+  } else {
+    # on cuda, this is not supported. we expect an error
+    expect_error({
+      invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
+    }, regexp = "custom call 'print_tensor' is not implemented for cuda")
+  }
 })

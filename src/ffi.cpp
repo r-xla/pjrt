@@ -122,6 +122,15 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
 
 XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
 
+xla::ffi::Error do_print_call_not_supported (AnyBuffer _buffer) {
+  return xla::ffi::Error(
+    xla::ffi::ErrorCode::kUnimplemented,
+    "custom call 'print_tensor' is not implemented for cuda"
+  );
+}
+
+XLA_FFI_DEFINE_HANDLER_AUTO(print_handler_not_supported, do_print_call_not_supported);
+
 void register_ffi_handlers(PJRTPlugin* plugin,
                            const std::string& platform_name) {
   auto ffi_extension = get_pjrt_ffi_extension(plugin);
@@ -154,6 +163,20 @@ bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
     check_err(plugin->api.get(), ffi_extension->register_handler(&args));
   } catch (const std::exception& e) {
     return false;
+  }
+
+  std::string platform_name = plugin.attr("platform");
+  if (platform_name == "cuda") {
+    args.handler = (void*)rpjrt::print_handler_not_supported;
+    args.platform_name = "cuda";
+    args.platform_name_size = strlen(args.platform_name);
+
+    try {
+      auto ffi_extension = get_pjrt_ffi_extension(plugin.get());
+      check_err(plugin->api.get(), ffi_extension->register_handler(&args));
+    } catch (const std::exception& e) {
+      return false;
+    }
   }
 
   return true;
