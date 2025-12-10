@@ -123,6 +123,16 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
 XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
 
 xla::ffi::Error do_print_call_not_supported (AnyBuffer _buffer) {
+  // TODO: to support CUDA, we need to:
+  // 1. Grab the CUDA Stream from the context, by adding a Context argument to
+  //  this function.
+  // 2. Copy data from device to host using the cuda stream.
+  // 3. Print the copied data
+  // Besides the tricky thing about the host/cuda copies, another problem
+  // is that we won't have different versions of PJRT for cuda and for CPU,
+  // so we need to dynamically load the necessary symbols using dlsym at runtime.
+  // It would be nice if the ffi api.h could have an interface for moving buffers to
+  // host.
   return xla::ffi::Error(
     xla::ffi::ErrorCode::kUnimplemented,
     "custom call 'print_tensor' is not implemented for cuda"
