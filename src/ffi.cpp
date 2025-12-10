@@ -141,18 +141,12 @@ void register_ffi_handlers(PJRTPlugin* plugin,
 
 // [[Rcpp::export]]
 bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
-  const std::string platform_name = plugin.attr("platform");
-
-  if (platform_name == "") {
-    return false;
-  }
-
   PJRT_FFI_Register_Handler_Args args{};
   args.struct_size = sizeof(PJRT_FFI_Register_Handler_Args);
   args.handler = (void*)rpjrt::print_handler;
   args.target_name = "print_tensor";
   args.target_name_size = strlen(args.target_name);
-  args.platform_name = platform_name != "cuda" ? "host" : "cuda";
+  args.platform_name = "host";
   args.platform_name_size = strlen(args.platform_name);
 
   try {
