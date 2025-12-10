@@ -72,8 +72,11 @@ func.func @main(
     })
   } else {
     # on cuda, this is not supported. we expect an error
-    expect_error({
-      invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
-    }, regexp = "custom call 'print_tensor' is not implemented for cuda")
+    expect_error(
+      {
+        invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
+      },
+      regexp = "custom call 'print_tensor' is not implemented for cuda"
+    )
   }
 })
