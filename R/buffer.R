@@ -133,6 +133,9 @@ pjrt_empty <- function(dtype, shape, device = NULL) {
   if (!any(shape == 0)) {
     cli_abort("Empty buffers must have at least one dimension equal to 0")
   }
+  if (dtype == "i1") {
+    dtype <- "pred"
+  }
   device <- as_pjrt_device(device)
   data <- if (identical(dtype, "pred")) {
     logical()
@@ -164,6 +167,9 @@ recycle_data <- function(data, shape) {
 
 convert_buffer_args <- function(data, dtype, device, shape, default, recycle = TRUE, ...) {
   dtype <- dtype %??% default
+  if (dtype == "i1") {
+    dtype <- "pred"
+  }
   shape <- shape %??% get_dims(data)
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
