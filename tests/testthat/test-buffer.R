@@ -615,3 +615,9 @@ test_that("pjrt_buffer identity when working on a different client", {
 test_that("Can create 'i32' from double", {
   expect_equal(pjrt_buffer(1:4, dtype = "f32"), pjrt_buffer(as.double(1:4), dtype = "f32"))
 })
+
+test_that("i1 is alias for pred", {
+  expect_equal(pjrt_buffer(1, "i1"), pjrt_buffer(1, "pred"))
+  expect_equal(pjrt_scalar(1, "i1"), pjrt_scalar(1, "pred"))
+  expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
+})
