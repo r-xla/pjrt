@@ -78,8 +78,22 @@ is_ready.pjrt_async_value <- function(x, ...) {
 print.pjrt_async_value <- function(x, ...) {
   cat("<pjrt_async_value>\n")
   cat("Value:\n")
+
   print(value(x))
   invisible(x)
+}
+
+#' @export
+as_array.pjrt_async_value <- function(x, ...) {
+
+  # Get buffer(s) - this blocks if not ready
+  bufs <- value(x)
+  # Convert to array(s)
+  if (is.list(bufs)) {
+    lapply(bufs, as_array)
+  } else {
+    as_array(bufs)
+  }
 }
 
 #' @keywords internal

@@ -123,3 +123,28 @@ test_that("print.pjrt_async_value works", {
   result <- pjrt_execute_async(executable)
   expect_output(print(result), "pjrt_async_value")
 })
+
+test_that("as_array works for async values (single output)", {
+  path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
+  program <- pjrt_program(path = path, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  result <- pjrt_execute_async(executable)
+  arr <- as_array(result)
+  expect_equal(arr, 3)
+})
+
+test_that("as_array works for async values (multiple outputs)", {
+  path <- system.file(
+    "programs/jax-stablehlo-two-constants.mlir",
+    package = "pjrt"
+  )
+  program <- pjrt_program(path = path, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  result <- pjrt_execute_async(executable)
+  arrs <- as_array(result)
+  expect_list(arrs, len = 2L)
+  expect_equal(arrs[[1]], 3)
+  expect_equal(arrs[[2]], 7)
+})
