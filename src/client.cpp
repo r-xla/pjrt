@@ -90,6 +90,44 @@ std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
   return std::make_unique<PJRTBuffer>(args.buffer, this->api);
 }
 
+AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
+    void *data, const std::optional<std::vector<int64_t>> &dims,
+    const std::optional<std::vector<int64_t>> &strides, PJRT_Buffer_Type dtype,
+    PJRT_Device *device) {
+  // If no device is specified, use the first device
+  if (device == nullptr) {
+    const auto devices = this->devices();
+    device = devices[0];
+  }
+
+  PJRT_Client_BufferFromHostBuffer_Args args{};
+  args.struct_size = sizeof(PJRT_Client_BufferFromHostBuffer_Args);
+  args.client = this->client;
+  args.data = data;
+  args.type = dtype;
+  args.dims = dims.has_value() ? dims->data() : nullptr;
+  args.num_dims = dims.has_value() ? dims->size() : 0;
+  args.byte_strides = strides.has_value() ? strides->data() : nullptr;
+  args.num_byte_strides = strides.has_value() ? strides->size() : 0;
+  args.host_buffer_semantics =
+      PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
+  args.device = device;
+  args.memory = nullptr;
+
+  check_err(this->api.get(), this->api->PJRT_Client_BufferFromHostBuffer_(&args));
+
+  AsyncBufferFromHostResult result;
+  result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
+
+  // Return the event so caller can wait for transfer completion
+  if (args.done_with_host_buffer != nullptr) {
+    result.event =
+        std::make_unique<PJRTEvent>(args.done_with_host_buffer, this->api);
+  }
+
+  return result;
+}
+
 // PJRTBuildOptions implementations
 PJRTBuildOptions::PJRTBuildOptions()
     : build_options(std::make_unique<xla::ExecutableBuildOptionsProto>()) {

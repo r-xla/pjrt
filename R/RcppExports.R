@@ -157,3 +157,15 @@ impl_loaded_executable_execute_async <- function(executable, input, execution_op
     .Call(`_pjrt_impl_loaded_executable_execute_async`, executable, input, execution_options)
 }
 
+impl_client_buffer_from_integer_async <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_integer_async`, client, device, data, dims, dtype)
+}
+
+impl_client_buffer_from_logical_async <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_logical_async`, client, device, data, dims, dtype)
+}
+
+impl_client_buffer_from_double_async <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_double_async`, client, device, data, dims, dtype)
+}
+

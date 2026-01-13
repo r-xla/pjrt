@@ -1,3 +1,18 @@
+# Helper to resolve async inputs to buffers (auto-wait)
+resolve_buffer_input <- function(x) {
+  if (inherits(x, "pjrt_async_value")) {
+    # Wait for execution to complete, return buffer
+    value(x)
+  } else if (inherits(x, "pjrt_async_transfer")) {
+    # Wait for host-to-device transfer, return buffer
+    value(x)
+  } else if (is_buffer(x)) {
+    x
+  } else {
+    cli_abort("Expected PJRTBuffer, pjrt_async_value, or pjrt_async_transfer")
+  }
+}
+
 #' @title Execute a PJRT program
 #' @description
 #' Execute a PJRT program with the given inputs and execution options.
@@ -5,9 +20,12 @@
 #' **Important:**
 #' Arguments are passed by position and names are ignored.
 #'
+#' Inputs can be `PJRTBuffer` objects or async values (`pjrt_async_value`,
+#' `pjrt_async_transfer`). Async inputs are automatically awaited before execution.
+#'
 #' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program.
-#' @param ... (`PJRTBuffer)`\cr
+#' @param ... (`PJRTBuffer` | `pjrt_async_value` | `pjrt_async_transfer`)\cr
 #'   Inputs to the program.
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
@@ -41,7 +59,8 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   }
   check_loaded_executable(executable)
   input <- list(...)
-  lapply(input, check_buffer)
+  # Resolve any async inputs (auto-wait)
+  input <- lapply(input, resolve_buffer_input)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()
@@ -69,10 +88,13 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 #' Use `is_ready()` to check if execution has completed (non-blocking).
 #' Use `as_array_async()` to chain async buffer-to-host transfer.
 #'
+#' Inputs can be `PJRTBuffer` objects or async values (`pjrt_async_value`,
+#' `pjrt_async_transfer`). Async inputs are automatically awaited before execution.
+#'
 #' @inheritParams pjrt_execute
 #' @return A `pjrt_async_value` object (or list of them if multiple outputs).
 #'   Call `value()` to get the `PJRTBuffer`.
-#' @seealso [pjrt_execute()], [value()], [is_ready()], [as_array_async()]
+#' @seealso [pjrt_execute()], [value()], [is_ready()], [as_array_async()], [pjrt_buffer_async()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create and compile a simple program
 #' src <- r"(
@@ -104,7 +126,8 @@ pjrt_execute_async <- function(executable, ..., execution_options = NULL, simpli
 
   check_loaded_executable(executable)
   input <- list(...)
-  lapply(input, check_buffer)
+  # Resolve any async inputs (auto-wait)
+  input <- lapply(input, resolve_buffer_input)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()

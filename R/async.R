@@ -154,3 +154,70 @@ print.pjrt_async_buffer <- function(x, ...) {
 is_async_buffer <- function(x) {
   inherits(x, "pjrt_async_buffer")
 }
+
+# pjrt_async_transfer Class -----------------------------------------------
+# Represents an async host-to-device buffer transfer
+
+#' @title Create a PJRT Async Transfer (internal)
+#' @description
+#' Internal constructor for async host-to-device transfer results.
+#' Users should not call this directly - use `pjrt_buffer_async()` instead.
+#' @param buffer PJRTBuffer external pointer (valid immediately).
+#' @param event PJRTEvent external pointer (or NULL).
+#' @param data_holder XPtr keeping host data alive until transfer completes.
+#' @return A `pjrt_async_transfer` object.
+#' @keywords internal
+pjrt_async_transfer <- function(buffer, event, data_holder) {
+  env <- new.env(parent = emptyenv())
+  env$buffer <- buffer
+  env$event <- event
+  env$data_holder <- data_holder
+  env$awaited <- FALSE
+
+  structure(env, class = "pjrt_async_transfer")
+}
+
+#' @export
+value.pjrt_async_transfer <- function(x, ...) {
+  if (!x$awaited) {
+    # Wait for transfer to complete (if event exists)
+    if (!is.null(x$event)) {
+      impl_event_await(x$event)
+    }
+    x$awaited <- TRUE
+  }
+  x$buffer
+}
+
+#' @export
+is_ready.pjrt_async_transfer <- function(x, ...) {
+  if (is.null(x$event)) {
+    return(TRUE)
+  }
+  impl_event_is_ready(x$event)
+}
+
+#' @export
+print.pjrt_async_transfer <- function(x, ...) {
+  cat("<pjrt_async_transfer>\n")
+  if (is_ready(x)) {
+    cat("Status: Ready\n")
+    cat("Buffer:\n")
+    print(value(x))
+  } else {
+    cat("Status: Pending\n")
+  }
+  invisible(x)
+}
+
+#' @export
+as_array.pjrt_async_transfer <- function(x, ...) {
+  # Wait for transfer, then convert buffer to array
+  buf <- value(x)
+  as_array(buf)
+}
+
+#' @keywords internal
+is_async_transfer <- function(x) {
+  inherits(x, "pjrt_async_transfer")
+}

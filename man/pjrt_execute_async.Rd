@@ -10,7 +10,7 @@ pjrt_execute_async(executable, ..., execution_options = NULL, simplify = TRUE)
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
 A PJRT program.}
 
-\item{...}{(\verb{PJRTBuffer)}\cr
+\item{...}{(\code{PJRTBuffer} | \code{pjrt_async_value} | \code{pjrt_async_transfer})\cr
 Inputs to the program.
 Named are ignored and arguments are passed in order.}
 
@@ -32,6 +32,9 @@ Returns immediately with async value(s) that can be awaited later.
 Use \code{value()} to get the result (blocks if not ready).
 Use \code{is_ready()} to check if execution has completed (non-blocking).
 Use \code{as_array_async()} to chain async buffer-to-host transfer.
+
+Inputs can be \code{PJRTBuffer} objects or async values (\code{pjrt_async_value},
+\code{pjrt_async_transfer}). Async inputs are automatically awaited before execution.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
@@ -60,5 +63,5 @@ value(arr)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=pjrt_execute]{pjrt_execute()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}
+\code{\link[=pjrt_execute]{pjrt_execute()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}, \code{\link[=pjrt_buffer_async]{pjrt_buffer_async()}}
 }

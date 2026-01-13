@@ -295,6 +295,80 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
   do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...))
 }
 
+#' @title Create a PJRT Buffer asynchronously
+#' @description
+#' Create a PJRT Buffer from R data asynchronously.
+#' Returns immediately with a `pjrt_async_transfer` object.
+#'
+#' The buffer is valid immediately and can be used as input to operations.
+#' The event signals when PJRT is done reading from host memory.
+#'
+#' Use `value()` to get the `PJRTBuffer` (blocks if not ready).
+#' Use `is_ready()` to check if transfer has completed (non-blocking).
+#'
+#' @inheritParams pjrt_buffer
+#' @return A `pjrt_async_transfer` object. Call `value()` to get the `PJRTBuffer`.
+#' @seealso [pjrt_buffer()], [value()], [is_ready()]
+#' @examplesIf plugin_is_downloaded()
+#' # Create a buffer asynchronously
+#' x <- pjrt_buffer_async(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+#'
+#' # Check if ready (non-blocking)
+#' is_ready(x)
+#'
+#' # Get the buffer (blocks if not ready)
+#' buf <- value(x)
+#' @export
+pjrt_buffer_async <- S7::new_generic(
+  "pjrt_buffer_async",
+  "data",
+  function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
+    S7::S7_dispatch()
+  }
+)
+
+S7::method(pjrt_buffer_async, S7::class_logical) <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
+  result <- impl_client_buffer_from_logical_async(
+    args$client, args$device, args$data, args$dims, args$dtype
+  )
+  pjrt_async_transfer(result$buffer, result$event, result$data_holder)
+}
+
+S7::method(pjrt_buffer_async, S7::class_integer) <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
+  result <- impl_client_buffer_from_integer_async(
+    args$client, args$device, args$data, args$dims, args$dtype
+  )
+  pjrt_async_transfer(result$buffer, result$event, result$data_holder)
+}
+
+S7::method(pjrt_buffer_async, S7::class_double) <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
+  result <- impl_client_buffer_from_double_async(
+    args$client, args$device, args$data, args$dims, args$dtype
+  )
+  pjrt_async_transfer(result$buffer, result$event, result$data_holder)
+}
+
 #' @title Element Type
 #' @description
 #' Get the element type of a buffer.
@@ -355,6 +429,13 @@ as_array_async.PJRTBuffer <- function(x) {
 #' @export
 as_array_async.pjrt_async_value <- function(x) {
   # Wait for execution to complete and get the buffer
+  buf <- value(x)
+  as_array_async(buf)
+}
+
+#' @export
+as_array_async.pjrt_async_transfer <- function(x) {
+  # Wait for host-to-device transfer, then start device-to-host transfer
   buf <- value(x)
   as_array_async(buf)
 }

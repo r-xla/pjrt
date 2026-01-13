@@ -478,6 +478,51 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_client_buffer_from_integer_async
+Rcpp::List impl_client_buffer_from_integer_async(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
+RcppExport SEXP _pjrt_impl_client_buffer_from_integer_async(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer_async(client, device, data, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_client_buffer_from_logical_async
+Rcpp::List impl_client_buffer_from_logical_async(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
+RcppExport SEXP _pjrt_impl_client_buffer_from_logical_async(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_logical_async(client, device, data, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_client_buffer_from_double_async
+Rcpp::List impl_client_buffer_from_double_async(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
+RcppExport SEXP _pjrt_impl_client_buffer_from_double_async(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double_async(client, device, data, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_ffi_register_print_tensor", (DL_FUNC) &_pjrt_ffi_register_print_tensor, 1},
@@ -519,6 +564,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 3},
     {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
     {"_pjrt_impl_loaded_executable_execute_async", (DL_FUNC) &_pjrt_impl_loaded_executable_execute_async, 3},
+    {"_pjrt_impl_client_buffer_from_integer_async", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer_async, 5},
+    {"_pjrt_impl_client_buffer_from_logical_async", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical_async, 5},
+    {"_pjrt_impl_client_buffer_from_double_async", (DL_FUNC) &_pjrt_impl_client_buffer_from_double_async, 5},
     {NULL, NULL, 0}
 };
 

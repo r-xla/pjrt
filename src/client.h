@@ -15,6 +15,12 @@ struct AsyncExecuteResult {
   std::unique_ptr<PJRTEvent> event;
 };
 
+// Result of async buffer-from-host transfer
+struct AsyncBufferFromHostResult {
+  std::unique_ptr<PJRTBuffer> buffer;
+  std::unique_ptr<PJRTEvent> event;  // Signals when host data can be freed
+};
+
 class PJRTBuildOptions {
  public:
   std::unique_ptr<xla::ExecutableBuildOptionsProto> build_options;
@@ -66,6 +72,10 @@ class PJRTClient {
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options);
   std::unique_ptr<PJRTBuffer> buffer_from_host(
+      void *data, const std::optional<std::vector<int64_t>> &dims,
+      const std::optional<std::vector<int64_t>> &strides,
+      PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);
+  AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
       PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);

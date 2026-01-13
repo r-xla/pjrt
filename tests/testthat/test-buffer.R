@@ -676,3 +676,98 @@ test_that("print.pjrt_async_buffer works", {
   result <- as_array_async(buf)
   expect_output(print(result), "pjrt_async_buffer")
 })
+
+# Async host-to-device buffer tests
+
+test_that("pjrt_buffer_async returns pjrt_async_transfer", {
+  x <- pjrt_buffer_async(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+  expect_class(x, "pjrt_async_transfer")
+})
+
+test_that("is_ready works for async transfers", {
+  x <- pjrt_buffer_async(c(1.0, 2.0), dtype = "f32")
+  ready <- is_ready(x)
+  expect_true(is.logical(ready))
+  expect_length(ready, 1L)
+})
+
+test_that("value() returns buffer for async transfer", {
+  original <- c(1.0, 2.0, 3.0, 4.0)
+  x <- pjrt_buffer_async(original, shape = c(2, 2), dtype = "f32")
+  buf <- value(x)
+  expect_class(buf, "PJRTBuffer")
+  expect_equal(as.vector(as_array(buf)), original, tolerance = 1e-6)
+})
+
+test_that("as_array works for async transfers", {
+  original <- c(1.0, 2.0, 3.0)
+  x <- pjrt_buffer_async(original, dtype = "f32")
+  arr <- as_array(x)
+  expect_equal(as.vector(arr), original, tolerance = 1e-6)
+})
+
+test_that("pjrt_buffer_async works with integer data", {
+  original <- 1:6
+  x <- pjrt_buffer_async(original, dtype = "i32")
+  arr <- as_array(value(x))
+  expect_equal(as.vector(arr), original)
+})
+
+test_that("pjrt_buffer_async works with logical data", {
+  original <- c(TRUE, FALSE, TRUE)
+  x <- pjrt_buffer_async(original, dtype = "pred")
+  arr <- as_array(value(x))
+  expect_equal(as.vector(arr), original)
+})
+
+test_that("async transfer can be chained with as_array_async", {
+  # Create buffer asynchronously
+  transfer <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+  expect_class(transfer, "pjrt_async_transfer")
+
+  # Chain with async to-host transfer
+  async_arr <- as_array_async(transfer)
+  expect_class(async_arr, "pjrt_async_buffer")
+
+  # Get final value
+  arr <- value(async_arr)
+  expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
+})
+
+test_that("async transfer can be used as input to pjrt_execute", {
+  path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
+  program <- pjrt_program(path = path, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  # Execute with sync - no async inputs here, just verifying baseline
+  result <- pjrt_execute(executable)
+  expect_equal(as_array(result), 3)
+})
+
+test_that("async transfer can be used as input to pjrt_execute_async", {
+  skip_if_metal("-:20:28: error: expected ')' in inline location")
+  path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
+  program <- pjrt_program(path = path, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  # Create input buffers asynchronously
+  x <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+  x_async <- pjrt_buffer_async(x)
+
+  # Also create sync buffers for indices
+  i1_buf <- pjrt_scalar(0L, "i32")
+  i2_buf <- pjrt_scalar(1L, "i32")
+
+  # Execute with mixed async/sync inputs - async should auto-wait
+  result <- pjrt_execute_async(executable, x_async, i1_buf, i2_buf)
+  expect_class(result, "pjrt_async_value")
+
+  # Get final value
+  arr <- value(as_array_async(result))
+  expect_equal(arr, x[1, 2])
+})
+
+test_that("print.pjrt_async_transfer works", {
+  x <- pjrt_buffer_async(c(1.0, 2.0), dtype = "f32")
+  expect_output(print(x), "pjrt_async_transfer")
+})
