@@ -441,6 +441,30 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// impl_raw_to_array
+SEXP impl_raw_to_array(SEXP data_sexp, const std::string& dtype, Rcpp::IntegerVector dims);
+RcppExport SEXP _pjrt_impl_raw_to_array(SEXP data_sexpSEXP, SEXP dtypeSEXP, SEXP dimsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type data_sexp(data_sexpSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type dtype(dtypeSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dims(dimsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_raw_to_array(data_sexp, dtype, dims));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_buffer_to_host_async
+Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_loaded_executable_execute_async
 Rcpp::List impl_loaded_executable_execute_async(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
 RcppExport SEXP _pjrt_impl_loaded_executable_execute_async(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
@@ -492,6 +516,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
     {"_pjrt_impl_event_is_ready", (DL_FUNC) &_pjrt_impl_event_is_ready, 1},
     {"_pjrt_impl_event_await", (DL_FUNC) &_pjrt_impl_event_await, 1},
+    {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 3},
+    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
     {"_pjrt_impl_loaded_executable_execute_async", (DL_FUNC) &_pjrt_impl_loaded_executable_execute_async, 3},
     {NULL, NULL, 0}
 };

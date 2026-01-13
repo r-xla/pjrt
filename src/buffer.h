@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "device.h"
+#include "event.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
@@ -55,6 +56,9 @@ class PJRTBuffer {
   std::unique_ptr<PJRTDevice> device();
   std::shared_ptr<PJRT_Api> get_api() const { return api; }
   void buffer_to_host(std::span<uint8_t>& host_buffer);
+  // Async version - returns event, caller must keep host_buffer alive until
+  // event completes
+  std::unique_ptr<PJRTEvent> buffer_to_host_async(std::span<uint8_t>& host_buffer);
 
  private:
   std::shared_ptr<PJRT_Api> api;

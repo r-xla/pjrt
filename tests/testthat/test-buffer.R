@@ -621,3 +621,58 @@ test_that("i1 is alias for pred", {
   expect_equal(pjrt_scalar(1, "i1"), pjrt_scalar(1, "pred"))
   expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
 })
+
+# Async buffer-to-host tests
+
+test_that("as_array_async returns pjrt_async_buffer", {
+  buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+  result <- as_array_async(buf)
+  expect_class(result, "pjrt_async_buffer")
+})
+
+test_that("is_ready works for async buffers", {
+  buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), dtype = "f32")
+  result <- as_array_async(buf)
+  ready <- is_ready(result)
+  expect_true(is.logical(ready))
+  expect_length(ready, 1L)
+})
+
+test_that("value() returns correct array for async buffer", {
+  original <- matrix(c(1.0, 2.0, 3.0, 4.0), nrow = 2)
+  buf <- pjrt_buffer(original, dtype = "f32")
+  result <- as_array_async(buf)
+  arr <- value(result)
+  expect_equal(arr, original, tolerance = 1e-6)
+})
+
+test_that("as_array() works for async buffers", {
+  original <- array(c(1.0, 2.0, 3.0))
+  buf <- pjrt_buffer(original, dtype = "f32")
+  result <- as_array_async(buf)
+  arr <- as_array(result)
+  expect_equal(arr, original, tolerance = 1e-6)
+})
+
+test_that("async buffer works with different dtypes", {
+  # f64
+  buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f64")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(1.0, 2.0))
+
+  # i32
+  buf <- pjrt_buffer(c(1L, 2L, 3L), dtype = "i32")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(1L, 2L, 3L))
+
+  # pred
+  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE), dtype = "pred")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(TRUE, FALSE, TRUE))
+})
+
+test_that("print.pjrt_async_buffer works", {
+  buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
+  result <- as_array_async(buf)
+  expect_output(print(result), "pjrt_async_buffer")
+})

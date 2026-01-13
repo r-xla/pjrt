@@ -22,14 +22,16 @@ If \code{TRUE} (default), a single output is returned as a \code{PJRTBuffer}.
 If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBuffer}.}
 }
 \value{
-A \code{pjrt_async_value} object. Call \code{value()} to get the result.
+A \code{pjrt_async_value} object (or list of them if multiple outputs).
+Call \code{value()} to get the \code{PJRTBuffer}.
 }
 \description{
 Execute a PJRT program asynchronously with the given inputs.
-Returns immediately with an async value that can be awaited later.
+Returns immediately with async value(s) that can be awaited later.
 
 Use \code{value()} to get the result (blocks if not ready).
 Use \code{is_ready()} to check if execution has completed (non-blocking).
+Use \code{as_array_async()} to chain async buffer-to-host transfer.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
@@ -51,8 +53,12 @@ is_ready(result)
 
 # Get the result (blocks if not ready)
 value(result)
+
+# Chain with async buffer-to-host transfer
+arr <- as_array_async(result)
+value(arr)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=pjrt_execute]{pjrt_execute()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}
+\code{\link[=pjrt_execute]{pjrt_execute()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}
 }

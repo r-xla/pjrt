@@ -166,4 +166,23 @@ void PJRTBuffer::buffer_to_host(std::span<uint8_t> &host_buffer) {
   BufferToHostAndWait(this->api.get(), &args);
 }
 
+std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
+    std::span<uint8_t> &host_buffer) {
+  PJRT_Buffer_ToHostBuffer_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_ToHostBuffer_Args);
+  args.src = this->buffer;
+  args.dst = host_buffer.data();
+  args.dst_size = host_buffer.size();
+
+  // Start the copy but don't wait
+  check_err(this->api.get(), this->api->PJRT_Buffer_ToHostBuffer_(&args));
+
+  // Return the event - caller is responsible for waiting and keeping
+  // host_buffer alive
+  if (args.event != nullptr) {
+    return std::make_unique<PJRTEvent>(args.event, this->api);
+  }
+  return nullptr;
+}
+
 }  // namespace rpjrt

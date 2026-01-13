@@ -63,14 +63,16 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 #' @title Execute a PJRT program asynchronously
 #' @description
 #' Execute a PJRT program asynchronously with the given inputs.
-#' Returns immediately with an async value that can be awaited later.
+#' Returns immediately with async value(s) that can be awaited later.
 #'
 #' Use `value()` to get the result (blocks if not ready).
 #' Use `is_ready()` to check if execution has completed (non-blocking).
+#' Use `as_array_async()` to chain async buffer-to-host transfer.
 #'
 #' @inheritParams pjrt_execute
-#' @return A `pjrt_async_value` object. Call `value()` to get the result.
-#' @seealso [pjrt_execute()], [value()], [is_ready()]
+#' @return A `pjrt_async_value` object (or list of them if multiple outputs).
+#'   Call `value()` to get the `PJRTBuffer`.
+#' @seealso [pjrt_execute()], [value()], [is_ready()], [as_array_async()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create and compile a simple program
 #' src <- r"(
@@ -90,11 +92,16 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 #'
 #' # Get the result (blocks if not ready)
 #' value(result)
+#'
+#' # Chain with async buffer-to-host transfer
+#' arr <- as_array_async(result)
+#' value(arr)
 #' @export
 pjrt_execute_async <- function(executable, ..., execution_options = NULL, simplify = TRUE) {
   if (!is.null(...names())) {
     cli_abort("Expected unnamed arguments")
   }
+
   check_loaded_executable(executable)
   input <- list(...)
   lapply(input, check_buffer)
@@ -109,7 +116,16 @@ pjrt_execute_async <- function(executable, ..., execution_options = NULL, simpli
 
   result <- impl_loaded_executable_execute_async(executable, input, execution_options)
 
-  pjrt_async_value(result$buffers, result$event, simplify)
+  # Create a list of async values, one per buffer, all sharing the same event
+  async_values <- lapply(result$buffers, function(buf) {
+    pjrt_async_value(buf, result$event)
+  })
+
+  if (simplify && length(async_values) == 1L) {
+    return(async_values[[1L]])
+  }
+
+  async_values
 }
 
 #' @export

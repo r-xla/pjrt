@@ -145,6 +145,14 @@ impl_event_await <- function(event) {
     invisible(.Call(`_pjrt_impl_event_await`, event))
 }
 
+impl_raw_to_array <- function(data_sexp, dtype, dims) {
+    .Call(`_pjrt_impl_raw_to_array`, data_sexp, dtype, dims)
+}
+
+impl_buffer_to_host_async <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_to_host_async`, buffer)
+}
+
 impl_loaded_executable_execute_async <- function(executable, input, execution_options) {
     .Call(`_pjrt_impl_loaded_executable_execute_async`, executable, input, execution_options)
 }

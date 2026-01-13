@@ -4,14 +4,12 @@
 \alias{pjrt_async_value}
 \title{Create a PJRT Async Value (internal)}
 \usage{
-pjrt_async_value(buffers, event, simplify = TRUE)
+pjrt_async_value(buffer, event)
 }
 \arguments{
-\item{buffers}{List of PJRTBuffer external pointers.}
+\item{buffer}{A single PJRTBuffer external pointer.}
 
-\item{event}{PJRTEvent external pointer.}
-
-\item{simplify}{Whether to simplify single outputs.}
+\item{event}{PJRTEvent external pointer (may be shared across values).}
 }
 \value{
 A \code{pjrt_async_value} object.
@@ -19,5 +17,8 @@ A \code{pjrt_async_value} object.
 \description{
 Internal constructor for async execution results.
 Users should not call this directly - use \code{pjrt_execute_async()} instead.
+
+Each \code{pjrt_async_value} wraps a single buffer and an event. Multiple async
+values from the same execution share the same event.
 }
 \keyword{internal}
