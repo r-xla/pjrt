@@ -441,6 +441,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// impl_event_release_on_ready
+void impl_event_release_on_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event, SEXP data_holder);
+RcppExport SEXP _pjrt_impl_event_release_on_ready(SEXP eventSEXP, SEXP data_holderSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTEvent> >::type event(eventSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data_holder(data_holderSEXP);
+    impl_event_release_on_ready(event, data_holder);
+    return R_NilValue;
+END_RCPP
+}
 // impl_raw_to_array
 SEXP impl_raw_to_array(SEXP data_sexp, const std::string& dtype, Rcpp::IntegerVector dims);
 RcppExport SEXP _pjrt_impl_raw_to_array(SEXP data_sexpSEXP, SEXP dtypeSEXP, SEXP dimsSEXP) {
@@ -561,6 +572,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
     {"_pjrt_impl_event_is_ready", (DL_FUNC) &_pjrt_impl_event_is_ready, 1},
     {"_pjrt_impl_event_await", (DL_FUNC) &_pjrt_impl_event_await, 1},
+    {"_pjrt_impl_event_release_on_ready", (DL_FUNC) &_pjrt_impl_event_release_on_ready, 2},
     {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 3},
     {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
     {"_pjrt_impl_loaded_executable_execute_async", (DL_FUNC) &_pjrt_impl_loaded_executable_execute_async, 3},

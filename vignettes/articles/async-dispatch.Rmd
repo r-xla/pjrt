@@ -99,9 +99,14 @@ async_output <- as_array_async(result)               # Returns immediately
 output <- value(async_output)
 ```
 
-## Smart Auto-Wait
+## Smart Input Handling
 
-A key feature of the async API is **smart auto-wait**. When you pass an async value as input to another operation, it automatically waits for only as long as necessary:
+A key feature of the async API is **smart input handling**. When you pass async values as inputs:
+
+- **Async transfers** (`pjrt_async_transfer`): The buffer is used immediately - PJRT handles the dependency internally. R returns immediately without blocking.
+- **Async execution results** (`pjrt_async_value`): Must wait for execution to complete before the buffer is valid.
+
+This enables true pipelining where host-to-device transfers overlap with execution:
 
 ```{r}
 # Start two async transfers in parallel

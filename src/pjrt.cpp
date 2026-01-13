@@ -706,6 +706,22 @@ void impl_event_await(Rcpp::XPtr<rpjrt::PJRTEvent> event) {
   event->check_error();
 }
 
+// Register a callback on an event that releases a data holder when the event
+// completes. This is used to ensure async transfer data stays alive until
+// the transfer is done, even if the R object is garbage collected.
+// [[Rcpp::export()]]
+void impl_event_release_on_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event,
+                                  SEXP data_holder) {
+  // Prevent R from garbage collecting data_holder until callback fires
+  R_PreserveObject(data_holder);
+
+  event->on_ready([data_holder](PJRT_Error* error) {
+    // Release the data holder now that transfer is complete
+    R_ReleaseObject(data_holder);
+    // Note: We ignore errors here - they'll be caught when checking execution
+  });
+}
+
 // [[Rcpp::export()]]
 SEXP impl_raw_to_array(SEXP data_sexp, const std::string& dtype,
                        Rcpp::IntegerVector dims) {

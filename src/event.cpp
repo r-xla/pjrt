@@ -63,4 +63,29 @@ void PJRTEvent::check_error() const {
   }
 }
 
+// C callback wrapper for on_ready
+static void on_ready_callback_wrapper(PJRT_Error* error, void* user_arg) {
+  auto* callback =
+      static_cast<std::function<void(PJRT_Error*)>*>(user_arg);
+  (*callback)(error);
+  delete callback;  // Clean up the allocated callback
+}
+
+void PJRTEvent::on_ready(std::function<void(PJRT_Error*)> callback) {
+  // Allocate callback on heap so it survives until called
+  auto* callback_ptr = new std::function<void(PJRT_Error*)>(std::move(callback));
+
+  PJRT_Event_OnReady_Args args{};
+  args.struct_size = sizeof(PJRT_Event_OnReady_Args);
+  args.event = event_;
+  args.callback = on_ready_callback_wrapper;
+  args.user_arg = callback_ptr;
+
+  PJRT_Error* err = api_->PJRT_Event_OnReady_(&args);
+  if (err != nullptr) {
+    delete callback_ptr;  // Clean up if registration failed
+    check_err(api_.get(), err);
+  }
+}
+
 }  // namespace rpjrt

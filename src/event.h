@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include "xla/pjrt/c/pjrt_c_api.h"
@@ -28,6 +29,12 @@ class PJRTEvent {
   // Check for errors after event completes (call only after is_ready() or
   // await())
   void check_error() const;
+
+  // Register a callback to be called when the event is ready.
+  // The callback receives any error that occurred (or nullptr if success).
+  // Note: The callback runs on a PJRT thread, not the R main thread.
+  // The callback must be safe to call from any thread.
+  void on_ready(std::function<void(PJRT_Error*)> callback);
 
   // Get the underlying PJRT_Event pointer (for internal use)
   PJRT_Event* get() const { return event_; }

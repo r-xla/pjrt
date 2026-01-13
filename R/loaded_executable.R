@@ -1,11 +1,19 @@
-# Helper to resolve async inputs to buffers (auto-wait)
+# Helper to resolve async inputs to buffers
+# For async transfers, extracts buffer immediately (PJRT handles dependency)
+# and registers callback to keep data alive until transfer completes.
+# For async values (execution results), must wait - buffer isn't valid until done.
 resolve_buffer_input <- function(x) {
   if (inherits(x, "pjrt_async_value")) {
-    # Wait for execution to complete, return buffer
+    # For async execution results, we must wait - the buffer isn't valid until
+    # execution completes
     value(x)
   } else if (inherits(x, "pjrt_async_transfer")) {
-    # Wait for host-to-device transfer, return buffer
-    value(x)
+    # For async transfers, the buffer is valid immediately - PJRT handles
+    # the dependency internally. Register callback to keep data_holder alive.
+    if (!is.null(x$event)) {
+      impl_event_release_on_ready(x$event, x$data_holder)
+    }
+    x$buffer
   } else if (is_buffer(x)) {
     x
   } else {
