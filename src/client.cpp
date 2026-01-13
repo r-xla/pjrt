@@ -224,6 +224,95 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   return out;
 };
 
+// TODO: Refactor execute() to call execute_async() and await the event.
+// This would reduce code duplication while maintaining the sync API.
+AsyncExecuteResult PJRTLoadedExecutable::execute_async(
+    std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
+  PJRT_ExecuteOptions exec_options{};
+  exec_options.struct_size = sizeof(PJRT_ExecuteOptions);
+  exec_options.launch_id = options.launch_id;
+  exec_options.non_donatable_input_indices =
+      options.non_donatable_input_indices.empty()
+          ? nullptr
+          : options.non_donatable_input_indices.data();
+  exec_options.num_non_donatable_input_indices =
+      options.non_donatable_input_indices.size();
+
+  PJRT_LoadedExecutable_Execute_Args exec_args{};
+  exec_args.struct_size = PJRT_LoadedExecutable_Execute_Args_STRUCT_SIZE;
+  exec_args.executable = this->executable;
+  exec_args.options = &exec_options;
+
+  // This is the actual parameters
+  std::vector<PJRT_Buffer *> inner(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    inner[i] = input[i]->buffer;
+  }
+  // We need an outer list, because its one input per execution device.
+  // Currently we only support one device, so we have a single element in the
+  // outer list.
+  std::vector<PJRT_Buffer *const *> outer;
+  if (input.empty()) {
+    outer = {nullptr};
+  } else {
+    outer = {inner.data()};
+  }
+  exec_args.argument_lists = outer.data();
+  exec_args.num_args = input.size();
+  exec_args.num_devices = 1;
+
+  exec_args.execute_device = nullptr;
+
+  // Get the number of outputs from the executable
+  PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
+  get_exec_args.struct_size = sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
+  get_exec_args.loaded_executable = this->executable;
+  check_err(this->api.get(),
+            this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args));
+
+  PJRT_Executable_NumOutputs_Args num_outputs_args{};
+  num_outputs_args.struct_size = sizeof(PJRT_Executable_NumOutputs_Args);
+  num_outputs_args.executable = get_exec_args.executable;
+  check_err(this->api.get(),
+            this->api->PJRT_Executable_NumOutputs_(&num_outputs_args));
+
+  size_t num_outputs = num_outputs_args.num_outputs;
+
+  // Prepare output buffer storage
+  std::vector<PJRT_Buffer *> inner_out(num_outputs);
+  std::vector<PJRT_Buffer **> outer_out = {inner_out.data()};
+
+  exec_args.output_lists = outer_out.data();
+
+  // Allocate storage for device completion events (one per device)
+  PJRT_Event *completion_event = nullptr;
+  exec_args.device_complete_events = &completion_event;
+
+  check_err(this->api.get(),
+            this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
+
+  // Build result
+  AsyncExecuteResult result;
+  for (size_t i = 0; i < num_outputs; ++i) {
+    result.buffers.push_back(
+        std::make_unique<PJRTBuffer>(outer_out[0][i], this->api));
+  }
+
+  // Wrap the completion event
+  if (completion_event != nullptr) {
+    result.event = std::make_unique<PJRTEvent>(completion_event, this->api);
+  }
+
+  // Clean up the executable we got
+  PJRT_Executable_Destroy_Args destroy_exec_args{};
+  destroy_exec_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
+  destroy_exec_args.executable = get_exec_args.executable;
+  check_err(this->api.get(),
+            this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
+
+  return result;
+};
+
 std::string PJRTClient::platform() {
   PJRT_Client_PlatformName_Args args{};
   args.struct_size = sizeof(PJRT_Client_PlatformName_Args);

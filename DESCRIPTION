@@ -40,6 +40,7 @@ RoxygenNote: 7.3.3
 SystemRequirements: C++20, libprotobuf, protobuf-compiler
 Collate:
     'RcppExports.R'
+    'async.R'
     'client.R'
     'buffer.R'
     'compare.R'

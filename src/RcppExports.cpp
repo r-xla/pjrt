@@ -420,6 +420,40 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// impl_event_is_ready
+bool impl_event_is_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event);
+RcppExport SEXP _pjrt_impl_event_is_ready(SEXP eventSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTEvent> >::type event(eventSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_event_is_ready(event));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_event_await
+void impl_event_await(Rcpp::XPtr<rpjrt::PJRTEvent> event);
+RcppExport SEXP _pjrt_impl_event_await(SEXP eventSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTEvent> >::type event(eventSEXP);
+    impl_event_await(event);
+    return R_NilValue;
+END_RCPP
+}
+// impl_loaded_executable_execute_async
+Rcpp::List impl_loaded_executable_execute_async(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
+RcppExport SEXP _pjrt_impl_loaded_executable_execute_async(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> >::type executable(executableSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type input(inputSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTExecuteOptions> >::type execution_options(execution_optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_loaded_executable_execute_async(executable, input, execution_options));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_ffi_register_print_tensor", (DL_FUNC) &_pjrt_ffi_register_print_tensor, 1},
@@ -456,6 +490,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
     {"_pjrt_impl_device_platform", (DL_FUNC) &_pjrt_impl_device_platform, 1},
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
+    {"_pjrt_impl_event_is_ready", (DL_FUNC) &_pjrt_impl_event_is_ready, 1},
+    {"_pjrt_impl_event_await", (DL_FUNC) &_pjrt_impl_event_await, 1},
+    {"_pjrt_impl_loaded_executable_execute_async", (DL_FUNC) &_pjrt_impl_loaded_executable_execute_async, 3},
     {NULL, NULL, 0}
 };
 

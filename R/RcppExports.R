@@ -137,3 +137,15 @@ impl_buffer_print <- function(buffer, max_rows, max_width, max_rows_slice) {
     invisible(.Call(`_pjrt_impl_buffer_print`, buffer, max_rows, max_width, max_rows_slice))
 }
 
+impl_event_is_ready <- function(event) {
+    .Call(`_pjrt_impl_event_is_ready`, event)
+}
+
+impl_event_await <- function(event) {
+    invisible(.Call(`_pjrt_impl_event_await`, event))
+}
+
+impl_loaded_executable_execute_async <- function(executable, input, execution_options) {
+    .Call(`_pjrt_impl_loaded_executable_execute_async`, executable, input, execution_options)
+}
+

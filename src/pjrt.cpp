@@ -6,6 +6,7 @@
 #include "buffer.h"
 #include "buffer_printer.h"
 #include "client.h"
+#include "event.h"
 #include "pjrt_types.h"
 #include "plugin.h"
 #include "utils.h"
@@ -644,4 +645,53 @@ std::string impl_device_platform(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
 void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
                        int max_width, int max_rows_slice) {
   buffer_print(buffer, max_rows, max_width, max_rows_slice);
+}
+
+// Event functions for async API
+
+// [[Rcpp::export()]]
+bool impl_event_is_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event) {
+  return event->is_ready();
+}
+
+// [[Rcpp::export()]]
+void impl_event_await(Rcpp::XPtr<rpjrt::PJRTEvent> event) {
+  event->await();
+  event->check_error();
+}
+
+// [[Rcpp::export()]]
+Rcpp::List impl_loaded_executable_execute_async(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
+    Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
+  std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
+  for (auto i = 0; i < input.size(); i++) {
+    auto elt = input[i];
+    auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
+    inputs[i] = buffer.get();
+  }
+
+  auto result = executable->execute_async(inputs, *execution_options);
+
+  // Wrap buffers
+  Rcpp::List buffers(result.buffers.size());
+  for (size_t i = 0; i < result.buffers.size(); ++i) {
+    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffers[i].release(), true);
+    xptr.attr("class") = "PJRTBuffer";
+    buffers[i] = xptr;
+  }
+
+  // Wrap event (may be null if backend doesn't support async events)
+  SEXP event_sexp;
+  if (result.event) {
+    Rcpp::XPtr<rpjrt::PJRTEvent> event_xptr(result.event.release(), true);
+    event_xptr.attr("class") = "PJRTEvent";
+    event_sexp = event_xptr;
+  } else {
+    // No completion event - execution is already complete
+    event_sexp = R_NilValue;
+  }
+
+  return Rcpp::List::create(Rcpp::Named("buffers") = buffers,
+                            Rcpp::Named("event") = event_sexp);
 }

@@ -3,10 +3,17 @@
 #include <vector>
 
 #include "buffer.h"
+#include "event.h"
 #include "program.h"
 #include "proto/xla/pjrt/proto/compile_options.pb.h"
 
 namespace rpjrt {
+
+// Result of async execution containing output buffers and completion event
+struct AsyncExecuteResult {
+  std::vector<std::unique_ptr<PJRTBuffer>> buffers;
+  std::unique_ptr<PJRTEvent> event;
+};
 
 class PJRTBuildOptions {
  public:
@@ -41,6 +48,9 @@ class PJRTLoadedExecutable {
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                        std::shared_ptr<PJRT_Api> api);
   std::vector<std::unique_ptr<PJRTBuffer>> execute(
+      std::vector<PJRTBuffer *> input,
+      const PJRTExecuteOptions &options = PJRTExecuteOptions{});
+  AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   ~PJRTLoadedExecutable();
