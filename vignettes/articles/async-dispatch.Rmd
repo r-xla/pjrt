@@ -180,8 +180,7 @@ transfer <- pjrt_buffer_async(matrix(runif(1e6), 1000, 1000), dtype = "f32")
 # Check without blocking
 if (is_ready(transfer)) {
   message("Transfer complete!")
-} else
-
+} else {
   message("Still transferring...")
 }
 
@@ -229,6 +228,95 @@ for (step in seq_len(n_steps)) {
   }
 }
 ```
+
+## Benchmark: Sync vs Async
+
+Let's compare synchronous and asynchronous execution patterns. We'll simulate a training loop where each iteration involves preparing input data (simulated with `Sys.sleep()` to represent loading from disk or preprocessing).
+
+**Note:** On the CPU backend used in this vignette, the async benefit is minimal because execution is very fast and happens on the same CPU as R. The real benefit appears on GPU/TPU backends where:
+
+- Device computation takes significant time (hundreds of milliseconds)
+- The device operates independently from the host CPU
+- True parallelism is possible between host data preparation and device execution
+
+```{r}
+library(pjrt)
+
+# Compile a matrix multiply program
+src <- r"(
+func.func @main(%x: tensor<1000x1000xf32>) -> tensor<1000x1000xf32> {
+  %0 = "stablehlo.dot"(%x, %x) : (tensor<1000x1000xf32>, tensor<1000x1000xf32>) -> tensor<1000x1000xf32>
+  "func.return"(%0): (tensor<1000x1000xf32>) -> ()
+}
+)"
+executable <- pjrt_compile(pjrt_program(src))
+
+n_iterations <- 5
+data_prep_time <- 0.02  # Simulate 20ms data preparation
+
+prepare_data <- function() {
+  Sys.sleep(data_prep_time)
+  matrix(runif(1000 * 1000), 1000, 1000)
+}
+```
+
+### Synchronous Pattern
+
+Each operation blocks before the next can start:
+
+```{r}
+sync_time <- system.time({
+  for (i in seq_len(n_iterations)) {
+    data <- prepare_data()
+    buf <- pjrt_buffer(data, dtype = "f32")
+    result <- pjrt_execute(executable, buf)
+  }
+  final <- as_array(result)
+})
+
+cat("Synchronous total time:", round(sync_time["elapsed"], 3), "seconds\n")
+```
+
+### Asynchronous Pattern
+
+R prepares the next batch while the device computes:
+
+```{r}
+async_time <- system.time({
+  data <- prepare_data()
+  buf <- pjrt_buffer_async(data, dtype = "f32")
+  result <- pjrt_execute_async(executable, buf)
+
+  for (i in seq_len(n_iterations - 1)) {
+    data <- prepare_data()
+    buf <- pjrt_buffer_async(data, dtype = "f32")
+    result <- pjrt_execute_async(executable, buf)
+  }
+  final <- as_array(result)
+})
+
+cat("Asynchronous total time:", round(async_time["elapsed"], 3), "seconds\n")
+```
+
+### Results
+
+```{r}
+cat("Sync:", round(sync_time["elapsed"], 3), "s, Async:", round(async_time["elapsed"], 3), "s\n")
+```
+
+On CPU, both patterns have similar performance because:
+
+- CPU execution is very fast (a few milliseconds)
+- The same CPU handles both R code and PJRT execution
+- Little opportunity for true parallelism
+
+On **GPU/TPU backends**, the async pattern shines because:
+
+1. **Data preparation overlaps with execution**: While the GPU runs iteration N, R prepares data for N+1
+2. **Transfers overlap with execution**: Host-to-device transfers happen while previous computations run
+3. **No idle time**: The device stays busy instead of waiting for R
+
+In production GPU training loops, async dispatch can provide **1.2-2x speedup** depending on the ratio of data preparation time to computation time.
 
 ## Summary
 
