@@ -44,14 +44,17 @@ is_ready <- function(x, ...) {
 #' @param buffer A PJRTBuffer external pointer (valid immediately).
 #' @param event PJRTEvent external pointer (or NULL if already complete).
 #' @param data_holder Optional XPtr keeping host data alive until transfer completes.
+#' @param events List of ancestor events to check for errors (for chained operations).
 #' @return A `pjrt_buffer_promise` object.
 #' @keywords internal
-pjrt_buffer_promise <- function(buffer, event, data_holder = NULL) {
+pjrt_buffer_promise <- function(buffer, event, data_holder = NULL, events = list()) {
   env <- new.env(parent = emptyenv())
   env$buffer <- buffer
   env$event <- event
   env$data_holder <- data_holder
   env$awaited <- FALSE
+  # Accumulate all events in the chain (ancestors + this event)
+  env$events <- if (!is.null(event)) c(events, list(event)) else events
 
   structure(env, class = "pjrt_buffer_promise")
 }
@@ -59,9 +62,9 @@ pjrt_buffer_promise <- function(buffer, event, data_holder = NULL) {
 #' @export
 value.pjrt_buffer_promise <- function(x, ...) {
   if (!x$awaited) {
-    # If event is NULL, backend doesn't support async events - already complete
-    if (!is.null(x$event)) {
-      impl_event_await(x$event)
+    # Await ALL events in the chain to ensure errors are propagated
+    for (evt in x$events) {
+      impl_event_await(evt)
     }
     x$awaited <- TRUE
   }
@@ -70,11 +73,13 @@ value.pjrt_buffer_promise <- function(x, ...) {
 
 #' @export
 is_ready.pjrt_buffer_promise <- function(x, ...) {
-  # If event is NULL, backend doesn't support async events - already complete
-  if (is.null(x$event)) {
-    return(TRUE)
+  # Check if ALL events in the chain are ready
+  for (evt in x$events) {
+    if (!impl_event_is_ready(evt)) {
+      return(FALSE)
+    }
   }
-  impl_event_is_ready(x$event)
+  TRUE
 }
 
 #' @export
@@ -102,6 +107,16 @@ is_buffer_promise <- function(x) {
   inherits(x, "pjrt_buffer_promise")
 }
 
+#' @keywords internal
+#' @description Extract all events from a buffer promise for chaining
+get_events <- function(x) {
+  if (inherits(x, "pjrt_buffer_promise")) {
+    x$events
+  } else {
+    list()
+  }
+}
+
 # pjrt_array_promise Class -------------------------------------------------
 # Represents a promise of an R array (from device-to-host transfer)
 
@@ -113,15 +128,18 @@ is_buffer_promise <- function(x) {
 #' @param event PJRTEvent external pointer (or NULL).
 #' @param dtype Element type string (e.g., "f32", "i32").
 #' @param dims Integer vector of dimensions.
+#' @param events List of ancestor events to check for errors (for chained operations).
 #' @return A `pjrt_array_promise` object.
 #' @keywords internal
-pjrt_array_promise <- function(data, event, dtype, dims) {
+pjrt_array_promise <- function(data, event, dtype, dims, events = list()) {
   env <- new.env(parent = emptyenv())
   env$data <- data
   env$event <- event
   env$dtype <- dtype
   env$dims <- dims
   env$materialized <- NULL
+  # Accumulate all events in the chain (ancestors + this event)
+  env$events <- if (!is.null(event)) c(events, list(event)) else events
 
   structure(env, class = "pjrt_array_promise")
 }
@@ -129,9 +147,9 @@ pjrt_array_promise <- function(data, event, dtype, dims) {
 #' @export
 value.pjrt_array_promise <- function(x, ...) {
   if (is.null(x$materialized)) {
-    # Wait for transfer to complete (if event exists)
-    if (!is.null(x$event)) {
-      impl_event_await(x$event)
+    # Await ALL events in the chain to ensure errors are propagated
+    for (evt in x$events) {
+      impl_event_await(evt)
     }
     # Convert raw bytes to R array
     x$materialized <- impl_raw_to_array(x$data, x$dtype, x$dims)
@@ -141,10 +159,13 @@ value.pjrt_array_promise <- function(x, ...) {
 
 #' @export
 is_ready.pjrt_array_promise <- function(x, ...) {
-  if (is.null(x$event)) {
-    return(TRUE)
+  # Check if ALL events in the chain are ready
+  for (evt in x$events) {
+    if (!impl_event_is_ready(evt)) {
+      return(FALSE)
+    }
   }
-  impl_event_is_ready(x$event)
+  TRUE
 }
 
 #' @export

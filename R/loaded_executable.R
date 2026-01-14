@@ -130,9 +130,13 @@ pjrt_execute_async <- function(executable, ..., execution_options = NULL, simpli
   }
 
   check_loaded_executable(executable)
-  input <- list(...)
-  # Resolve any async inputs (auto-wait)
-  input <- lapply(input, resolve_buffer_input)
+  input_raw <- list(...)
+
+  # Collect all events from input buffer promises for error propagation
+  parent_events <- unlist(lapply(input_raw, get_events), recursive = FALSE)
+
+  # Resolve any async inputs (extract buffers)
+  input <- lapply(input_raw, resolve_buffer_input)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()
@@ -145,8 +149,9 @@ pjrt_execute_async <- function(executable, ..., execution_options = NULL, simpli
   result <- impl_loaded_executable_execute_async(executable, input, execution_options)
 
   # Create a list of buffer promises, one per buffer, all sharing the same event
+  # Pass parent events for error propagation through the chain
   promises <- lapply(result$buffers, function(buf) {
-    pjrt_buffer_promise(buf, result$event)
+    pjrt_buffer_promise(buf, result$event, events = parent_events)
   })
 
   if (simplify && length(promises) == 1L) {

@@ -422,18 +422,19 @@ as_array_async <- function(x) {
 }
 
 #' @export
-as_array_async.PJRTBuffer <- function(x) {
+as_array_async.PJRTBuffer <- function(x, events = list()) {
   result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$event, result$dtype, result$dims)
+  pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = events)
 }
 
 #' @export
 as_array_async.pjrt_buffer_promise <- function(x) {
   # Extract the buffer without waiting - PJRT handles dependencies internally.
-  # The transfer event will only signal ready after both the previous operation
-  # and this transfer are complete.
+  # Pass all events from the buffer promise for error propagation.
   buf <- x$buffer
-  as_array_async(buf)
+  parent_events <- x$events
+  result <- impl_buffer_to_host_async(buf)
+  pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = parent_events)
 }
 
 #' @export
