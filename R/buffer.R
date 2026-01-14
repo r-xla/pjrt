@@ -431,7 +431,7 @@ as_array.PJRTBuffer <- function(x, client = NULL, ...) {
 #' value(result)
 #' @export
 as_array_async <- function(x, ...) {
- UseMethod("as_array_async")
+  UseMethod("as_array_async")
 }
 
 #' @export
