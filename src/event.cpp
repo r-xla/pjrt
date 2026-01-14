@@ -65,15 +65,15 @@ void PJRTEvent::check_error() const {
 
 // C callback wrapper for on_ready
 static void on_ready_callback_wrapper(PJRT_Error* error, void* user_arg) {
-  auto* callback =
-      static_cast<std::function<void(PJRT_Error*)>*>(user_arg);
+  auto* callback = static_cast<std::function<void(PJRT_Error*)>*>(user_arg);
   (*callback)(error);
   delete callback;  // Clean up the allocated callback
 }
 
 void PJRTEvent::on_ready(std::function<void(PJRT_Error*)> callback) {
   // Allocate callback on heap so it survives until called
-  auto* callback_ptr = new std::function<void(PJRT_Error*)>(std::move(callback));
+  auto* callback_ptr =
+      new std::function<void(PJRT_Error*)>(std::move(callback));
 
   PJRT_Event_OnReady_Args args{};
   args.struct_size = sizeof(PJRT_Event_OnReady_Args);
