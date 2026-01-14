@@ -101,12 +101,12 @@ output <- value(async_output)
 
 ## Smart Input Handling
 
-A key feature of the async API is **smart input handling**. When you pass async values as inputs:
+A key feature of the async API is **smart input handling**. PJRT manages dependencies internally, so you can chain async operations without explicit waits:
 
 - **Async transfers** (`pjrt_async_transfer`): The buffer is used immediately - PJRT handles the dependency internally. R returns immediately without blocking.
-- **Async execution results** (`pjrt_async_value`): Must wait for execution to complete before the buffer is valid.
+- **Async execution results** (`pjrt_async_value`): Can be passed to `as_array_async()` or used as inputs to other executions - PJRT handles the dependency.
 
-This enables true pipelining where host-to-device transfers overlap with execution:
+This enables true pipelining where transfers and execution overlap:
 
 ```{r}
 # Start two async transfers in parallel
@@ -125,6 +125,24 @@ exec2 <- pjrt_compile(pjrt_program(src2))
 # Pass async transfers directly - no explicit value() needed
 result <- pjrt_execute_async(exec2, buf1, buf2)
 as_array(result)
+```
+
+### Chaining Execution with Device-to-Host Transfer
+
+You can also chain async execution with async device-to-host transfer without blocking:
+
+```{r}
+# Start async execution
+result <- pjrt_execute_async(executable, pjrt_buffer(matrix(runif(1e6), 1000, 1000), dtype = "f32"))
+
+# Chain with async device-to-host transfer - returns immediately!
+# PJRT internally waits for execution to complete before starting transfer
+async_output <- as_array_async(result)
+
+# R can do other work here...
+
+# Only block when we need the final R array
+output <- value(async_output)
 ```
 
 ## When Blocking Happens

@@ -398,7 +398,8 @@ as_array.PJRTBuffer <- function(x, client = NULL, ...) {
 #' Use `as_array()` as an alias for `value()`.
 #'
 #' This function also accepts `pjrt_async_value` objects (from `pjrt_execute_async()`),
-#' in which case it waits for execution to complete, then starts the async transfer.
+#' enabling fully async pipelines. The transfer is chained to the execution without
+#' blocking - PJRT handles the dependency internally.
 #'
 #' @param x A `PJRTBuffer` or `pjrt_async_value` object.
 #' @return A `pjrt_async_buffer` object. Call `value()` to get the R array.
@@ -428,8 +429,10 @@ as_array_async.PJRTBuffer <- function(x) {
 
 #' @export
 as_array_async.pjrt_async_value <- function(x) {
-  # Wait for execution to complete and get the buffer
-  buf <- value(x)
+  # Extract the buffer without waiting - PJRT handles the execution -> transfer
+  # dependency internally. The transfer event will only signal ready after both
+  # execution and transfer are complete.
+  buf <- x$buffer
   as_array_async(buf)
 }
 
