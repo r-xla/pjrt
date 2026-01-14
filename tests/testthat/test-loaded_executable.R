@@ -58,13 +58,13 @@ test_that("print works", {
 
 # Async execution tests
 
-test_that("pjrt_execute_async returns async value", {
+test_that("pjrt_execute_async returns buffer promise", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute_async(executable)
-  expect_class(result, "pjrt_async_value")
+  expect_class(result, "pjrt_buffer_promise")
 })
 
 test_that("is_ready works for async values", {
@@ -98,11 +98,11 @@ test_that("async execution with multiple outputs", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
-  # With multiple outputs, returns list of async values
+  # With multiple outputs, returns list of buffer promises
   result <- pjrt_execute_async(executable)
-  expect_list(result, types = "pjrt_async_value", len = 2L)
+  expect_list(result, types = "pjrt_buffer_promise", len = 2L)
 
-  # Each async value can be awaited individually
+  # Each buffer promise can be awaited individually
   buf1 <- value(result[[1]])
   buf2 <- value(result[[2]])
   expect_class(buf1, "PJRTBuffer")
@@ -118,20 +118,20 @@ test_that("async execution with simplify=FALSE", {
 
   # With simplify=FALSE, returns list even for single output
   result <- pjrt_execute_async(executable, simplify = FALSE)
-  expect_list(result, types = "pjrt_async_value", len = 1L)
+  expect_list(result, types = "pjrt_buffer_promise", len = 1L)
 
-  # The async value contains a single buffer
+  # The buffer promise contains a single buffer
   buf <- value(result[[1]])
   expect_class(buf, "PJRTBuffer")
 })
 
-test_that("print.pjrt_async_value works", {
+test_that("print.pjrt_buffer_promise works", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute_async(executable)
-  expect_output(print(result), "pjrt_async_value")
+  expect_output(print(result), "pjrt_buffer_promise")
 })
 
 test_that("as_array works for async values (single output)", {
@@ -170,11 +170,11 @@ test_that("async execution chained with async buffer-to-host", {
 
   # Start async execution
   async_result <- pjrt_execute_async(executable)
-  expect_class(async_result, "pjrt_async_value")
+  expect_class(async_result, "pjrt_buffer_promise")
 
   # Chain with async buffer-to-host transfer (auto-waits for execution)
   async_array <- as_array_async(async_result)
-  expect_class(async_array, "pjrt_async_buffer")
+  expect_class(async_array, "pjrt_array_promise")
 
   # Check is_ready returns logical
   ready <- is_ready(async_array)
@@ -199,11 +199,11 @@ test_that("async execution with inputs chained to async buffer-to-host", {
 
   # Execute asynchronously
   async_result <- pjrt_execute_async(executable, x_buf, i1_buf, i2_buf)
-  expect_class(async_result, "pjrt_async_value")
+  expect_class(async_result, "pjrt_buffer_promise")
 
   # Chain with async buffer-to-host transfer
   async_array <- as_array_async(async_result)
-  expect_class(async_array, "pjrt_async_buffer")
+  expect_class(async_array, "pjrt_array_promise")
 
   # Get final value
   result <- value(async_array)
@@ -218,7 +218,7 @@ test_that("async execution with multiple outputs chained to async transfer", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
-  # Execute asynchronously - returns list of async values
+  # Execute asynchronously - returns list of buffer promises
   result <- pjrt_execute_async(executable)
   expect_list(result, len = 2L)
 
@@ -226,8 +226,8 @@ test_that("async execution with multiple outputs chained to async transfer", {
   async_arr1 <- as_array_async(result[[1]])
   async_arr2 <- as_array_async(result[[2]])
 
-  expect_class(async_arr1, "pjrt_async_buffer")
-  expect_class(async_arr2, "pjrt_async_buffer")
+  expect_class(async_arr1, "pjrt_array_promise")
+  expect_class(async_arr2, "pjrt_array_promise")
 
   # Get final values
   arr1 <- value(async_arr1)

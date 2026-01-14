@@ -1,23 +1,20 @@
 # Helper to resolve async inputs to buffers
-# For async transfers, extracts buffer immediately (PJRT handles dependency)
-# and registers callback to keep data alive until transfer completes.
-# For async values (execution results), must wait - buffer isn't valid until done.
+# For buffer promises, the buffer is valid immediately - PJRT handles
+# dependencies internally. If there's a data_holder, register callback
+# to keep it alive until the transfer completes.
 resolve_buffer_input <- function(x) {
-  if (inherits(x, "pjrt_async_value")) {
-    # For async execution results, we must wait - the buffer isn't valid until
-    # execution completes
-    value(x)
-  } else if (inherits(x, "pjrt_async_transfer")) {
-    # For async transfers, the buffer is valid immediately - PJRT handles
-    # the dependency internally. Register callback to keep data_holder alive.
-    if (!is.null(x$event)) {
+  if (inherits(x, "pjrt_buffer_promise")) {
+    # Buffer is valid immediately - PJRT handles dependencies internally.
+    # If there's a data_holder (from host-to-device transfer), register
+    # callback to keep it alive until transfer completes.
+    if (!is.null(x$event) && !is.null(x$data_holder)) {
       impl_event_release_on_ready(x$event, x$data_holder)
     }
     x$buffer
   } else if (is_buffer(x)) {
     x
   } else {
-    cli_abort("Expected PJRTBuffer, pjrt_async_value, or pjrt_async_transfer")
+    cli_abort("Expected PJRTBuffer or pjrt_buffer_promise")
   }
 }
 
@@ -28,12 +25,12 @@ resolve_buffer_input <- function(x) {
 #' **Important:**
 #' Arguments are passed by position and names are ignored.
 #'
-#' Inputs can be `PJRTBuffer` objects or async values (`pjrt_async_value`,
-#' `pjrt_async_transfer`). Async inputs are automatically awaited before execution.
+#' Inputs can be `PJRTBuffer` objects or buffer promises (`pjrt_buffer_promise`).
+#' Buffer promises are resolved automatically before execution.
 #'
 #' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program.
-#' @param ... (`PJRTBuffer` | `pjrt_async_value` | `pjrt_async_transfer`)\cr
+#' @param ... (`PJRTBuffer` | `pjrt_buffer_promise`)\cr
 #'   Inputs to the program.
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
@@ -90,17 +87,17 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 #' @title Execute a PJRT program asynchronously
 #' @description
 #' Execute a PJRT program asynchronously with the given inputs.
-#' Returns immediately with async value(s) that can be awaited later.
+#' Returns immediately with buffer promise(s) that can be awaited later.
 #'
 #' Use `value()` to get the result (blocks if not ready).
 #' Use `is_ready()` to check if execution has completed (non-blocking).
 #' Use `as_array_async()` to chain async buffer-to-host transfer.
 #'
-#' Inputs can be `PJRTBuffer` objects or async values (`pjrt_async_value`,
-#' `pjrt_async_transfer`). Async inputs are automatically awaited before execution.
+#' Inputs can be `PJRTBuffer` objects or buffer promises (`pjrt_buffer_promise`).
+#' Buffer promises are resolved automatically before execution.
 #'
 #' @inheritParams pjrt_execute
-#' @return A `pjrt_async_value` object (or list of them if multiple outputs).
+#' @return A `pjrt_buffer_promise` object (or list of them if multiple outputs).
 #'   Call `value()` to get the `PJRTBuffer`.
 #' @seealso [pjrt_execute()], [value()], [is_ready()], [as_array_async()], [pjrt_buffer_async()]
 #' @examplesIf plugin_is_downloaded()
@@ -147,16 +144,16 @@ pjrt_execute_async <- function(executable, ..., execution_options = NULL, simpli
 
   result <- impl_loaded_executable_execute_async(executable, input, execution_options)
 
-  # Create a list of async values, one per buffer, all sharing the same event
-  async_values <- lapply(result$buffers, function(buf) {
-    pjrt_async_value(buf, result$event)
+  # Create a list of buffer promises, one per buffer, all sharing the same event
+  promises <- lapply(result$buffers, function(buf) {
+    pjrt_buffer_promise(buf, result$event)
   })
 
-  if (simplify && length(async_values) == 1L) {
-    return(async_values[[1L]])
+  if (simplify && length(promises) == 1L) {
+    return(promises[[1L]])
   }
 
-  async_values
+  promises
 }
 
 #' @export

@@ -624,10 +624,10 @@ test_that("i1 is alias for pred", {
 
 # Async buffer-to-host tests
 
-test_that("as_array_async returns pjrt_async_buffer", {
+test_that("as_array_async returns pjrt_array_promise", {
   buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
   result <- as_array_async(buf)
-  expect_class(result, "pjrt_async_buffer")
+  expect_class(result, "pjrt_array_promise")
 })
 
 test_that("is_ready works for async buffers", {
@@ -671,17 +671,17 @@ test_that("async buffer works with different dtypes", {
   expect_equal(as.vector(result), c(TRUE, FALSE, TRUE))
 })
 
-test_that("print.pjrt_async_buffer works", {
+test_that("print.pjrt_array_promise works", {
   buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
   result <- as_array_async(buf)
-  expect_output(print(result), "pjrt_async_buffer")
+  expect_output(print(result), "pjrt_array_promise")
 })
 
 # Async host-to-device buffer tests
 
-test_that("pjrt_buffer_async returns pjrt_async_transfer", {
+test_that("pjrt_buffer_async returns pjrt_buffer_promise", {
   x <- pjrt_buffer_async(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-  expect_class(x, "pjrt_async_transfer")
+  expect_class(x, "pjrt_buffer_promise")
 })
 
 test_that("is_ready works for async transfers", {
@@ -720,14 +720,14 @@ test_that("pjrt_buffer_async works with logical data", {
   expect_equal(as.vector(arr), original)
 })
 
-test_that("async transfer can be chained with as_array_async", {
+test_that("buffer promise can be chained with as_array_async", {
   # Create buffer asynchronously
   transfer <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  expect_class(transfer, "pjrt_async_transfer")
+  expect_class(transfer, "pjrt_buffer_promise")
 
   # Chain with async to-host transfer
   async_arr <- as_array_async(transfer)
-  expect_class(async_arr, "pjrt_async_buffer")
+  expect_class(async_arr, "pjrt_array_promise")
 
   # Get final value
   arr <- value(async_arr)
@@ -744,7 +744,7 @@ test_that("async transfer can be used as input to pjrt_execute", {
   expect_equal(as_array(result), 3)
 })
 
-test_that("async transfer can be used as input to pjrt_execute_async", {
+test_that("buffer promise can be used as input to pjrt_execute_async", {
   skip_if_metal("-:20:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
@@ -760,14 +760,14 @@ test_that("async transfer can be used as input to pjrt_execute_async", {
 
   # Execute with mixed async/sync inputs - async should auto-wait
   result <- pjrt_execute_async(executable, x_async, i1_buf, i2_buf)
-  expect_class(result, "pjrt_async_value")
+  expect_class(result, "pjrt_buffer_promise")
 
   # Get final value
   arr <- value(as_array_async(result))
   expect_equal(arr, x[1, 2])
 })
 
-test_that("print.pjrt_async_transfer works", {
+test_that("print.pjrt_buffer_promise works", {
   x <- pjrt_buffer_async(c(1.0, 2.0), dtype = "f32")
-  expect_output(print(x), "pjrt_async_transfer")
+  expect_output(print(x), "pjrt_buffer_promise")
 })

@@ -10,7 +10,7 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
 A PJRT program.}
 
-\item{...}{(\code{PJRTBuffer} | \code{pjrt_async_value} | \code{pjrt_async_transfer})\cr
+\item{...}{(\code{PJRTBuffer} | \code{pjrt_buffer_promise})\cr
 Inputs to the program.
 Named are ignored and arguments are passed in order.}
 
@@ -30,8 +30,8 @@ Execute a PJRT program with the given inputs and execution options.
 \strong{Important:}
 Arguments are passed by position and names are ignored.
 
-Inputs can be \code{PJRTBuffer} objects or async values (\code{pjrt_async_value},
-\code{pjrt_async_transfer}). Async inputs are automatically awaited before execution.
+Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{pjrt_buffer_promise}).
+Buffer promises are resolved automatically before execution.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}

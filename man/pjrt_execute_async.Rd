@@ -10,7 +10,7 @@ pjrt_execute_async(executable, ..., execution_options = NULL, simplify = TRUE)
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
 A PJRT program.}
 
-\item{...}{(\code{PJRTBuffer} | \code{pjrt_async_value} | \code{pjrt_async_transfer})\cr
+\item{...}{(\code{PJRTBuffer} | \code{pjrt_buffer_promise})\cr
 Inputs to the program.
 Named are ignored and arguments are passed in order.}
 
@@ -22,19 +22,19 @@ If \code{TRUE} (default), a single output is returned as a \code{PJRTBuffer}.
 If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBuffer}.}
 }
 \value{
-A \code{pjrt_async_value} object (or list of them if multiple outputs).
+A \code{pjrt_buffer_promise} object (or list of them if multiple outputs).
 Call \code{value()} to get the \code{PJRTBuffer}.
 }
 \description{
 Execute a PJRT program asynchronously with the given inputs.
-Returns immediately with async value(s) that can be awaited later.
+Returns immediately with buffer promise(s) that can be awaited later.
 
 Use \code{value()} to get the result (blocks if not ready).
 Use \code{is_ready()} to check if execution has completed (non-blocking).
 Use \code{as_array_async()} to chain async buffer-to-host transfer.
 
-Inputs can be \code{PJRTBuffer} objects or async values (\code{pjrt_async_value},
-\code{pjrt_async_transfer}). Async inputs are automatically awaited before execution.
+Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{pjrt_buffer_promise}).
+Buffer promises are resolved automatically before execution.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}

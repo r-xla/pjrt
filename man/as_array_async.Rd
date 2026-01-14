@@ -7,21 +7,22 @@
 as_array_async(x)
 }
 \arguments{
-\item{x}{A \code{PJRTBuffer} or \code{pjrt_async_value} object.}
+\item{x}{A \code{PJRTBuffer} or \code{pjrt_buffer_promise} object.}
 }
 \value{
-A \code{pjrt_async_buffer} object. Call \code{value()} to get the R array.
+A \code{pjrt_array_promise} object. Call \code{value()} to get the R array.
 }
 \description{
 Start an asynchronous transfer of buffer data from device to host.
-Returns immediately with an async buffer object.
+Returns immediately with an async array promise object.
 
 Use \code{value()} to get the R array (blocks if not ready).
 Use \code{is_ready()} to check if transfer has completed (non-blocking).
 Use \code{as_array()} as an alias for \code{value()}.
 
-This function also accepts \code{pjrt_async_value} objects (from \code{pjrt_execute_async()}),
-in which case it waits for execution to complete, then starts the async transfer.
+This function also accepts \code{pjrt_buffer_promise} objects (from \code{pjrt_execute_async()}
+or \code{pjrt_buffer_async()}), enabling fully async pipelines. The transfer is chained
+to the previous operation without blocking - PJRT handles the dependency internally.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}

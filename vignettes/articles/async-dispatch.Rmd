@@ -43,15 +43,15 @@ Device:          [compute 1] [compute 2] [compute 3] [compute 4]
 
 ## Asynchronous Dispatch in pjrt
 
-The {pjrt} package provides async variants of key operations that return immediately, allowing R to continue while the device works in the background. These operations return **async value** objects that can be awaited later.
+The {pjrt} package provides async variants of key operations that return immediately, allowing R to continue while the device works in the background. These operations return **promise** objects that can be awaited later.
 
 ### The Async API
 
 | Sync Operation | Async Operation | Returns |
 |----------------|-----------------|---------|
-| `pjrt_buffer()` | `pjrt_buffer_async()` | `pjrt_async_transfer` |
-| `pjrt_execute()` | `pjrt_execute_async()` | `pjrt_async_value` |
-| `as_array()` | `as_array_async()` | `pjrt_async_buffer` |
+| `pjrt_buffer()` | `pjrt_buffer_async()` | `pjrt_buffer_promise` |
+| `pjrt_execute()` | `pjrt_execute_async()` | `pjrt_buffer_promise` |
+| `as_array()` | `as_array_async()` | `pjrt_array_promise` |
 
 All async objects support:
 
@@ -103,8 +103,8 @@ output <- value(async_output)
 
 A key feature of the async API is **smart input handling**. PJRT manages dependencies internally, so you can chain async operations without explicit waits:
 
-- **Async transfers** (`pjrt_async_transfer`): The buffer is used immediately - PJRT handles the dependency internally. R returns immediately without blocking.
-- **Async execution results** (`pjrt_async_value`): Can be passed to `as_array_async()` or used as inputs to other executions - PJRT handles the dependency.
+- **Buffer promises** (`pjrt_buffer_promise`): The buffer is valid immediately - PJRT handles dependencies internally. R returns immediately without blocking.
+- Buffer promises can be passed to `as_array_async()` or used as inputs to other executions - PJRT handles the dependency.
 
 This enables true pipelining where transfers and execution overlap:
 

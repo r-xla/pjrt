@@ -44,11 +44,11 @@ R uses column-major format.
 }}
 }
 \value{
-A \code{pjrt_async_transfer} object. Call \code{value()} to get the \code{PJRTBuffer}.
+A \code{pjrt_buffer_promise} object. Call \code{value()} to get the \code{PJRTBuffer}.
 }
 \description{
 Create a PJRT Buffer from R data asynchronously.
-Returns immediately with a \code{pjrt_async_transfer} object.
+Returns immediately with a \code{pjrt_buffer_promise} object.
 
 The buffer is valid immediately and can be used as input to operations.
 The event signals when PJRT is done reading from host memory.
