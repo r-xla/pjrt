@@ -438,8 +438,10 @@ as_array_async.pjrt_async_value <- function(x) {
 
 #' @export
 as_array_async.pjrt_async_transfer <- function(x) {
-  # Wait for host-to-device transfer, then start device-to-host transfer
-  buf <- value(x)
+  # Extract buffer without waiting - PJRT handles the host-to-device ->
+  # device-to-host dependency internally. The transfer event will signal
+  # when both transfers are complete.
+  buf <- x$buffer
   as_array_async(buf)
 }
 
