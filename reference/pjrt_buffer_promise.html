@@ -71,7 +71,7 @@ the operation is complete.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer_promise</span><span class="op">(</span><span class="va">buffer</span>, <span class="va">event</span>, data_holder <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer_promise</span><span class="op">(</span><span class="va">buffer</span>, <span class="va">event</span>, data_holder <span class="op">=</span> <span class="cn">NULL</span>, events <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -88,6 +88,10 @@ the operation is complete.</p>
 
 <dt id="arg-data-holder">data_holder<a class="anchor" aria-label="anchor" href="#arg-data-holder"></a></dt>
 <dd><p>Optional XPtr keeping host data alive until transfer completes.</p></dd>
+
+
+<dt id="arg-events">events<a class="anchor" aria-label="anchor" href="#arg-events"></a></dt>
+<dd><p>List of ancestor events to check for errors (for chained operations).</p></dd>
 
 </dl></div>
     <div class="section level2">

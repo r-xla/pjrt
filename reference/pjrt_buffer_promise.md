@@ -11,7 +11,7 @@ block until the operation is complete.
 ## Usage
 
 ``` r
-pjrt_buffer_promise(buffer, event, data_holder = NULL)
+pjrt_buffer_promise(buffer, event, data_holder = NULL, events = list())
 ```
 
 ## Arguments
@@ -27,6 +27,10 @@ pjrt_buffer_promise(buffer, event, data_holder = NULL)
 - data_holder:
 
   Optional XPtr keeping host data alive until transfer completes.
+
+- events:
+
+  List of ancestor events to check for errors (for chained operations).
 
 ## Value
 
