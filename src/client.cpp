@@ -114,7 +114,8 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
   args.device = device;
   args.memory = nullptr;
 
-  check_err(this->api.get(), this->api->PJRT_Client_BufferFromHostBuffer_(&args));
+  check_err(this->api.get(),
+            this->api->PJRT_Client_BufferFromHostBuffer_(&args));
 
   AsyncBufferFromHostResult result;
   result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
