@@ -4,10 +4,12 @@
 \alias{as_array_async}
 \title{Convert buffer to R array asynchronously}
 \usage{
-as_array_async(x)
+as_array_async(x, ...)
 }
 \arguments{
 \item{x}{A \code{PJRTBuffer} or \code{pjrt_buffer_promise} object.}
+
+\item{...}{Additional arguments (unused).}
 }
 \value{
 A \code{pjrt_array_promise} object. Call \code{value()} to get the R array.

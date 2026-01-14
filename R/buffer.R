@@ -414,6 +414,7 @@ as_array.PJRTBuffer <- function(x, client = NULL, ...) {
 #' to the previous operation without blocking - PJRT handles the dependency internally.
 #'
 #' @param x A `PJRTBuffer` or `pjrt_buffer_promise` object.
+#' @param ... Additional arguments (unused).
 #' @return A `pjrt_array_promise` object. Call `value()` to get the R array.
 #' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute_async()]
 #' @examplesIf plugin_is_downloaded()
@@ -429,18 +430,18 @@ as_array.PJRTBuffer <- function(x, client = NULL, ...) {
 #' # Get the R array (blocks if not ready)
 #' value(result)
 #' @export
-as_array_async <- function(x) {
-  UseMethod("as_array_async")
+as_array_async <- function(x, ...) {
+ UseMethod("as_array_async")
 }
 
 #' @export
-as_array_async.PJRTBuffer <- function(x, events = list()) {
+as_array_async.PJRTBuffer <- function(x, ...) {
   result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = events)
+  pjrt_array_promise(result$data, result$event, result$dtype, result$dims)
 }
 
 #' @export
-as_array_async.pjrt_buffer_promise <- function(x) {
+as_array_async.pjrt_buffer_promise <- function(x, ...) {
   # Extract the buffer without waiting - PJRT handles dependencies internally.
   # Pass all events from the buffer promise for error propagation.
   buf <- x$buffer

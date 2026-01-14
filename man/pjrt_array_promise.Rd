@@ -4,7 +4,7 @@
 \alias{pjrt_array_promise}
 \title{Create a PJRT Array Promise (internal)}
 \usage{
-pjrt_array_promise(data, event, dtype, dims)
+pjrt_array_promise(data, event, dtype, dims, events = list())
 }
 \arguments{
 \item{data}{XPtr to std::vector<uint8_t> holding raw bytes (row-major).}
@@ -14,6 +14,8 @@ pjrt_array_promise(data, event, dtype, dims)
 \item{dtype}{Element type string (e.g., "f32", "i32").}
 
 \item{dims}{Integer vector of dimensions.}
+
+\item{events}{List of ancestor events to check for errors (for chained operations).}
 }
 \value{
 A \code{pjrt_array_promise} object.
