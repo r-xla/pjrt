@@ -7,7 +7,7 @@ should not call this directly - use
 ## Usage
 
 ``` r
-pjrt_array_promise(data, event, dtype, dims)
+pjrt_array_promise(data, event, dtype, dims, events = list())
 ```
 
 ## Arguments
@@ -27,6 +27,10 @@ pjrt_array_promise(data, event, dtype, dims)
 - dims:
 
   Integer vector of dimensions.
+
+- events:
+
+  List of ancestor events to check for errors (for chained operations).
 
 ## Value
 

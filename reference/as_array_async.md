@@ -18,7 +18,7 @@ blocking - PJRT handles the dependency internally.
 ## Usage
 
 ``` r
-as_array_async(x)
+as_array_async(x, ...)
 ```
 
 ## Arguments
@@ -26,6 +26,10 @@ as_array_async(x)
 - x:
 
   A `PJRTBuffer` or `pjrt_buffer_promise` object.
+
+- ...:
+
+  Additional arguments (unused).
 
 ## Value
 
