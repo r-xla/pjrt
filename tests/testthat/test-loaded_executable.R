@@ -400,9 +400,10 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   wrong_input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
   # The error should be caught during execute_async (input validation)
+  # CPU says "size", Metal says "shape"
   expect_error(
     pjrt_execute_async(executable, wrong_input),
-    "size"
+    "size|shape"
   )
 })
 
@@ -418,9 +419,10 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   wrong_input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
   # Error should be caught at execute time
+  # CPU says "size", Metal says "shape"
   expect_error(
     pjrt_execute_async(executable, wrong_input),
-    "size"
+    "size|shape"
   )
 })
 
@@ -509,9 +511,10 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
 
   # Error appears immediately at execute_async time (input validation)
   # NOT deferred to value()
+  # CPU says "size", Metal says "shape"
   expect_error(
     pjrt_execute_async(executable, wrong_shape_buffer),
-    "size"
+    "size|shape"
   )
 })
 
@@ -582,10 +585,11 @@ func.func @main(%x: tensor<4xf32>) -> tensor<4xf32> {
   # Wrong size: expected 4 elements, got 3
   wrong_buffer <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
-  # Error message should mention the size mismatch
+  # Error message should mention the size/shape mismatch
+  # CPU mentions size in bytes, Metal mentions shape
   expect_error(
     pjrt_execute_async(executable, wrong_buffer),
-    regexp = "size.*(16|12)", # Should mention expected vs actual size in bytes
+    regexp = "size|shape",
     ignore.case = TRUE
   )
 })
@@ -625,7 +629,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 test_that("async errors: CPU backend clamps out-of-bounds indices (no runtime error)", {
   # This test documents that the CPU backend is robust and doesn't error
   # on out-of-bounds access - it clamps indices instead. This is XLA behavior.
-  # GPU/TPU backends may behave differently.
+  # Metal/GPU backends may behave differently (return zeros or different values).
+  skip_if_metal("Metal handles out-of-bounds differently")
 
   src <- r"(
 func.func @main(%x: tensor<3xf32>, %idx: tensor<i32>) -> tensor<2xf32> {
