@@ -4,7 +4,7 @@
 \alias{pjrt_buffer_promise}
 \title{Create a PJRT Buffer Promise (internal)}
 \usage{
-pjrt_buffer_promise(buffer, event, data_holder = NULL)
+pjrt_buffer_promise(buffer, event, data_holder = NULL, events = list())
 }
 \arguments{
 \item{buffer}{A PJRTBuffer external pointer (valid immediately).}
@@ -12,6 +12,8 @@ pjrt_buffer_promise(buffer, event, data_holder = NULL)
 \item{event}{PJRTEvent external pointer (or NULL if already complete).}
 
 \item{data_holder}{Optional XPtr keeping host data alive until transfer completes.}
+
+\item{events}{List of ancestor events to check for errors (for chained operations).}
 }
 \value{
 A \code{pjrt_buffer_promise} object.
