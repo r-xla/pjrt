@@ -207,7 +207,7 @@ test_that("async execution with inputs chained to async buffer-to-host", {
 
   # Get final value
   result <- value(async_array)
-  expect_equal(result, x[1, 2])  # 0-indexed: x[0+1, 1+1] = x[1, 2] = 3
+  expect_equal(result, x[1, 2]) # 0-indexed: x[0+1, 1+1] = x[1, 2] = 3
 })
 
 test_that("async execution with multiple outputs chained to async transfer", {
@@ -493,7 +493,6 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 # in the chain are awaited, so errors from ANY step are properly surfaced.
 
 test_that("async errors: input validation errors appear at execute_async time", {
-
   # This test documents that input validation errors (wrong shape, wrong type)
 
   # are caught immediately when execute_async is called, NOT deferred to value()
@@ -533,7 +532,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # Build async chain
- input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute_async(executable, input)
   arr_promise <- as_array_async(result)
 
@@ -586,7 +585,7 @@ func.func @main(%x: tensor<4xf32>) -> tensor<4xf32> {
   # Error message should mention the size mismatch
   expect_error(
     pjrt_execute_async(executable, wrong_buffer),
-    regexp = "size.*(16|12)",  # Should mention expected vs actual size in bytes
+    regexp = "size.*(16|12)", # Should mention expected vs actual size in bytes
     ignore.case = TRUE
   )
 })
@@ -625,7 +624,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 
 test_that("async errors: CPU backend clamps out-of-bounds indices (no runtime error)", {
   # This test documents that the CPU backend is robust and doesn't error
- # on out-of-bounds access - it clamps indices instead. This is XLA behavior.
+  # on out-of-bounds access - it clamps indices instead. This is XLA behavior.
   # GPU/TPU backends may behave differently.
 
   src <- r"(

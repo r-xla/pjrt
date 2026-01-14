@@ -336,7 +336,11 @@ S7::method(pjrt_buffer_async, S7::class_logical) <- function(
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
   result <- impl_client_buffer_from_logical_async(
-    args$client, args$device, args$data, args$dims, args$dtype
+    args$client,
+    args$device,
+    args$data,
+    args$dims,
+    args$dtype
   )
   pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
@@ -350,7 +354,11 @@ S7::method(pjrt_buffer_async, S7::class_integer) <- function(
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
   result <- impl_client_buffer_from_integer_async(
-    args$client, args$device, args$data, args$dims, args$dtype
+    args$client,
+    args$device,
+    args$data,
+    args$dims,
+    args$dtype
   )
   pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
@@ -364,7 +372,11 @@ S7::method(pjrt_buffer_async, S7::class_double) <- function(
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
   result <- impl_client_buffer_from_double_async(
-    args$client, args$device, args$data, args$dims, args$dtype
+    args$client,
+    args$device,
+    args$data,
+    args$dims,
+    args$dtype
   )
   pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
