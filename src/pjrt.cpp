@@ -236,6 +236,25 @@ Rcpp::List create_buffer_from_array_async_zerocopy(
                             Rcpp::Named("data_holder") = R_NilValue);
 }
 
+// Sync buffer creation with zero-copy - for matching types (double->f64, int->i32)
+Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_zerocopy(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, void* data_ptr,
+    const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
+    size_t element_size, bool row_major = false, PJRT_Device *device = nullptr) {
+  // Use async zero-copy path
+  Rcpp::List async_result = create_buffer_from_array_async_zerocopy(
+      client, data, data_ptr, dims, dtype, element_size, row_major, device);
+
+  // Wait for transfer to complete if event exists
+  SEXP event_sexp = async_result["event"];
+  if (event_sexp != R_NilValue) {
+    Rcpp::XPtr<rpjrt::PJRTEvent> event(event_sexp);
+    event->await();
+  }
+
+  return Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(async_result["buffer"]);
+}
+
 // Sync buffer creation - uses async path and waits
 template <typename T>
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array(
@@ -282,8 +301,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     return create_buffer_from_array<int16_t>(
         client, data, dims, PJRT_Buffer_Type_S16, false, device->device);
   } else if (dtype == "i32") {
-    return create_buffer_from_array<int32_t>(
-        client, data, dims, PJRT_Buffer_Type_S32, false, device->device);
+    // Zero-copy optimization: use R's integer data directly (no type conversion needed)
+    return create_buffer_from_array_zerocopy(
+        client, data, INTEGER(data), dims, PJRT_Buffer_Type_S32,
+        sizeof(int32_t), false, device->device);
   } else if (dtype == "i64") {
     return create_buffer_from_array<int64_t>(
         client, data, dims, PJRT_Buffer_Type_S64, false, device->device);
@@ -373,8 +394,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     return create_buffer_from_array<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
   } else if (dtype == "f64") {
-    return create_buffer_from_array<double>(
-        client, data, dims, PJRT_Buffer_Type_F64, false, device->device);
+    // Zero-copy optimization: use R's double data directly (no type conversion needed)
+    return create_buffer_from_array_zerocopy(
+        client, data, REAL(data), dims, PJRT_Buffer_Type_F64,
+        sizeof(double), false, device->device);
   } else if (dtype == "pred") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, device, data_conv, dims,
