@@ -311,7 +311,7 @@ sync_time <- system.time({
 })
 
 cat("Synchronous total time:", round(sync_time["elapsed"], 3), "seconds\n")
-#> Synchronous total time: 0.242 seconds
+#> Synchronous total time: 0.239 seconds
 ```
 
 ### Asynchronous Pattern
@@ -333,14 +333,14 @@ async_time <- system.time({
 })
 
 cat("Asynchronous total time:", round(async_time["elapsed"], 3), "seconds\n")
-#> Asynchronous total time: 0.197 seconds
+#> Asynchronous total time: 0.198 seconds
 ```
 
 ### Results
 
 ``` r
 cat("Sync:", round(sync_time["elapsed"], 3), "s, Async:", round(async_time["elapsed"], 3), "s\n")
-#> Sync: 0.242 s, Async: 0.197 s
+#> Sync: 0.239 s, Async: 0.198 s
 ```
 
 On CPU, both patterns have similar performance because:
