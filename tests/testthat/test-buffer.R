@@ -771,3 +771,36 @@ test_that("print.pjrt_buffer_promise works", {
   x <- pjrt_buffer_async(c(1.0, 2.0), dtype = "f32")
   expect_output(print(x), "pjrt_buffer_promise")
 })
+
+test_that("zero-copy sync buffer properly releases preserved R objects", {
+  # Force clean GC baseline
+
+  gc()
+  gc()
+  baseline <- gc()[2, 2] # Vcells used (MB)
+
+  # Create many buffers using zero-copy paths (f64 and i32)
+  # If R_PreserveObject was called without R_ReleaseObject,
+  # memory would accumulate (~30MB total)
+  for (i in seq_len(50)) {
+    # f64 uses zero-copy when source is double
+    data_f64 <- as.double(seq_len(50000)) # ~400KB each
+    buf_f64 <- pjrt_buffer(data_f64, dtype = "f64")
+    rm(buf_f64, data_f64)
+
+    # i32 uses zero-copy when source is integer
+    data_i32 <- seq_len(50000) # ~200KB each
+    buf_i32 <- pjrt_buffer(data_i32, dtype = "i32")
+    rm(buf_i32, data_i32)
+  }
+
+  # Force GC to reclaim any properly-released objects
+
+  gc()
+  gc()
+  after <- gc()[2, 2]
+
+  # Memory growth should be minimal - definitely not 50*(400KB+200KB) = 30MB
+  memory_growth_mb <- after - baseline
+  expect_lt(memory_growth_mb, 10) # Less than 10MB growth
+})

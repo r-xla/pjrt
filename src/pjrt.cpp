@@ -261,6 +261,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_zerocopy(
   if (event_sexp != R_NilValue) {
     Rcpp::XPtr<rpjrt::PJRTEvent> event(event_sexp);
     event->await();
+    // Process pending releases queued by the on_ready callback.
+    // The zero-copy path preserves the R object and queues its release
+    // when the transfer completes - we must drain that queue here.
+    rpjrt::process_pending_releases();
   }
 
   return Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(async_result["buffer"]);
