@@ -84,7 +84,6 @@ is_ready.pjrt_buffer_promise <- function(x, ...) {
 
 #' @export
 print.pjrt_buffer_promise <- function(x, ...) {
-
   cat("<pjrt_buffer_promise>\n")
   if (x$awaited) {
     # Already awaited - safe to show buffer without side effects

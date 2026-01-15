@@ -1,10 +1,10 @@
 // Include Rcpp first to avoid conflicts with R macros
+#include "deferred_release.h"
+
 #include <Rcpp.h>
 
 #include <mutex>
 #include <vector>
-
-#include "deferred_release.h"
 
 namespace rpjrt {
 
