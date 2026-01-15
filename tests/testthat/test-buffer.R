@@ -777,6 +777,7 @@ test_that("zero-copy sync buffer properly releases preserved R objects", {
 
   gc()
   gc()
+
   baseline <- gc()[2, 2] # Vcells used (MB)
 
   # Create many buffers using zero-copy paths (f64 and i32)
@@ -801,6 +802,46 @@ test_that("zero-copy sync buffer properly releases preserved R objects", {
   after <- gc()[2, 2]
 
   # Memory growth should be minimal - definitely not 50*(400KB+200KB) = 30MB
+  memory_growth_mb <- after - baseline
+  expect_lt(memory_growth_mb, 10) # Less than 10MB growth
+})
+
+test_that("async buffer inputs to sync execute properly release preserved objects", {
+  # This tests that when pjrt_buffer_promise objects are passed to
+
+  # pjrt_execute() (sync), the data_holder is properly released after
+  # the transfer completes. Without proper release queue draining,
+  # memory would leak on backends with async transfers (GPU/TPU).
+
+  gc()
+  gc()
+  baseline <- gc()[2, 2] # Vcells used (MB)
+
+  # Compile a simple identity program
+  src <- "
+func.func @main(%x: tensor<50000xf32>) -> tensor<50000xf32> {
+  func.return %x : tensor<50000xf32>
+}
+"
+  program <- pjrt_program(src = src, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  # Create many async buffers and pass to sync execute
+  # Using f32 from double = non-zero-copy path with data_holder (~200KB each)
+  # If data_holder is preserved but never released, ~10MB would leak
+  for (i in seq_len(50)) {
+    data <- as.double(seq_len(50000))
+    async_buf <- pjrt_buffer_async(data, dtype = "f32")
+    result <- pjrt_execute(executable, async_buf)
+    rm(async_buf, data, result)
+  }
+
+  # Force GC to reclaim any properly-released objects
+  gc()
+  gc()
+  after <- gc()[2, 2]
+
+  # Memory growth should be minimal - definitely not 50 * 200KB = 10MB
   memory_growth_mb <- after - baseline
   expect_lt(memory_growth_mb, 10) # Less than 10MB growth
 })
