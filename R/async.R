@@ -84,13 +84,18 @@ is_ready.pjrt_buffer_promise <- function(x, ...) {
 
 #' @export
 print.pjrt_buffer_promise <- function(x, ...) {
+
   cat("<pjrt_buffer_promise>\n")
-  if (is_ready(x)) {
-    cat("Status: Ready\n")
+  if (x$awaited) {
+    # Already awaited - safe to show buffer without side effects
+    cat("Status: Awaited\n")
     cat("Buffer:\n")
-    print(value(x))
+    print(x$buffer)
   } else {
-    cat("Status: Pending\n")
+    # Not yet awaited - show promise info without materializing
+    cat("Status: Not awaited\n")
+    cat("Events:", length(x$events), "\n")
+    cat("(Call value() to await and retrieve the buffer)\n")
   }
   invisible(x)
 }
@@ -176,12 +181,18 @@ as_array.pjrt_array_promise <- function(x, ...) {
 #' @export
 print.pjrt_array_promise <- function(x, ...) {
   cat("<pjrt_array_promise>\n")
-  if (is_ready(x)) {
-    cat("Status: Ready\n")
+  if (!is.null(x$materialized)) {
+    # Already materialized - safe to show value without side effects
+    cat("Status: Materialized\n")
     cat("Value:\n")
-    print(value(x))
+    print(x$materialized)
   } else {
-    cat("Status: Pending\n")
+    # Not yet materialized - show promise info without triggering transfer
+    cat("Status: Not materialized\n")
+    cat("Events:", length(x$events), "\n")
+    cat("dtype:", x$dtype, "\n")
+    cat("dims:", paste(x$dims, collapse = " x "), "\n")
+    cat("(Call value() to materialize the array)\n")
   }
   invisible(x)
 }
