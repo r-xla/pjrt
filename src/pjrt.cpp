@@ -6,6 +6,7 @@
 #include "buffer.h"
 #include "buffer_printer.h"
 #include "client.h"
+#include "deferred_release.h"
 #include "event.h"
 #include "pjrt_types.h"
 #include "plugin.h"
@@ -223,9 +224,12 @@ Rcpp::List create_buffer_from_array_async_zerocopy(
     // Preserve the R object to prevent GC during transfer
     R_PreserveObject(data);
 
-    // Register callback to release when transfer completes
+    // Register callback to queue release when transfer completes.
+    // Note: The callback runs on a PJRT thread, so we can't call
+    // R_ReleaseObject directly. Instead, we queue the release for later
+    // processing on the main R thread.
     result.event->on_ready(
-        [data](PJRT_Error *error) { R_ReleaseObject(data); });
+        [data](PJRT_Error *error) { rpjrt::queue_release(data); });
 
     Rcpp::XPtr<rpjrt::PJRTEvent> event_xptr(result.event.release(), true);
     event_xptr.attr("class") = "PJRTEvent";
@@ -780,13 +784,22 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
 
 // [[Rcpp::export()]]
 bool impl_event_is_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event) {
-  return event->is_ready();
+  bool ready = event->is_ready();
+  // If the event is ready, callbacks may have run - process any pending
+  // releases
+  if (ready) {
+    rpjrt::process_pending_releases();
+  }
+  return ready;
 }
 
 // [[Rcpp::export()]]
 void impl_event_await(Rcpp::XPtr<rpjrt::PJRTEvent> event) {
   event->await();
   event->check_error();
+  // Process any pending releases that may have been queued by callbacks
+  // that ran during the await.
+  rpjrt::process_pending_releases();
 }
 
 // Register a callback on an event that releases a data holder when the event
@@ -798,12 +811,20 @@ void impl_event_release_on_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event,
   // Prevent R from garbage collecting data_holder until callback fires
   R_PreserveObject(data_holder);
 
+  // Note: The callback runs on a PJRT thread, so we can't call
+  // R_ReleaseObject directly. Instead, we queue the release for later
+  // processing on the main R thread.
   event->on_ready([data_holder](PJRT_Error *error) {
-    // Release the data holder now that transfer is complete
-    R_ReleaseObject(data_holder);
+    rpjrt::queue_release(data_holder);
     // Note: We ignore errors here - they'll be caught when checking execution
   });
 }
+
+// Process any pending R object releases that were queued by PJRT callbacks.
+// This is called automatically by impl_event_await and impl_event_is_ready,
+// but can also be called manually if needed.
+// [[Rcpp::export()]]
+void impl_process_pending_releases() { rpjrt::process_pending_releases(); }
 
 // [[Rcpp::export()]]
 SEXP impl_raw_to_array(SEXP data_sexp, const std::string &dtype,

@@ -149,6 +149,10 @@ impl_event_release_on_ready <- function(event, data_holder) {
     invisible(.Call(`_pjrt_impl_event_release_on_ready`, event, data_holder))
 }
 
+impl_process_pending_releases <- function() {
+    invisible(.Call(`_pjrt_impl_process_pending_releases`))
+}
+
 impl_raw_to_array <- function(data_sexp, dtype, dims) {
     .Call(`_pjrt_impl_raw_to_array`, data_sexp, dtype, dims)
 }
