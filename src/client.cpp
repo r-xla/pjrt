@@ -90,6 +90,45 @@ std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
   return std::make_unique<PJRTBuffer>(args.buffer, this->api);
 }
 
+AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
+    void *data, const std::optional<std::vector<int64_t>> &dims,
+    const std::optional<std::vector<int64_t>> &strides, PJRT_Buffer_Type dtype,
+    PJRT_Device *device) {
+  // If no device is specified, use the first device
+  if (device == nullptr) {
+    const auto devices = this->devices();
+    device = devices[0];
+  }
+
+  PJRT_Client_BufferFromHostBuffer_Args args{};
+  args.struct_size = sizeof(PJRT_Client_BufferFromHostBuffer_Args);
+  args.client = this->client;
+  args.data = data;
+  args.type = dtype;
+  args.dims = dims.has_value() ? dims->data() : nullptr;
+  args.num_dims = dims.has_value() ? dims->size() : 0;
+  args.byte_strides = strides.has_value() ? strides->data() : nullptr;
+  args.num_byte_strides = strides.has_value() ? strides->size() : 0;
+  args.host_buffer_semantics =
+      PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
+  args.device = device;
+  args.memory = nullptr;
+
+  check_err(this->api.get(),
+            this->api->PJRT_Client_BufferFromHostBuffer_(&args));
+
+  AsyncBufferFromHostResult result;
+  result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
+
+  // Return the event so caller can wait for transfer completion
+  if (args.done_with_host_buffer != nullptr) {
+    result.event =
+        std::make_unique<PJRTEvent>(args.done_with_host_buffer, this->api);
+  }
+
+  return result;
+}
+
 // PJRTBuildOptions implementations
 PJRTBuildOptions::PJRTBuildOptions()
     : build_options(std::make_unique<xla::ExecutableBuildOptionsProto>()) {
@@ -148,6 +187,19 @@ PJRTLoadedExecutable::~PJRTLoadedExecutable() {
 
 std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
     std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
+  // Delegate to execute_async and await the result
+  auto result = execute_async(input, options);
+
+  // Await the completion event if present
+  if (result.event) {
+    result.event->await();
+    result.event->check_error();
+  }
+
+  return std::move(result.buffers);
+};
+AsyncExecuteResult PJRTLoadedExecutable::execute_async(
+    std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
   PJRT_ExecuteOptions exec_options{};
   exec_options.struct_size = sizeof(PJRT_ExecuteOptions);
   exec_options.launch_id = options.launch_id;
@@ -173,8 +225,6 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   // outer list.
   std::vector<PJRT_Buffer *const *> outer;
   if (input.empty()) {
-    // When there are no inputs, we still need to provide a valid pointer
-    // but the inner vector will be empty
     outer = {nullptr};
   } else {
     outer = {inner.data()};
@@ -206,12 +256,23 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
 
   exec_args.output_lists = outer_out.data();
 
+  // Allocate storage for device completion events (one per device)
+  PJRT_Event *completion_event = nullptr;
+  exec_args.device_complete_events = &completion_event;
+
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
 
-  std::vector<std::unique_ptr<PJRTBuffer>> out;
+  // Build result
+  AsyncExecuteResult result;
   for (size_t i = 0; i < num_outputs; ++i) {
-    out.push_back(std::make_unique<PJRTBuffer>(outer_out[0][i], this->api));
+    result.buffers.push_back(
+        std::make_unique<PJRTBuffer>(outer_out[0][i], this->api));
+  }
+
+  // Wrap the completion event
+  if (completion_event != nullptr) {
+    result.event = std::make_unique<PJRTEvent>(completion_event, this->api);
   }
 
   // Clean up the executable we got
@@ -221,7 +282,7 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   check_err(this->api.get(),
             this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
 
-  return out;
+  return result;
 };
 
 std::string PJRTClient::platform() {

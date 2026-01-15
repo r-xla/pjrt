@@ -621,3 +621,227 @@ test_that("i1 is alias for pred", {
   expect_equal(pjrt_scalar(1, "i1"), pjrt_scalar(1, "pred"))
   expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
 })
+
+# Async buffer-to-host tests
+
+test_that("as_array_async returns pjrt_array_promise", {
+  buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+  result <- as_array_async(buf)
+  expect_class(result, "pjrt_array_promise")
+})
+
+test_that("is_ready works for async buffers", {
+  buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), dtype = "f32")
+  result <- as_array_async(buf)
+  ready <- is_ready(result)
+  expect_true(is.logical(ready))
+  expect_length(ready, 1L)
+})
+
+test_that("value() returns correct array for async buffer", {
+  original <- matrix(c(1.0, 2.0, 3.0, 4.0), nrow = 2)
+  buf <- pjrt_buffer(original, dtype = "f32")
+  result <- as_array_async(buf)
+  arr <- value(result)
+  expect_equal(arr, original, tolerance = 1e-6)
+})
+
+test_that("as_array() works for async buffers", {
+  original <- array(c(1.0, 2.0, 3.0))
+  buf <- pjrt_buffer(original, dtype = "f32")
+  result <- as_array_async(buf)
+  arr <- as_array(result)
+  expect_equal(arr, original, tolerance = 1e-6)
+})
+
+test_that("async buffer works with different dtypes", {
+  # f64
+  buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f64")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(1.0, 2.0))
+
+  # i32
+  buf <- pjrt_buffer(c(1L, 2L, 3L), dtype = "i32")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(1L, 2L, 3L))
+
+  # pred
+  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE), dtype = "pred")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(TRUE, FALSE, TRUE))
+})
+
+test_that("print.pjrt_array_promise works", {
+  buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
+  result <- as_array_async(buf)
+  expect_output(print(result), "pjrt_array_promise")
+})
+
+# Async host-to-device buffer tests
+
+test_that("pjrt_buffer_async returns pjrt_buffer_promise", {
+  x <- pjrt_buffer_async(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+  expect_class(x, "pjrt_buffer_promise")
+})
+
+test_that("is_ready works for async transfers", {
+  x <- pjrt_buffer_async(c(1.0, 2.0), dtype = "f32")
+  ready <- is_ready(x)
+  expect_true(is.logical(ready))
+  expect_length(ready, 1L)
+})
+
+test_that("value() returns buffer for async transfer", {
+  original <- c(1.0, 2.0, 3.0, 4.0)
+  x <- pjrt_buffer_async(original, shape = c(2, 2), dtype = "f32")
+  buf <- value(x)
+  expect_class(buf, "PJRTBuffer")
+  expect_equal(as.vector(as_array(buf)), original, tolerance = 1e-6)
+})
+
+test_that("as_array works for async transfers", {
+  original <- c(1.0, 2.0, 3.0)
+  x <- pjrt_buffer_async(original, dtype = "f32")
+  arr <- as_array(x)
+  expect_equal(as.vector(arr), original, tolerance = 1e-6)
+})
+
+test_that("pjrt_buffer_async works with integer data", {
+  original <- 1:6
+  x <- pjrt_buffer_async(original, dtype = "i32")
+  arr <- as_array(value(x))
+  expect_equal(as.vector(arr), original)
+})
+
+test_that("pjrt_buffer_async works with logical data", {
+  original <- c(TRUE, FALSE, TRUE)
+  x <- pjrt_buffer_async(original, dtype = "pred")
+  arr <- as_array(value(x))
+  expect_equal(as.vector(arr), original)
+})
+
+test_that("buffer promise can be chained with as_array_async", {
+  # Create buffer asynchronously
+  transfer <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+  expect_class(transfer, "pjrt_buffer_promise")
+
+  # Chain with async to-host transfer
+  async_arr <- as_array_async(transfer)
+  expect_class(async_arr, "pjrt_array_promise")
+
+  # Get final value
+  arr <- value(async_arr)
+  expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
+})
+
+test_that("async transfer can be used as input to pjrt_execute", {
+  path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
+  program <- pjrt_program(path = path, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  # Execute with sync - no async inputs here, just verifying baseline
+  result <- pjrt_execute(executable)
+  expect_equal(as_array(result), 3)
+})
+
+test_that("buffer promise can be used as input to pjrt_execute_async", {
+  skip_if_metal("-:20:28: error: expected ')' in inline location")
+  path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
+  program <- pjrt_program(path = path, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  # Create input buffers asynchronously
+  x <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+  x_async <- pjrt_buffer_async(x)
+
+  # Also create sync buffers for indices
+  i1_buf <- pjrt_scalar(0L, "i32")
+  i2_buf <- pjrt_scalar(1L, "i32")
+
+  # Execute with mixed async/sync inputs - async should auto-wait
+  result <- pjrt_execute_async(executable, x_async, i1_buf, i2_buf)
+  expect_class(result, "pjrt_buffer_promise")
+
+  # Get final value
+  arr <- value(as_array_async(result))
+  expect_equal(arr, x[1, 2])
+})
+
+test_that("print.pjrt_buffer_promise works", {
+  x <- pjrt_buffer_async(c(1.0, 2.0), dtype = "f32")
+  expect_output(print(x), "pjrt_buffer_promise")
+})
+
+test_that("zero-copy sync buffer properly releases preserved R objects", {
+  # Force clean GC baseline
+
+  gc()
+  gc()
+
+  baseline <- gc()[2, 2] # Vcells used (MB)
+
+  # Create many buffers using zero-copy paths (f64 and i32)
+  # If R_PreserveObject was called without R_ReleaseObject,
+  # memory would accumulate (~30MB total)
+  for (i in seq_len(50)) {
+    # f64 uses zero-copy when source is double
+    data_f64 <- as.double(seq_len(50000)) # ~400KB each
+    buf_f64 <- pjrt_buffer(data_f64, dtype = "f64")
+    rm(buf_f64, data_f64)
+
+    # i32 uses zero-copy when source is integer
+    data_i32 <- seq_len(50000) # ~200KB each
+    buf_i32 <- pjrt_buffer(data_i32, dtype = "i32")
+    rm(buf_i32, data_i32)
+  }
+
+  # Force GC to reclaim any properly-released objects
+
+  gc()
+  gc()
+  after <- gc()[2, 2]
+
+  # Memory growth should be minimal - definitely not 50*(400KB+200KB) = 30MB
+  memory_growth_mb <- after - baseline
+  expect_lt(memory_growth_mb, 10) # Less than 10MB growth
+})
+
+test_that("async buffer inputs to sync execute properly release preserved objects", {
+  # This tests that when pjrt_buffer_promise objects are passed to
+
+  # pjrt_execute() (sync), the data_holder is properly released after
+  # the transfer completes. Without proper release queue draining,
+  # memory would leak on backends with async transfers (GPU/TPU).
+
+  gc()
+  gc()
+  baseline <- gc()[2, 2] # Vcells used (MB)
+
+  # Compile a simple identity program
+  src <- "
+func.func @main(%x: tensor<50000xf32>) -> tensor<50000xf32> {
+  func.return %x : tensor<50000xf32>
+}
+"
+  program <- pjrt_program(src = src, format = "mlir")
+  executable <- pjrt_compile(program)
+
+  # Create many async buffers and pass to sync execute
+  # Using f32 from double = non-zero-copy path with data_holder (~200KB each)
+  # If data_holder is preserved but never released, ~10MB would leak
+  for (i in seq_len(50)) {
+    data <- as.double(seq_len(50000))
+    async_buf <- pjrt_buffer_async(data, dtype = "f32")
+    result <- pjrt_execute(executable, async_buf)
+    rm(async_buf, data, result)
+  }
+
+  # Force GC to reclaim any properly-released objects
+  gc()
+  gc()
+  after <- gc()[2, 2]
+
+  # Memory growth should be minimal - definitely not 50 * 200KB = 10MB
+  memory_growth_mb <- after - baseline
+  expect_lt(memory_growth_mb, 10) # Less than 10MB growth
+})

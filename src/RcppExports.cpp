@@ -420,6 +420,129 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// impl_event_is_ready
+bool impl_event_is_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event);
+RcppExport SEXP _pjrt_impl_event_is_ready(SEXP eventSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTEvent> >::type event(eventSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_event_is_ready(event));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_event_await
+void impl_event_await(Rcpp::XPtr<rpjrt::PJRTEvent> event);
+RcppExport SEXP _pjrt_impl_event_await(SEXP eventSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTEvent> >::type event(eventSEXP);
+    impl_event_await(event);
+    return R_NilValue;
+END_RCPP
+}
+// impl_event_release_on_ready
+void impl_event_release_on_ready(Rcpp::XPtr<rpjrt::PJRTEvent> event, SEXP data_holder);
+RcppExport SEXP _pjrt_impl_event_release_on_ready(SEXP eventSEXP, SEXP data_holderSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTEvent> >::type event(eventSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data_holder(data_holderSEXP);
+    impl_event_release_on_ready(event, data_holder);
+    return R_NilValue;
+END_RCPP
+}
+// impl_process_pending_releases
+void impl_process_pending_releases();
+RcppExport SEXP _pjrt_impl_process_pending_releases() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    impl_process_pending_releases();
+    return R_NilValue;
+END_RCPP
+}
+// impl_raw_to_array
+SEXP impl_raw_to_array(SEXP data_sexp, const std::string& dtype, Rcpp::IntegerVector dims);
+RcppExport SEXP _pjrt_impl_raw_to_array(SEXP data_sexpSEXP, SEXP dtypeSEXP, SEXP dimsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type data_sexp(data_sexpSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type dtype(dtypeSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dims(dimsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_raw_to_array(data_sexp, dtype, dims));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_buffer_to_host_async
+Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP bufferSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_loaded_executable_execute_async
+Rcpp::List impl_loaded_executable_execute_async(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
+RcppExport SEXP _pjrt_impl_loaded_executable_execute_async(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> >::type executable(executableSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type input(inputSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTExecuteOptions> >::type execution_options(execution_optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_loaded_executable_execute_async(executable, input, execution_options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_client_buffer_from_integer_async
+Rcpp::List impl_client_buffer_from_integer_async(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
+RcppExport SEXP _pjrt_impl_client_buffer_from_integer_async(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer_async(client, device, data, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_client_buffer_from_logical_async
+Rcpp::List impl_client_buffer_from_logical_async(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
+RcppExport SEXP _pjrt_impl_client_buffer_from_logical_async(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_logical_async(client, device, data, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_client_buffer_from_double_async
+Rcpp::List impl_client_buffer_from_double_async(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
+RcppExport SEXP _pjrt_impl_client_buffer_from_double_async(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double_async(client, device, data, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_ffi_register_print_tensor", (DL_FUNC) &_pjrt_ffi_register_print_tensor, 1},
@@ -456,6 +579,16 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
     {"_pjrt_impl_device_platform", (DL_FUNC) &_pjrt_impl_device_platform, 1},
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
+    {"_pjrt_impl_event_is_ready", (DL_FUNC) &_pjrt_impl_event_is_ready, 1},
+    {"_pjrt_impl_event_await", (DL_FUNC) &_pjrt_impl_event_await, 1},
+    {"_pjrt_impl_event_release_on_ready", (DL_FUNC) &_pjrt_impl_event_release_on_ready, 2},
+    {"_pjrt_impl_process_pending_releases", (DL_FUNC) &_pjrt_impl_process_pending_releases, 0},
+    {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 3},
+    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
+    {"_pjrt_impl_loaded_executable_execute_async", (DL_FUNC) &_pjrt_impl_loaded_executable_execute_async, 3},
+    {"_pjrt_impl_client_buffer_from_integer_async", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer_async, 5},
+    {"_pjrt_impl_client_buffer_from_logical_async", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical_async, 5},
+    {"_pjrt_impl_client_buffer_from_double_async", (DL_FUNC) &_pjrt_impl_client_buffer_from_double_async, 5},
     {NULL, NULL, 0}
 };
 
