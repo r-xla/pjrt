@@ -63,9 +63,9 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
     cli_abort("Expected unnamed arguments")
   }
   check_loaded_executable(executable)
-  input <- list(...)
+  input_raw <- list(...)
   # Resolve any async inputs (auto-wait)
-  input <- lapply(input, resolve_buffer_input)
+  input <- lapply(input_raw, resolve_buffer_input)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()
@@ -76,6 +76,8 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   assert_flag(simplify)
 
   result <- impl_loaded_executable_execute(executable, input, execution_options)
+  # Drain any queued releases from async inputs (e.g., buffer promises).
+  impl_process_pending_releases()
 
   if (simplify && length(result) == 1L) {
     return(result[[1]])
