@@ -43,5 +43,4 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
       packages = "pjrt"
     )
   })
-  S7::methods_register()
 }

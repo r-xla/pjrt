@@ -101,9 +101,12 @@ as_pjrt_client <- function(x) {
 #' buf <- pjrt_buffer(c(1, 2, 3))
 #' platform(buf)
 #' @export
-platform <- S7::new_generic("platform", "x")
+platform <- function(x, ...) {
+  UseMethod("platform")
+}
 
-S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
+#' @export
+platform.PJRTClient <- function(x, ...) {
   impl_client_platform(x)
 }
 
