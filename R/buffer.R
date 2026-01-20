@@ -82,13 +82,9 @@ is_buffer <- function(x) {
 #' buf <- pjrt_buffer(arr)
 #'
 #' @export
-pjrt_buffer <- S7::new_generic(
-  "pjrt_buffer",
-  "data",
-  function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
-    S7::S7_dispatch()
-  }
-)
+pjrt_buffer <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
+  UseMethod("pjrt_buffer")
+}
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   if (!is.null(dtype) && !identical(dtype, as.character(elt_type(data)))) {
@@ -107,7 +103,8 @@ buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...
   data
 }
 
-method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
+#' @export
+pjrt_buffer.PJRTBuffer <- buffer_identity
 
 #' @rdname pjrt_buffer
 #' @examplesIf plugin_is_downloaded()
@@ -115,11 +112,12 @@ method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
 #' scalar <- pjrt_scalar(42, dtype = "f32")
 #' scalar
 #' @export
-pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, device = NULL, ...) {
-  S7::S7_dispatch()
-})
+pjrt_scalar <- function(data, dtype = NULL, device = NULL, ...) {
+  UseMethod("pjrt_scalar")
+}
 
-method(pjrt_scalar, S7::new_S3_class("PJRTBuffer")) <- function(data, dtype = NULL, device = NULL, ...) {
+#' @export
+pjrt_scalar.PJRTBuffer <- function(data, dtype = NULL, device = NULL, ...) {
   buffer_identity(data, dtype, device, shape = integer())
 }
 
@@ -188,7 +186,8 @@ convert_buffer_args <- function(data, dtype, device, shape, default, recycle = T
   )
 }
 
-S7::method(pjrt_buffer, S7::class_logical) <- function(
+#' @export
+pjrt_buffer.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -198,7 +197,8 @@ S7::method(pjrt_buffer, S7::class_logical) <- function(
   do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, shape, "pred", ...))
 }
 
-S7::method(pjrt_buffer, S7::class_integer) <- function(
+#' @export
+pjrt_buffer.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -208,7 +208,8 @@ S7::method(pjrt_buffer, S7::class_integer) <- function(
   do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, shape, "i32", ...))
 }
 
-S7::method(pjrt_buffer, S7::class_double) <- function(
+#' @export
+pjrt_buffer.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -218,7 +219,8 @@ S7::method(pjrt_buffer, S7::class_double) <- function(
   do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, shape, "f32", ...))
 }
 
-S7::method(pjrt_buffer, S7::class_raw) <- function(
+#' @export
+pjrt_buffer.raw <- function(
   data,
   ...,
   dtype = NULL,
@@ -247,7 +249,8 @@ S7::method(pjrt_buffer, S7::class_raw) <- function(
   )
 }
 
-S7::method(pjrt_scalar, S7::class_logical) <- function(
+#' @export
+pjrt_scalar.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -259,7 +262,8 @@ S7::method(pjrt_scalar, S7::class_logical) <- function(
   do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, integer(), "pred", ...))
 }
 
-S7::method(pjrt_scalar, S7::class_integer) <- function(
+#' @export
+pjrt_scalar.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -271,7 +275,8 @@ S7::method(pjrt_scalar, S7::class_integer) <- function(
   do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, integer(), "i32", ...))
 }
 
-S7::method(pjrt_scalar, S7::class_double) <- function(
+#' @export
+pjrt_scalar.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -283,7 +288,8 @@ S7::method(pjrt_scalar, S7::class_double) <- function(
   do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, integer(), "f32", ...))
 }
 
-S7::method(pjrt_scalar, S7::class_raw) <- function(
+#' @export
+pjrt_scalar.raw <- function(
   data,
   ...,
   dtype = NULL,
@@ -363,7 +369,8 @@ device.PJRTBuffer <- function(x, ...) {
 
 
 #' @include client.R
-S7::method(platform, S7::new_S3_class("PJRTBuffer")) <- function(x) {
+#' @export
+platform.PJRTBuffer <- function(x, ...) {
   desc <- as.character(device(x))
   letters_only <- regmatches(desc, regexpr("^[A-Za-z]+", desc, perl = TRUE))
   tolower(sub("Device$", "", letters_only))

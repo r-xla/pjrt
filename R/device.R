@@ -25,6 +25,7 @@ pjrt_device <- function(device) {
 
 
 #' @include client.R
-method(platform, S7::new_S3_class("PJRTDevice")) <- function(x) {
+#' @export
+platform.PJRTDevice <- function(x, ...) {
   impl_device_platform(x)
 }
