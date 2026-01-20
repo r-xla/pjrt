@@ -4,10 +4,6 @@ Execute a PJRT program with the given inputs and execution options.
 
 **Important:** Arguments are passed by position and names are ignored.
 
-Inputs can be `PJRTBuffer` objects or buffer promises
-(`pjrt_buffer_promise`). Buffer promises are resolved automatically
-before execution.
-
 ## Usage
 
 ``` r
@@ -23,7 +19,7 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 
 - ...:
 
-  (`PJRTBuffer` \| `pjrt_buffer_promise`)  
+  (`PJRTBuffer)`  
   Inputs to the program. Named are ignored and arguments are passed in
   order.
 

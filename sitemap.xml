@@ -2,14 +2,12 @@
 <url><loc>/404.html</loc></url>
 <url><loc>/LICENSE-text.html</loc></url>
 <url><loc>/LICENSE.html</loc></url>
-<url><loc>/articles/async-dispatch.html</loc></url>
 <url><loc>/articles/index.html</loc></url>
 <url><loc>/articles/pjrt.html</loc></url>
 <url><loc>/authors.html</loc></url>
 <url><loc>/index.html</loc></url>
 <url><loc>/news/index.html</loc></url>
 <url><loc>/reference/as.character.PJRTElementType.html</loc></url>
-<url><loc>/reference/as_array_async.html</loc></url>
 <url><loc>/reference/as_pjrt_client.html</loc></url>
 <url><loc>/reference/as_pjrt_device.html</loc></url>
 <url><loc>/reference/as_pjrt_plugin.html</loc></url>
@@ -17,17 +15,12 @@
 <url><loc>/reference/elt_type.html</loc></url>
 <url><loc>/reference/format_buffer.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
-<url><loc>/reference/is_ready.html</loc></url>
 <url><loc>/reference/pjrt-package.html</loc></url>
-<url><loc>/reference/pjrt_array_promise.html</loc></url>
 <url><loc>/reference/pjrt_buffer.html</loc></url>
-<url><loc>/reference/pjrt_buffer_async.html</loc></url>
-<url><loc>/reference/pjrt_buffer_promise.html</loc></url>
 <url><loc>/reference/pjrt_client.html</loc></url>
 <url><loc>/reference/pjrt_compile.html</loc></url>
 <url><loc>/reference/pjrt_device.html</loc></url>
 <url><loc>/reference/pjrt_execute.html</loc></url>
-<url><loc>/reference/pjrt_execute_async.html</loc></url>
 <url><loc>/reference/pjrt_execution_options.html</loc></url>
 <url><loc>/reference/pjrt_plugin.html</loc></url>
 <url><loc>/reference/pjrt_program.html</loc></url>
@@ -37,6 +30,5 @@
 <url><loc>/reference/plugin_is_downloaded.html</loc></url>
 <url><loc>/reference/print.PJRTBuffer.html</loc></url>
 <url><loc>/reference/reexports.html</loc></url>
-<url><loc>/reference/value.html</loc></url>
 </urlset>
 
