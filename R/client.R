@@ -171,7 +171,10 @@ as_pjrt_device <- function(x) {
     return(devs[[1]])
   }
 
-  cli_abort("Must be a PJRTDevice, a PJRTClient, a platform name, or NULL")
+  cli_abort(c(
+    "Must be a PJRTDevice, a PJRTClient, a platform name, or NULL",
+    x = "Got {.cls {class(x)}}"
+  ))
 }
 
 client_from_device <- function(device) {
