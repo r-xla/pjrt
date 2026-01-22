@@ -9,6 +9,7 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 [![CRAN
 status](https://www.r-pkg.org/badges/version/pjrt)](https://CRAN.R-project.org/package=pjrt)
 [![codecov](https://codecov.io/gh/r-xla/pjrt/branch/main/graph/badge.svg)](https://codecov.io/gh/r-xla/pjrt)
+[![r-universe](https://r-xla.r-universe.dev/badges/pjrt)](https://r-xla.r-universe.dev/pjrt)
 <!-- badges: end -->
 
 The {pjrt} package provides an R interface to
