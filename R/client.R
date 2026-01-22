@@ -134,7 +134,7 @@ devices <- function(client = NULL) {
 #'   a device specification with index (e.g., "cpu:0", "cuda:1" for 0-based indexing),
 #'   or NULL (defaults to first CPU device).
 #' @return `PJRTDevice`
-#' @keywords internal
+#' @export
 as_pjrt_device <- function(x) {
   if (inherits(x, "PJRTDevice")) {
     return(x)

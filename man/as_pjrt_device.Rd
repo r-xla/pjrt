@@ -18,4 +18,3 @@ or NULL (defaults to first CPU device).}
 \description{
 Convert a platform name or device to a PJRT device object.
 }
-\keyword{internal}
