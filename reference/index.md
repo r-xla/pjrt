@@ -9,6 +9,8 @@
 
 - [`as_pjrt_client()`](as_pjrt_client.md) : Convert to PJRT Client
 
+- [`as_pjrt_device()`](as_pjrt_device.md) : Convert to PJRT Device
+
 - [`as_pjrt_plugin()`](as_pjrt_plugin.md) : Convert to PJRT Plugin
 
 - [`devices()`](devices.md) : Devices
