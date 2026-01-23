@@ -12,6 +12,7 @@ print(
   max_width = getOption("pjrt.print_max_width", 85L),
   max_rows_slice = getOption("pjrt.print_max_rows_slice", max_rows),
   header = TRUE,
+  footer = NULL,
   ...
 )
 ```
@@ -46,6 +47,12 @@ print(
 
   (`logical(1)`)  
   Whether to print the header.
+
+- footer:
+
+  (`NULL` or `character(1)`)  
+  The footer line to print. If `NULL` (default), prints the standard
+  `[ <PLATFORM><TYPE>{<SHAPE>} ]` summary. Use `""` to suppress.
 
 - ...:
 

@@ -59,6 +59,7 @@
 <span>  max_width <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"pjrt.print_max_width"</span>, <span class="fl">85L</span><span class="op">)</span>,</span>
 <span>  max_rows_slice <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"pjrt.print_max_rows_slice"</span>, <span class="va">max_rows</span><span class="op">)</span>,</span>
 <span>  header <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  footer <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -95,6 +96,12 @@ The maximum number of rows to print for each slice.</p></dd>
 <dt id="arg-header">header<a class="anchor" aria-label="anchor" href="#arg-header"></a></dt>
 <dd><p>(<code>logical(1)</code>)<br>
 Whether to print the header.</p></dd>
+
+
+<dt id="arg-footer">footer<a class="anchor" aria-label="anchor" href="#arg-footer"></a></dt>
+<dd><p>(<code>NULL</code> or <code>character(1)</code>)<br>
+The footer line to print. If <code>NULL</code> (default), prints the standard
+<code>[ &lt;PLATFORM&gt;&lt;TYPE&gt;{&lt;SHAPE&gt;} ]</code> summary. Use <code>""</code> to suppress.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
