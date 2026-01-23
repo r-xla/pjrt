@@ -114,13 +114,7 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
   }
   std::string indent_str(indent, ' ');
   for (const auto& line : lines) {
-    // lines from buffer_to_string_lines start with a single space;
-    // replace it with the desired indentation
-    if (!line.empty() && line[0] == ' ') {
-      Rcpp::Rcout << indent_str << line.substr(1) << '\n';
-    } else {
-      Rcpp::Rcout << indent_str << line << '\n';
-    }
+    Rcpp::Rcout << indent_str << line << '\n';
   }
 
   if (attrs.contains(kPrintTailAttr)) {
