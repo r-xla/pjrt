@@ -50,7 +50,8 @@ func.func @main(
   stablehlo.custom_call @print_tensor(%b) {
     call_target_name = "print_tensor",
     backend_config = {
-      print_header = "TestBuffer"
+      print_header = "TestBuffer",
+      print_tail = "CustomTail"
     },
     has_side_effect = true,
     api_version = 4 : i32
@@ -79,4 +80,94 @@ func.func @main(
       regexp = "custom call 'print_tensor' is not implemented for cuda"
     )
   }
+})
+
+test_that("print handler supports empty header", {
+  skip_if(is_cuda())
+
+  program <- pjrt_program(
+    r"(
+func.func @main(
+  %x: tensor<3xf32>
+) -> tensor<3xf32> {
+  stablehlo.custom_call @print_tensor(%x) {
+    call_target_name = "print_tensor",
+    backend_config = {
+      print_header = ""
+    },
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<3xf32>) -> ()
+  "func.return" (%x) : (tensor<3xf32>) -> ()
+}
+)"
+  )
+
+  program <- pjrt_compile(program)
+  buf <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+
+  expect_snapshot({
+    invisible(pjrt_execute(program, buf))
+  })
+})
+
+test_that("print handler supports no head and no tail", {
+  skip_if(is_cuda())
+
+  program <- pjrt_program(
+    r"(
+func.func @main(
+  %x: tensor<3xi32>
+) -> tensor<3xi32> {
+  stablehlo.custom_call @print_tensor(%x) {
+    call_target_name = "print_tensor",
+    backend_config = {
+      print_header = "",
+      print_tail = ""
+    },
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<3xi32>) -> ()
+  "func.return" (%x) : (tensor<3xi32>) -> ()
+}
+)"
+  )
+
+  program <- pjrt_compile(program)
+  buf <- pjrt_buffer(1:3, dtype = "i32")
+
+  expect_snapshot({
+    invisible(pjrt_execute(program, buf))
+  })
+})
+
+test_that("print handler supports no head, no tail, no indent", {
+  skip_if(is_cuda())
+
+  program <- pjrt_program(
+    r"(
+func.func @main(
+  %x: tensor<3xi32>
+) -> tensor<3xi32> {
+  stablehlo.custom_call @print_tensor(%x) {
+    call_target_name = "print_tensor",
+    backend_config = {
+      print_header = "",
+      print_tail = "",
+      print_indent = 0 : i64
+    },
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<3xi32>) -> ()
+  "func.return" (%x) : (tensor<3xi32>) -> ()
+}
+)"
+  )
+
+  program <- pjrt_compile(program)
+  buf <- pjrt_buffer(1:3, dtype = "i32")
+
+  expect_snapshot({
+    invisible(pjrt_execute(program, buf))
+  })
 })

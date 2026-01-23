@@ -70,6 +70,8 @@ xla::ffi::Error do_test_call() {
 XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 
 constexpr std::string_view kPrintHeaderAttr = "print_header";
+constexpr std::string_view kPrintTailAttr = "print_tail";
+constexpr std::string_view kPrintIndentAttr = "print_indent";
 
 xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
   std::string_view header = "PJRTBuffer";
@@ -98,21 +100,45 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
     return xla::ffi::Error(xla::ffi::ErrorCode::kInvalidArgument, e.what());
   }
 
-  auto lines = buffer_to_string_lines(data, dimensions, element_type);
-  Rcpp::Rcout << header << "\n";
-  for (const auto& line : lines) {
-    Rcpp::Rcout << line << '\n';
-  }
-  Rcpp::Rcout << "[ " << buffer.element_type() << "{";
-
-  const auto dims = buffer.dimensions();
-  for (size_t i = 0; i < dims.size(); ++i) {
-    if (i != 0) {
-      Rcpp::Rcout << ',';
+  int indent = 1;
+  if (attrs.contains(kPrintIndentAttr)) {
+    auto print_indent = attrs.get<int64_t>(kPrintIndentAttr);
+    if (print_indent) {
+      indent = static_cast<int>(*print_indent);
     }
-    Rcpp::Rcout << dims[i];
   }
-  Rcpp::Rcout << "} ]" << "\n";
+
+  auto lines = buffer_to_string_lines(data, dimensions, element_type);
+  if (!header.empty()) {
+    Rcpp::Rcout << header << "\n";
+  }
+  std::string indent_str(indent, ' ');
+  for (const auto& line : lines) {
+    // lines from buffer_to_string_lines start with a single space;
+    // replace it with the desired indentation
+    if (!line.empty() && line[0] == ' ') {
+      Rcpp::Rcout << indent_str << line.substr(1) << '\n';
+    } else {
+      Rcpp::Rcout << indent_str << line << '\n';
+    }
+  }
+
+  if (attrs.contains(kPrintTailAttr)) {
+    auto print_tail = attrs.get<std::string_view>(kPrintTailAttr);
+    if (print_tail && !print_tail->empty()) {
+      Rcpp::Rcout << *print_tail << "\n";
+    }
+  } else {
+    Rcpp::Rcout << "[ " << buffer.element_type() << "{";
+    const auto dims = buffer.dimensions();
+    for (size_t i = 0; i < dims.size(); ++i) {
+      if (i != 0) {
+        Rcpp::Rcout << ',';
+      }
+      Rcpp::Rcout << dims[i];
+    }
+    Rcpp::Rcout << "} ]" << "\n";
+  }
 
   return xla::ffi::Error(xla::ffi::ErrorCode::kOk,
                          "Custom call executed successfully");
