@@ -1,5 +1,8 @@
 comment: false
 
+ignore:
+  - "inst/include/xla/ffi/api/**"
+
 coverage:
   status:
     project:
