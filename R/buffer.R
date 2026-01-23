@@ -409,6 +409,9 @@ print.PJRTDevice <- function(x, ...) {
 #'   The maximum number of rows to print for each slice.
 #' @param header (`logical(1)`)\cr
 #'   Whether to print the header.
+#' @param footer (`NULL` or `character(1)`)\cr
+#'   The footer line to print. If `NULL` (default), prints the standard
+#'   `[ <PLATFORM><TYPE>{<SHAPE>} ]` summary. Use `""` to suppress.
 #' @param ... Additional arguments (unused).
 #' @export
 print.PJRTBuffer <- function(
@@ -417,6 +420,7 @@ print.PJRTBuffer <- function(
   max_width = getOption("pjrt.print_max_width", 85L),
   max_rows_slice = getOption("pjrt.print_max_rows_slice", max_rows),
   header = TRUE,
+  footer = NULL,
   ...
 ) {
   assert_flag(header)
@@ -443,7 +447,12 @@ print.PJRTBuffer <- function(
     max_width = max_width,
     max_rows_slice = max_rows_slice
   )
-  cat(sprintf("[ %s%s{%s} ]", toupper(platform(x)), elt_type(x), shape_str), "\n")
+  if (is.null(footer)) {
+    footer <- sprintf("[ %s%s{%s} ]", toupper(platform(x)), elt_type(x), shape_str)
+  }
+  if (nzchar(footer)) {
+    cat(footer, "\n")
+  }
   invisible(x)
 }
 

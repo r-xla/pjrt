@@ -946,3 +946,12 @@
               123        nan
       [ CPUf32{3x2} ] 
 
+# custom footer
+
+    Code
+      print(pjrt_buffer(1L), footer = "[abc]")
+    Output
+      PJRTBuffer 
+       1
+      [abc] 
+
