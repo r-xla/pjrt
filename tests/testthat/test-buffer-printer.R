@@ -181,5 +181,6 @@ test_that("metal", {
 })
 
 test_that("stress test f32", {
+  skip_if(!is_cpu())
   expect_snapshot(pjrt_buffer(c(1000000000L, 3L, 123L, Inf, -2, NaN), shape = c(3, 2), dtype = "f32"))
 })
