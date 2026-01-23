@@ -27,9 +27,9 @@
     Code
       invisible(pjrt_execute(program, buf))
     Output
-       1.0000
-       2.0000
-       3.0000
+       1
+       2
+       3
       [ F32{3} ]
 
 # print handler supports no head and no tail
