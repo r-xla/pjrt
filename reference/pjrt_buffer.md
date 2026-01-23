@@ -123,10 +123,10 @@ resulting shape is [`integer()`](https://rdrr.io/r/base/integer.html).
 buf <- pjrt_buffer(c(1, 2, 3, 4))
 buf
 #> PJRTBuffer 
-#>  1
-#>  2
-#>  3
-#>  4
+#>  1.0000
+#>  2.0000
+#>  3.0000
+#>  4.0000
 #> [ CPUf32{4} ] 
 
 # Create a buffer from a matrix
@@ -145,7 +145,7 @@ buf <- pjrt_buffer(arr)
 scalar <- pjrt_scalar(42, dtype = "f32")
 scalar
 #> PJRTBuffer 
-#>  42
+#>  42.0000
 #> [ CPUf32{} ] 
 # Create an empty buffer
 empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
