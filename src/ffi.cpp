@@ -100,7 +100,7 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
     return xla::ffi::Error(xla::ffi::ErrorCode::kInvalidArgument, e.what());
   }
 
-  int indent = 1;
+  int indent = 0;
   if (attrs.contains(kPrintIndentAttr)) {
     auto print_indent = attrs.get<int64_t>(kPrintIndentAttr);
     if (print_indent) {

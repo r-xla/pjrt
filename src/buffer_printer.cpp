@@ -175,6 +175,7 @@ static std::pair<int64_t, int64_t> build_buffer_lines_subset(
   int64_t r = 0;
   for (r = 0; r < rows_to_print; ++r) {
     std::ostringstream line;
+    line << ' ';
     int64_t base = r * ncols;
     for (int64_t c = c_start; c <= c_end; ++c) {
       std::string tok = fmt(slice[static_cast<size_t>(base + c)]);
@@ -354,7 +355,7 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
   // We definitely truncated if we didn't exhaust all the leading dims,
   // (but we might have also truncated individual slices)
   if (truncated || (lid != lead_count)) {
-    cont.push_back("... [output was truncated, set max_rows = -1 to see all]");
+    cont.push_back(" ... [output was truncated, set max_rows = -1 to see all]");
   }
 }
 
@@ -367,6 +368,9 @@ std::vector<std::string> buffer_to_string_lines(
   if (numel == 0) {
     return {};
   }
+
+  // because every line starts with ' '
+  max_width -= 1;
 
   std::vector<std::string> cont;
   int rows_left = (max_rows == -1 ? -1 : max_rows);

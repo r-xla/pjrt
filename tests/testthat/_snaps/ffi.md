@@ -41,12 +41,3 @@
        2
        3
 
-# print handler supports no head, no tail, no indent
-
-    Code
-      invisible(pjrt_execute(program, buf))
-    Output
-      1
-      2
-      3
-
