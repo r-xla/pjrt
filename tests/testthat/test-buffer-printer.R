@@ -38,13 +38,29 @@ test_that("Up to 6 digits are printed for integers", {
 
 test_that("printer for doubles", {
   skip_if(is_metal() | is_cuda())
+  # integer-valued floats are printed without decimals
   expect_snapshot(pjrt_buffer(1:10, "f32"))
   expect_snapshot(pjrt_buffer(1:10, "f64"))
+
+  # non-integer-valued floats keep decimals
+  expect_snapshot(pjrt_buffer(c(1, 2.5), "f32"))
 
   # very small values:
   expect_snapshot(pjrt_buffer(1e-10))
   # large and small values:
   expect_snapshot(pjrt_buffer(c(1e10, 1e-10)))
+})
+
+test_that("integer-valued floats with truncation", {
+  skip_if(is_metal() | is_cuda())
+  # > 30 rows triggers row truncation
+  expect_snapshot(pjrt_buffer(1:50, "f32", shape = c(50, 1)))
+
+  # > 30 columns triggers column splitting
+  expect_snapshot(pjrt_buffer(1:100, "f32", shape = c(2, 50)))
+
+  # rank >= 3 with integer-valued floats
+  expect_snapshot(pjrt_buffer(1:24, "f32", shape = c(2, 3, 4)))
 })
 
 test_that("printer for arrays with many dimensions", {
