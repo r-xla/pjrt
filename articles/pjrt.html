@@ -68,7 +68,7 @@
       <h1>Get Started</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feat-custom-printer-tail/vignettes/articles/pjrt.Rmd" class="external-link"><code>vignettes/articles/pjrt.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/improve-printer/vignettes/articles/pjrt.Rmd" class="external-link"><code>vignettes/articles/pjrt.Rmd</code></a></small>
       <div class="d-none name"><code>pjrt.Rmd</code></div>
     </div>
 
@@ -132,8 +132,8 @@ dimensions can be 0.</p>
 <span><span class="va">device_buffer</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">host_data</span>, device <span class="op">=</span> <span class="va">cpu_device</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
 <span><span class="va">device_buffer</span></span>
 <span><span class="co">#&gt; PJRTBuffer </span></span>
-<span><span class="co">#&gt; 1.0000 3.0000</span></span>
-<span><span class="co">#&gt; 2.0000 4.0000</span></span>
+<span><span class="co">#&gt;  1 3</span></span>
+<span><span class="co">#&gt;  2 4</span></span>
 <span><span class="co">#&gt; [ CPUf32{2x2} ]</span></span></code></pre></div>
 <p>After creation, we can inspect the shape and element type of the
 buffer.</p>
@@ -217,8 +217,8 @@ which allows storing named lists of buffers.</p>
 <span><span class="va">reloaded</span> <span class="op">&lt;-</span> <span class="fu">safetensors</span><span class="fu">::</span><span class="fu"><a href="https://mlverse.github.io/safetensors/reference/safe_load_file.html" class="external-link">safe_load_file</a></span><span class="op">(</span><span class="va">tmp</span>, framework <span class="op">=</span> <span class="st">"pjrt"</span><span class="op">)</span></span>
 <span><span class="va">reloaded</span><span class="op">$</span><span class="va">x</span></span>
 <span><span class="co">#&gt; PJRTBuffer </span></span>
-<span><span class="co">#&gt; 2.0000 6.0000</span></span>
-<span><span class="co">#&gt; 4.0000 8.0000</span></span>
+<span><span class="co">#&gt;  2 6</span></span>
+<span><span class="co">#&gt;  4 8</span></span>
 <span><span class="co">#&gt; [ CPUf32{2x2} ]</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
