@@ -4,6 +4,10 @@ skip_if_metal <- function(msg = "") {
   }
 }
 
+is_cpu <- function() {
+  Sys.getenv("PJRT_PLATFORM", "cpu") == "cpu"
+}
+
 is_metal <- function() {
   Sys.getenv("PJRT_PLATFORM") == "metal"
 }
