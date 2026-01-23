@@ -71,8 +71,8 @@ host_data <- 1:4
 device_buffer <- pjrt_buffer(host_data, device = cpu_device, shape = c(2L, 2L), dtype = "f32")
 device_buffer
 #> PJRTBuffer 
-#>  1.0000 3.0000
-#>  2.0000 4.0000
+#>  1 3
+#>  2 4
 #> [ CPUf32{2x2} ]
 ```
 
@@ -171,7 +171,7 @@ safetensors::safe_save_file(list(x = result), tmp, framework = "pjrt")
 reloaded <- safetensors::safe_load_file(tmp, framework = "pjrt")
 reloaded$x
 #> PJRTBuffer 
-#>  2.0000 6.0000
-#>  4.0000 8.0000
+#>  2 6
+#>  4 8
 #> [ CPUf32{2x2} ]
 ```
