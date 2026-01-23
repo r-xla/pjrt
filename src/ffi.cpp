@@ -70,7 +70,7 @@ xla::ffi::Error do_test_call() {
 XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 
 constexpr std::string_view kPrintHeaderAttr = "print_header";
-constexpr std::string_view kPrintTailAttr = "print_tail";
+constexpr std::string_view kPrintFooterAttr = "print_footer";
 
 xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
   std::string_view header = "PJRTBuffer";
@@ -108,10 +108,10 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
     Rcpp::Rcout << line << '\n';
   }
 
-  if (attrs.contains(kPrintTailAttr)) {
-    auto print_tail = attrs.get<std::string_view>(kPrintTailAttr);
-    if (print_tail && !print_tail->empty()) {
-      Rcpp::Rcout << *print_tail << "\n";
+  if (attrs.contains(kPrintFooterAttr)) {
+    auto print_footer = attrs.get<std::string_view>(kPrintFooterAttr);
+    if (print_footer && !print_footer->empty()) {
+      Rcpp::Rcout << *print_footer << "\n";
     }
   } else {
     Rcpp::Rcout << "[ " << buffer.element_type() << "{";

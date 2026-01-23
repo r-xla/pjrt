@@ -946,10 +946,10 @@
               123        nan
       [ CPUf32{3x2} ] 
 
-# custom tail
+# custom footer
 
     Code
-      print(pjrt_buffer(1L), tail = "[abc]")
+      print(pjrt_buffer(1L), footer = "[abc]")
     Output
       PJRTBuffer 
        1
