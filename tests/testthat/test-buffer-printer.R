@@ -179,3 +179,7 @@ test_that("metal", {
   skip_if(!is_metal())
   expect_snapshot(pjrt_buffer(1:10, "f32", device = "metal"))
 })
+
+test_that("stress test f32", {
+  expect_snapshot(pjrt_buffer(c(1000000000L, 3L, 123L, Inf, -2, NaN), shape = c(3, 2), dtype = "f32"))
+})

@@ -935,3 +935,14 @@
        10
       [ METALf32{10} ] 
 
+# stress test f32
+
+    Code
+      pjrt_buffer(c(1000000000L, 3L, 123L, Inf, -2, NaN), shape = c(3, 2), dtype = "f32")
+    Output
+      PJRTBuffer 
+       1.0000e+09        inf
+                3         -2
+              123        nan
+      [ CPUf32{3x2} ] 
+
