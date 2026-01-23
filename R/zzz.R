@@ -1,4 +1,5 @@
 register_namespace_callback <- function(pkgname, namespace, callback) {
+  # nocov start
   assert_string(pkgname)
   assert_string(namespace)
   assert_function(callback)
@@ -27,9 +28,11 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
 
   setHook(packageEvent(namespace, "onLoad"), callback, action = "append")
   setHook(packageEvent(pkgname, "onUnload"), remove_hooks, action = "append")
+  # nocov end
 }
 
 .onLoad <- function(libname, pkgname) {
+  # nocov start
   # this allows for tests without as_array() conversion
   register_s3_method("waldo", "compare_proxy", "PJRTBuffer")
   # make safetensors work with pjrt
@@ -43,4 +46,5 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
       packages = "pjrt"
     )
   })
+  # nocov end
 }

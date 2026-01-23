@@ -251,6 +251,7 @@ plugin_version <- function() {
   "14.0.1"
 }
 
+# nocov start
 plugin_os <- function() {
   if (Sys.info()[["sysname"]] == "Darwin") {
     return("darwin")
@@ -276,6 +277,7 @@ plugin_arch <- function() {
     cli_abort("Unsupported architecture: ", .Platform$r_arch)
   }
 }
+# nocov end
 
 pjrt_api_version <- function(plugin = pjrt_plugin()) {
   v <- impl_plugin_pjrt_api_version(plugin)

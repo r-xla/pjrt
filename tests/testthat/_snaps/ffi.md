@@ -4,10 +4,10 @@
       invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
     Output
       PJRTBuffer
-       1.0000
-       2.0000
-       3.0000
-       4.0000
+       1
+       2
+       3
+       4
       [ F32{4} ]
       PJRTBuffer
        5
