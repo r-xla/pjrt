@@ -49,8 +49,8 @@ The {pjrt} package provides async variants of key operations that return immedia
 
 | Sync Operation | Async Operation | Returns |
 |----------------|-----------------|---------|
-| `pjrt_buffer()` | `pjrt_buffer_async()` | `pjrt_buffer_promise` |
-| `pjrt_execute()` | `pjrt_execute_async()` | `pjrt_buffer_promise` |
+| `pjrt_buffer()` | `pjrt_buffer_async()` | `PJRTBufferPromise` |
+| `pjrt_execute()` | `pjrt_execute_async()` | `PJRTBufferPromise` |
 | `as_array()` | `as_array_async()` | `pjrt_array_promise` |
 
 All async objects support:
@@ -103,7 +103,7 @@ output <- value(async_output)
 
 A key feature of the async API is **smart input handling**. PJRT manages dependencies internally, so you can chain async operations without explicit waits:
 
-- **Buffer promises** (`pjrt_buffer_promise`): The buffer is valid immediately - PJRT handles dependencies internally. R returns immediately without blocking.
+- **Buffer promises** (`PJRTBufferPromise`): The buffer is valid immediately - PJRT handles dependencies internally. R returns immediately without blocking.
 - Buffer promises can be passed to `as_array_async()` or used as inputs to other executions - PJRT handles the dependency.
 
 This enables true pipelining where transfers and execution overlap:

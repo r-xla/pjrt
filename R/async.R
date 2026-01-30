@@ -6,7 +6,7 @@
 #' Materialize and return the result of an async operation.
 #' Blocks until the operation is complete if it hasn't finished yet.
 #'
-#' Returns `PJRTBuffer` for `pjrt_buffer_promise` or an R array for `pjrt_array_promise`.
+#' Returns `PJRTBuffer` for `PJRTBufferPromise` or an R array for `pjrt_array_promise`.
 #'
 #' @param x An async value object.
 #' @param ... Additional arguments (unused).
@@ -28,7 +28,7 @@ is_ready <- function(x, ...) {
   UseMethod("is_ready")
 }
 
-# pjrt_buffer_promise Class ------------------------------------------------
+# PJRTBufferPromise Class ------------------------------------------------
 # Represents a promise of a PJRTBuffer (from execution or host-to-device transfer)
 
 #' @title Create a PJRT Buffer Promise (internal)
@@ -45,9 +45,9 @@ is_ready <- function(x, ...) {
 #' @param event PJRTEvent external pointer (or NULL if already complete).
 #' @param data_holder Optional XPtr keeping host data alive until transfer completes.
 #' @param events List of ancestor events to check for errors (for chained operations).
-#' @return A `pjrt_buffer_promise` object.
+#' @return A `PJRTBufferPromise` object.
 #' @keywords internal
-pjrt_buffer_promise <- function(buffer, event, data_holder = NULL, events = list()) {
+PJRTBufferPromise <- function(buffer, event, data_holder = NULL, events = list()) {
   env <- new.env(parent = emptyenv())
   env$buffer <- buffer
   env$event <- event
@@ -56,11 +56,11 @@ pjrt_buffer_promise <- function(buffer, event, data_holder = NULL, events = list
   # Accumulate all events in the chain (ancestors + this event)
   env$events <- if (!is.null(event)) c(events, list(event)) else events
 
-  structure(env, class = "pjrt_buffer_promise")
+  structure(env, class = "PJRTBufferPromise")
 }
 
 #' @export
-value.pjrt_buffer_promise <- function(x, ...) {
+value.PJRTBufferPromise <- function(x, ...) {
   if (!x$awaited) {
     # Await ALL events in the chain to ensure errors are propagated
     for (evt in x$events) {
@@ -72,7 +72,7 @@ value.pjrt_buffer_promise <- function(x, ...) {
 }
 
 #' @export
-is_ready.pjrt_buffer_promise <- function(x, ...) {
+is_ready.PJRTBufferPromise <- function(x, ...) {
   # Check if ALL events in the chain are ready
   for (evt in x$events) {
     if (!impl_event_is_ready(evt)) {
@@ -83,8 +83,8 @@ is_ready.pjrt_buffer_promise <- function(x, ...) {
 }
 
 #' @export
-print.pjrt_buffer_promise <- function(x, ...) {
-  cat("<pjrt_buffer_promise>\n")
+print.PJRTBufferPromise <- function(x, ...) {
+  cat("<PJRTBufferPromise>\n")
   if (x$awaited) {
     # Already awaited - safe to show buffer without side effects
     cat("Status: Awaited\n")
@@ -100,7 +100,7 @@ print.pjrt_buffer_promise <- function(x, ...) {
 }
 
 #' @export
-as_array.pjrt_buffer_promise <- function(x, ...) {
+as_array.PJRTBufferPromise <- function(x, ...) {
   # Get buffer - this blocks if not ready
   buf <- value(x)
   as_array(buf)
@@ -108,13 +108,13 @@ as_array.pjrt_buffer_promise <- function(x, ...) {
 
 #' @keywords internal
 is_buffer_promise <- function(x) {
-  inherits(x, "pjrt_buffer_promise")
+  inherits(x, "PJRTBufferPromise")
 }
 
 #' @keywords internal
 #' @description Extract all events from a buffer promise for chaining
 get_events <- function(x) {
-  if (inherits(x, "pjrt_buffer_promise")) {
+  if (inherits(x, "PJRTBufferPromise")) {
     x$events
   } else {
     list()

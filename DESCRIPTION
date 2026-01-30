@@ -19,7 +19,6 @@ Imports:
     fs,
     Rcpp,
     rlang,
-    S7,
     safetensors(>= 0.2.0),
     tengen,
     withr

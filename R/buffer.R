@@ -82,13 +82,9 @@ is_buffer <- function(x) {
 #' buf <- pjrt_buffer(arr)
 #'
 #' @export
-pjrt_buffer <- S7::new_generic(
-  "pjrt_buffer",
-  "data",
-  function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
-    S7::S7_dispatch()
-  }
-)
+pjrt_buffer <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
+  UseMethod("pjrt_buffer")
+}
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   if (!is.null(dtype) && !identical(dtype, as.character(elt_type(data)))) {
@@ -107,7 +103,8 @@ buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...
   data
 }
 
-method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
+#' @export
+pjrt_buffer.PJRTBuffer <- buffer_identity
 
 #' @rdname pjrt_buffer
 #' @examplesIf plugin_is_downloaded()
@@ -115,11 +112,12 @@ method(pjrt_buffer, S7::new_S3_class("PJRTBuffer")) <- buffer_identity
 #' scalar <- pjrt_scalar(42, dtype = "f32")
 #' scalar
 #' @export
-pjrt_scalar <- S7::new_generic("pjrt_scalar", "data", function(data, dtype = NULL, device = NULL, ...) {
-  S7::S7_dispatch()
-})
+pjrt_scalar <- function(data, dtype = NULL, device = NULL, ...) {
+  UseMethod("pjrt_scalar")
+}
 
-method(pjrt_scalar, S7::new_S3_class("PJRTBuffer")) <- function(data, dtype = NULL, device = NULL, ...) {
+#' @export
+pjrt_scalar.PJRTBuffer <- function(data, dtype = NULL, device = NULL, ...) {
   buffer_identity(data, dtype, device, shape = integer())
 }
 
@@ -188,7 +186,8 @@ convert_buffer_args <- function(data, dtype, device, shape, default, recycle = T
   )
 }
 
-S7::method(pjrt_buffer, S7::class_logical) <- function(
+#' @export
+pjrt_buffer.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -198,7 +197,8 @@ S7::method(pjrt_buffer, S7::class_logical) <- function(
   do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, shape, "pred", ...))
 }
 
-S7::method(pjrt_buffer, S7::class_integer) <- function(
+#' @export
+pjrt_buffer.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -208,7 +208,8 @@ S7::method(pjrt_buffer, S7::class_integer) <- function(
   do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, shape, "i32", ...))
 }
 
-S7::method(pjrt_buffer, S7::class_double) <- function(
+#' @export
+pjrt_buffer.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -218,7 +219,8 @@ S7::method(pjrt_buffer, S7::class_double) <- function(
   do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, shape, "f32", ...))
 }
 
-S7::method(pjrt_buffer, S7::class_raw) <- function(
+#' @export
+pjrt_buffer.raw <- function(
   data,
   ...,
   dtype = NULL,
@@ -247,7 +249,8 @@ S7::method(pjrt_buffer, S7::class_raw) <- function(
   )
 }
 
-S7::method(pjrt_scalar, S7::class_logical) <- function(
+#' @export
+pjrt_scalar.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -259,7 +262,8 @@ S7::method(pjrt_scalar, S7::class_logical) <- function(
   do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, integer(), "pred", ...))
 }
 
-S7::method(pjrt_scalar, S7::class_integer) <- function(
+#' @export
+pjrt_scalar.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -271,7 +275,8 @@ S7::method(pjrt_scalar, S7::class_integer) <- function(
   do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, integer(), "i32", ...))
 }
 
-S7::method(pjrt_scalar, S7::class_double) <- function(
+#' @export
+pjrt_scalar.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -283,7 +288,8 @@ S7::method(pjrt_scalar, S7::class_double) <- function(
   do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, integer(), "f32", ...))
 }
 
-S7::method(pjrt_scalar, S7::class_raw) <- function(
+#' @export
+pjrt_scalar.raw <- function(
   data,
   ...,
   dtype = NULL,
@@ -298,7 +304,7 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
 #' @title Create a PJRT Buffer asynchronously
 #' @description
 #' Create a PJRT Buffer from R data asynchronously.
-#' Returns immediately with a `pjrt_buffer_promise` object.
+#' Returns immediately with a `PJRTBufferPromise` object.
 #'
 #' The buffer is valid immediately and can be used as input to operations.
 #' The event signals when PJRT is done reading from host memory.
@@ -307,7 +313,7 @@ S7::method(pjrt_scalar, S7::class_raw) <- function(
 #' Use `is_ready()` to check if transfer has completed (non-blocking).
 #'
 #' @inheritParams pjrt_buffer
-#' @return A `pjrt_buffer_promise` object. Call `value()` to get the `PJRTBuffer`.
+#' @return A `PJRTBufferPromise` object. Call `value()` to get the `PJRTBuffer`.
 #' @seealso [pjrt_buffer()], [value()], [is_ready()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create a buffer asynchronously
@@ -342,7 +348,7 @@ S7::method(pjrt_buffer_async, S7::class_logical) <- function(
     args$dims,
     args$dtype
   )
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  PJRTBufferPromise(result$buffer, result$event, result$data_holder)
 }
 
 S7::method(pjrt_buffer_async, S7::class_integer) <- function(
@@ -360,7 +366,7 @@ S7::method(pjrt_buffer_async, S7::class_integer) <- function(
     args$dims,
     args$dtype
   )
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  PJRTBufferPromise(result$buffer, result$event, result$data_holder)
 }
 
 S7::method(pjrt_buffer_async, S7::class_double) <- function(
@@ -378,7 +384,7 @@ S7::method(pjrt_buffer_async, S7::class_double) <- function(
     args$dims,
     args$dtype
   )
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  PJRTBufferPromise(result$buffer, result$event, result$data_holder)
 }
 
 #' @title Element Type
@@ -409,11 +415,11 @@ as_array.PJRTBuffer <- function(x, client = NULL, ...) {
 #' Use `is_ready()` to check if transfer has completed (non-blocking).
 #' Use `as_array()` as an alias for `value()`.
 #'
-#' This function also accepts `pjrt_buffer_promise` objects (from `pjrt_execute_async()`
+#' This function also accepts `PJRTBufferPromise` objects (from `pjrt_execute_async()`
 #' or `pjrt_buffer_async()`), enabling fully async pipelines. The transfer is chained
 #' to the previous operation without blocking - PJRT handles the dependency internally.
 #'
-#' @param x A `PJRTBuffer` or `pjrt_buffer_promise` object.
+#' @param x A `PJRTBuffer` or `PJRTBufferPromise` object.
 #' @param ... Additional arguments (unused).
 #' @return A `pjrt_array_promise` object. Call `value()` to get the R array.
 #' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute_async()]
@@ -441,7 +447,7 @@ as_array_async.PJRTBuffer <- function(x, ...) {
 }
 
 #' @export
-as_array_async.pjrt_buffer_promise <- function(x, ...) {
+as_array_async.PJRTBufferPromise <- function(x, ...) {
   # Extract the buffer without waiting - PJRT handles dependencies internally.
   # Pass all events from the buffer promise for error propagation.
   buf <- x$buffer
@@ -499,7 +505,8 @@ device.PJRTBuffer <- function(x, ...) {
 
 
 #' @include client.R
-S7::method(platform, S7::new_S3_class("PJRTBuffer")) <- function(x) {
+#' @export
+platform.PJRTBuffer <- function(x, ...) {
   desc <- as.character(device(x))
   letters_only <- regmatches(desc, regexpr("^[A-Za-z]+", desc, perl = TRUE))
   tolower(sub("Device$", "", letters_only))

@@ -46,6 +46,10 @@ jobs:
       - name: Download CPU plugin
         run: Rscript -e "pjrt::pjrt_client('cpu')"
 
+      - name: Build site (PR)
+        if: github.event_name == 'pull_request'
+        run: Rscript -e 'pkgdown::build_site(new_process = FALSE)'
+
       - name: Deploy package
         run: |
           git config --local user.email "actions@github.com"

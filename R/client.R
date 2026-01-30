@@ -101,9 +101,12 @@ as_pjrt_client <- function(x) {
 #' buf <- pjrt_buffer(c(1, 2, 3))
 #' platform(buf)
 #' @export
-platform <- S7::new_generic("platform", "x")
+platform <- function(x, ...) {
+  UseMethod("platform")
+}
 
-S7::method(platform, S7::new_S3_class("PJRTClient")) <- function(x) {
+#' @export
+platform.PJRTClient <- function(x, ...) {
   impl_client_platform(x)
 }
 
@@ -131,7 +134,7 @@ devices <- function(client = NULL) {
 #'   a device specification with index (e.g., "cpu:0", "cuda:1" for 0-based indexing),
 #'   or NULL (defaults to first CPU device).
 #' @return `PJRTDevice`
-#' @keywords internal
+#' @export
 as_pjrt_device <- function(x) {
   if (inherits(x, "PJRTDevice")) {
     return(x)
@@ -168,7 +171,10 @@ as_pjrt_device <- function(x) {
     return(devs[[1]])
   }
 
-  cli_abort("Must be a PJRTDevice, a PJRTClient, a platform name, or NULL")
+  cli_abort(c(
+    "Must be a PJRTDevice, a PJRTClient, a platform name, or NULL",
+    x = "Got {.cls {class(x)}}"
+  ))
 }
 
 client_from_device <- function(device) {

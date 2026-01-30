@@ -10,7 +10,7 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
 A PJRT program.}
 
-\item{...}{(\code{PJRTBuffer} | \code{pjrt_buffer_promise})\cr
+\item{...}{(\code{PJRTBuffer} | \code{PJRTBufferPromise})\cr
 Inputs to the program.
 Named are ignored and arguments are passed in order.}
 
@@ -30,7 +30,7 @@ Execute a PJRT program with the given inputs and execution options.
 \strong{Important:}
 Arguments are passed by position and names are ignored.
 
-Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{pjrt_buffer_promise}).
+Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{PJRTBufferPromise}).
 Buffer promises are resolved automatically before execution.
 }
 \examples{

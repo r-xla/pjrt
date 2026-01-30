@@ -4,10 +4,10 @@
       invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
     Output
       PJRTBuffer
-       1.0000
-       2.0000
-       3.0000
-       4.0000
+       1
+       2
+       3
+       4
       [ F32{4} ]
       PJRTBuffer
        5
@@ -20,5 +20,24 @@
        0
        1
        0
-      [ PRED{4} ]
+      CustomTail
+
+# print handler supports empty header
+
+    Code
+      invisible(pjrt_execute(program, buf))
+    Output
+       1
+       2
+       3
+      [ F32{3} ]
+
+# print handler supports no head and no tail
+
+    Code
+      invisible(pjrt_execute(program, buf))
+    Output
+       1
+       2
+       3
 

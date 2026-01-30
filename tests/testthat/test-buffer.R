@@ -679,9 +679,9 @@ test_that("print.pjrt_array_promise works", {
 
 # Async host-to-device buffer tests
 
-test_that("pjrt_buffer_async returns pjrt_buffer_promise", {
+test_that("pjrt_buffer_async returns PJRTBufferPromise", {
   x <- pjrt_buffer_async(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-  expect_class(x, "pjrt_buffer_promise")
+  expect_class(x, "PJRTBufferPromise")
 })
 
 test_that("is_ready works for async transfers", {
@@ -723,7 +723,7 @@ test_that("pjrt_buffer_async works with logical data", {
 test_that("buffer promise can be chained with as_array_async", {
   # Create buffer asynchronously
   transfer <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  expect_class(transfer, "pjrt_buffer_promise")
+  expect_class(transfer, "PJRTBufferPromise")
 
   # Chain with async to-host transfer
   async_arr <- as_array_async(transfer)
@@ -760,16 +760,16 @@ test_that("buffer promise can be used as input to pjrt_execute_async", {
 
   # Execute with mixed async/sync inputs - async should auto-wait
   result <- pjrt_execute_async(executable, x_async, i1_buf, i2_buf)
-  expect_class(result, "pjrt_buffer_promise")
+  expect_class(result, "PJRTBufferPromise")
 
   # Get final value
   arr <- value(as_array_async(result))
   expect_equal(arr, x[1, 2])
 })
 
-test_that("print.pjrt_buffer_promise works", {
+test_that("print.PJRTBufferPromise works", {
   x <- pjrt_buffer_async(c(1.0, 2.0), dtype = "f32")
-  expect_output(print(x), "pjrt_buffer_promise")
+  expect_output(print(x), "PJRTBufferPromise")
 })
 
 test_that("zero-copy sync buffer properly releases preserved R objects", {
@@ -807,7 +807,7 @@ test_that("zero-copy sync buffer properly releases preserved R objects", {
 })
 
 test_that("async buffer inputs to sync execute properly release preserved objects", {
-  # This tests that when pjrt_buffer_promise objects are passed to
+  # This tests that when PJRTBufferPromise objects are passed to
 
   # pjrt_execute() (sync), the data_holder is properly released after
   # the transfer completes. Without proper release queue draining,

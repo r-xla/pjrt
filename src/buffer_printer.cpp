@@ -17,7 +17,7 @@
 #include "utils.h"
 
 // For floats, formatting is defined globally per slice
-enum class FloatPrintMode { Fixed, Scientific, Scaled };
+enum class FloatPrintMode { Fixed, Scientific, Scaled, Integer };
 
 // builds the buffer lines for a specific slice
 template <typename T, typename F>
@@ -59,6 +59,17 @@ template <typename T>
            std::is_same_v<bool, T>
 static std::pair<FloatPrintMode, int> choose_float_print_mode(
     std::span<const T> &values) {
+  // Check if all finite values are integer-valued
+  bool all_int_valued = true;
+  for (size_t i = 0; i < values.size(); ++i) {
+    double dv = static_cast<double>(values[i]);
+    if (std::isfinite(dv) && dv != std::floor(dv)) {
+      all_int_valued = false;
+      break;
+    }
+  }
+  if (all_int_valued) return {FloatPrintMode::Integer, 1};
+
   // Find smallest and largest absolute magnitudes across finite, non-zero
   // values
   double min_abs = std::numeric_limits<double>::infinity();
@@ -274,38 +285,62 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
       rows_to_print = std::min<int64_t>(rows_to_print, rows_left);
 
     if (std::is_floating_point_v<CopyT>) {
-      auto mode_scale = choose_float_print_mode<CopyT>(slice);
-      FloatPrintMode mode = mode_scale.first;
-      int scale_exp = mode_scale.second;
-      bool use_scientific = (mode == FloatPrintMode::Scientific);
-      double denom = (mode == FloatPrintMode::Scaled)
-                         ? std::pow(10.0, static_cast<double>(scale_exp))
-                         : 1.0;
+      auto [mode, scale_exp] = choose_float_print_mode<CopyT>(slice);
 
-      std::string prefix;
+      if (mode == FloatPrintMode::Integer) {
+        auto fmt = [](const CopyT &v) {
+          double dv = static_cast<double>(v);
+          if (!std::isfinite(dv)) {
+            if (std::isnan(dv)) return std::string("nan");
+            return std::string(dv > 0 ? "inf" : "-inf");
+          }
+          long long iv = static_cast<long long>(dv);
+          long long abs_val = iv < 0 ? -iv : iv;
+          int digits = (abs_val == 0)
+                           ? 1
+                           : static_cast<int>(std::floor(std::log10(
+                                 static_cast<long double>(abs_val)))) +
+                                 1;
+          if (digits > 6) {
+            std::ostringstream s;
+            s.setf(std::ios::scientific, std::ios::floatfield);
+            s << std::setprecision(4) << static_cast<long double>(iv);
+            return s.str();
+          }
+          return std::to_string(iv);
+        };
+        result = build_buffer_lines(ncols, nrows, rows_to_print, max_width,
+                                    cont, fmt, slice, rows_left, "");
+      } else {
+        bool use_scientific = (mode == FloatPrintMode::Scientific);
+        double denom = (mode == FloatPrintMode::Scaled)
+                           ? std::pow(10.0, static_cast<double>(scale_exp))
+                           : 1.0;
 
-      if (mode == FloatPrintMode::Scaled && denom != 1.0) {
-        std::ostringstream p;
-        int abse = std::abs(scale_exp);
-        std::ostringstream exp_ss;
-        exp_ss << '+' << std::setfill('0') << std::setw(2) << abse;
-        p << "1e" << exp_ss.str() << " *";
-        prefix = p.str();
+        std::string prefix;
+        if (mode == FloatPrintMode::Scaled && denom != 1.0) {
+          std::ostringstream p;
+          int abse = std::abs(scale_exp);
+          std::ostringstream exp_ss;
+          exp_ss << '+' << std::setfill('0') << std::setw(2) << abse;
+          p << "1e" << exp_ss.str() << " *";
+          prefix = p.str();
+        }
+
+        auto fmt = [use_scientific, denom](const CopyT &v) {
+          std::ostringstream s;
+          if (use_scientific)
+            s.setf(std::ios::scientific, std::ios::floatfield);
+          else
+            s.setf(std::ios::fixed, std::ios::floatfield);
+          s << std::setprecision(4)
+            << (denom != 1.0 ? static_cast<double>(v) / denom
+                             : static_cast<double>(v));
+          return s.str();
+        };
+        result = build_buffer_lines(ncols, nrows, rows_to_print, max_width,
+                                    cont, fmt, slice, rows_left, prefix);
       }
-
-      auto fmt = [use_scientific, denom](const CopyT &v) {
-        std::ostringstream s;
-        if (use_scientific)
-          s.setf(std::ios::scientific, std::ios::floatfield);
-        else
-          s.setf(std::ios::fixed, std::ios::floatfield);
-        s << std::setprecision(4)
-          << (denom != 1.0 ? static_cast<double>(v) / denom
-                           : static_cast<double>(v));
-        return s.str();
-      };
-      result = build_buffer_lines(ncols, nrows, rows_to_print, max_width, cont,
-                                  fmt, slice, rows_left, prefix);
     } else if (std::is_same_v<bool, CopyT>) {  // bool
       auto fmt = [](const CopyT &v) {
         return std::string(v ? "true" : "false");

@@ -3,7 +3,7 @@
 # dependencies internally. If there's a data_holder, register callback
 # to keep it alive until the transfer completes.
 resolve_buffer_input <- function(x) {
-  if (inherits(x, "pjrt_buffer_promise")) {
+  if (inherits(x, "PJRTBufferPromise")) {
     # Buffer is valid immediately - PJRT handles dependencies internally.
     # If there's a data_holder (from host-to-device transfer), register
     # callback to keep it alive until transfer completes.
@@ -14,7 +14,7 @@ resolve_buffer_input <- function(x) {
   } else if (is_buffer(x)) {
     x
   } else {
-    cli_abort("Expected PJRTBuffer or pjrt_buffer_promise")
+    cli_abort("Expected PJRTBuffer or PJRTBufferPromise")
   }
 }
 
@@ -25,12 +25,12 @@ resolve_buffer_input <- function(x) {
 #' **Important:**
 #' Arguments are passed by position and names are ignored.
 #'
-#' Inputs can be `PJRTBuffer` objects or buffer promises (`pjrt_buffer_promise`).
+#' Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBufferPromise`).
 #' Buffer promises are resolved automatically before execution.
 #'
 #' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program.
-#' @param ... (`PJRTBuffer` | `pjrt_buffer_promise`)\cr
+#' @param ... (`PJRTBuffer` | `PJRTBufferPromise`)\cr
 #'   Inputs to the program.
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
@@ -95,11 +95,11 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 #' Use `is_ready()` to check if execution has completed (non-blocking).
 #' Use `as_array_async()` to chain async buffer-to-host transfer.
 #'
-#' Inputs can be `PJRTBuffer` objects or buffer promises (`pjrt_buffer_promise`).
+#' Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBufferPromise`).
 #' Buffer promises are resolved automatically before execution.
 #'
 #' @inheritParams pjrt_execute
-#' @return A `pjrt_buffer_promise` object (or list of them if multiple outputs).
+#' @return A `PJRTBufferPromise` object (or list of them if multiple outputs).
 #'   Call `value()` to get the `PJRTBuffer`.
 #' @seealso [pjrt_execute()], [value()], [is_ready()], [as_array_async()], [pjrt_buffer_async()]
 #' @examplesIf plugin_is_downloaded()
@@ -153,7 +153,7 @@ pjrt_execute_async <- function(executable, ..., execution_options = NULL, simpli
   # Create a list of buffer promises, one per buffer, all sharing the same event
   # Pass parent events for error propagation through the chain
   promises <- lapply(result$buffers, function(buf) {
-    pjrt_buffer_promise(buf, result$event, events = parent_events)
+    PJRTBufferPromise(buf, result$event, events = parent_events)
   })
 
   if (simplify && length(promises) == 1L) {

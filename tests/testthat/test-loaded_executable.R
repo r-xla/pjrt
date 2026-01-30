@@ -64,7 +64,7 @@ test_that("pjrt_execute_async returns buffer promise", {
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute_async(executable)
-  expect_class(result, "pjrt_buffer_promise")
+  expect_class(result, "PJRTBufferPromise")
 })
 
 test_that("is_ready works for async values", {
@@ -100,7 +100,7 @@ test_that("async execution with multiple outputs", {
 
   # With multiple outputs, returns list of buffer promises
   result <- pjrt_execute_async(executable)
-  expect_list(result, types = "pjrt_buffer_promise", len = 2L)
+  expect_list(result, types = "PJRTBufferPromise", len = 2L)
 
   # Each buffer promise can be awaited individually
   buf1 <- value(result[[1]])
@@ -118,20 +118,20 @@ test_that("async execution with simplify=FALSE", {
 
   # With simplify=FALSE, returns list even for single output
   result <- pjrt_execute_async(executable, simplify = FALSE)
-  expect_list(result, types = "pjrt_buffer_promise", len = 1L)
+  expect_list(result, types = "PJRTBufferPromise", len = 1L)
 
   # The buffer promise contains a single buffer
   buf <- value(result[[1]])
   expect_class(buf, "PJRTBuffer")
 })
 
-test_that("print.pjrt_buffer_promise works", {
+test_that("print.PJRTBufferPromise works", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute_async(executable)
-  expect_output(print(result), "pjrt_buffer_promise")
+  expect_output(print(result), "PJRTBufferPromise")
 })
 
 test_that("as_array works for async values (single output)", {
@@ -170,7 +170,7 @@ test_that("async execution chained with async buffer-to-host", {
 
   # Start async execution
   async_result <- pjrt_execute_async(executable)
-  expect_class(async_result, "pjrt_buffer_promise")
+  expect_class(async_result, "PJRTBufferPromise")
 
   # Chain with async buffer-to-host transfer (auto-waits for execution)
   async_array <- as_array_async(async_result)
@@ -199,7 +199,7 @@ test_that("async execution with inputs chained to async buffer-to-host", {
 
   # Execute asynchronously
   async_result <- pjrt_execute_async(executable, x_buf, i1_buf, i2_buf)
-  expect_class(async_result, "pjrt_buffer_promise")
+  expect_class(async_result, "PJRTBufferPromise")
 
   # Chain with async buffer-to-host transfer
   async_array <- as_array_async(async_result)
