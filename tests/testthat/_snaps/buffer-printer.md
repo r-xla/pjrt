@@ -917,6 +917,20 @@
        10.0000
       [ CPUf32{2x2x5} ] 
 
+# truncation stops before printing empty slice headers
+
+    Code
+      print(pjrt_buffer(1:60, shape = c(3, 4, 5)), max_rows = 4)
+    Output
+      PJRTBuffer 
+      (1,.,.) =
+        1 13 25 37 49
+        4 16 28 40 52
+        7 19 31 43 55
+       10 22 34 46 58
+       ... [output was truncated, set max_rows = -1 to see all]
+      [ CPUi32{3x4x5} ] 
+
 # metal
 
     Code

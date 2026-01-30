@@ -175,6 +175,13 @@ test_that("scale prefix is printed per slice", {
   )
 })
 
+test_that("truncation stops before printing empty slice headers", {
+  skip_if(is_metal() | is_cuda())
+  # when max_rows is exhausted by the first slice, remaining slices
+  # should not print empty headers (gh #139)
+  expect_snapshot(print(pjrt_buffer(1:60, shape = c(3, 4, 5)), max_rows = 4))
+})
+
 test_that("metal", {
   skip_if(!is_metal())
   expect_snapshot(pjrt_buffer(1:10, "f32", device = "metal"))
