@@ -928,7 +928,6 @@
         4 16 28 40 52
         7 19 31 43 55
        10 22 34 46 58
-      
        ... [output was truncated, set max_rows = -1 to see all]
       [ CPUi32{3x4x5} ] 
 

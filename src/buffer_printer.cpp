@@ -385,7 +385,8 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
     truncated = result.first;
     rows_left = result.second;
 
-    if (lid + 1 < std::max<int64_t>(lead_count, 1)) cont.push_back("");
+    if (lid + 1 < std::max<int64_t>(lead_count, 1) && rows_left != 0)
+      cont.push_back("");
 
     if (rows_left < 0) {
       break;
