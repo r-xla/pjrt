@@ -257,6 +257,11 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
 
   // iterate over leading dimensions to print slices
   for (lid = 0; lid < std::max<int64_t>(lead_count, 1); ++lid) {
+    // Stop before printing a new slice header if the row budget is exhausted
+    if (lid > 0 && rows_left == 0) {
+      break;
+    }
+
     std::pair<bool, int64_t> result;
 
     lead_index = id2indices(lid, lead_strides);
