@@ -10,6 +10,7 @@
   max_width = getOption("pjrt.print_max_width", 85L),
   max_rows_slice = getOption("pjrt.print_max_rows_slice", max_rows),
   header = TRUE,
+  footer = NULL,
   ...
 )
 }
@@ -33,6 +34,10 @@ The maximum number of rows to print for each slice.}
 
 \item{header}{(\code{logical(1)})\cr
 Whether to print the header.}
+
+\item{footer}{(\code{NULL} or \code{character(1)})\cr
+The footer line to print. If \code{NULL} (default), prints the standard
+\verb{[ <PLATFORM><TYPE>\{<SHAPE>\} ]} summary. Use \code{""} to suppress.}
 
 \item{...}{Additional arguments (unused).}
 }

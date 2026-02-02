@@ -20,7 +20,7 @@
        0
        1
        0
-      CustomTail
+      CustomFooter
 
 # print handler supports empty header
 
@@ -32,7 +32,18 @@
        3
       [ F32{3} ]
 
-# print handler supports no head and no tail
+# print handler supports custom footer
+
+    Code
+      invisible(pjrt_execute(program, buf))
+    Output
+      PJRTBuffer
+       1
+       2
+       3
+      [my custom footer]
+
+# print handler supports no head and no footer
 
     Code
       invisible(pjrt_execute(program, buf))
