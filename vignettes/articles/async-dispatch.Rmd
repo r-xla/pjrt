@@ -51,7 +51,7 @@ The {pjrt} package provides async variants of key operations that return immedia
 |----------------|-----------------|---------|
 | `pjrt_buffer()` | `pjrt_buffer_async()` | `PJRTBufferPromise` |
 | `pjrt_execute()` | `pjrt_execute_async()` | `PJRTBufferPromise` |
-| `as_array()` | `as_array_async()` | `pjrt_array_promise` |
+| `as_array()` | `as_array_async()` | `PJRTArrayPromise` |
 
 All async objects support:
 

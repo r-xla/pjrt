@@ -421,7 +421,7 @@ as_array.PJRTBuffer <- function(x, client = NULL, ...) {
 #'
 #' @param x A `PJRTBuffer` or `PJRTBufferPromise` object.
 #' @param ... Additional arguments (unused).
-#' @return A `pjrt_array_promise` object. Call `value()` to get the R array.
+#' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
 #' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute_async()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create a buffer
@@ -443,7 +443,7 @@ as_array_async <- function(x, ...) {
 #' @export
 as_array_async.PJRTBuffer <- function(x, ...) {
   result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$event, result$dtype, result$dims)
+  PJRTArrayPromise(result$data, result$event, result$dtype, result$dims)
 }
 
 #' @export
@@ -453,7 +453,7 @@ as_array_async.PJRTBufferPromise <- function(x, ...) {
   buf <- x$buffer
   parent_events <- x$events
   result <- impl_buffer_to_host_async(buf)
-  pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = parent_events)
+  PJRTArrayPromise(result$data, result$event, result$dtype, result$dims, events = parent_events)
 }
 
 #' @export

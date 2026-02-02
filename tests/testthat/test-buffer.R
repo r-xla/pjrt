@@ -624,10 +624,10 @@ test_that("i1 is alias for pred", {
 
 # Async buffer-to-host tests
 
-test_that("as_array_async returns pjrt_array_promise", {
+test_that("as_array_async returns PJRTArrayPromise", {
   buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
   result <- as_array_async(buf)
-  expect_class(result, "pjrt_array_promise")
+  expect_class(result, "PJRTArrayPromise")
 })
 
 test_that("is_ready works for async buffers", {
@@ -671,10 +671,10 @@ test_that("async buffer works with different dtypes", {
   expect_equal(as.vector(result), c(TRUE, FALSE, TRUE))
 })
 
-test_that("print.pjrt_array_promise works", {
+test_that("print.PJRTArrayPromise works", {
   buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
   result <- as_array_async(buf)
-  expect_output(print(result), "pjrt_array_promise")
+  expect_output(print(result), "PJRTArrayPromise")
 })
 
 # Async host-to-device buffer tests
@@ -727,7 +727,7 @@ test_that("buffer promise can be chained with as_array_async", {
 
   # Chain with async to-host transfer
   async_arr <- as_array_async(transfer)
-  expect_class(async_arr, "pjrt_array_promise")
+  expect_class(async_arr, "PJRTArrayPromise")
 
   # Get final value
   arr <- value(async_arr)

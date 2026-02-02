@@ -12,7 +12,7 @@ as_array_async(x, ...)
 \item{...}{Additional arguments (unused).}
 }
 \value{
-A \code{pjrt_array_promise} object. Call \code{value()} to get the R array.
+A \code{PJRTArrayPromise} object. Call \code{value()} to get the R array.
 }
 \description{
 Start an asynchronous transfer of buffer data from device to host.

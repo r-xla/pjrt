@@ -174,7 +174,7 @@ test_that("async execution chained with async buffer-to-host", {
 
   # Chain with async buffer-to-host transfer (auto-waits for execution)
   async_array <- as_array_async(async_result)
-  expect_class(async_array, "pjrt_array_promise")
+  expect_class(async_array, "PJRTArrayPromise")
 
   # Check is_ready returns logical
   ready <- is_ready(async_array)
@@ -203,7 +203,7 @@ test_that("async execution with inputs chained to async buffer-to-host", {
 
   # Chain with async buffer-to-host transfer
   async_array <- as_array_async(async_result)
-  expect_class(async_array, "pjrt_array_promise")
+  expect_class(async_array, "PJRTArrayPromise")
 
   # Get final value
   result <- value(async_array)
@@ -226,8 +226,8 @@ test_that("async execution with multiple outputs chained to async transfer", {
   async_arr1 <- as_array_async(result[[1]])
   async_arr2 <- as_array_async(result[[2]])
 
-  expect_class(async_arr1, "pjrt_array_promise")
-  expect_class(async_arr2, "pjrt_array_promise")
+  expect_class(async_arr1, "PJRTArrayPromise")
+  expect_class(async_arr2, "PJRTArrayPromise")
 
   # Get final values
   arr1 <- value(async_arr1)
