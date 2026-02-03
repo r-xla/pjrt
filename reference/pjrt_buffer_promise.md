@@ -11,7 +11,7 @@ block until the operation is complete.
 ## Usage
 
 ``` r
-PJRTBufferPromise(buffer, event, data_holder = NULL, events = list())
+pjrt_buffer_promise(buffer, event, data_holder = NULL, events = list())
 ```
 
 ## Arguments

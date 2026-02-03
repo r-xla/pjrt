@@ -7,7 +7,7 @@ should not call this directly - use
 ## Usage
 
 ``` r
-PJRTArrayPromise(data, event, dtype, shape, events = list())
+pjrt_array_promise(data, event, dtype, shape, events = list())
 ```
 
 ## Arguments

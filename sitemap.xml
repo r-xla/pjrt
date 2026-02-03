@@ -8,8 +8,6 @@
 <url><loc>/authors.html</loc></url>
 <url><loc>/index.html</loc></url>
 <url><loc>/news/index.html</loc></url>
-<url><loc>/reference/PJRTArrayPromise.html</loc></url>
-<url><loc>/reference/PJRTBufferPromise.html</loc></url>
 <url><loc>/reference/as.character.PJRTElementType.html</loc></url>
 <url><loc>/reference/as_array_async.html</loc></url>
 <url><loc>/reference/as_pjrt_client.html</loc></url>
@@ -21,8 +19,10 @@
 <url><loc>/reference/index.html</loc></url>
 <url><loc>/reference/is_ready.html</loc></url>
 <url><loc>/reference/pjrt-package.html</loc></url>
+<url><loc>/reference/pjrt_array_promise.html</loc></url>
 <url><loc>/reference/pjrt_buffer.html</loc></url>
 <url><loc>/reference/pjrt_buffer_async.html</loc></url>
+<url><loc>/reference/pjrt_buffer_promise.html</loc></url>
 <url><loc>/reference/pjrt_client.html</loc></url>
 <url><loc>/reference/pjrt_compile.html</loc></url>
 <url><loc>/reference/pjrt_device.html</loc></url>

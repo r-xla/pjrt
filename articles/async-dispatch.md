@@ -24,12 +24,12 @@ or the device sits idle waiting for the other. In a training loop, these
 bubbles can significantly reduce throughput:
 
     Host:   [prepare batch] [wait...] [prepare batch] [wait...] [prepare batch]
-    Device:        [wait...] [compute]        [wait...] [compute]        [wait...]
+    Device: [wait.........] [compute] [wait.........] [compute] [wait.........]
 
 The ideal scenario overlaps host and device work:
 
     Host:   [prepare batch 1] [prepare batch 2] [prepare batch 3] [prepare batch 4]
-    Device:          [compute 1] [compute 2] [compute 3] [compute 4]
+    Device:                   [compute 1......] [compute 2......] [compute 3......] [compute 4......]
 
 ## Asynchronous Dispatch in pjrt
 
@@ -73,8 +73,8 @@ executable <- pjrt_compile(pjrt_program(src))
 # Each step blocks until complete
 data <- matrix(runif(1000 * 1000), nrow = 1000)
 buf <- pjrt_buffer(data, dtype = "f32")       # Blocks: wait for transfer
-result <- pjrt_execute(executable, buf)        # Blocks: wait for computation
-output <- as_array(result)                     # Blocks: wait for transfer back
+result <- pjrt_execute(executable, buf)       # Blocks: wait for computation
+output <- as_array(result)                    # Blocks: wait for transfer back
 ```
 
 #### Asynchronous execution (non-blocking)
@@ -83,8 +83,8 @@ output <- as_array(result)                     # Blocks: wait for transfer back
 # Operations return immediately
 data <- matrix(runif(1000 * 1000), nrow = 1000)
 transfer <- pjrt_buffer_async(data, dtype = "f32")  # Returns immediately
-result <- pjrt_execute_async(executable, transfer)   # Returns immediately (auto-waits for transfer)
-async_output <- as_array_async(result)               # Returns immediately
+result <- pjrt_execute_async(executable, transfer)  # Returns immediately (auto-waits for transfer)
+async_output <- as_array_async(result)              # Returns immediately
 
 # R can do other work here while device computes...
 
@@ -311,7 +311,7 @@ sync_time <- system.time({
 })
 
 cat("Synchronous total time:", round(sync_time["elapsed"], 3), "seconds\n")
-#> Synchronous total time: 0.242 seconds
+#> Synchronous total time: 0.256 seconds
 ```
 
 ### Asynchronous Pattern
@@ -333,14 +333,14 @@ async_time <- system.time({
 })
 
 cat("Asynchronous total time:", round(async_time["elapsed"], 3), "seconds\n")
-#> Asynchronous total time: 0.199 seconds
+#> Asynchronous total time: 0.213 seconds
 ```
 
 ### Results
 
 ``` r
 cat("Sync:", round(sync_time["elapsed"], 3), "s, Async:", round(async_time["elapsed"], 3), "s\n")
-#> Sync: 0.242 s, Async: 0.199 s
+#> Sync: 0.256 s, Async: 0.213 s
 ```
 
 On CPU, both patterns have similar performance because:

@@ -99,10 +99,10 @@ By default, every operation follows a synchronous pattern:</p>
 either the host or the device sits idle waiting for the other. In a
 training loop, these bubbles can significantly reduce throughput:</p>
 <pre><code>Host:   [prepare batch] [wait...] [prepare batch] [wait...] [prepare batch]
-Device:        [wait...] [compute]        [wait...] [compute]        [wait...]</code></pre>
+Device: [wait.........] [compute] [wait.........] [compute] [wait.........]</code></pre>
 <p>The ideal scenario overlaps host and device work:</p>
 <pre><code>Host:   [prepare batch 1] [prepare batch 2] [prepare batch 3] [prepare batch 4]
-Device:          [compute 1] [compute 2] [compute 3] [compute 4]</code></pre>
+Device:                   [compute 1......] [compute 2......] [compute 3......] [compute 4......]</code></pre>
 </div>
 <div class="section level2">
 <h2 id="asynchronous-dispatch-in-pjrt">Asynchronous Dispatch in pjrt<a class="anchor" aria-label="anchor" href="#asynchronous-dispatch-in-pjrt"></a>
@@ -170,8 +170,8 @@ needed)</li>
 <code class="sourceCode R"><span><span class="co"># Each step blocks until complete</span></span>
 <span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">1000</span> <span class="op">*</span> <span class="fl">1000</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="va">buf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span>       <span class="co"># Blocks: wait for transfer</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">buf</span><span class="op">)</span>        <span class="co"># Blocks: wait for computation</span></span>
-<span><span class="va">output</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span>                     <span class="co"># Blocks: wait for transfer back</span></span></code></pre></div>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">buf</span><span class="op">)</span>       <span class="co"># Blocks: wait for computation</span></span>
+<span><span class="va">output</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span>                    <span class="co"># Blocks: wait for transfer back</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="asynchronous-execution-non-blocking">Asynchronous execution (non-blocking)<a class="anchor" aria-label="anchor" href="#asynchronous-execution-non-blocking"></a>
@@ -180,8 +180,8 @@ needed)</li>
 <code class="sourceCode R"><span><span class="co"># Operations return immediately</span></span>
 <span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">1000</span> <span class="op">*</span> <span class="fl">1000</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="va">transfer</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer_async.html">pjrt_buffer_async</a></span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span>  <span class="co"># Returns immediately</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute_async.html">pjrt_execute_async</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">transfer</span><span class="op">)</span>   <span class="co"># Returns immediately (auto-waits for transfer)</span></span>
-<span><span class="va">async_output</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_array_async.html">as_array_async</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span>               <span class="co"># Returns immediately</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute_async.html">pjrt_execute_async</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">transfer</span><span class="op">)</span>  <span class="co"># Returns immediately (auto-waits for transfer)</span></span>
+<span><span class="va">async_output</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_array_async.html">as_array_async</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span>              <span class="co"># Returns immediately</span></span>
 <span></span>
 <span><span class="co"># R can do other work here while device computes...</span></span>
 <span></span>
@@ -406,7 +406,7 @@ device execution</li>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Synchronous total time:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">sync_time</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Synchronous total time: 0.242 seconds</span></span></code></pre></div>
+<span><span class="co">#&gt; Synchronous total time: 0.256 seconds</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="asynchronous-pattern">Asynchronous Pattern<a class="anchor" aria-label="anchor" href="#asynchronous-pattern"></a>
@@ -427,14 +427,14 @@ device execution</li>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Asynchronous total time:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">async_time</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Asynchronous total time: 0.199 seconds</span></span></code></pre></div>
+<span><span class="co">#&gt; Asynchronous total time: 0.213 seconds</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="results">Results<a class="anchor" aria-label="anchor" href="#results"></a>
 </h3>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Sync:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">sync_time</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"s, Async:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">async_time</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"s\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Sync: 0.242 s, Async: 0.199 s</span></span></code></pre></div>
+<span><span class="co">#&gt; Sync: 0.256 s, Async: 0.213 s</span></span></code></pre></div>
 <p>On CPU, both patterns have similar performance because:</p>
 <ul>
 <li>CPU execution is very fast (a few milliseconds)</li>
