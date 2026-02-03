@@ -137,3 +137,43 @@ impl_buffer_print <- function(buffer, max_rows, max_width, max_rows_slice) {
     invisible(.Call(`_pjrt_impl_buffer_print`, buffer, max_rows, max_width, max_rows_slice))
 }
 
+impl_event_is_ready <- function(event) {
+    .Call(`_pjrt_impl_event_is_ready`, event)
+}
+
+impl_event_await <- function(event) {
+    invisible(.Call(`_pjrt_impl_event_await`, event))
+}
+
+impl_event_release_on_ready <- function(event, data_holder) {
+    invisible(.Call(`_pjrt_impl_event_release_on_ready`, event, data_holder))
+}
+
+impl_process_pending_releases <- function() {
+    invisible(.Call(`_pjrt_impl_process_pending_releases`))
+}
+
+impl_raw_to_array <- function(data_sexp, dtype, dims) {
+    .Call(`_pjrt_impl_raw_to_array`, data_sexp, dtype, dims)
+}
+
+impl_buffer_to_host_async <- function(buffer) {
+    .Call(`_pjrt_impl_buffer_to_host_async`, buffer)
+}
+
+impl_loaded_executable_execute_async <- function(executable, input, execution_options) {
+    .Call(`_pjrt_impl_loaded_executable_execute_async`, executable, input, execution_options)
+}
+
+impl_client_buffer_from_integer_async <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_integer_async`, client, device, data, dims, dtype)
+}
+
+impl_client_buffer_from_logical_async <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_logical_async`, client, device, data, dims, dtype)
+}
+
+impl_client_buffer_from_double_async <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_from_double_async`, client, device, data, dims, dtype)
+}
+

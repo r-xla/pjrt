@@ -301,6 +301,91 @@ pjrt_scalar.raw <- function(
   do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...))
 }
 
+#' @title Create a PJRT Buffer asynchronously
+#' @description
+#' Create a PJRT Buffer from R data asynchronously.
+#' Returns immediately with a `PJRTBufferPromise` object.
+#'
+#' The buffer is valid immediately and can be used as input to operations.
+#' The event signals when PJRT is done reading from host memory.
+#'
+#' Use `value()` to get the `PJRTBuffer` (blocks if not ready).
+#' Use `is_ready()` to check if transfer has completed (non-blocking).
+#'
+#' @inheritParams pjrt_buffer
+#' @return A `PJRTBufferPromise` object. Call `value()` to get the `PJRTBuffer`.
+#' @seealso [pjrt_buffer()], [value()], [is_ready()]
+#' @examplesIf plugin_is_downloaded()
+#' # Create a buffer asynchronously
+#' x <- pjrt_buffer_async(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+#'
+#' # Check if ready (non-blocking)
+#' is_ready(x)
+#'
+#' # Get the buffer (blocks if not ready)
+#' buf <- value(x)
+#' @export
+pjrt_buffer_async <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
+  UseMethod("pjrt_buffer_async")
+}
+
+#' @export
+pjrt_buffer_async.logical <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
+  result <- impl_client_buffer_from_logical_async(
+    args$client,
+    args$device,
+    args$data,
+    args$dims,
+    args$dtype
+  )
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+}
+
+#' @export
+pjrt_buffer_async.integer <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
+  result <- impl_client_buffer_from_integer_async(
+    args$client,
+    args$device,
+    args$data,
+    args$dims,
+    args$dtype
+  )
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+}
+
+#' @export
+pjrt_buffer_async.numeric <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
+  result <- impl_client_buffer_from_double_async(
+    args$client,
+    args$device,
+    args$data,
+    args$dims,
+    args$dtype
+  )
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+}
+
 #' @title Element Type
 #' @description
 #' Get the element type of a buffer.
@@ -318,6 +403,56 @@ elt_type <- function(x) {
 as_array.PJRTBuffer <- function(x, client = NULL, ...) {
   client <- as_pjrt_client(client)
   impl_client_buffer_to_array(client, x)
+}
+
+#' @title Convert buffer to R array asynchronously
+#' @description
+#' Start an asynchronous transfer of buffer data from device to host.
+#' Returns immediately with an async array promise object.
+#'
+#' Use `value()` to get the R array (blocks if not ready).
+#' Use `is_ready()` to check if transfer has completed (non-blocking).
+#' Use `as_array()` as an alias for `value()`.
+#'
+#' This function also accepts `PJRTBufferPromise` objects (from `pjrt_execute_async()`
+#' or `pjrt_buffer_async()`), enabling fully async pipelines. The transfer is chained
+#' to the previous operation without blocking - PJRT handles the dependency internally.
+#'
+#' @param x A `PJRTBuffer` or `PJRTBufferPromise` object.
+#' @param ... Additional arguments (unused).
+#' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
+#' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute_async()]
+#' @examplesIf plugin_is_downloaded()
+#' # Create a buffer
+#' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+#'
+#' # Start async transfer
+#' result <- as_array_async(buf)
+#'
+#' # Check if ready (non-blocking)
+#' is_ready(result)
+#'
+#' # Get the R array (blocks if not ready)
+#' value(result)
+#' @export
+as_array_async <- function(x, ...) {
+  UseMethod("as_array_async")
+}
+
+#' @export
+as_array_async.PJRTBuffer <- function(x, ...) {
+  result <- impl_buffer_to_host_async(x)
+  pjrt_array_promise(result$data, result$event, result$dtype, result$dims)
+}
+
+#' @export
+as_array_async.PJRTBufferPromise <- function(x, ...) {
+  # Extract the buffer without waiting - PJRT handles dependencies internally.
+  # Pass all events from the buffer promise for error propagation.
+  buf <- x$buffer
+  parent_events <- x$events
+  result <- impl_buffer_to_host_async(buf)
+  pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = parent_events)
 }
 
 #' @export
