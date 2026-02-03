@@ -47,7 +47,7 @@ is_ready <- function(x, ...) {
 #' @param events List of ancestor events to check for errors (for chained operations).
 #' @return A `PJRTBufferPromise` object.
 #' @keywords internal
-PJRTBufferPromise <- function(buffer, event, data_holder = NULL, events = list()) {
+pjrt_buffer_promise <- function(buffer, event, data_holder = NULL, events = list()) {
   env <- new.env(parent = emptyenv())
   env$buffer <- buffer
   env$event <- event
@@ -135,7 +135,7 @@ get_events <- function(x) {
 #' @param events List of ancestor events to check for errors (for chained operations).
 #' @return A `PJRTArrayPromise` object.
 #' @keywords internal
-PJRTArrayPromise <- function(data, event, dtype, shape, events = list()) {
+pjrt_array_promise <- function(data, event, dtype, shape, events = list()) {
   env <- new.env(parent = emptyenv())
   env$data <- data
   env$event <- event

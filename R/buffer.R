@@ -325,15 +325,12 @@ pjrt_scalar.raw <- function(
 #' # Get the buffer (blocks if not ready)
 #' buf <- value(x)
 #' @export
-pjrt_buffer_async <- S7::new_generic(
-  "pjrt_buffer_async",
-  "data",
-  function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
-    S7::S7_dispatch()
-  }
-)
+pjrt_buffer_async <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
+  UseMethod("pjrt_buffer_async")
+}
 
-S7::method(pjrt_buffer_async, S7::class_logical) <- function(
+#' @export
+pjrt_buffer_async.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -348,10 +345,11 @@ S7::method(pjrt_buffer_async, S7::class_logical) <- function(
     args$dims,
     args$dtype
   )
-  PJRTBufferPromise(result$buffer, result$event, result$data_holder)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
-S7::method(pjrt_buffer_async, S7::class_integer) <- function(
+#' @export
+pjrt_buffer_async.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -366,10 +364,11 @@ S7::method(pjrt_buffer_async, S7::class_integer) <- function(
     args$dims,
     args$dtype
   )
-  PJRTBufferPromise(result$buffer, result$event, result$data_holder)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
-S7::method(pjrt_buffer_async, S7::class_double) <- function(
+#' @export
+pjrt_buffer_async.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
@@ -384,7 +383,7 @@ S7::method(pjrt_buffer_async, S7::class_double) <- function(
     args$dims,
     args$dtype
   )
-  PJRTBufferPromise(result$buffer, result$event, result$data_holder)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
 #' @title Element Type
@@ -443,7 +442,7 @@ as_array_async <- function(x, ...) {
 #' @export
 as_array_async.PJRTBuffer <- function(x, ...) {
   result <- impl_buffer_to_host_async(x)
-  PJRTArrayPromise(result$data, result$event, result$dtype, result$dims)
+  pjrt_array_promise(result$data, result$event, result$dtype, result$dims)
 }
 
 #' @export
@@ -453,7 +452,7 @@ as_array_async.PJRTBufferPromise <- function(x, ...) {
   buf <- x$buffer
   parent_events <- x$events
   result <- impl_buffer_to_host_async(buf)
-  PJRTArrayPromise(result$data, result$event, result$dtype, result$dims, events = parent_events)
+  pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = parent_events)
 }
 
 #' @export

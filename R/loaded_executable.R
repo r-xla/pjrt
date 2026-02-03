@@ -153,7 +153,7 @@ pjrt_execute_async <- function(executable, ..., execution_options = NULL, simpli
   # Create a list of buffer promises, one per buffer, all sharing the same event
   # Pass parent events for error propagation through the chain
   promises <- lapply(result$buffers, function(buf) {
-    PJRTBufferPromise(buf, result$event, events = parent_events)
+    pjrt_buffer_promise(buf, result$event, events = parent_events)
   })
 
   if (simplify && length(promises) == 1L) {
