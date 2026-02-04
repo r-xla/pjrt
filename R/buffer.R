@@ -315,16 +315,14 @@ elt_type <- function(x) {
 }
 
 #' @export
-as_array.PJRTBuffer <- function(x, client = NULL, ...) {
-  client <- as_pjrt_client(client)
-  impl_client_buffer_to_array(client, x)
+as_array.PJRTBuffer <- function(x, ...) {
+  impl_buffer_to_array(x)
 }
 
 #' @export
-as_raw.PJRTBuffer <- function(x, client = NULL, row_major, ...) {
-  client <- as_pjrt_client(client)
+as_raw.PJRTBuffer <- function(x, row_major, ...) {
   assert_flag(row_major)
-  impl_client_buffer_to_raw(client, x, row_major = row_major)
+  impl_buffer_to_raw(x, row_major = row_major)
 }
 
 #' Gets the memory of a Pjrt buffer
