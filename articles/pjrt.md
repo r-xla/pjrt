@@ -136,11 +136,11 @@ program
 
 We can’t really do anything with this, except for compiling it into an
 executable (`PJRTLoadedExecutable`). For compilation, we need to specify
-the device to use, because the executable depends on the platform as the
+the client to use, because the executable depends on the platform as the
 GPU binary will differ from the CPU binary.
 
 ``` r
-executable <- pjrt_compile(program, device = cpu_device)
+executable <- pjrt_compile(program, client = client)
 executable
 #> <PJRTLoadedExecutable>
 ```

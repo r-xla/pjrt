@@ -68,7 +68,7 @@
       <h1>Get Started</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/compile-device/vignettes/articles/pjrt.Rmd" class="external-link"><code>vignettes/articles/pjrt.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/fix-cuda-printer/vignettes/articles/pjrt.Rmd" class="external-link"><code>vignettes/articles/pjrt.Rmd</code></a></small>
       <div class="d-none name"><code>pjrt.Rmd</code></div>
     </div>
 
@@ -186,10 +186,10 @@ source code.</p>
 <span><span class="co">#&gt; ...</span></span></code></pre></div>
 <p>We can’t really do anything with this, except for compiling it into
 an executable (<code>PJRTLoadedExecutable</code>). For compilation, we
-need to specify the device to use, because the executable depends on the
+need to specify the client to use, because the executable depends on the
 platform as the GPU binary will differ from the CPU binary.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">executable</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_compile.html">pjrt_compile</a></span><span class="op">(</span><span class="va">program</span>, device <span class="op">=</span> <span class="va">cpu_device</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">executable</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_compile.html">pjrt_compile</a></span><span class="op">(</span><span class="va">program</span>, client <span class="op">=</span> <span class="va">client</span><span class="op">)</span></span>
 <span><span class="va">executable</span></span>
 <span><span class="co">#&gt; &lt;PJRTLoadedExecutable&gt;</span></span></code></pre></div>
 </div>
