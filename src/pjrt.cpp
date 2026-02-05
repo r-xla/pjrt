@@ -88,10 +88,10 @@ Rcpp::XPtr<rpjrt::PJRTCompileOptions> impl_compile_options_create(
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
-    Rcpp::XPtr<rpjrt::PJRTClient> client,
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     Rcpp::XPtr<rpjrt::PJRTProgram> program,
     Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options) {
-  auto executable = client->compile(*program, *compile_options);
+  auto executable = client->compile(*program, *compile_options, *device);
   Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> xptr(executable.release(), true);
 
   xptr.attr("class") = "PJRTLoadedExecutable";
