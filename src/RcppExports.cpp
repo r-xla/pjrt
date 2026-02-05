@@ -192,28 +192,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_client_buffer_to_array
-SEXP impl_client_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
-RcppExport SEXP _pjrt_impl_client_buffer_to_array(SEXP clientSEXP, SEXP bufferSEXP) {
+// impl_buffer_to_array
+SEXP impl_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
+RcppExport SEXP _pjrt_impl_buffer_to_array(SEXP bufferSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_to_array(client, buffer));
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_array(buffer));
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_client_buffer_to_raw
-Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, bool row_major);
-RcppExport SEXP _pjrt_impl_client_buffer_to_raw(SEXP clientSEXP, SEXP bufferSEXP, SEXP row_majorSEXP) {
+// impl_buffer_to_raw
+Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, bool row_major);
+RcppExport SEXP _pjrt_impl_buffer_to_raw(SEXP bufferSEXP, SEXP row_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
     Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_to_raw(client, buffer, row_major));
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_raw(buffer, row_major));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -436,8 +434,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 5},
     {"_pjrt_impl_client_buffer_from_raw", (DL_FUNC) &_pjrt_impl_client_buffer_from_raw, 6},
     {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 5},
-    {"_pjrt_impl_client_buffer_to_array", (DL_FUNC) &_pjrt_impl_client_buffer_to_array, 2},
-    {"_pjrt_impl_client_buffer_to_raw", (DL_FUNC) &_pjrt_impl_client_buffer_to_raw, 3},
+    {"_pjrt_impl_buffer_to_array", (DL_FUNC) &_pjrt_impl_buffer_to_array, 1},
+    {"_pjrt_impl_buffer_to_raw", (DL_FUNC) &_pjrt_impl_buffer_to_raw, 2},
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},
     {"_pjrt_impl_client_devices", (DL_FUNC) &_pjrt_impl_client_devices, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
