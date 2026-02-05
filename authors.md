@@ -14,12 +14,12 @@ Source:
 [`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/main/DESCRIPTION)
 
 Fischer S, Falbel D (2026). *pjrt: R Interface to PJRT*. R package
-version 0.1.0, <https://r-xla.github.io/pjrt/>.
+version 0.1.0.9000, <https://r-xla.github.io/pjrt/>.
 
     @Manual{,
       title = {pjrt: R Interface to PJRT},
       author = {Sebastian Fischer and Daniel Falbel},
       year = {2026},
-      note = {R package version 0.1.0},
+      note = {R package version 0.1.0.9000},
       url = {https://r-xla.github.io/pjrt/},
     }
