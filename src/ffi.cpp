@@ -76,9 +76,10 @@ XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 constexpr std::string_view kPrintHeaderAttr = "print_header";
 constexpr std::string_view kPrintFooterAttr = "print_footer";
 
-// Shared helper: prints buffer data (already on host) using buffer_to_string_lines.
+// Shared helper: prints buffer data (already on host) using
+// buffer_to_string_lines.
 xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
-                                   AnyBuffer buffer) {
+                                  AnyBuffer buffer) {
   std::string_view header = "PJRTBuffer";
   if (attrs.contains(kPrintHeaderAttr)) {
     auto print_header = attrs.get<std::string_view>(kPrintHeaderAttr);
@@ -146,7 +147,7 @@ using CUdeviceptr = uintptr_t;
 using CUstream = void *;
 
 using cuMemcpyDtoHAsync_v2_t = CUresult (*)(void *, CUdeviceptr, size_t,
-                                             CUstream);
+                                            CUstream);
 using cuStreamSynchronize_t = CUresult (*)(CUstream);
 
 struct CudaFunctions {
@@ -186,7 +187,7 @@ static const CudaFunctions &get_cuda_functions() {
 #endif
 
 xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
-                                    AnyBuffer buffer) {
+                                   AnyBuffer buffer) {
 #ifdef _WIN32
   return xla::ffi::Error(xla::ffi::ErrorCode::kUnimplemented,
                          "CUDA print_tensor is not supported on Windows");
@@ -200,23 +201,21 @@ xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
   size_t size = buffer.size_bytes();
   std::vector<char> host(size);
 
-  CUdeviceptr device_ptr =
-      reinterpret_cast<CUdeviceptr>(buffer.untyped_data());
+  CUdeviceptr device_ptr = reinterpret_cast<CUdeviceptr>(buffer.untyped_data());
 
-  CUresult err =
-      cuda.memcpy_dtoh_async(host.data(), device_ptr, size,
-                             static_cast<CUstream>(stream));
+  CUresult err = cuda.memcpy_dtoh_async(host.data(), device_ptr, size,
+                                        static_cast<CUstream>(stream));
   if (err != CUDA_SUCCESS) {
-    return xla::ffi::Error(xla::ffi::ErrorCode::kInternal,
-                           "cuMemcpyDtoHAsync_v2 failed with error code " +
-                               std::to_string(err));
+    return xla::ffi::Error(
+        xla::ffi::ErrorCode::kInternal,
+        "cuMemcpyDtoHAsync_v2 failed with error code " + std::to_string(err));
   }
 
   err = cuda.stream_synchronize(static_cast<CUstream>(stream));
   if (err != CUDA_SUCCESS) {
-    return xla::ffi::Error(xla::ffi::ErrorCode::kInternal,
-                           "cuStreamSynchronize failed with error code " +
-                               std::to_string(err));
+    return xla::ffi::Error(
+        xla::ffi::ErrorCode::kInternal,
+        "cuStreamSynchronize failed with error code " + std::to_string(err));
   }
 
   return print_host_buffer(host.data(), attrs, buffer);
@@ -224,10 +223,10 @@ xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
 }
 
 XLA_FFI_DEFINE_HANDLER(print_handler_cuda, do_print_call_cuda,
-                        xla::ffi::Ffi::Bind()
-                            .Ctx<PlatformStream<void *>>()
-                            .Attrs<Dictionary>()
-                            .Arg<AnyBuffer>());
+                       xla::ffi::Ffi::Bind()
+                           .Ctx<PlatformStream<void *>>()
+                           .Attrs<Dictionary>()
+                           .Arg<AnyBuffer>());
 
 void register_ffi_handlers(PJRTPlugin *plugin,
                            const std::string &platform_name) {
