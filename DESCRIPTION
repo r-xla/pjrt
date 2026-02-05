@@ -20,7 +20,7 @@ Imports:
     Rcpp,
     rlang,
     safetensors(>= 0.2.0),
-    tengen,
+    tengen (>= 0.1.0),
     withr
 Suggests:
     knitr,
