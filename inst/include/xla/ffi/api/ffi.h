@@ -172,6 +172,7 @@ constexpr size_t ByteWidth(DataType dtype) {
     case DataType::C128:
       return 16;
   }
+  throw std::runtime_error("Unexpected data type");
 }
 
 //===----------------------------------------------------------------------===//

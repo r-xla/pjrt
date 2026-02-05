@@ -8,7 +8,7 @@ index d440584..a4275fb 100644
    }
 +  throw std::runtime_error("unknown execution stage");
  }
- 
+
  //===----------------------------------------------------------------------===//
 diff --git a/inst/include/xla/ffi/api/api.h b/inst/include/xla/ffi/api/api.h
 index a4275fb..e41d842 100644
@@ -28,7 +28,7 @@ index a4275fb..e41d842 100644
    }
 +  throw std::runtime_error("Unexpected type");
  }
- 
+
  inline std::ostream& operator<<(std::ostream& os, const XLA_FFI_AttrType type) {
 @@ -176,6 +178,7 @@ inline std::ostream& operator<<(std::ostream& os, const XLA_FFI_AttrType type) {
      case XLA_FFI_AttrType_STRING:
@@ -36,5 +36,16 @@ index a4275fb..e41d842 100644
    }
 +  throw std::runtime_error("Unexpected type");
  }
- 
+
  inline std::ostream& operator<<(std::ostream& os,
+diff --git a/inst/include/xla/ffi/api/ffi.h b/inst/include/xla/ffi/api/ffi.h
+--- a/inst/include/xla/ffi/api/ffi.h
++++ b/inst/include/xla/ffi/api/ffi.h
+@@ -172,6 +172,7 @@ constexpr size_t ByteWidth(DataType dtype) {
+     case DataType::C128:
+       return 16;
+   }
++  throw std::runtime_error("Unexpected data type");
+ }
+
+ //===----------------------------------------------------------------------===//
