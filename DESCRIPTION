@@ -1,6 +1,6 @@
 Package: pjrt
 Title: R Interface to PJRT
-Version: 0.0.0.9001
+Version: 0.1.0
 Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = c("cre", "aut"),
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197")),
@@ -28,6 +28,8 @@ Suggests:
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp
+Remotes:
+    r-xla/tengen@*release
 VignetteBuilder:
     knitr
 Additional_repositories: https://r-xla.r-universe.dev
