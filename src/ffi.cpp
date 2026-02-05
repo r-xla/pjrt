@@ -3,6 +3,10 @@
 #include <iostream>
 #include <string_view>
 
+#ifndef _WIN32
+#include <dlfcn.h>
+#endif
+
 #include "buffer_printer.h"
 #include "plugin.h"
 #include "utils.h"
@@ -72,7 +76,9 @@ XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 constexpr std::string_view kPrintHeaderAttr = "print_header";
 constexpr std::string_view kPrintFooterAttr = "print_footer";
 
-xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
+// Shared helper: prints buffer data (already on host) using buffer_to_string_lines.
+xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
+                                   AnyBuffer buffer) {
   std::string_view header = "PJRTBuffer";
   if (attrs.contains(kPrintHeaderAttr)) {
     auto print_header = attrs.get<std::string_view>(kPrintHeaderAttr);
@@ -80,8 +86,6 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
       header = *print_header;
     }
   }
-
-  const void *data = buffer.untyped_data();
 
   if (!data) {
     return xla::ffi::Error(xla::ffi::ErrorCode::kDataLoss,
@@ -129,26 +133,101 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
                          "Custom call executed successfully");
 }
 
-XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
-
-xla::ffi::Error do_print_call_not_supported(AnyBuffer _buffer) {
-  // TODO: to support CUDA, we need to:
-  // 1. Grab the CUDA Stream from the context, by adding a Context argument to
-  //  this function.
-  // 2. Copy data from device to host using the cuda stream.
-  // 3. Print the copied data
-  // Besides the tricky thing about the host/cuda copies, another problem
-  // is that we won't have different versions of PJRT for cuda and for CPU,
-  // so we need to dynamically load the necessary symbols using dlsym at
-  // runtime. It would be nice if the ffi api.h could have an interface for
-  // moving buffers to host.
-  return xla::ffi::Error(
-      xla::ffi::ErrorCode::kUnimplemented,
-      "custom call 'print_tensor' is not implemented for cuda");
+xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
+  return print_host_buffer(buffer.untyped_data(), attrs, buffer);
 }
 
-XLA_FFI_DEFINE_HANDLER_AUTO(print_handler_not_supported,
-                            do_print_call_not_supported);
+XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
+
+// CUDA driver API types (minimal, so we don't need CUDA headers).
+using CUresult = int;
+constexpr CUresult CUDA_SUCCESS = 0;
+using CUdeviceptr = uintptr_t;
+using CUstream = void *;
+
+using cuMemcpyDtoHAsync_v2_t = CUresult (*)(void *, CUdeviceptr, size_t,
+                                             CUstream);
+using cuStreamSynchronize_t = CUresult (*)(CUstream);
+
+struct CudaFunctions {
+  cuMemcpyDtoHAsync_v2_t memcpy_dtoh_async = nullptr;
+  cuStreamSynchronize_t stream_synchronize = nullptr;
+  const char *error = nullptr;
+};
+
+#ifndef _WIN32
+static const CudaFunctions &get_cuda_functions() {
+  static CudaFunctions funcs = []() {
+    CudaFunctions f;
+    void *handle = dlopen("libcuda.so.1", RTLD_LAZY | RTLD_NOLOAD);
+    if (!handle) {
+      handle = dlopen("libcuda.so.1", RTLD_LAZY);
+    }
+    if (!handle) {
+      f.error = "Failed to load libcuda.so.1";
+      return f;
+    }
+    f.memcpy_dtoh_async = reinterpret_cast<cuMemcpyDtoHAsync_v2_t>(
+        dlsym(handle, "cuMemcpyDtoHAsync_v2"));
+    if (!f.memcpy_dtoh_async) {
+      f.error = "Failed to load cuMemcpyDtoHAsync_v2";
+      return f;
+    }
+    f.stream_synchronize = reinterpret_cast<cuStreamSynchronize_t>(
+        dlsym(handle, "cuStreamSynchronize"));
+    if (!f.stream_synchronize) {
+      f.error = "Failed to load cuStreamSynchronize";
+      return f;
+    }
+    return f;
+  }();
+  return funcs;
+}
+#endif
+
+xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
+                                    AnyBuffer buffer) {
+#ifdef _WIN32
+  return xla::ffi::Error(xla::ffi::ErrorCode::kUnimplemented,
+                         "CUDA print_tensor is not supported on Windows");
+#else
+  const auto &cuda = get_cuda_functions();
+  if (cuda.error) {
+    return xla::ffi::Error(xla::ffi::ErrorCode::kInternal,
+                           std::string(cuda.error));
+  }
+
+  size_t size = buffer.size_bytes();
+  std::vector<char> host(size);
+
+  CUdeviceptr device_ptr =
+      reinterpret_cast<CUdeviceptr>(buffer.untyped_data());
+
+  CUresult err =
+      cuda.memcpy_dtoh_async(host.data(), device_ptr, size,
+                             static_cast<CUstream>(stream));
+  if (err != CUDA_SUCCESS) {
+    return xla::ffi::Error(xla::ffi::ErrorCode::kInternal,
+                           "cuMemcpyDtoHAsync_v2 failed with error code " +
+                               std::to_string(err));
+  }
+
+  err = cuda.stream_synchronize(static_cast<CUstream>(stream));
+  if (err != CUDA_SUCCESS) {
+    return xla::ffi::Error(xla::ffi::ErrorCode::kInternal,
+                           "cuStreamSynchronize failed with error code " +
+                               std::to_string(err));
+  }
+
+  return print_host_buffer(host.data(), attrs, buffer);
+#endif
+}
+
+XLA_FFI_DEFINE_HANDLER(print_handler_cuda, do_print_call_cuda,
+                        xla::ffi::Ffi::Bind()
+                            .Ctx<PlatformStream<void *>>()
+                            .Attrs<Dictionary>()
+                            .Arg<AnyBuffer>());
 
 void register_ffi_handlers(PJRTPlugin *plugin,
                            const std::string &platform_name) {
@@ -186,7 +265,7 @@ bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
 
   std::string platform_name = plugin.attr("platform");
   if (platform_name == "cuda") {
-    args.handler = (void *)rpjrt::print_handler_not_supported;
+    args.handler = (void *)rpjrt::print_handler_cuda;
     args.platform_name = "cuda";
     args.platform_name_size = strlen(args.platform_name);
 
