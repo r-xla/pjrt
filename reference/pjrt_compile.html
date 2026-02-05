@@ -42,7 +42,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Compile a Program</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/fix-cuda-printer/R/client.R" class="external-link"><code>R/client.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/compile-device/R/client.R" class="external-link"><code>R/client.R</code></a></small>
       <div class="d-none name"><code>pjrt_compile.Rd</code></div>
     </div>
 
@@ -52,11 +52,7 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_compile</span><span class="op">(</span></span>
-<span>  <span class="va">program</span>,</span>
-<span>  compile_options <span class="op">=</span> <span class="fu">new_compile_options</span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  client <span class="op">=</span> <span class="fu"><a href="pjrt_client.html">pjrt_client</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_compile</span><span class="op">(</span><span class="va">program</span>, compile_options <span class="op">=</span> <span class="fu">new_compile_options</span><span class="op">(</span><span class="op">)</span>, device <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -73,10 +69,12 @@ A program to compile.</p></dd>
 Compile options.</p></dd>
 
 
-<dt id="arg-client">client<a class="anchor" aria-label="anchor" href="#arg-client"></a></dt>
-<dd><p>(<code>PJRTClient</code> | <code>character(1)</code>)<br>
-A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
-from which the client will be created.</p></dd>
+<dt id="arg-device">device<a class="anchor" aria-label="anchor" href="#arg-device"></a></dt>
+<dd><p>(<code>NULL</code> | <code>PJRTDevice</code> | <code>character(1)</code>)<br>
+A <code>PJRTDevice</code> object or the name of the platform to use ("cpu", "cuda", ...),
+in which case the first device for that platform is used.
+The default is to use the CPU platform, but this can be configured via the <code>PJRT_PLATFORM</code>
+environment variable.</p></dd>
 
 </dl></div>
     <div class="section level2">
