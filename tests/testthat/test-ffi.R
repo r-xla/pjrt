@@ -67,24 +67,12 @@ func.func @main(
   buf_i32 <- pjrt_buffer(5:8, dtype = "i32")
   buf_pred <- pjrt_buffer(c(TRUE, FALSE, TRUE, FALSE))
 
-  if (!is_cuda()) {
-    expect_snapshot({
-      invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
-    })
-  } else {
-    # on cuda, this is not supported. we expect an error
-    expect_error(
-      {
-        invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
-      },
-      regexp = "custom call 'print_tensor' is not implemented for cuda"
-    )
-  }
+  expect_snapshot({
+    invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
+  })
 })
 
 test_that("print handler supports empty header", {
-  skip_if(is_cuda())
-
   program <- pjrt_program(
     r"(
 func.func @main(
@@ -112,8 +100,6 @@ func.func @main(
 })
 
 test_that("print handler supports custom footer", {
-  skip_if(is_cuda())
-
   program <- pjrt_program(
     r"(
 func.func @main(
@@ -141,8 +127,6 @@ func.func @main(
 })
 
 test_that("print handler supports no head and no footer", {
-  skip_if(is_cuda())
-
   program <- pjrt_program(
     r"(
 func.func @main(
