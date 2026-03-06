@@ -60,7 +60,7 @@ func.func @main(
 )"
 program <- pjrt_program(src, format = "mlir")
 program
-executable <- pjrt_compile(program, client = "cpu")
+executable <- pjrt_compile(program, device = "cpu")
 
 x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2, 2), dtype = "f32")
 x
