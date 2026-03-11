@@ -6,6 +6,10 @@ test_that("format_buffer works for floats", {
   expect_equal(format_buffer(pjrt_scalar(NaN, "f32")), "0x7FC00000")
   expect_equal(format_buffer(pjrt_scalar(Inf, "f32")), "0x7F800000")
   expect_equal(format_buffer(pjrt_scalar(-Inf, "f32")), "0xFF800000")
+
+  expect_equal(format_buffer(pjrt_scalar(NaN, "f64")), "0x7FF8000000000000")
+  expect_equal(format_buffer(pjrt_scalar(Inf, "f64")), "0x7FF0000000000000")
+  expect_equal(format_buffer(pjrt_scalar(-Inf, "f64")), "0xFFF0000000000000")
 })
 
 test_that("format_buffer works for integers", {

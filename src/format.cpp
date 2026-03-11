@@ -10,8 +10,11 @@ using namespace Rcpp;
 std::string format_float_value(double value, int precision) {
   // stablehlo format for NaN and infinity
   if (R_IsNaN(value)) {
-    return "0x7FC00000";
+    return (precision == 64) ? "0x7FF8000000000000" : "0x7FC00000";
   } else if (!R_finite(value)) {
+    if (precision == 64) {
+      return (value > 0) ? "0x7FF0000000000000" : "0xFFF0000000000000";
+    }
     return (value > 0) ? "0x7F800000" : "0xFF800000";
   }
   std::ostringstream oss;
