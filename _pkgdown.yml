@@ -1,4 +1,9 @@
-url: ~
+url: https://r-xla.github.io/pjrt/
+
+development:
+  mode: auto
+  version_label: default
+  version_tooltip: "Version"
 
 template:
   bootstrap: 5
