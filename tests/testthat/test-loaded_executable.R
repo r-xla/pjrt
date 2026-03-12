@@ -67,6 +67,20 @@ test_that("pjrt_execute_async returns buffer promise", {
   expect_class(result, "PJRTBufferPromise")
 })
 
+test_that("pjrt_execute_async promise has a single event", {
+  src <- r"(
+func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
+  "func.return"(%x): (tensor<3xf32>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src))
+
+  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute_async(executable, input)
+  expect_length(result$events, 1L)
+  expect_s3_class(result$events[[1]], "PJRTEvent")
+})
+
 test_that("is_ready works for async values", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
@@ -248,7 +262,7 @@ test_that("buffer_promise tracks events from pjrt_buffer_async", {
   expect_identical(x$events[[1]], x$event)
 })
 
-test_that("buffer_promise accumulates events through execute_async chain", {
+test_that("execute_async does not accumulate parent events", {
   # Create a simple pass-through program
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
@@ -261,11 +275,11 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
   expect_length(input$events, 1L)
 
-  # Execute asynchronously - should accumulate parent event
+  # Execute asynchronously - PJRT handles input dependencies internally
   result <- pjrt_execute_async(executable, input)
 
-  # Result should have 2 events: input transfer + execution
-  expect_length(result$events, 2L)
+  # Result should have 1 event: execution only (no parent propagation)
+  expect_length(result$events, 1L)
 
   # Verify the result is correct
   arr <- as_array(value(result))
@@ -285,8 +299,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   result <- pjrt_execute_async(executable, input)
   arr_promise <- as_array_async(result)
 
-  # arr_promise should have 3 events: input transfer + execution + D2H transfer
-  expect_length(arr_promise$events, 3L)
+  # arr_promise should have 2 events: execution (from result) + D2H transfer
+  expect_length(arr_promise$events, 2L)
 
   # Verify the result is correct
   arr <- value(arr_promise)
@@ -308,13 +322,13 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   expect_length(input$events, 1L)
 
   result1 <- pjrt_execute_async(exec1, input)
-  expect_length(result1$events, 2L)
+  expect_length(result1$events, 1L)
 
   result2 <- pjrt_execute_async(exec2, result1)
-  expect_length(result2$events, 3L)
+  expect_length(result2$events, 1L)
 
   arr_promise <- as_array_async(result2)
-  expect_length(arr_promise$events, 4L)
+  expect_length(arr_promise$events, 2L)
 
   # Verify the result is correct
   arr <- value(arr_promise)
@@ -379,8 +393,8 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
 
   result <- pjrt_execute_async(executable, x_async, y_sync)
 
-  # Should have 2 events: x_async transfer + execution
-  expect_length(result$events, 2L)
+  # Should have 1 event: execution only (no parent propagation)
+  expect_length(result$events, 1L)
 
   arr <- as_array(value(result))
   expect_equal(as.vector(arr), as.vector(matrix(1:4, 2, 2) + matrix(5:8, 2, 2)), tolerance = 1e-6)
@@ -443,8 +457,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   # The chain should work
   arr_promise <- as_array_async(result)
 
-  # All events are tracked
-  expect_length(arr_promise$events, 3L)
+  # Events from result (execution) + D2H transfer
+  expect_length(arr_promise$events, 2L)
 
   # Value should succeed
   arr <- value(arr_promise)
@@ -466,7 +480,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   arr_promise <- as_array_async(result)
 
   # Before calling value, check that events list is complete
-  expect_length(arr_promise$events, 3L)
+  expect_length(arr_promise$events, 2L)
 
   # After calling value, all events should have been awaited
   arr <- value(arr_promise)
@@ -539,8 +553,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   result <- pjrt_execute_async(executable, input)
   arr_promise <- as_array_async(result)
 
-  # All events are tracked in the chain
-  expect_length(arr_promise$events, 3L)
+  # execution event (from result) + D2H transfer event
+  expect_length(arr_promise$events, 2L)
 
   # value() awaits all events - this is where async errors would surface
   # In this case, no error occurs
@@ -612,8 +626,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   result <- pjrt_execute_async(executable, input)
   arr_promise <- as_array_async(result)
 
-  # Verify all events are tracked
-  expect_length(arr_promise$events, 3L)
+  # execution event (from result) + D2H transfer event
+  expect_length(arr_promise$events, 2L)
 
   # Each event is a PJRTEvent that can be awaited
   for (evt in arr_promise$events) {

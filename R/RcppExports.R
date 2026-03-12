@@ -57,12 +57,12 @@ impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
 }
 
-impl_buffer_to_array <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_to_array`, buffer)
+impl_buffer_to_array <- function(client, buffer) {
+    .Call(`_pjrt_impl_buffer_to_array`, client, buffer)
 }
 
-impl_buffer_to_raw <- function(buffer, row_major = FALSE) {
-    .Call(`_pjrt_impl_buffer_to_raw`, buffer, row_major)
+impl_buffer_to_raw <- function(client, buffer, row_major = FALSE) {
+    .Call(`_pjrt_impl_buffer_to_raw`, client, buffer, row_major)
 }
 
 impl_client_platform <- function(client) {

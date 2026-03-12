@@ -500,8 +500,8 @@ SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
-SEXP impl_client_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                                 Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+SEXP impl_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                          Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   const auto element_type = buffer->element_type();
 
   switch (element_type) {
@@ -533,9 +533,9 @@ SEXP impl_client_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
-Rcpp::RawVector impl_client_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                                          Rcpp::XPtr<rpjrt::PJRTBuffer> buffer,
-                                          bool row_major = false) {
+Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                   Rcpp::XPtr<rpjrt::PJRTBuffer> buffer,
+                                   bool row_major = false) {
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
 

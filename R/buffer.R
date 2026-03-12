@@ -401,7 +401,8 @@ elt_type <- function(x) {
 
 #' @export
 as_array.PJRTBuffer <- function(x, ...) {
-  impl_buffer_to_array(x)
+  client <- client_from_device(device(x))
+  impl_buffer_to_array(client, x)
 }
 
 #' @title Convert buffer to R array asynchronously
@@ -457,7 +458,8 @@ as_array_async.PJRTBufferPromise <- function(x, ...) {
 #' @export
 as_raw.PJRTBuffer <- function(x, row_major, ...) {
   assert_flag(row_major)
-  impl_buffer_to_raw(x, row_major = row_major)
+  client <- client_from_device(device(x))
+  impl_buffer_to_raw(client, x, row_major = row_major)
 }
 
 #' Gets the memory of a Pjrt buffer
