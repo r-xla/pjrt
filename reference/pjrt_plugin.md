@@ -21,9 +21,9 @@ pjrt_plugin(platform)
 
 ## Extractors
 
-- [`plugin_attributes()`](plugin_attributes.md) -\>
-  [`list()`](https://rdrr.io/r/base/list.html): for the attributes of
-  the plugin.
+- [`plugin_attributes()`](https://r-xla.github.io/pjrt/reference/plugin_attributes.md)
+  -\> [`list()`](https://rdrr.io/r/base/list.html): for the attributes
+  of the plugin.
 
 ## Examples
 

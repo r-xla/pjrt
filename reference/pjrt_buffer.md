@@ -79,15 +79,16 @@ pjrt_empty(dtype, shape, device = NULL)
 
 ## Extractors
 
-- [`platform()`](platform.md) -\> `character(1)`: for the platform name
-  of the buffer (`"cpu"`, `"cuda"`, ...).
+- [`platform()`](https://r-xla.github.io/pjrt/reference/platform.md) -\>
+  `character(1)`: for the platform name of the buffer (`"cpu"`,
+  `"cuda"`, ...).
 
 - [`device()`](https://r-xla.github.io/tengen/reference/device.html) -\>
   `PJRTDevice`: for the device of the buffer (also includes device
   number)
 
-- [`elt_type()`](elt_type.md) -\> `PJRTElementType`: for the element
-  type of the buffer.
+- [`elt_type()`](https://r-xla.github.io/pjrt/reference/elt_type.md) -\>
+  `PJRTElementType`: for the element type of the buffer.
 
 - [`shape()`](https://r-xla.github.io/tengen/reference/shape.html) -\>
   [`integer()`](https://rdrr.io/r/base/integer.html): for the shape of

@@ -29,10 +29,11 @@ pjrt_client(platform = NULL, ...)
 
 ## Extractors
 
-- [`platform()`](platform.md) for a `character(1)` representation of the
-  platform.
+- [`platform()`](https://r-xla.github.io/pjrt/reference/platform.md) for
+  a `character(1)` representation of the platform.
 
-- [`devices()`](devices.md) for a `list` of `PJRTDevice` objects.
+- [`devices()`](https://r-xla.github.io/pjrt/reference/devices.md) for a
+  `list` of `PJRTDevice` objects.
 
 ## Examples
 

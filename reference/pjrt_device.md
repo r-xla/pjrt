@@ -21,8 +21,8 @@ pjrt_device(device)
 
 ## Extractors
 
-- [`platform()`](platform.md) for a `character(1)` representation of the
-  platform.
+- [`platform()`](https://r-xla.github.io/pjrt/reference/platform.md) for
+  a `character(1)` representation of the platform.
 
 ## Examples
 

@@ -1,5 +1,8 @@
 # pjrt
 
+Package website: [release](https://r-xla.github.io/pjrt/) \|
+[dev](https://r-xla.github.io/pjrt/dev/)
+
 The {pjrt} package provides an R interface to
 [PJRT](https://github.com/openxla/pjrt) (Pretty much Just another
 RunTime), which allows you to *run* [XLA](https://openxla.org/) and

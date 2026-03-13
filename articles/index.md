@@ -2,5 +2,4 @@
 
 ### All vignettes
 
-- [Asynchronous Dispatch](async-dispatch.md):
-- [Get Started](pjrt.md):
+- [Get Started](https://r-xla.github.io/pjrt/articles/pjrt.md):

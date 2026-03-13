@@ -13,7 +13,7 @@ format_buffer(buffer)
 
 - buffer:
 
-  ([`PJRTBuffer`](pjrt_buffer.md))  
+  ([`PJRTBuffer`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md))  
   A PJRT buffer object.
 
 ## Value

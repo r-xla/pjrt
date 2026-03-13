@@ -1,6 +1,7 @@
 # Print a PJRT Buffer
 
-Print a [`PJRTBuffer`](pjrt_buffer.md).
+Print a
+[`PJRTBuffer`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md).
 
 ## Usage
 

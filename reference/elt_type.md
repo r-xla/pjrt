@@ -12,7 +12,7 @@ elt_type(x)
 
 - x:
 
-  ([`PJRTBuffer`](pjrt_buffer.md))  
+  ([`PJRTBuffer`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md))  
   Buffer.
 
 ## Examples

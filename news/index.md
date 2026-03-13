@@ -1,6 +1,6 @@
 # Changelog
 
-## pjrt (development version)
+## pjrt 0.1.1
 
 ### Bug fixes
 

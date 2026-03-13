@@ -12,7 +12,7 @@ devices(client = NULL)
 
 - client:
 
-  ([`PJRTClient`](pjrt_client.md))  
+  ([`PJRTClient`](https://r-xla.github.io/pjrt/reference/pjrt_client.md))  
   Object convertible to a `PJRTClient`.
 
 ## Value
