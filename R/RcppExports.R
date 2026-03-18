@@ -45,10 +45,6 @@ impl_client_buffer_from_raw <- function(client, device, data, dims, dtype, row_m
     .Call(`_pjrt_impl_client_buffer_from_raw`, client, device, data, dims, dtype, row_major)
 }
 
-impl_buffer_to_array <- function(client, buffer) {
-    .Call(`_pjrt_impl_buffer_to_array`, client, buffer)
-}
-
 impl_buffer_to_raw <- function(client, buffer, row_major = FALSE) {
     .Call(`_pjrt_impl_buffer_to_raw`, client, buffer, row_major)
 }

@@ -16,28 +16,16 @@ A \code{PJRTArrayPromise} object. Call \code{value()} to get the R array.
 }
 \description{
 Start an asynchronous transfer of buffer data from device to host.
-Returns immediately with an async array promise object.
+Returns immediately with a \code{PJRTArrayPromise} object.
 
 Use \code{value()} to get the R array (blocks if not ready).
 Use \code{is_ready()} to check if transfer has completed (non-blocking).
-Use \code{as_array()} as an alias for \code{value()}.
-
-This function also accepts \code{PJRTBufferPromise} objects (from \code{pjrt_execute()}
-or \code{pjrt_buffer()}), enabling fully async pipelines. The transfer is chained
-to the previous operation without blocking - PJRT handles the dependency internally.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
-# Create a buffer
 buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-
-# Start async transfer
 result <- as_array_async(buf)
-
-# Check if ready (non-blocking)
 is_ready(result)
-
-# Get the R array (blocks if not ready)
 value(result)
 \dontshow{\}) # examplesIf}
 }

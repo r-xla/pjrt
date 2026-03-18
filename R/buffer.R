@@ -347,43 +347,25 @@ elt_type <- function(x) {
 
 #' @export
 as_array.PJRTBuffer <- function(x, ...) {
-  client <- client_from_device(device(x))
-  impl_buffer_to_array(client, x)
-}
-
-#' @export
-as_raw.PJRTBufferPromise <- function(x, row_major, ...) {
-  as_raw(value(x), row_major = row_major, ...)
+  value(as_array_async(x))
 }
 
 #' @title Convert buffer to R array asynchronously
 #' @description
 #' Start an asynchronous transfer of buffer data from device to host.
-#' Returns immediately with an async array promise object.
+#' Returns immediately with a `PJRTArrayPromise` object.
 #'
 #' Use `value()` to get the R array (blocks if not ready).
 #' Use `is_ready()` to check if transfer has completed (non-blocking).
-#' Use `as_array()` as an alias for `value()`.
-#'
-#' This function also accepts `PJRTBufferPromise` objects (from `pjrt_execute()`
-#' or `pjrt_buffer()`), enabling fully async pipelines. The transfer is chained
-#' to the previous operation without blocking - PJRT handles the dependency internally.
 #'
 #' @param x A `PJRTBuffer` or `PJRTBufferPromise` object.
 #' @param ... Additional arguments (unused).
 #' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
 #' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()]
 #' @examplesIf plugin_is_downloaded()
-#' # Create a buffer
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-#'
-#' # Start async transfer
 #' result <- as_array_async(buf)
-#'
-#' # Check if ready (non-blocking)
 #' is_ready(result)
-#'
-#' # Get the R array (blocks if not ready)
 #' value(result)
 #' @export
 as_array_async <- function(x, ...) {
@@ -398,12 +380,15 @@ as_array_async.PJRTBuffer <- function(x, ...) {
 
 #' @export
 as_array_async.PJRTBufferPromise <- function(x, ...) {
-  # Extract the buffer without waiting - PJRT handles dependencies internally.
-  # Pass all events from the buffer promise for error propagation.
   buf <- x$buffer
   parent_events <- x$events
   result <- impl_buffer_to_host_async(buf)
   pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = parent_events)
+}
+
+#' @export
+as_raw.PJRTBufferPromise <- function(x, row_major, ...) {
+  as_raw(value(x), row_major = row_major, ...)
 }
 
 #' @export

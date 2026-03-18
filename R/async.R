@@ -101,9 +101,7 @@ print.PJRTBufferPromise <- function(x, ...) {
 
 #' @export
 as_array.PJRTBufferPromise <- function(x, ...) {
-  # Get buffer - this blocks if not ready
-  buf <- value(x)
-  as_array(buf)
+  value(as_array_async(x))
 }
 
 #' @keywords internal

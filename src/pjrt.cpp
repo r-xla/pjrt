@@ -354,58 +354,6 @@ SEXP raw_to_array_impl(const uint8_t *raw_data,
   return out;
 }
 
-// Sync buffer-to-array: fetch data from device and convert
-template <typename T>
-SEXP convert_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                             Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int r_type) {
-  const auto dimensions = buffer->dimensions();
-  const auto numel = number_of_elements(dimensions);
-
-  if (numel == 0) {
-    return raw_to_array_impl<T>(nullptr, dimensions, r_type);
-  }
-
-  // Fetch data from device into temporary buffer
-  std::vector<uint8_t> host_buffer(numel * sizeof(T));
-  std::span<uint8_t> host_span(host_buffer.data(), host_buffer.size());
-  buffer->buffer_to_host(host_span);
-
-  // Convert using shared implementation
-  return raw_to_array_impl<T>(host_buffer.data(), dimensions, r_type);
-}
-
-// [[Rcpp::export()]]
-SEXP impl_buffer_to_array(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                          Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
-  const auto element_type = buffer->element_type();
-
-  switch (element_type) {
-    case PJRT_Buffer_Type_F32:
-      return convert_buffer_to_array<float>(client, buffer, REALSXP);
-    case PJRT_Buffer_Type_F64:
-      return convert_buffer_to_array<double>(client, buffer, REALSXP);
-    case PJRT_Buffer_Type_S8:
-      return convert_buffer_to_array<int8_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_S16:
-      return convert_buffer_to_array<int16_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_S32:
-      return convert_buffer_to_array<int32_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_S64:
-      return convert_buffer_to_array<int64_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_U8:
-      return convert_buffer_to_array<uint8_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_U16:
-      return convert_buffer_to_array<uint16_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_U32:
-      return convert_buffer_to_array<uint32_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_U64:
-      return convert_buffer_to_array<uint64_t>(client, buffer, INTSXP);
-    case PJRT_Buffer_Type_PRED:
-      return convert_buffer_to_array<uint8_t>(client, buffer, LGLSXP);
-    default:
-      Rcpp::stop("Unsupported buffer element type for conversion to host.");
-  }
-}
 
 // [[Rcpp::export()]]
 Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
