@@ -1,10 +1,14 @@
 check_buffer <- function(x) {
-  stopifnot(is_buffer(x))
+  stopifnot(is_buffer(x) || is_buffer_promise(x))
   invisible(NULL)
 }
 
 is_buffer <- function(x) {
   inherits(x, "PJRTBuffer")
+}
+
+is_buffer_or_promise <- function(x) {
+  is_buffer(x) || is_buffer_promise(x)
 }
 
 #' @title Create a PJRT Buffer
@@ -87,17 +91,18 @@ pjrt_buffer <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
 }
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
-  if (!is.null(dtype) && !identical(dtype, as.character(elt_type(data)))) {
+  buf <- if (is_buffer_promise(data)) data$buffer else data
+  if (!is.null(dtype) && !identical(dtype, as.character(elt_type(buf)))) {
     cli_abort("Must use the same data type as the data")
   }
   if (!is.null(device)) {
     device <- as_pjrt_device(device)
-    buf_dev <- device(data)
+    buf_dev <- device(buf)
     if (device != buf_dev) {
       cli_abort("Must use the same device as the data")
     }
   }
-  if (!is.null(shape) && !identical(shape, shape(data))) {
+  if (!is.null(shape) && !identical(shape, shape(buf))) {
     cli_abort("Must use the same shape as the data")
   }
   data
@@ -105,6 +110,11 @@ buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...
 
 #' @export
 pjrt_buffer.PJRTBuffer <- buffer_identity
+
+#' @export
+pjrt_buffer.PJRTBufferPromise <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
+  buffer_identity(data, dtype, device, shape, ...)
+}
 
 #' @rdname pjrt_buffer
 #' @examplesIf plugin_is_downloaded()
@@ -118,6 +128,11 @@ pjrt_scalar <- function(data, dtype = NULL, device = NULL, ...) {
 
 #' @export
 pjrt_scalar.PJRTBuffer <- function(data, dtype = NULL, device = NULL, ...) {
+  buffer_identity(data, dtype, device, shape = integer())
+}
+
+#' @export
+pjrt_scalar.PJRTBufferPromise <- function(data, dtype = NULL, device = NULL, ...) {
   buffer_identity(data, dtype, device, shape = integer())
 }
 
@@ -194,7 +209,9 @@ pjrt_buffer.logical <- function(
   shape = NULL,
   ...
 ) {
-  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, shape, "pred", ...))
+  args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
+  result <- do.call(impl_client_buffer_from_logical_async, args)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
 #' @export
@@ -205,7 +222,9 @@ pjrt_buffer.integer <- function(
   shape = NULL,
   ...
 ) {
-  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, shape, "i32", ...))
+  args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
+  result <- do.call(impl_client_buffer_from_integer_async, args)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
 #' @export
@@ -216,7 +235,9 @@ pjrt_buffer.numeric <- function(
   shape = NULL,
   ...
 ) {
-  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, shape, "f32", ...))
+  args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
+  result <- do.call(impl_client_buffer_from_double_async, args)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
 #' @export
@@ -239,7 +260,7 @@ pjrt_buffer.raw <- function(
   }
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
-  impl_client_buffer_from_raw(
+  buffer <- impl_client_buffer_from_raw(
     client = client,
     device = device,
     data = data,
@@ -247,6 +268,7 @@ pjrt_buffer.raw <- function(
     dtype = dtype,
     row_major = row_major
   )
+  pjrt_buffer_promise(buffer, event = NULL)
 }
 
 #' @export
@@ -259,7 +281,9 @@ pjrt_scalar.logical <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  do.call(impl_client_buffer_from_logical, convert_buffer_args(data, dtype, device, integer(), "pred", ...))
+  args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
+  result <- do.call(impl_client_buffer_from_logical_async, args)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
 #' @export
@@ -272,7 +296,9 @@ pjrt_scalar.integer <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  do.call(impl_client_buffer_from_integer, convert_buffer_args(data, dtype, device, integer(), "i32", ...))
+  args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
+  result <- do.call(impl_client_buffer_from_integer_async, args)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
 #' @export
@@ -285,7 +311,9 @@ pjrt_scalar.numeric <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  do.call(impl_client_buffer_from_double, convert_buffer_args(data, dtype, device, integer(), "f32", ...))
+  args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
+  result <- do.call(impl_client_buffer_from_double_async, args)
+  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
 }
 
 #' @export
@@ -298,104 +326,22 @@ pjrt_scalar.raw <- function(
   if (is.null(dtype)) {
     cli_abort("dtype must be provided")
   }
-  do.call(impl_client_buffer_from_raw, convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...))
-}
-
-#' @title Create a PJRT Buffer asynchronously
-#' @description
-#' Create a PJRT Buffer from R data asynchronously.
-#' Returns immediately with a `PJRTBufferPromise` object.
-#'
-#' The buffer is valid immediately and can be used as input to operations.
-#' The event signals when PJRT is done reading from host memory.
-#'
-#' Use `value()` to get the `PJRTBuffer` (blocks if not ready).
-#' Use `is_ready()` to check if transfer has completed (non-blocking).
-#'
-#' @inheritParams pjrt_buffer
-#' @return A `PJRTBufferPromise` object. Call `value()` to get the `PJRTBuffer`.
-#' @seealso [pjrt_buffer()], [value()], [is_ready()]
-#' @examplesIf plugin_is_downloaded()
-#' # Create a buffer asynchronously
-#' x <- pjrt_buffer_async(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-#'
-#' # Check if ready (non-blocking)
-#' is_ready(x)
-#'
-#' # Get the buffer (blocks if not ready)
-#' buf <- value(x)
-#' @export
-pjrt_buffer_async <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
-  UseMethod("pjrt_buffer_async")
-}
-
-#' @export
-pjrt_buffer_async.logical <- function(
-  data,
-  dtype = NULL,
-  device = NULL,
-  shape = NULL,
-  ...
-) {
-  args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
-  result <- impl_client_buffer_from_logical_async(
-    args$client,
-    args$device,
-    args$data,
-    args$dims,
-    args$dtype
-  )
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
-}
-
-#' @export
-pjrt_buffer_async.integer <- function(
-  data,
-  dtype = NULL,
-  device = NULL,
-  shape = NULL,
-  ...
-) {
-  args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
-  result <- impl_client_buffer_from_integer_async(
-    args$client,
-    args$device,
-    args$data,
-    args$dims,
-    args$dtype
-  )
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
-}
-
-#' @export
-pjrt_buffer_async.numeric <- function(
-  data,
-  dtype = NULL,
-  device = NULL,
-  shape = NULL,
-  ...
-) {
-  args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
-  result <- impl_client_buffer_from_double_async(
-    args$client,
-    args$device,
-    args$data,
-    args$dims,
-    args$dtype
-  )
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...)
+  buffer <- do.call(impl_client_buffer_from_raw, args)
+  pjrt_buffer_promise(buffer, event = NULL)
 }
 
 #' @title Element Type
 #' @description
 #' Get the element type of a buffer.
-#' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
+#' @param x ([`PJRTBuffer`][pjrt_buffer] or `PJRTBufferPromise`)\cr
 #'   Buffer.
 #' @examplesIf plugin_is_downloaded("cpu")
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0))
 #' elt_type(buf)
 #' @export
 elt_type <- function(x) {
+  if (is_buffer_promise(x)) x <- x$buffer
   impl_buffer_elt_type(x)
 }
 
@@ -403,6 +349,11 @@ elt_type <- function(x) {
 as_array.PJRTBuffer <- function(x, ...) {
   client <- client_from_device(device(x))
   impl_buffer_to_array(client, x)
+}
+
+#' @export
+as_raw.PJRTBufferPromise <- function(x, row_major, ...) {
+  as_raw(value(x), row_major = row_major, ...)
 }
 
 #' @title Convert buffer to R array asynchronously
@@ -414,14 +365,14 @@ as_array.PJRTBuffer <- function(x, ...) {
 #' Use `is_ready()` to check if transfer has completed (non-blocking).
 #' Use `as_array()` as an alias for `value()`.
 #'
-#' This function also accepts `PJRTBufferPromise` objects (from `pjrt_execute_async()`
-#' or `pjrt_buffer_async()`), enabling fully async pipelines. The transfer is chained
+#' This function also accepts `PJRTBufferPromise` objects (from `pjrt_execute()`
+#' or `pjrt_buffer()`), enabling fully async pipelines. The transfer is chained
 #' to the previous operation without blocking - PJRT handles the dependency internally.
 #'
 #' @param x A `PJRTBuffer` or `PJRTBufferPromise` object.
 #' @param ... Additional arguments (unused).
 #' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
-#' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute_async()]
+#' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create a buffer
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
@@ -502,6 +453,11 @@ device.PJRTBuffer <- function(x, ...) {
   impl_buffer_device(x)
 }
 
+#' @export
+device.PJRTBufferPromise <- function(x, ...) {
+  device(x$buffer)
+}
+
 
 #' @include client.R
 #' @export
@@ -509,6 +465,11 @@ platform.PJRTBuffer <- function(x, ...) {
   desc <- as.character(device(x))
   letters_only <- regmatches(desc, regexpr("^[A-Za-z]+", desc, perl = TRUE))
   tolower(sub("Device$", "", letters_only))
+}
+
+#' @export
+platform.PJRTBufferPromise <- function(x, ...) {
+  platform(x$buffer)
 }
 
 #' @export
@@ -594,6 +555,11 @@ print.PJRTBuffer <- function(
 #' @export
 shape.PJRTBuffer <- function(x, ...) {
   impl_buffer_dimensions(x)
+}
+
+#' @export
+shape.PJRTBufferPromise <- function(x, ...) {
+  shape(x$buffer)
 }
 
 #' @export

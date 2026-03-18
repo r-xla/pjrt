@@ -35,6 +35,7 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
   # nocov start
   # this allows for tests without as_array() conversion
   register_s3_method("waldo", "compare_proxy", "PJRTBuffer")
+  register_s3_method("waldo", "compare_proxy", "PJRTBufferPromise")
   # make safetensors work with pjrt
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(

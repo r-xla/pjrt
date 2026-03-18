@@ -7,7 +7,7 @@
 elt_type(x)
 }
 \arguments{
-\item{x}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
+\item{x}{(\code{\link[=pjrt_buffer]{PJRTBuffer}} or \code{PJRTBufferPromise})\cr
 Buffer.}
 }
 \description{

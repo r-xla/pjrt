@@ -23,7 +23,7 @@ test_that("can return two values", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   result <- pjrt_execute(executable)
-  expect_list(result, types = "PJRTBuffer", len = 2L)
+  expect_list(result, types = "PJRTBufferPromise", len = 2L)
   expect_equal(as_array(result[[1]]), 3)
   expect_equal(as_array(result[[2]]), 7)
 })
@@ -33,11 +33,11 @@ test_that("single-output returns list when simplify=FALSE", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   result <- pjrt_execute(executable, simplify = FALSE)
-  expect_list(result, types = "PJRTBuffer", len = 1L)
+  expect_list(result, types = "PJRTBufferPromise", len = 1L)
   expect_equal(as_array(result[[1]]), 3)
 
   result <- pjrt_execute(executable, simplify = TRUE)
-  expect_class(result, "PJRTBuffer")
+  expect_class(result, "PJRTBufferPromise")
   expect_equal(as_array(result), 3)
 })
 
@@ -58,16 +58,16 @@ test_that("print works", {
 
 # Async execution tests
 
-test_that("pjrt_execute_async returns buffer promise", {
+test_that("pjrt_execute returns buffer promise", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   expect_class(result, "PJRTBufferPromise")
 })
 
-test_that("pjrt_execute_async promise has a single event", {
+test_that("pjrt_execute promise has a single event", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -75,8 +75,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute_async(executable, input)
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute(executable, input)
   expect_length(result$events, 1L)
   expect_s3_class(result$events[[1]], "PJRTEvent")
 })
@@ -86,7 +86,7 @@ test_that("is_ready works for async values", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   # is_ready should return logical
   ready <- is_ready(result)
   expect_true(is.logical(ready))
@@ -98,7 +98,7 @@ test_that("value() returns correct result for async execution", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   output <- value(result)
   expect_class(output, "PJRTBuffer")
   expect_equal(as_array(output), 3)
@@ -113,7 +113,7 @@ test_that("async execution with multiple outputs", {
   executable <- pjrt_compile(program)
 
   # With multiple outputs, returns list of buffer promises
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   expect_list(result, types = "PJRTBufferPromise", len = 2L)
 
   # Each buffer promise can be awaited individually
@@ -131,7 +131,7 @@ test_that("async execution with simplify=FALSE", {
   executable <- pjrt_compile(program)
 
   # With simplify=FALSE, returns list even for single output
-  result <- pjrt_execute_async(executable, simplify = FALSE)
+  result <- pjrt_execute(executable, simplify = FALSE)
   expect_list(result, types = "PJRTBufferPromise", len = 1L)
 
   # The buffer promise contains a single buffer
@@ -144,7 +144,7 @@ test_that("print.PJRTBufferPromise works", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   expect_output(print(result), "PJRTBufferPromise")
 })
 
@@ -153,7 +153,7 @@ test_that("as_array works for async values (single output)", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   arr <- as_array(result)
   expect_equal(arr, 3)
 })
@@ -167,7 +167,7 @@ test_that("as_array works for async values (multiple outputs)", {
   executable <- pjrt_compile(program)
 
   # With multiple outputs, get list of async values
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   expect_list(result, len = 2L)
 
   # as_array on each async value
@@ -183,7 +183,7 @@ test_that("async execution chained with async buffer-to-host", {
   executable <- pjrt_compile(program)
 
   # Start async execution
-  async_result <- pjrt_execute_async(executable)
+  async_result <- pjrt_execute(executable)
   expect_class(async_result, "PJRTBufferPromise")
 
   # Chain with async buffer-to-host transfer (auto-waits for execution)
@@ -212,7 +212,7 @@ test_that("async execution with inputs chained to async buffer-to-host", {
   i2_buf <- pjrt_scalar(1L, "i32")
 
   # Execute asynchronously
-  async_result <- pjrt_execute_async(executable, x_buf, i1_buf, i2_buf)
+  async_result <- pjrt_execute(executable, x_buf, i1_buf, i2_buf)
   expect_class(async_result, "PJRTBufferPromise")
 
   # Chain with async buffer-to-host transfer
@@ -233,7 +233,7 @@ test_that("async execution with multiple outputs chained to async transfer", {
   executable <- pjrt_compile(program)
 
   # Execute asynchronously - returns list of buffer promises
-  result <- pjrt_execute_async(executable)
+  result <- pjrt_execute(executable)
   expect_list(result, len = 2L)
 
   # Chain each output with async buffer-to-host transfer
@@ -252,8 +252,8 @@ test_that("async execution with multiple outputs chained to async transfer", {
 
 # Event chain tracking tests ------------------------------------------------
 
-test_that("buffer_promise tracks events from pjrt_buffer_async", {
-  x <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+test_that("buffer_promise tracks events from pjrt_buffer", {
+  x <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
   # Should have one event in the chain
   expect_length(x$events, 1L)
@@ -272,11 +272,11 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # Create input buffer asynchronously
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   expect_length(input$events, 1L)
 
   # Execute asynchronously - PJRT handles input dependencies internally
-  result <- pjrt_execute_async(executable, input)
+  result <- pjrt_execute(executable, input)
 
   # Result should have 1 event: execution only (no parent propagation)
   expect_length(result$events, 1L)
@@ -295,8 +295,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # Create full async chain: buffer -> execute -> as_array
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute_async(executable, input)
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
   # arr_promise should have 2 events: execution (from result) + D2H transfer
@@ -318,13 +318,13 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   exec2 <- pjrt_compile(pjrt_program(src))
 
   # Chain: buffer_async -> execute1 -> execute2 -> as_array_async
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   expect_length(input$events, 1L)
 
-  result1 <- pjrt_execute_async(exec1, input)
+  result1 <- pjrt_execute(exec1, input)
   expect_length(result1$events, 1L)
 
-  result2 <- pjrt_execute_async(exec2, result1)
+  result2 <- pjrt_execute(exec2, result1)
   expect_length(result2$events, 1L)
 
   arr_promise <- as_array_async(result2)
@@ -343,8 +343,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute_async(executable, input)
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
   # is_ready should return a logical value
@@ -370,7 +370,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
   # Execute async with sync input - only execution event should be present
-  result <- pjrt_execute_async(executable, input)
+  result <- pjrt_execute(executable, input)
   expect_length(result$events, 1L)
 
   arr <- as_array(value(result))
@@ -388,10 +388,10 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # One async, one sync input
-  x_async <- pjrt_buffer_async(matrix(1:4, 2, 2), dtype = "f32")
+  x_async <- pjrt_buffer(matrix(1:4, 2, 2), dtype = "f32")
   y_sync <- pjrt_buffer(matrix(5:8, 2, 2), dtype = "f32")
 
-  result <- pjrt_execute_async(executable, x_async, y_sync)
+  result <- pjrt_execute(executable, x_async, y_sync)
 
   # Should have 1 event: execution only (no parent propagation)
   expect_length(result$events, 1L)
@@ -416,7 +416,7 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   # The error should be caught during execute_async (input validation)
   # CPU says "size", Metal says "shape"
   expect_error(
-    pjrt_execute_async(executable, wrong_input),
+    pjrt_execute(executable, wrong_input),
     "size|shape"
   )
 })
@@ -435,7 +435,7 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   # Error should be caught at execute time
   # CPU says "size", Metal says "shape"
   expect_error(
-    pjrt_execute_async(executable, wrong_input),
+    pjrt_execute(executable, wrong_input),
     "size|shape"
   )
 })
@@ -449,10 +449,10 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # Create async input and chain it
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
   # Execute successfully
-  result <- pjrt_execute_async(executable, input)
+  result <- pjrt_execute(executable, input)
 
   # The chain should work
   arr_promise <- as_array_async(result)
@@ -475,8 +475,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # Build a chain
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute_async(executable, input)
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
   # Before calling value, check that events list is complete
@@ -527,7 +527,7 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   # NOT deferred to value()
   # CPU says "size", Metal says "shape"
   expect_error(
-    pjrt_execute_async(executable, wrong_shape_buffer),
+    pjrt_execute(executable, wrong_shape_buffer),
     "size|shape"
   )
 })
@@ -549,8 +549,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # Build async chain
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute_async(executable, input)
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
   # execution event (from result) + D2H transfer event
@@ -572,8 +572,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute_async(executable, input)
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
   # On CPU, operations complete synchronously, so is_ready should be TRUE
@@ -602,7 +602,7 @@ func.func @main(%x: tensor<4xf32>) -> tensor<4xf32> {
   # Error message should mention the size/shape mismatch
   # CPU mentions size in bytes, Metal mentions shape
   expect_error(
-    pjrt_execute_async(executable, wrong_buffer),
+    pjrt_execute(executable, wrong_buffer),
     regexp = "size|shape",
     ignore.case = TRUE
   )
@@ -622,8 +622,8 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   executable <- pjrt_compile(pjrt_program(src))
 
   # Build a chain
-  input <- pjrt_buffer_async(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute_async(executable, input)
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
+  result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
   # execution event (from result) + D2H transfer event
@@ -660,7 +660,7 @@ func.func @main(%x: tensor<3xf32>, %idx: tensor<i32>) -> tensor<2xf32> {
   # Index 5 would be out of bounds, but XLA clamps it
   idx <- pjrt_scalar(5L, "i32")
 
-  result <- pjrt_execute_async(executable, x, idx)
+  result <- pjrt_execute(executable, x, idx)
   arr_promise <- as_array_async(result)
 
   # No error - XLA clamps the index to valid range

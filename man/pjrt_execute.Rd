@@ -18,20 +18,25 @@ Named are ignored and arguments are passed in order.}
 Optional execution options for configuring buffer donation and other settings.}
 
 \item{simplify}{(\code{logical(1)})\cr
-If \code{TRUE} (default), a single output is returned as a \code{PJRTBuffer}.
-If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBuffer}.}
+If \code{TRUE} (default), a single output is returned as a \code{PJRTBufferPromise}.
+If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBufferPromise}.}
 }
 \value{
-\code{PJRTBuffer} | \code{list} of \code{PJRTBuffer}s
+\code{PJRTBufferPromise} | \code{list} of \code{PJRTBufferPromise}s
 }
 \description{
 Execute a PJRT program with the given inputs and execution options.
+Returns immediately with buffer promise(s) that can be awaited later.
 
 \strong{Important:}
 Arguments are passed by position and names are ignored.
 
 Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{PJRTBufferPromise}).
 Buffer promises are resolved automatically before execution.
+
+Use \code{value()} to get the result (blocks if not ready).
+Use \code{is_ready()} to check if execution has completed (non-blocking).
+Use \code{as_array_async()} to chain async buffer-to-host transfer.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
@@ -53,4 +58,7 @@ x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
 pjrt_execute(exec, x, y)
 \dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}
 }

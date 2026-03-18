@@ -22,8 +22,8 @@ Use \code{value()} to get the R array (blocks if not ready).
 Use \code{is_ready()} to check if transfer has completed (non-blocking).
 Use \code{as_array()} as an alias for \code{value()}.
 
-This function also accepts \code{PJRTBufferPromise} objects (from \code{pjrt_execute_async()}
-or \code{pjrt_buffer_async()}), enabling fully async pipelines. The transfer is chained
+This function also accepts \code{PJRTBufferPromise} objects (from \code{pjrt_execute()}
+or \code{pjrt_buffer()}), enabling fully async pipelines. The transfer is chained
 to the previous operation without blocking - PJRT handles the dependency internally.
 }
 \examples{
@@ -42,5 +42,5 @@ value(result)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=as_array]{as_array()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=pjrt_execute_async]{pjrt_execute_async()}}
+\code{\link[=as_array]{as_array()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=pjrt_execute]{pjrt_execute()}}
 }

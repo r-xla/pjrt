@@ -1,12 +1,9 @@
-# Helper to resolve async inputs to buffers
+# Extract the raw PJRTBuffer XPtr from a buffer promise or buffer.
 # For buffer promises, the buffer is valid immediately - PJRT handles
 # dependencies internally. If there's a data_holder, register callback
 # to keep it alive until the transfer completes.
 resolve_buffer_input <- function(x) {
-  if (inherits(x, "PJRTBufferPromise")) {
-    # Buffer is valid immediately - PJRT handles dependencies internally.
-    # If there's a data_holder (from host-to-device transfer), register
-    # callback to keep it alive until transfer completes.
+  if (is_buffer_promise(x)) {
     if (!is.null(x$event) && !is.null(x$data_holder)) {
       impl_event_release_on_ready(x$event, x$data_holder)
     }
@@ -21,12 +18,17 @@ resolve_buffer_input <- function(x) {
 #' @title Execute a PJRT program
 #' @description
 #' Execute a PJRT program with the given inputs and execution options.
+#' Returns immediately with buffer promise(s) that can be awaited later.
 #'
 #' **Important:**
 #' Arguments are passed by position and names are ignored.
 #'
 #' Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBufferPromise`).
 #' Buffer promises are resolved automatically before execution.
+#'
+#' Use `value()` to get the result (blocks if not ready).
+#' Use `is_ready()` to check if execution has completed (non-blocking).
+#' Use `as_array_async()` to chain async buffer-to-host transfer.
 #'
 #' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program.
@@ -36,9 +38,10 @@ resolve_buffer_input <- function(x) {
 #' @param execution_options (`PJRTExecuteOptions`)\cr
 #'   Optional execution options for configuring buffer donation and other settings.
 #' @param simplify (`logical(1)`)\cr
-#'   If `TRUE` (default), a single output is returned as a `PJRTBuffer`.
-#'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBuffer`.
-#' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
+#'   If `TRUE` (default), a single output is returned as a `PJRTBufferPromise`.
+#'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBufferPromise`.
+#' @return `PJRTBufferPromise` | `list` of `PJRTBufferPromise`s
+#' @seealso [value()], [is_ready()], [as_array_async()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create and compile a simple identity program
 #' src <- r"(
@@ -59,74 +62,6 @@ resolve_buffer_input <- function(x) {
 #' pjrt_execute(exec, x, y)
 #' @export
 pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = TRUE) {
-  if (!is.null(...names())) {
-    cli_abort("Expected unnamed arguments")
-  }
-  check_loaded_executable(executable)
-  input_raw <- list(...)
-  # Resolve any async inputs (auto-wait)
-  input <- lapply(input_raw, resolve_buffer_input)
-
-  if (is.null(execution_options)) {
-    execution_options <- pjrt_execution_options()
-  } else {
-    check_execution_options(execution_options)
-  }
-
-  assert_flag(simplify)
-
-  result <- impl_loaded_executable_execute(executable, input, execution_options)
-  # Drain any queued releases from async inputs (e.g., buffer promises).
-  impl_process_pending_releases()
-
-  if (simplify && length(result) == 1L) {
-    return(result[[1]])
-  }
-
-  result
-}
-
-#' @title Execute a PJRT program asynchronously
-#' @description
-#' Execute a PJRT program asynchronously with the given inputs.
-#' Returns immediately with buffer promise(s) that can be awaited later.
-#'
-#' Use `value()` to get the result (blocks if not ready).
-#' Use `is_ready()` to check if execution has completed (non-blocking).
-#' Use `as_array_async()` to chain async buffer-to-host transfer.
-#'
-#' Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBufferPromise`).
-#' Buffer promises are resolved automatically before execution.
-#'
-#' @inheritParams pjrt_execute
-#' @return A `PJRTBufferPromise` object (or list of them if multiple outputs).
-#'   Call `value()` to get the `PJRTBuffer`.
-#' @seealso [pjrt_execute()], [value()], [is_ready()], [as_array_async()], [pjrt_buffer_async()]
-#' @examplesIf plugin_is_downloaded()
-#' # Create and compile a simple program
-#' src <- r"(
-#' func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
-#'   "func.return"(%x): (tensor<2x2xf32>) -> ()
-#' }
-#' )"
-#' prog <- pjrt_program(src = src)
-#' exec <- pjrt_compile(prog)
-#'
-#' # Execute asynchronously
-#' x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-#' result <- pjrt_execute_async(exec, x)
-#'
-#' # Check if ready (non-blocking)
-#' is_ready(result)
-#'
-#' # Get the result (blocks if not ready)
-#' value(result)
-#'
-#' # Chain with async buffer-to-host transfer
-#' arr <- as_array_async(result)
-#' value(arr)
-#' @export
-pjrt_execute_async <- function(executable, ..., execution_options = NULL, simplify = TRUE) {
   if (!is.null(...names())) {
     cli_abort("Expected unnamed arguments")
   }

@@ -34,8 +34,8 @@ is_ready <- function(x, ...) {
 #' @title Create a PJRT Buffer Promise (internal)
 #' @description
 #' Internal constructor for async buffer results.
-#' Users should not call this directly - use `pjrt_execute_async()` or
-#' `pjrt_buffer_async()` instead.
+#' Users should not call this directly - use `pjrt_execute()` or
+#' `pjrt_buffer()` instead.
 #'
 #' The buffer is valid immediately and can be used in subsequent operations
 #' (PJRT handles dependencies internally). Call `value()` to block until
@@ -112,7 +112,10 @@ is_buffer_promise <- function(x) {
 }
 
 #' @keywords internal
+#' @title Extract events from a buffer promise
 #' @description Extract all events from a buffer promise for chaining
+#' @param x A buffer promise or other object
+#' @return A list of events
 get_events <- function(x) {
   if (inherits(x, "PJRTBufferPromise")) {
     x$events

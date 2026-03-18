@@ -75,9 +75,19 @@ safe_tensor_buffer.PJRTBuffer <- function(x) {
 }
 
 #' @export
+safe_tensor_buffer.PJRTBufferPromise <- function(x) {
+  safe_tensor_buffer(value(x))
+}
+
+#' @export
 safe_tensor_meta.PJRTBuffer <- function(x) {
   list(
     shape = as.list(shape(x)), # Convert to list to avoid simplification
     dtype = pjrt_dtype_to_safetensors(as.character(elt_type(x)))
   )
+}
+
+#' @export
+safe_tensor_meta.PJRTBufferPromise <- function(x) {
+  safe_tensor_meta.PJRTBuffer(x$buffer)
 }

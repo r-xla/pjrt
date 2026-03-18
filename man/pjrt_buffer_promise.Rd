@@ -20,8 +20,8 @@ A \code{PJRTBufferPromise} object.
 }
 \description{
 Internal constructor for async buffer results.
-Users should not call this directly - use \code{pjrt_execute_async()} or
-\code{pjrt_buffer_async()} instead.
+Users should not call this directly - use \code{pjrt_execute()} or
+\code{pjrt_buffer()} instead.
 
 The buffer is valid immediately and can be used in subsequent operations
 (PJRT handles dependencies internally). Call \code{value()} to block until
