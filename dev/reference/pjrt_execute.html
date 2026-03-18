@@ -6,10 +6,22 @@
     }
   };
 </script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Execute a PJRT program — pjrt_execute"><meta name="description" content="Execute a PJRT program with the given inputs and execution options.
+Returns immediately with buffer promise(s) that can be awaited later.
 Important:
-Arguments are passed by position and names are ignored."><meta property="og:description" content="Execute a PJRT program with the given inputs and execution options.
+Arguments are passed by position and names are ignored.
+Inputs can be PJRTBuffer objects or buffer promises (PJRTBufferPromise).
+Buffer promises are resolved automatically before execution.
+Use value() to get the result (blocks if not ready).
+Use is_ready() to check if execution has completed (non-blocking).
+Use as_array_async() to chain async buffer-to-host transfer."><meta property="og:description" content="Execute a PJRT program with the given inputs and execution options.
+Returns immediately with buffer promise(s) that can be awaited later.
 Important:
-Arguments are passed by position and names are ignored."><meta name="robots" content="noindex"></head><body>
+Arguments are passed by position and names are ignored.
+Inputs can be PJRTBuffer objects or buffer promises (PJRTBufferPromise).
+Buffer promises are resolved automatically before execution.
+Use value() to get the result (blocks if not ready).
+Use is_ready() to check if execution has completed (non-blocking).
+Use as_array_async() to chain async buffer-to-host transfer."><meta name="robots" content="noindex"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -46,14 +58,20 @@ Arguments are passed by position and names are ignored."><meta name="robots" con
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Execute a PJRT program</h1>
-      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/main/R/loaded_executable.R" class="external-link"><code>R/loaded_executable.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/r-xla/pjrt/blob/feature/async-execution/R/loaded_executable.R" class="external-link"><code>R/loaded_executable.R</code></a></small>
       <div class="d-none name"><code>pjrt_execute.Rd</code></div>
     </div>
 
     <div class="ref-description section level2">
-    <p>Execute a PJRT program with the given inputs and execution options.</p>
+    <p>Execute a PJRT program with the given inputs and execution options.
+Returns immediately with buffer promise(s) that can be awaited later.</p>
 <p><strong>Important:</strong>
 Arguments are passed by position and names are ignored.</p>
+<p>Inputs can be <code>PJRTBuffer</code> objects or buffer promises (<code>PJRTBufferPromise</code>).
+Buffer promises are resolved automatically before execution.</p>
+<p>Use <code><a href="value.html">value()</a></code> to get the result (blocks if not ready).
+Use <code><a href="is_ready.html">is_ready()</a></code> to check if execution has completed (non-blocking).
+Use <code><a href="as_array_async.html">as_array_async()</a></code> to chain async buffer-to-host transfer.</p>
     </div>
 
     <div class="section level2">
@@ -71,7 +89,7 @@ A PJRT program.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>(<code>PJRTBuffer)</code><br>
+<dd><p>(<code>PJRTBuffer</code> | <code>PJRTBufferPromise</code>)<br>
 Inputs to the program.
 Named are ignored and arguments are passed in order.</p></dd>
 
@@ -83,13 +101,17 @@ Optional execution options for configuring buffer donation and other settings.</
 
 <dt id="arg-simplify">simplify<a class="anchor" aria-label="anchor" href="#arg-simplify"></a></dt>
 <dd><p>(<code>logical(1)</code>)<br>
-If <code>TRUE</code> (default), a single output is returned as a <code>PJRTBuffer</code>.
-If <code>FALSE</code>, a single output is returned as a <code>list</code> of length 1 containing a <code>PJRTBuffer</code>.</p></dd>
+If <code>TRUE</code> (default), a single output is returned as a <code>PJRTBufferPromise</code>.
+If <code>FALSE</code>, a single output is returned as a <code>list</code> of length 1 containing a <code>PJRTBufferPromise</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>PJRTBuffer</code> | <code>list</code> of <code>PJRTBuffer</code>s</p>
+    <p><code>PJRTBufferPromise</code> | <code>list</code> of <code>PJRTBufferPromise</code>s</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="value.html">value()</a></code>, <code><a href="is_ready.html">is_ready()</a></code>, <code><a href="as_array_async.html">as_array_async()</a></code></p></div>
     </div>
 
     <div class="section level2">

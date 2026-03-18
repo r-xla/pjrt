@@ -7,6 +7,9 @@
 
   Convert `PJRTElementType` to string
 
+- [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
+  : Convert buffer to R array asynchronously
+
 - [`as_pjrt_client()`](https://r-xla.github.io/pjrt/dev/reference/as_pjrt_client.md)
   : Convert to PJRT Client
 
@@ -24,6 +27,9 @@
 
 - [`format_buffer()`](https://r-xla.github.io/pjrt/dev/reference/format_buffer.md)
   : Format Buffer Data
+
+- [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
+  : Check if an async operation is ready
 
 - [`pjrt`](https://r-xla.github.io/pjrt/dev/reference/pjrt-package.md)
   [`pjrt-package`](https://r-xla.github.io/pjrt/dev/reference/pjrt-package.md)
@@ -71,3 +77,6 @@
 
 - [`print(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/dev/reference/print.PJRTBuffer.md)
   : Print a PJRT Buffer
+
+- [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) : Get
+  the value of an async operation
