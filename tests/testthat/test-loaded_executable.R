@@ -661,7 +661,9 @@ func.func @main(%x: tensor<f32>) -> tensor<100000x100000xf32> {
   result <- pjrt_execute(executable, input)
 
   # The OOM error surfaces when we try to materialize the result
-  expect_error(as_array(result))
+  err <- tryCatch(as_array(result), error = function(e) e)
+  cat("OOM error message:", conditionMessage(err), "\n")
+  expect_s3_class(err, "error")
 })
 
 test_that("async errors: CPU backend clamps out-of-bounds indices (no runtime error)", {
