@@ -131,36 +131,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_client_buffer_from_integer
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_integer(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
-    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
-    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer(client, device, data, dims, dtype));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_client_buffer_from_logical
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_logical(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
-    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
-    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_logical(client, device, data, dims, dtype));
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_client_buffer_from_raw
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype, bool row_major);
 RcppExport SEXP _pjrt_impl_client_buffer_from_raw(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP, SEXP row_majorSEXP) {
@@ -174,21 +144,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
     Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_raw(client, device, data, dims, dtype, row_major));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_client_buffer_from_double
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_double(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
-    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
-    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double(client, device, data, dims, dtype));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -236,19 +191,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_client_devices(client));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_loaded_executable_execute
-SEXP impl_loaded_executable_execute(Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input, Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
-RcppExport SEXP _pjrt_impl_loaded_executable_execute(SEXP executableSEXP, SEXP inputSEXP, SEXP execution_optionsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> >::type executable(executableSEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type input(inputSEXP);
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTExecuteOptions> >::type execution_options(execution_optionsSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_loaded_executable_execute(executable, input, execution_options));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -555,15 +497,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_build_options_create", (DL_FUNC) &_pjrt_impl_build_options_create, 3},
     {"_pjrt_impl_compile_options_create", (DL_FUNC) &_pjrt_impl_compile_options_create, 1},
     {"_pjrt_impl_client_program_compile", (DL_FUNC) &_pjrt_impl_client_program_compile, 3},
-    {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 5},
-    {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 5},
     {"_pjrt_impl_client_buffer_from_raw", (DL_FUNC) &_pjrt_impl_client_buffer_from_raw, 6},
-    {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 5},
     {"_pjrt_impl_buffer_to_array", (DL_FUNC) &_pjrt_impl_buffer_to_array, 2},
     {"_pjrt_impl_buffer_to_raw", (DL_FUNC) &_pjrt_impl_buffer_to_raw, 3},
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},
     {"_pjrt_impl_client_devices", (DL_FUNC) &_pjrt_impl_client_devices, 1},
-    {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
     {"_pjrt_impl_buffer_elt_type", (DL_FUNC) &_pjrt_impl_buffer_elt_type, 1},
     {"_pjrt_impl_buffer_device", (DL_FUNC) &_pjrt_impl_buffer_device, 1},
     {"_pjrt_impl_buffer_memory", (DL_FUNC) &_pjrt_impl_buffer_memory, 1},
