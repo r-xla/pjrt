@@ -499,11 +499,10 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 #   (input validation). The CPU backend is robust and rarely produces true
 #   runtime errors - XLA clamps indices, produces inf/nan for invalid math, etc.
 #
-# - GPU/TPU backends: Errors may be deferred until value() is called because
-#   execution is truly asynchronous. Common runtime errors include:
-#   - Out of memory
-#   - Device communication failures
-#   - Computation errors
+# - GPU/TPU backends: Most errors (including OOM) are also caught synchronously
+#   during execute_async(). However, some runtime errors may be deferred until
+#   value() is called (e.g., device communication failures, certain computation
+#   errors).
 #
 # The event chain tracking ensures that when value() is called, ALL events
 # in the chain are awaited, so errors from ANY step are properly surfaced.
@@ -640,12 +639,13 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   expect_equal(as.vector(arr), c(2.0, 4.0, 6.0), tolerance = 1e-6)
 })
 
-test_that("async errors: OOM during execution surfaces at value() time", {
+test_that("async errors: OOM during execution is caught at pjrt_execute() time", {
   skip_if(!is_cuda(), "OOM test only meaningful on GPU")
 
   # Program that broadcasts a scalar to an enormous tensor (~40GB for f32).
-  # The input is tiny, so buffer creation succeeds. The OOM should happen
-  # when the device tries to allocate the output buffer during execution.
+  # The input is tiny, so buffer creation succeeds. The OOM happens when
+  # the CUDA backend tries to allocate the output buffer during execution.
+  # On GPU, this is caught synchronously by PJRT_LoadedExecutable_Execute_.
   src <- r"(
 func.func @main(%x: tensor<f32>) -> tensor<100000x100000xf32> {
   %0 = "stablehlo.broadcast_in_dim"(%x) {
@@ -657,13 +657,7 @@ func.func @main(%x: tensor<f32>) -> tensor<100000x100000xf32> {
   executable <- pjrt_compile(pjrt_program(src))
   input <- pjrt_scalar(1.0, dtype = "f32")
 
-  # pjrt_execute() should return without error — execution is dispatched async
-  result <- pjrt_execute(executable, input)
-
-  # The OOM error surfaces when we try to materialize the result
-  err <- tryCatch(as_array(result), error = function(e) e)
-  cat("OOM error message:", conditionMessage(err), "\n")
-  expect_s3_class(err, "error")
+  expect_error(pjrt_execute(executable, input), "Out of memory")
 })
 
 test_that("async errors: CPU backend clamps out-of-bounds indices (no runtime error)", {
