@@ -640,6 +640,30 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   expect_equal(as.vector(arr), c(2.0, 4.0, 6.0), tolerance = 1e-6)
 })
 
+test_that("async errors: OOM during execution surfaces at value() time", {
+  skip_if(!is_cuda(), "OOM test only meaningful on GPU")
+
+  # Program that broadcasts a scalar to an enormous tensor (~40GB for f32).
+  # The input is tiny, so buffer creation succeeds. The OOM should happen
+  # when the device tries to allocate the output buffer during execution.
+  src <- r"(
+func.func @main(%x: tensor<f32>) -> tensor<100000x100000xf32> {
+  %0 = "stablehlo.broadcast_in_dim"(%x) {
+    broadcast_dimensions = array<i64>
+  } : (tensor<f32>) -> tensor<100000x100000xf32>
+  "func.return"(%0): (tensor<100000x100000xf32>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src))
+  input <- pjrt_scalar(1.0, dtype = "f32")
+
+  # pjrt_execute() should return without error — execution is dispatched async
+  result <- pjrt_execute(executable, input)
+
+  # The OOM error surfaces when we try to materialize the result
+  expect_error(as_array(result))
+})
+
 test_that("async errors: CPU backend clamps out-of-bounds indices (no runtime error)", {
   # This test documents that the CPU backend is robust and doesn't error
   # on out-of-bounds access - it clamps indices instead. This is XLA behavior.
