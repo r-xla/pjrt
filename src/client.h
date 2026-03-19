@@ -53,9 +53,6 @@ class PJRTLoadedExecutable {
   std::shared_ptr<PJRT_Api> api;
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                        std::shared_ptr<PJRT_Api> api);
-  std::vector<std::unique_ptr<PJRTBuffer>> execute(
-      std::vector<PJRTBuffer *> input,
-      const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
@@ -71,10 +68,6 @@ class PJRTClient {
   std::vector<PJRT_Device *> devices();
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options);
-  std::unique_ptr<PJRTBuffer> buffer_from_host(
-      void *data, const std::optional<std::vector<int64_t>> &dims,
-      const std::optional<std::vector<int64_t>> &strides,
-      PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);
   AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,

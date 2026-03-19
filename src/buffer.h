@@ -55,9 +55,7 @@ class PJRTBuffer {
   PJRT_Buffer_Type element_type();
   std::unique_ptr<PJRTDevice> device();
   std::shared_ptr<PJRT_Api> get_api() const { return api; }
-  void buffer_to_host(std::span<uint8_t>& host_buffer);
-  // Async version - returns event, caller must keep host_buffer alive until
-  // event completes
+  // Returns event - caller must keep host_buffer alive until event completes
   std::unique_ptr<PJRTEvent> buffer_to_host_async(
       std::span<uint8_t>& host_buffer);
 

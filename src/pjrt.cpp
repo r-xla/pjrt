@@ -251,9 +251,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
     bool row_major = false, PJRT_Device *device = nullptr) {
   auto byte_strides_opt =
       get_byte_strides(dims, row_major, sizeof_pjrt_buffer_type(dtype));
-  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(
-      client->buffer_from_host(RAW(data), dims, byte_strides_opt, dtype, device)
-          .release());
+  auto result = client->buffer_from_host_async(RAW(data), dims,
+                                                byte_strides_opt, dtype, device);
+  if (result.event) {
+    result.event->await();
+  }
+  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffer.release());
   xptr.attr("class") = "PJRTBuffer";
   return xptr;
 }
@@ -378,7 +381,11 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
     // 2. We don't need to transpose the data
     std::span<uint8_t> host_buffer(
         reinterpret_cast<uint8_t *>(raw_data.begin()), total_bytes);
-    buffer->buffer_to_host(host_buffer);
+    auto event = buffer->buffer_to_host_async(host_buffer);
+    if (event) {
+      event->await();
+      event->check_error();
+    }
     return raw_data;
   }
 
@@ -387,7 +394,11 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
     std::vector<T> temp_vec(numel);
     std::span<uint8_t> host_buffer(reinterpret_cast<uint8_t *>(temp_vec.data()),
                                    total_bytes);
-    buffer->buffer_to_host(host_buffer);
+    auto event = buffer->buffer_to_host_async(host_buffer);
+    if (event) {
+      event->await();
+      event->check_error();
+    }
     row_to_col_order<T, T>(temp_vec, reinterpret_cast<T *>(raw_data.begin()),
                            dimensions);
   };
@@ -692,7 +703,6 @@ Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   const size_t total_bytes = numel * sizeof_pjrt_buffer_type(element_type);
 
   // Allocate vector to hold the data - wrapped in XPtr so R manages lifetime
-  // TODO: Simplify sync buffer_to_host to also use this pattern for consistency
   auto data_vec = std::make_unique<std::vector<uint8_t>>(total_bytes);
   std::span<uint8_t> host_buffer(data_vec->data(), total_bytes);
 
