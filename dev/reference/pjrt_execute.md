@@ -1,12 +1,13 @@
 # Execute a PJRT program
 
 Execute a PJRT program with the given inputs and execution options.
-Returns immediately with buffer promise(s) that can be awaited later.
+Returns immediately with `PJRTBuffer` object(s) that may not be ready
+yet.
 
 **Important:** Arguments are passed by position and names are ignored.
 
-Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBuffer`).
-Buffer promises are resolved automatically before execution.
+Inputs can be `PJRTBuffer` objects, including buffers that are not yet
+ready. PJRT handles the dependencies internally.
 
 Use [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) to
 block until the result is ready. Use

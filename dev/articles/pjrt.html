@@ -85,10 +85,10 @@ a specific hardware backend, and this package currently supports CPU,
 NVIDIA GPU, and Metal (Apple GPU; experimental) plugins.</p>
 <p>A key design principle of pjrt is <strong>asynchronous
 dispatch</strong>: operations like buffer creation and program execution
-return immediately with <em>promises</em>, allowing R to continue
-preparing work while the device computes in the background. This enables
-efficient overlap of host and device work, which is critical for
-performance on accelerators.</p>
+return immediately with <code>PJRTBuffer</code> objects that may not be
+ready yet, allowing R to continue preparing work while the device
+computes in the background. This enables efficient overlap of host and
+device work, which is critical for performance on accelerators.</p>
 </div>
 <div class="section level2">
 <h2 id="plugins-and-clients">Plugins and Clients<a class="anchor" aria-label="anchor" href="#plugins-and-clients"></a>
@@ -128,9 +128,9 @@ handling, compilation and execution.</p>
 </h2>
 <p>Using a client, we can move data from the host (standard R objects)
 to a specific device to create a buffer. <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>
-returns a <code>PJRTBufferPromise</code> — a promise that resolves to a
-<code>PJRTBuffer</code> once the host-to-device transfer completes. R
-does not block; it returns immediately.</p>
+returns a <code>PJRTBuffer</code> immediately — the buffer may not be
+ready yet (the host-to-device transfer happens asynchronously), but R
+does not block.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">host_data</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span></span>
 <span><span class="va">buf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">host_data</span>, device <span class="op">=</span> <span class="va">cpu_device</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
@@ -188,9 +188,9 @@ binary.</p>
 <h2 id="execution">Execution<a class="anchor" aria-label="anchor" href="#execution"></a>
 </h2>
 <p>With buffers and an executable ready, we can run the program.
-<code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> also returns a
-<code>PJRTBufferPromise</code> — R gets control back immediately while
-the device computes.</p>
+<code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> also returns a <code>PJRTBuffer</code>
+immediately — R gets control back while the device computes in the
+background.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">6</span>, <span class="fl">7</span>, <span class="fl">8</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
@@ -225,12 +225,14 @@ Device: [wait.........] [compute] [wait.........] [compute] [wait.........]</cod
 <pre><code>Host:   [prepare batch 1] [prepare batch 2] [prepare batch 3] [prepare batch 4]
 Device:                   [compute 1......] [compute 2......] [compute 3......]</code></pre>
 <p>In pjrt, this happens automatically. Both <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>
-and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> return promises and don’t block R. You
-only pay the synchronization cost when you actually need the result
-(e.g. calling <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> or <code><a href="../reference/value.html">value()</a></code>).</p>
+and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> return <code>PJRTBuffer</code> objects
+immediately without blocking R. The buffer may not be ready yet, but you
+can pass it directly to other operations. You only pay the
+synchronization cost when you actually need the host-side result
+(e.g. calling <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>).</p>
 </div>
 <div class="section level3">
-<h3 id="promise-types">Promise types<a class="anchor" aria-label="anchor" href="#promise-types"></a>
+<h3 id="async-types">Async types<a class="anchor" aria-label="anchor" href="#async-types"></a>
 </h3>
 <table class="table">
 <thead><tr class="header">
@@ -241,12 +243,12 @@ only pay the synchronization cost when you actually need the result
 <tbody>
 <tr class="odd">
 <td><code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code></td>
-<td><code>PJRTBufferPromise</code></td>
+<td><code>PJRTBuffer</code></td>
 <td>Host-to-device transfer</td>
 </tr>
 <tr class="even">
 <td><code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code></td>
-<td><code>PJRTBufferPromise</code></td>
+<td><code>PJRTBuffer</code></td>
 <td>Program execution</td>
 </tr>
 <tr class="odd">
@@ -256,24 +258,27 @@ only pay the synchronization cost when you actually need the result
 </tr>
 </tbody>
 </table>
-<p>All promises support:</p>
+<p><code>PJRTBuffer</code> is a transparent async type — it can be used
+directly in operations even if the underlying computation hasn’t
+completed yet. PJRT handles the dependencies internally.</p>
+<p>Supported operations on async objects:</p>
 <ul>
 <li>
-<code>value(x)</code> — block until ready and return the result
-(<code>PJRTBuffer</code> or R array)</li>
-<li>
 <code>is_ready(x)</code> — non-blocking readiness check</li>
+<li>
+<code>await(x)</code> — block until ready, return the buffer</li>
 <li>
 <code>as_array(x)</code> — convert to R array (blocks if
 needed)</li>
 </ul>
+<p><code>PJRTArrayPromise</code> additionally supports
+<code>value(x)</code> to materialize the R array.</p>
 </div>
 <div class="section level3">
 <h3 id="chaining-operations">Chaining operations<a class="anchor" aria-label="anchor" href="#chaining-operations"></a>
 </h3>
-<p>Promises can be passed directly to other operations without calling
-<code><a href="../reference/value.html">value()</a></code> first — PJRT handles the dependencies
-internally:</p>
+<p>Buffers can be passed directly to other operations without waiting —
+PJRT handles the dependencies internally:</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Both transfers start immediately</span></span>
 <span><span class="va">buf1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
@@ -314,8 +319,10 @@ internally:</p>
 </h3>
 <p>Blocking occurs when:</p>
 <ol style="list-style-type: decimal">
-<li>Calling <code><a href="../reference/value.html">value()</a></code> on a promise</li>
-<li>Calling <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> on a promise or buffer</li>
+<li>Calling <code><a href="../reference/await.html">await()</a></code> on a buffer</li>
+<li>Calling <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> on a buffer</li>
+<li>Calling <code><a href="../reference/value.html">value()</a></code> on a <code>PJRTArrayPromise</code>
+</li>
 <li>Printing a buffer (needs to read values to display them)</li>
 </ol>
 <p>Operations like <code><a href="https://r-xla.github.io/tengen/reference/shape.html" class="external-link">shape()</a></code>, <code><a href="../reference/elt_type.html">elt_type()</a></code>, and

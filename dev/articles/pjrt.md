@@ -12,9 +12,10 @@ NVIDIA GPU, and Metal (Apple GPU; experimental) plugins.
 
 A key design principle of pjrt is **asynchronous dispatch**: operations
 like buffer creation and program execution return immediately with
-*promises*, allowing R to continue preparing work while the device
-computes in the background. This enables efficient overlap of host and
-device work, which is critical for performance on accelerators.
+`PJRTBuffer` objects that may not be ready yet, allowing R to continue
+preparing work while the device computes in the background. This enables
+efficient overlap of host and device work, which is critical for
+performance on accelerators.
 
 ## Plugins and Clients
 
@@ -64,9 +65,9 @@ compilation and execution.
 Using a client, we can move data from the host (standard R objects) to a
 specific device to create a buffer.
 [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)
-returns a `PJRTBufferPromise` — a promise that resolves to a
-`PJRTBuffer` once the host-to-device transfer completes. R does not
-block; it returns immediately.
+returns a `PJRTBuffer` immediately — the buffer may not be ready yet
+(the host-to-device transfer happens asynchronously), but R does not
+block.
 
 ``` r
 host_data <- 1:4
@@ -137,8 +138,8 @@ executable
 
 With buffers and an executable ready, we can run the program.
 [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)
-also returns a `PJRTBufferPromise` — R gets control back immediately
-while the device computes.
+also returns a `PJRTBuffer` immediately — R gets control back while the
+device computes in the background.
 
 ``` r
 x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2L, 2L), dtype = "f32")
@@ -184,30 +185,36 @@ In pjrt, this happens automatically. Both
 [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)
 and
 [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)
-return promises and don’t block R. You only pay the synchronization cost
-when you actually need the result (e.g. calling
-[`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
-or [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md)).
+return `PJRTBuffer` objects immediately without blocking R. The buffer
+may not be ready yet, but you can pass it directly to other operations.
+You only pay the synchronization cost when you actually need the
+host-side result (e.g. calling
+[`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)).
 
-### Promise types
+### Async types
 
-| Operation                                                                          | Returns             | Description             |
-|------------------------------------------------------------------------------------|---------------------|-------------------------|
-| [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)       | `PJRTBufferPromise` | Host-to-device transfer |
-| [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)     | `PJRTBufferPromise` | Program execution       |
-| [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md) | `PJRTArrayPromise`  | Device-to-host transfer |
+| Operation                                                                          | Returns            | Description             |
+|------------------------------------------------------------------------------------|--------------------|-------------------------|
+| [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)       | `PJRTBuffer`       | Host-to-device transfer |
+| [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)     | `PJRTBuffer`       | Program execution       |
+| [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md) | `PJRTArrayPromise` | Device-to-host transfer |
 
-All promises support:
+`PJRTBuffer` is a transparent async type — it can be used directly in
+operations even if the underlying computation hasn’t completed yet. PJRT
+handles the dependencies internally.
 
-- `value(x)` — block until ready and return the result (`PJRTBuffer` or
-  R array)
+Supported operations on async objects:
+
 - `is_ready(x)` — non-blocking readiness check
+- `await(x)` — block until ready, return the buffer
 - `as_array(x)` — convert to R array (blocks if needed)
+
+`PJRTArrayPromise` additionally supports `value(x)` to materialize the R
+array.
 
 ### Chaining operations
 
-Promises can be passed directly to other operations without calling
-[`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) first —
+Buffers can be passed directly to other operations without waiting —
 PJRT handles the dependencies internally:
 
 ``` r
@@ -254,12 +261,15 @@ dim(output)
 Blocking occurs when:
 
 1.  Calling
-    [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) on
-    a promise
+    [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) on
+    a buffer
 2.  Calling
     [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
-    on a promise or buffer
-3.  Printing a buffer (needs to read values to display them)
+    on a buffer
+3.  Calling
+    [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) on
+    a `PJRTArrayPromise`
+4.  Printing a buffer (needs to read values to display them)
 
 Operations like
 [`shape()`](https://r-xla.github.io/tengen/reference/shape.html),
