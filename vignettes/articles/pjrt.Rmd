@@ -92,7 +92,7 @@ In principle, it is also supported to move data from one device to another, but 
 PJRT offers an interface to compile programs into executables.
 These programs can be written in HLO or the newer StableHLO.
 The [stablehlo](https://github.com/r-xla/stablehla) package allows you to easily create StableHLO programs in R.
-Below, we define a simple program that adds two `f32` tensors of shape `(2, 2)`.
+Below, we define a simple program that adds two `f32` tensors of shape `2x2`.
 
 ```{r}
 src <- r"(
