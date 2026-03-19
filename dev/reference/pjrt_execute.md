@@ -5,12 +5,11 @@ Returns immediately with buffer promise(s) that can be awaited later.
 
 **Important:** Arguments are passed by position and names are ignored.
 
-Inputs can be `PJRTBuffer` objects or buffer promises
-(`PJRTBufferPromise`). Buffer promises are resolved automatically before
-execution.
+Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBuffer`).
+Buffer promises are resolved automatically before execution.
 
-Use [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) to
-get the result (blocks if not ready). Use
+Use [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) to
+block until the result is ready. Use
 [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
 to check if execution has completed (non-blocking). Use
 [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
@@ -31,7 +30,7 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 
 - ...:
 
-  (`PJRTBuffer` \| `PJRTBufferPromise`)  
+  (`PJRTBuffer` \| `PJRTBuffer`)  
   Inputs to the program. Named are ignored and arguments are passed in
   order.
 
@@ -44,17 +43,17 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 - simplify:
 
   (`logical(1)`)  
-  If `TRUE` (default), a single output is returned as a
-  `PJRTBufferPromise`. If `FALSE`, a single output is returned as a
-  `list` of length 1 containing a `PJRTBufferPromise`.
+  If `TRUE` (default), a single output is returned as a `PJRTBuffer`. If
+  `FALSE`, a single output is returned as a `list` of length 1
+  containing a `PJRTBuffer`.
 
 ## Value
 
-`PJRTBufferPromise` \| `list` of `PJRTBufferPromise`s
+`PJRTBuffer` \| `list` of `PJRTBuffer`s
 
 ## See also
 
-[`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md),
+[`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md),
 [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md),
 [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
 

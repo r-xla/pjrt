@@ -9,17 +9,17 @@
 Returns immediately with buffer promise(s) that can be awaited later.
 Important:
 Arguments are passed by position and names are ignored.
-Inputs can be PJRTBuffer objects or buffer promises (PJRTBufferPromise).
+Inputs can be PJRTBuffer objects or buffer promises (PJRTBuffer).
 Buffer promises are resolved automatically before execution.
-Use value() to get the result (blocks if not ready).
+Use await() to block until the result is ready.
 Use is_ready() to check if execution has completed (non-blocking).
 Use as_array_async() to chain async buffer-to-host transfer."><meta property="og:description" content="Execute a PJRT program with the given inputs and execution options.
 Returns immediately with buffer promise(s) that can be awaited later.
 Important:
 Arguments are passed by position and names are ignored.
-Inputs can be PJRTBuffer objects or buffer promises (PJRTBufferPromise).
+Inputs can be PJRTBuffer objects or buffer promises (PJRTBuffer).
 Buffer promises are resolved automatically before execution.
-Use value() to get the result (blocks if not ready).
+Use await() to block until the result is ready.
 Use is_ready() to check if execution has completed (non-blocking).
 Use as_array_async() to chain async buffer-to-host transfer."><meta name="robots" content="noindex"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -67,9 +67,9 @@ Use as_array_async() to chain async buffer-to-host transfer."><meta name="robots
 Returns immediately with buffer promise(s) that can be awaited later.</p>
 <p><strong>Important:</strong>
 Arguments are passed by position and names are ignored.</p>
-<p>Inputs can be <code>PJRTBuffer</code> objects or buffer promises (<code>PJRTBufferPromise</code>).
+<p>Inputs can be <code>PJRTBuffer</code> objects or buffer promises (<code>PJRTBuffer</code>).
 Buffer promises are resolved automatically before execution.</p>
-<p>Use <code><a href="value.html">value()</a></code> to get the result (blocks if not ready).
+<p>Use <code><a href="await.html">await()</a></code> to block until the result is ready.
 Use <code><a href="is_ready.html">is_ready()</a></code> to check if execution has completed (non-blocking).
 Use <code><a href="as_array_async.html">as_array_async()</a></code> to chain async buffer-to-host transfer.</p>
     </div>
@@ -89,7 +89,7 @@ A PJRT program.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>(<code>PJRTBuffer</code> | <code>PJRTBufferPromise</code>)<br>
+<dd><p>(<code>PJRTBuffer</code> | <code>PJRTBuffer</code>)<br>
 Inputs to the program.
 Named are ignored and arguments are passed in order.</p></dd>
 
@@ -101,17 +101,17 @@ Optional execution options for configuring buffer donation and other settings.</
 
 <dt id="arg-simplify">simplify<a class="anchor" aria-label="anchor" href="#arg-simplify"></a></dt>
 <dd><p>(<code>logical(1)</code>)<br>
-If <code>TRUE</code> (default), a single output is returned as a <code>PJRTBufferPromise</code>.
-If <code>FALSE</code>, a single output is returned as a <code>list</code> of length 1 containing a <code>PJRTBufferPromise</code>.</p></dd>
+If <code>TRUE</code> (default), a single output is returned as a <code>PJRTBuffer</code>.
+If <code>FALSE</code>, a single output is returned as a <code>list</code> of length 1 containing a <code>PJRTBuffer</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>PJRTBufferPromise</code> | <code>list</code> of <code>PJRTBufferPromise</code>s</p>
+    <p><code>PJRTBuffer</code> | <code>list</code> of <code>PJRTBuffer</code>s</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="value.html">value()</a></code>, <code><a href="is_ready.html">is_ready()</a></code>, <code><a href="as_array_async.html">as_array_async()</a></code></p></div>
+    <div class="dont-index"><p><code><a href="await.html">await()</a></code>, <code><a href="is_ready.html">is_ready()</a></code>, <code><a href="as_array_async.html">as_array_async()</a></code></p></div>
     </div>
 
     <div class="section level2">

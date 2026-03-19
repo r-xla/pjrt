@@ -3,8 +3,7 @@
 Materialize and return the result of an async operation. Blocks until
 the operation is complete if it hasn't finished yet.
 
-Returns `PJRTBuffer` for `PJRTBufferPromise` or an R array for
-`PJRTArrayPromise`.
+Returns `PJRTBuffer` for buffers or an R array for `PJRTArrayPromise`.
 
 ## Usage
 

@@ -123,19 +123,21 @@ resulting shape is [`integer()`](https://rdrr.io/r/base/integer.html).
 # Create a buffer from a numeric vector
 buf <- pjrt_buffer(c(1, 2, 3, 4))
 buf
-#> <PJRTBufferPromise>
-#> Status: Not awaited
-#> Events: 1 
-#> (Call value() to await and retrieve the buffer)
+#> PJRTBuffer 
+#>  1
+#>  2
+#>  3
+#>  4
+#> [ CPUf32{4} ] 
 
 # Create a buffer from a matrix
 mat <- matrix(1:6, nrow = 2)
 buf <- pjrt_buffer(mat)
 buf
-#> <PJRTBufferPromise>
-#> Status: Not awaited
-#> Events: 1 
-#> (Call value() to await and retrieve the buffer)
+#> PJRTBuffer 
+#>  1 3 5
+#>  2 4 6
+#> [ CPUi32{2x3} ] 
 
 # Create an integer buffer from an array
 arr <- array(1:8, dim = c(2, 2, 2))
@@ -143,15 +145,12 @@ buf <- pjrt_buffer(arr)
 # Create a scalar (0-dimensional array)
 scalar <- pjrt_scalar(42, dtype = "f32")
 scalar
-#> <PJRTBufferPromise>
-#> Status: Not awaited
-#> Events: 1 
-#> (Call value() to await and retrieve the buffer)
+#> PJRTBuffer 
+#>  42
+#> [ CPUf32{} ] 
 # Create an empty buffer
 empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
 empty
-#> <PJRTBufferPromise>
-#> Status: Not awaited
-#> Events: 1 
-#> (Call value() to await and retrieve the buffer)
+#> PJRTBuffer 
+#> [ CPUf32{0x3} ] 
 ```

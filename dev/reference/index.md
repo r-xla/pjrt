@@ -19,6 +19,9 @@
 - [`as_pjrt_plugin()`](https://r-xla.github.io/pjrt/dev/reference/as_pjrt_plugin.md)
   : Convert to PJRT Plugin
 
+- [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) :
+  Await an async operation
+
 - [`devices()`](https://r-xla.github.io/pjrt/dev/reference/devices.md) :
   Devices
 

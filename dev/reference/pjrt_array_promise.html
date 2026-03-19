@@ -55,7 +55,7 @@ Users should not call this directly - use <code><a href="as_array_async.html">as
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_array_promise</span><span class="op">(</span><span class="va">data</span>, <span class="va">event</span>, <span class="va">dtype</span>, <span class="va">shape</span>, events <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_array_promise</span><span class="op">(</span><span class="va">data</span>, <span class="va">dtype</span>, <span class="va">shape</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -63,11 +63,7 @@ Users should not call this directly - use <code><a href="as_array_async.html">as
 
 
 <dl><dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
-<dd><p>XPtr to std::vector&lt;uint8_t&gt; holding raw bytes (row-major).</p></dd>
-
-
-<dt id="arg-event">event<a class="anchor" aria-label="anchor" href="#arg-event"></a></dt>
-<dd><p>PJRTEvent external pointer (or NULL).</p></dd>
+<dd><p>XPtr to PJRTHostData holding raw bytes and completion event.</p></dd>
 
 
 <dt id="arg-dtype">dtype<a class="anchor" aria-label="anchor" href="#arg-dtype"></a></dt>
@@ -76,10 +72,6 @@ Users should not call this directly - use <code><a href="as_array_async.html">as
 
 <dt id="arg-shape">shape<a class="anchor" aria-label="anchor" href="#arg-shape"></a></dt>
 <dd><p>Integer vector of dimensions.</p></dd>
-
-
-<dt id="arg-events">events<a class="anchor" aria-label="anchor" href="#arg-events"></a></dt>
-<dd><p>List of ancestor events to check for errors (for chained operations).</p></dd>
 
 </dl></div>
     <div class="section level2">

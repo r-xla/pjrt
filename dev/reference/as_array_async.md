@@ -18,7 +18,7 @@ as_array_async(x, ...)
 
 - x:
 
-  A `PJRTBuffer` or `PJRTBufferPromise` object.
+  A `PJRTBuffer` object.
 
 - ...:
 
@@ -35,7 +35,8 @@ the R array.
 [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html),
 [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md),
 [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md),
-[`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)
+[`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md),
+[`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md)
 
 ## Examples
 

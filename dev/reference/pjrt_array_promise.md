@@ -8,18 +8,14 @@ instead.
 ## Usage
 
 ``` r
-pjrt_array_promise(data, event, dtype, shape, events = list())
+pjrt_array_promise(data, dtype, shape)
 ```
 
 ## Arguments
 
 - data:
 
-  XPtr to std::vector\<uint8_t\> holding raw bytes (row-major).
-
-- event:
-
-  PJRTEvent external pointer (or NULL).
+  XPtr to PJRTHostData holding raw bytes and completion event.
 
 - dtype:
 
@@ -28,10 +24,6 @@ pjrt_array_promise(data, event, dtype, shape, events = list())
 - shape:
 
   Integer vector of dimensions.
-
-- events:
-
-  List of ancestor events to check for errors (for chained operations).
 
 ## Value
 

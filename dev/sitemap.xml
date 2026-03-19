@@ -1,4 +1,5 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>https://r-xla.github.io/pjrt/dev/CLAUDE.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/LICENSE-text.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/LICENSE.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/articles/index.html</loc></url>
@@ -11,16 +12,15 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/as_pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/as_pjrt_device.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/as_pjrt_plugin.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/dev/reference/await.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/devices.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/elt_type.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/format_buffer.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/dev/reference/get_events.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/index.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/is_ready.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt-package.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_array_promise.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer_promise.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_compile.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_device.html</loc></url>
