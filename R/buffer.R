@@ -1,14 +1,10 @@
 check_buffer <- function(x) {
-  stopifnot(is_buffer(x) || is_buffer_promise(x))
+  stopifnot(is_buffer(x))
   invisible(NULL)
 }
 
 is_buffer <- function(x) {
   inherits(x, "PJRTBuffer")
-}
-
-is_buffer_or_promise <- function(x) {
-  is_buffer(x) || is_buffer_promise(x)
 }
 
 #' @title Create a PJRT Buffer
