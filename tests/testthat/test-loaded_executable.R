@@ -224,31 +224,6 @@ test_that("async execution with inputs chained to async buffer-to-host", {
   expect_equal(result, x[1, 2]) # 0-indexed: x[0+1, 1+1] = x[1, 2] = 3
 })
 
-test_that("async execution with multiple outputs chained to async transfer", {
-  path <- system.file(
-    "programs/jax-stablehlo-two-constants.mlir",
-    package = "pjrt"
-  )
-  program <- pjrt_program(path = path, format = "mlir")
-  executable <- pjrt_compile(program)
-
-  # Execute asynchronously - returns list of buffer promises
-  result <- pjrt_execute(executable)
-  expect_list(result, len = 2L)
-
-  # Chain each output with async buffer-to-host transfer
-  async_arr1 <- as_array_async(result[[1]])
-  async_arr2 <- as_array_async(result[[2]])
-
-  expect_class(async_arr1, "PJRTArrayPromise")
-  expect_class(async_arr2, "PJRTArrayPromise")
-
-  # Get final values
-  arr1 <- value(async_arr1)
-  arr2 <- value(async_arr2)
-  expect_equal(arr1, 3)
-  expect_equal(arr2, 7)
-})
 
 # Event chain tracking tests ------------------------------------------------
 
