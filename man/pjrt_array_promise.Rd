@@ -4,18 +4,14 @@
 \alias{pjrt_array_promise}
 \title{Create a PJRT Array Promise (internal)}
 \usage{
-pjrt_array_promise(data, event, dtype, shape, events = list())
+pjrt_array_promise(data, dtype, shape)
 }
 \arguments{
-\item{data}{XPtr to std::vector<uint8_t> holding raw bytes (row-major).}
-
-\item{event}{PJRTEvent external pointer (or NULL).}
+\item{data}{XPtr to PJRTHostData holding raw bytes and completion event.}
 
 \item{dtype}{Element type string (e.g., "f32", "i32").}
 
 \item{shape}{Integer vector of dimensions.}
-
-\item{events}{List of ancestor events to check for errors (for chained operations).}
 }
 \value{
 A \code{PJRTArrayPromise} object.

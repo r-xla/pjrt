@@ -9,10 +9,10 @@
 
 namespace rpjrt {
 
-// Result of async execution containing output buffers and completion event
+// Result of async execution containing output buffers.
+// Each buffer has its completion event set internally.
 struct AsyncExecuteResult {
   std::vector<std::unique_ptr<PJRTBuffer>> buffers;
-  std::unique_ptr<PJRTEvent> event;
 };
 
 // Result of async buffer-from-host transfer

@@ -203,16 +203,20 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
 
-  // Build result
-  AsyncExecuteResult result;
-  for (size_t i = 0; i < num_outputs; ++i) {
-    result.buffers.push_back(
-        std::make_unique<PJRTBuffer>(outer_out[0][i], this->api));
+  // Wrap the completion event as shared (multiple buffers reference it)
+  std::shared_ptr<PJRTEvent> shared_event;
+  if (completion_event != nullptr) {
+    shared_event = std::make_shared<PJRTEvent>(completion_event, this->api);
   }
 
-  // Wrap the completion event
-  if (completion_event != nullptr) {
-    result.event = std::make_unique<PJRTEvent>(completion_event, this->api);
+  // Build result - each output buffer gets the completion event
+  AsyncExecuteResult result;
+  for (size_t i = 0; i < num_outputs; ++i) {
+    auto buf = std::make_unique<PJRTBuffer>(outer_out[0][i], this->api);
+    if (shared_event) {
+      buf->set_completion_event(shared_event);
+    }
+    result.buffers.push_back(std::move(buf));
   }
 
   // Clean up the executable we got

@@ -158,4 +158,36 @@ std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
   return nullptr;
 }
 
+void PJRTBuffer::set_completion_event(std::shared_ptr<PJRTEvent> event) {
+  completion_event_ = std::move(event);
+}
+
+bool PJRTBuffer::is_ready() const {
+  if (!completion_event_) return true;
+  return completion_event_->is_ready();
+}
+
+void PJRTBuffer::await() {
+  if (!completion_event_) return;
+  completion_event_->await();
+  completion_event_->check_error();
+}
+
+// PJRTHostData implementation
+
+PJRTHostData::PJRTHostData(std::unique_ptr<std::vector<uint8_t>> data,
+                           std::unique_ptr<PJRTEvent> event)
+    : data_(std::move(data)), event_(std::move(event)) {}
+
+bool PJRTHostData::is_ready() const {
+  if (!event_) return true;
+  return event_->is_ready();
+}
+
+void PJRTHostData::await() {
+  if (!event_) return;
+  event_->await();
+  event_->check_error();
+}
+
 }  // namespace rpjrt

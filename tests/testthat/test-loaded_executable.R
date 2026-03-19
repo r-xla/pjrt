@@ -67,7 +67,7 @@ test_that("pjrt_execute returns buffer promise", {
   expect_class(result, "PJRTBufferPromise")
 })
 
-test_that("pjrt_execute promise has a single event", {
+test_that("pjrt_execute returns a buffer promise", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -77,8 +77,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
-  expect_length(result$events, 1L)
-  expect_s3_class(result$events[[1]], "PJRTEvent")
+  expect_s3_class(result, "PJRTBufferPromise")
 })
 
 test_that("is_ready works for async values", {
@@ -225,20 +224,9 @@ test_that("async execution with inputs chained to async buffer-to-host", {
 })
 
 
-# Event chain tracking tests ------------------------------------------------
+# Async chain tests ---------------------------------------------------------
 
-test_that("buffer_promise tracks events from pjrt_buffer", {
-  x <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-
-  # Should have one event in the chain
-  expect_length(x$events, 1L)
-
-  # Event should be the same as x$event
-  expect_identical(x$events[[1]], x$event)
-})
-
-test_that("execute_async does not accumulate parent events", {
-  # Create a simple pass-through program
+test_that("async chain: buffer -> execute -> as_array", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -246,44 +234,15 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  # Create input buffer asynchronously
-  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-  expect_length(input$events, 1L)
-
-  # Execute asynchronously - PJRT handles input dependencies internally
-  result <- pjrt_execute(executable, input)
-
-  # Result should have 1 event: execution only (no parent propagation)
-  expect_length(result$events, 1L)
-
-  # Verify the result is correct
-  arr <- as_array(value(result))
-  expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
-})
-
-test_that("array_promise accumulates events through as_array_async chain", {
-  src <- r"(
-func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
-  "func.return"(%x): (tensor<3xf32>) -> ()
-}
-)"
-  executable <- pjrt_compile(pjrt_program(src))
-
-  # Create full async chain: buffer -> execute -> as_array
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
-  # arr_promise should have 2 events: execution (from result) + D2H transfer
-  expect_length(arr_promise$events, 2L)
-
-  # Verify the result is correct
   arr <- value(arr_promise)
   expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
 })
 
-test_that("longer async chains accumulate all events", {
-  # Two programs that pass through
+test_that("longer async chains produce correct results", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -292,25 +251,16 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   exec1 <- pjrt_compile(pjrt_program(src))
   exec2 <- pjrt_compile(pjrt_program(src))
 
-  # Chain: buffer_async -> execute1 -> execute2 -> as_array_async
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-  expect_length(input$events, 1L)
-
   result1 <- pjrt_execute(exec1, input)
-  expect_length(result1$events, 1L)
-
   result2 <- pjrt_execute(exec2, result1)
-  expect_length(result2$events, 1L)
-
   arr_promise <- as_array_async(result2)
-  expect_length(arr_promise$events, 2L)
 
-  # Verify the result is correct
   arr <- value(arr_promise)
   expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
 })
 
-test_that("is_ready checks all events in chain", {
+test_that("is_ready works on buffer and array promises", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -322,37 +272,15 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
-  # is_ready should return a logical value
   ready <- is_ready(arr_promise)
   expect_true(is.logical(ready))
   expect_length(ready, 1L)
-
-  # After getting the value, it should be ready
 
   value(arr_promise)
   expect_true(is_ready(arr_promise))
 })
 
-test_that("sync buffer inputs don't add events", {
-  src <- r"(
-func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
-  "func.return"(%x): (tensor<3xf32>) -> ()
-}
-)"
-  executable <- pjrt_compile(pjrt_program(src))
-
-  # Sync buffer (not async)
-  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-
-  # Execute async with sync input - only execution event should be present
-  result <- pjrt_execute(executable, input)
-  expect_length(result$events, 1L)
-
-  arr <- as_array(value(result))
-  expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
-})
-
-test_that("mixed sync and async inputs collect correct events", {
+test_that("multiple inputs work correctly", {
   skip_if_metal("-:20:28: error: expected ')' in inline location")
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
@@ -362,14 +290,10 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  # One async, one sync input
-  x_async <- pjrt_buffer(matrix(1:4, 2, 2), dtype = "f32")
-  y_sync <- pjrt_buffer(matrix(5:8, 2, 2), dtype = "f32")
+  x <- pjrt_buffer(matrix(1:4, 2, 2), dtype = "f32")
+  y <- pjrt_buffer(matrix(5:8, 2, 2), dtype = "f32")
 
-  result <- pjrt_execute(executable, x_async, y_sync)
-
-  # Should have 1 event: execution only (no parent propagation)
-  expect_length(result$events, 1L)
+  result <- pjrt_execute(executable, x, y)
 
   arr <- as_array(value(result))
   expect_equal(as.vector(arr), as.vector(matrix(1:4, 2, 2) + matrix(5:8, 2, 2)), tolerance = 1e-6)
@@ -415,7 +339,7 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   )
 })
 
-test_that("error propagates through async chain when buffer_promise is used", {
+test_that("async chain with buffer_promise produces correct results", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -423,25 +347,15 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  # Create async input and chain it
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-
-  # Execute successfully
   result <- pjrt_execute(executable, input)
-
-  # The chain should work
   arr_promise <- as_array_async(result)
 
-  # Events from result (execution) + D2H transfer
-  expect_length(arr_promise$events, 2L)
-
-  # Value should succeed
   arr <- value(arr_promise)
   expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
 })
 
-test_that("value() awaits all events in chain before returning", {
-  # This test verifies that value() checks all events, not just the last one
+test_that("value() caches result on repeated calls", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -449,44 +363,21 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  # Build a chain
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
-  # Before calling value, check that events list is complete
-  expect_length(arr_promise$events, 2L)
-
-  # After calling value, all events should have been awaited
   arr <- value(arr_promise)
   expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
 
-  # Call value again - should return cached result without re-awaiting
+  # Call value again - should return cached result
   arr2 <- value(arr_promise)
   expect_identical(arr, arr2)
 })
 
 # Tests documenting error behavior in async operations ----------------------
-# These tests document WHERE errors appear in async chains.
-#
-# Error timing by backend:
-# - CPU backend: Most errors are caught synchronously during execute_async()
-#   (input validation). The CPU backend is robust and rarely produces true
-#   runtime errors - XLA clamps indices, produces inf/nan for invalid math, etc.
-#
-# - GPU/TPU backends: Most errors (including OOM) are also caught synchronously
-#   during execute_async(). However, some runtime errors may be deferred until
-#   value() is called (e.g., device communication failures, certain computation
-#   errors).
-#
-# The event chain tracking ensures that when value() is called, ALL events
-# in the chain are awaited, so errors from ANY step are properly surfaced.
 
-test_that("async errors: input validation errors appear at execute_async time", {
-  # This test documents that input validation errors (wrong shape, wrong type)
-
-  # are caught immediately when execute_async is called, NOT deferred to value()
-
+test_that("async errors: input validation errors appear at execute time", {
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   "func.return"(%x): (tensor<2x2xf32>) -> ()
@@ -494,11 +385,8 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  # Create buffer with wrong shape (3 elements instead of 2x2=4)
   wrong_shape_buffer <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
-  # Error appears immediately at execute_async time (input validation)
-  # NOT deferred to value()
   # CPU says "size", Metal says "shape"
   expect_error(
     pjrt_execute(executable, wrong_shape_buffer),
@@ -506,14 +394,7 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   )
 })
 
-test_that("async errors: when chaining, errors in value() come from event await", {
-  # This test shows the expected behavior: when an async chain succeeds,
-
-  # value() returns the result. The event chain tracking ensures that
-  # if any operation in the chain had failed asynchronously, the error
-
-  # would be caught when awaiting that event.
-
+test_that("async errors: chained operations produce correct results", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "stablehlo.add"(%x, %x) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
@@ -522,23 +403,15 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  # Build async chain
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
-  # execution event (from result) + D2H transfer event
-  expect_length(arr_promise$events, 2L)
-
-  # value() awaits all events - this is where async errors would surface
-  # In this case, no error occurs
   arr <- value(arr_promise)
   expect_equal(as.vector(arr), c(2.0, 4.0, 6.0), tolerance = 1e-6)
 })
 
-test_that("async errors: is_ready returns FALSE until all events complete", {
-  # This test verifies is_ready() checks all events, not just the last one
-
+test_that("async errors: is_ready works on array promises", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -550,19 +423,14 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   result <- pjrt_execute(executable, input)
   arr_promise <- as_array_async(result)
 
-  # On CPU, operations complete synchronously, so is_ready should be TRUE
-  # On GPU/TPU, this might initially be FALSE
   ready <- is_ready(arr_promise)
   expect_true(is.logical(ready))
 
-  # After value(), all events are awaited
   value(arr_promise)
   expect_true(is_ready(arr_promise))
 })
 
 test_that("async errors: error messages are descriptive", {
-  # Verify that error messages from async operations are meaningful
-
   src <- r"(
 func.func @main(%x: tensor<4xf32>) -> tensor<4xf32> {
   "func.return"(%x): (tensor<4xf32>) -> ()
@@ -570,48 +438,13 @@ func.func @main(%x: tensor<4xf32>) -> tensor<4xf32> {
 )"
   executable <- pjrt_compile(pjrt_program(src))
 
-  # Wrong size: expected 4 elements, got 3
   wrong_buffer <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
-  # Error message should mention the size/shape mismatch
-  # CPU mentions size in bytes, Metal mentions shape
   expect_error(
     pjrt_execute(executable, wrong_buffer),
     regexp = "size|shape",
     ignore.case = TRUE
   )
-})
-
-test_that("async errors: event chain mechanism is in place for deferred errors", {
-  # This test verifies the event chain mechanism that would catch deferred
-  # errors on GPU/TPU backends. On CPU, errors are caught earlier, but the
-  # mechanism is still exercised.
-
-  src <- r"(
-func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
-  %0 = "stablehlo.add"(%x, %x) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
-  "func.return"(%0): (tensor<3xf32>) -> ()
-}
-)"
-  executable <- pjrt_compile(pjrt_program(src))
-
-  # Build a chain
-  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute(executable, input)
-  arr_promise <- as_array_async(result)
-
-  # execution event (from result) + D2H transfer event
-  expect_length(arr_promise$events, 2L)
-
-  # Each event is a PJRTEvent that can be awaited
-  for (evt in arr_promise$events) {
-    expect_s3_class(evt, "PJRTEvent")
-  }
-
-  # value() awaits ALL events - on GPU/TPU, this is where deferred errors
-  # would be caught. On CPU, events complete synchronously.
-  arr <- value(arr_promise)
-  expect_equal(as.vector(arr), c(2.0, 4.0, 6.0), tolerance = 1e-6)
 })
 
 test_that("async errors: OOM during execution is caught at pjrt_execute() time", {

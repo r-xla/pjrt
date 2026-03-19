@@ -1,12 +1,6 @@
 # Extract the raw PJRTBuffer XPtr from a buffer promise or buffer.
-# For buffer promises, the buffer is valid immediately - PJRT handles
-# dependencies internally. If there's a data_holder, register callback
-# to keep it alive until the transfer completes.
 resolve_buffer_input <- function(x) {
   if (is_buffer_promise(x)) {
-    if (!is.null(x$event) && !is.null(x$data_holder)) {
-      impl_event_release_on_ready(x$event, x$data_holder)
-    }
     x$buffer
   } else if (is_buffer(x)) {
     x
@@ -80,12 +74,9 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 
   assert_flag(simplify)
 
-  result <- impl_loaded_executable_execute_async(executable, input, execution_options)
+  buffers <- impl_loaded_executable_execute(executable, input, execution_options)
 
-  # Create a list of buffer promises, one per buffer, all sharing the same event
-  promises <- lapply(result$buffers, function(buf) {
-    pjrt_buffer_promise(buf, result$event)
-  })
+  promises <- lapply(buffers, pjrt_buffer_promise)
 
   if (simplify && length(promises) == 1L) {
     return(promises[[1L]])

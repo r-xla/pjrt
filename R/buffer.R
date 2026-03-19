@@ -210,8 +210,8 @@ pjrt_buffer.logical <- function(
   ...
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
-  result <- do.call(impl_client_buffer_from_logical_async, args)
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  buffer <- do.call(impl_client_buffer_from_logical, args)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @export
@@ -223,8 +223,8 @@ pjrt_buffer.integer <- function(
   ...
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
-  result <- do.call(impl_client_buffer_from_integer_async, args)
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  buffer <- do.call(impl_client_buffer_from_integer, args)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @export
@@ -236,8 +236,8 @@ pjrt_buffer.numeric <- function(
   ...
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
-  result <- do.call(impl_client_buffer_from_double_async, args)
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  buffer <- do.call(impl_client_buffer_from_double, args)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @export
@@ -268,7 +268,7 @@ pjrt_buffer.raw <- function(
     dtype = dtype,
     row_major = row_major
   )
-  pjrt_buffer_promise(buffer, event = NULL)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @export
@@ -282,8 +282,8 @@ pjrt_scalar.logical <- function(
     cli_abort("data must have length 1")
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
-  result <- do.call(impl_client_buffer_from_logical_async, args)
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  buffer <- do.call(impl_client_buffer_from_logical, args)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @export
@@ -297,8 +297,8 @@ pjrt_scalar.integer <- function(
     cli_abort("data must have length 1")
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
-  result <- do.call(impl_client_buffer_from_integer_async, args)
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  buffer <- do.call(impl_client_buffer_from_integer, args)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @export
@@ -312,8 +312,8 @@ pjrt_scalar.numeric <- function(
     cli_abort("data must have length 1")
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
-  result <- do.call(impl_client_buffer_from_double_async, args)
-  pjrt_buffer_promise(result$buffer, result$event, result$data_holder)
+  buffer <- do.call(impl_client_buffer_from_double, args)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @export
@@ -328,7 +328,7 @@ pjrt_scalar.raw <- function(
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...)
   buffer <- do.call(impl_client_buffer_from_raw, args)
-  pjrt_buffer_promise(buffer, event = NULL)
+  pjrt_buffer_promise(buffer)
 }
 
 #' @title Element Type
@@ -375,15 +375,13 @@ as_array_async <- function(x, ...) {
 #' @export
 as_array_async.PJRTBuffer <- function(x, ...) {
   result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$event, result$dtype, result$dims)
+  pjrt_array_promise(result$data, result$dtype, result$dims)
 }
 
 #' @export
 as_array_async.PJRTBufferPromise <- function(x, ...) {
-  buf <- x$buffer
-  parent_events <- x$events
-  result <- impl_buffer_to_host_async(buf)
-  pjrt_array_promise(result$data, result$event, result$dtype, result$dims, events = parent_events)
+  result <- impl_buffer_to_host_async(x$buffer)
+  pjrt_array_promise(result$data, result$dtype, result$dims)
 }
 
 #' @export
