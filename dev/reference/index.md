@@ -7,9 +7,6 @@
 
   Convert `PJRTElementType` to string
 
-- [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
-  : Convert buffer to R array asynchronously
-
 - [`as_pjrt_client()`](https://r-xla.github.io/pjrt/dev/reference/as_pjrt_client.md)
   : Convert to PJRT Client
 
@@ -28,9 +25,6 @@
 - [`format_buffer()`](https://r-xla.github.io/pjrt/dev/reference/format_buffer.md)
   : Format Buffer Data
 
-- [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
-  : Check if an async operation is ready
-
 - [`pjrt`](https://r-xla.github.io/pjrt/dev/reference/pjrt-package.md)
   [`pjrt-package`](https://r-xla.github.io/pjrt/dev/reference/pjrt-package.md)
   : pjrt: R Interface to PJRT
@@ -45,6 +39,9 @@
 
 - [`pjrt_compile()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_compile.md)
   : Compile a Program
+
+- [`pjrt_cuda_versions`](https://r-xla.github.io/pjrt/dev/reference/pjrt_cuda_versions.md)
+  : Recommended CUDA Library Versions
 
 - [`pjrt_device()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_device.md)
   : Create a PJRT Device
@@ -63,6 +60,9 @@
 
   Create a `PJRTProgram`
 
+- [`pjrt_sitrep()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_sitrep.md)
+  : Situation Report
+
 - [`platform()`](https://r-xla.github.io/pjrt/dev/reference/platform.md)
   : Platform Name
 
@@ -77,6 +77,3 @@
 
 - [`print(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/dev/reference/print.PJRTBuffer.md)
   : Print a PJRT Buffer
-
-- [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) : Get
-  the value of an async operation
