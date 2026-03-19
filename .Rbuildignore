@@ -20,3 +20,5 @@ air.toml
 Makefile
 ^vignettes/articles/
 ^\.claude$
+^\.clang-format-ignore$
+^CLAUDE\.md$
