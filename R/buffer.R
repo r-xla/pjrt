@@ -352,7 +352,7 @@ as_array.PJRTBuffer <- function(x, ...) {
 #' @param x A `PJRTBuffer` object.
 #' @param ... Additional arguments (unused).
 #' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
-#' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()]
+#' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()], [await()]
 #' @examplesIf plugin_is_downloaded()
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 #' result <- as_array_async(buf)

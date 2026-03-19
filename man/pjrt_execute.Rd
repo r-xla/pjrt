@@ -34,7 +34,7 @@ Arguments are passed by position and names are ignored.
 Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{PJRTBuffer}).
 Buffer promises are resolved automatically before execution.
 
-Use \code{value()} to get the result (blocks if not ready).
+Use \code{await()} to block until the result is ready.
 Use \code{is_ready()} to check if execution has completed (non-blocking).
 Use \code{as_array_async()} to chain async buffer-to-host transfer.
 }
@@ -60,5 +60,5 @@ pjrt_execute(exec, x, y)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}
+\code{\link[=await]{await()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}
 }

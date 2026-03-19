@@ -30,5 +30,5 @@ value(result)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=as_array]{as_array()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=pjrt_execute]{pjrt_execute()}}
+\code{\link[=as_array]{as_array()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=pjrt_execute]{pjrt_execute()}}, \code{\link[=await]{await()}}
 }

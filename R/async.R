@@ -27,10 +27,22 @@ is_ready <- function(x, ...) {
   UseMethod("is_ready")
 }
 
+#' @title Await an async operation
+#' @description
+#' Block until the async operation is complete and return the object.
+#'
+#' @param x An async value object.
+#' @param ... Additional arguments (unused).
+#' @return The awaited object (invisibly).
 #' @export
-value.PJRTBuffer <- function(x, ...) {
+await <- function(x, ...) {
+  UseMethod("await")
+}
+
+#' @export
+await.PJRTBuffer <- function(x, ...) {
   impl_buffer_await(x)
-  x
+  invisible(x)
 }
 
 #' @export

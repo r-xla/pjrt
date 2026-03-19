@@ -16,7 +16,7 @@ resolve_buffer_input <- function(x) {
 #' Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBuffer`).
 #' Buffer promises are resolved automatically before execution.
 #'
-#' Use `value()` to get the result (blocks if not ready).
+#' Use `await()` to block until the result is ready.
 #' Use `is_ready()` to check if execution has completed (non-blocking).
 #' Use `as_array_async()` to chain async buffer-to-host transfer.
 #'
@@ -31,7 +31,7 @@ resolve_buffer_input <- function(x) {
 #'   If `TRUE` (default), a single output is returned as a `PJRTBuffer`.
 #'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBuffer`.
 #' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
-#' @seealso [value()], [is_ready()], [as_array_async()]
+#' @seealso [await()], [is_ready()], [as_array_async()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create and compile a simple identity program
 #' src <- r"(

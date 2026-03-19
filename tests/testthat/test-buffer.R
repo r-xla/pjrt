@@ -691,10 +691,10 @@ test_that("is_ready works for async transfers", {
   expect_length(ready, 1L)
 })
 
-test_that("value() returns buffer for async transfer", {
+test_that("await() returns buffer for async transfer", {
   original <- c(1.0, 2.0, 3.0, 4.0)
   x <- pjrt_buffer(original, shape = c(2, 2), dtype = "f32")
-  buf <- value(x)
+  buf <- await(x)
   expect_class(buf, "PJRTBuffer")
   expect_equal(as.vector(as_array(buf)), original, tolerance = 1e-6)
 })
@@ -709,14 +709,14 @@ test_that("as_array works for async transfers", {
 test_that("pjrt_buffer works with integer data", {
   original <- 1:6
   x <- pjrt_buffer(original, dtype = "i32")
-  arr <- as_array(value(x))
+  arr <- as_array(x)
   expect_equal(as.vector(arr), original)
 })
 
 test_that("pjrt_buffer works with logical data", {
   original <- c(TRUE, FALSE, TRUE)
   x <- pjrt_buffer(original, dtype = "pred")
-  arr <- as_array(value(x))
+  arr <- as_array(x)
   expect_equal(as.vector(arr), original)
 })
 
@@ -786,12 +786,12 @@ test_that("zero-copy sync buffer properly releases preserved R objects", {
   for (i in seq_len(50)) {
     # f64 uses zero-copy when source is double
     data_f64 <- as.double(seq_len(50000)) # ~400KB each
-    buf_f64 <- value(pjrt_buffer(data_f64, dtype = "f64"))
+    buf_f64 <- pjrt_buffer(data_f64, dtype = "f64")
     rm(buf_f64, data_f64)
 
     # i32 uses zero-copy when source is integer
     data_i32 <- seq_len(50000) # ~200KB each
-    buf_i32 <- value(pjrt_buffer(data_i32, dtype = "i32"))
+    buf_i32 <- pjrt_buffer(data_i32, dtype = "i32")
     rm(buf_i32, data_i32)
   }
 

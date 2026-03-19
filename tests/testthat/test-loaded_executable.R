@@ -92,13 +92,13 @@ test_that("is_ready works for async values", {
   expect_length(ready, 1L)
 })
 
-test_that("value() returns correct result for async execution", {
+test_that("await() returns correct result for async execution", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute(executable)
-  output <- value(result)
+  output <- await(result)
   expect_class(output, "PJRTBuffer")
   expect_equal(as_array(output), 3)
 })
@@ -115,9 +115,9 @@ test_that("async execution with multiple outputs", {
   result <- pjrt_execute(executable)
   expect_list(result, types = "PJRTBuffer", len = 2L)
 
-  # Each buffer promise can be awaited individually
-  buf1 <- value(result[[1]])
-  buf2 <- value(result[[2]])
+  # Each buffer can be awaited individually
+  buf1 <- await(result[[1]])
+  buf2 <- await(result[[2]])
   expect_class(buf1, "PJRTBuffer")
   expect_class(buf2, "PJRTBuffer")
   expect_equal(as_array(buf1), 3)
@@ -133,8 +133,8 @@ test_that("async execution with simplify=FALSE", {
   result <- pjrt_execute(executable, simplify = FALSE)
   expect_list(result, types = "PJRTBuffer", len = 1L)
 
-  # The buffer promise contains a single buffer
-  buf <- value(result[[1]])
+  # The buffer contains a single buffer
+  buf <- await(result[[1]])
   expect_class(buf, "PJRTBuffer")
 })
 
@@ -295,7 +295,7 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
 
   result <- pjrt_execute(executable, x, y)
 
-  arr <- as_array(value(result))
+  arr <- as_array(result)
   expect_equal(as.vector(arr), as.vector(matrix(1:4, 2, 2) + matrix(5:8, 2, 2)), tolerance = 1e-6)
 })
 
