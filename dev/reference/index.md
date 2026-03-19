@@ -40,9 +40,6 @@
 - [`pjrt_compile()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_compile.md)
   : Compile a Program
 
-- [`pjrt_cuda_versions`](https://r-xla.github.io/pjrt/dev/reference/pjrt_cuda_versions.md)
-  : Recommended CUDA Library Versions
-
 - [`pjrt_device()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_device.md)
   : Create a PJRT Device
 
@@ -59,9 +56,6 @@
   :
 
   Create a `PJRTProgram`
-
-- [`pjrt_sitrep()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_sitrep.md)
-  : Situation Report
 
 - [`platform()`](https://r-xla.github.io/pjrt/dev/reference/platform.md)
   : Platform Name

@@ -106,7 +106,7 @@ PJRT offers an interface to compile programs into executables. These
 programs can be written in HLO or the newer StableHLO. The
 [stablehlo](https://github.com/r-xla/stablehla) package allows you to
 easily create StableHLO programs in R. Below, we define a simple program
-that adds two `f32` tensors of shape `(2, 2)`.
+that adds two `f32` tensors of shape `2x2`.
 
 ``` r
 src <- r"(
@@ -136,11 +136,11 @@ program
 
 We can’t really do anything with this, except for compiling it into an
 executable (`PJRTLoadedExecutable`). For compilation, we need to specify
-the client to use, because the executable depends on the platform as the
+the device to use, because the executable depends on the platform as the
 GPU binary will differ from the CPU binary.
 
 ``` r
-executable <- pjrt_compile(program, client = client)
+executable <- pjrt_compile(program, device = cpu_device)
 executable
 #> <PJRTLoadedExecutable>
 ```

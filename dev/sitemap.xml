@@ -18,13 +18,11 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_compile.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_cuda_versions.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_device.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_execution_options.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_plugin.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_program.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_sitrep.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/platform.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/plugin_attributes.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/plugin_client_create.html</loc></url>
