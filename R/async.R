@@ -31,25 +31,6 @@ is_ready <- function(x, ...) {
 # PJRTBufferPromise Class ------------------------------------------------
 # Represents a promise of a PJRTBuffer (from execution or host-to-device transfer)
 
-#' @title Create a PJRT Buffer Promise (internal)
-#' @description
-#' Internal constructor for async buffer results.
-#' Users should not call this directly - use `pjrt_execute()` or
-#' `pjrt_buffer()` instead.
-#'
-#' A `PJRTBufferPromise` is a `PJRTBuffer` XPtr with an additional class.
-#' The buffer is valid immediately and can be used in subsequent operations
-#' (PJRT handles dependencies internally). Call `value()` to block until
-#' the operation is complete.
-#'
-#' @param buffer A PJRTBuffer external pointer (valid immediately).
-#' @return A `PJRTBufferPromise` object.
-#' @keywords internal
-pjrt_buffer_promise <- function(buffer) {
-  class(buffer) <- c("PJRTBufferPromise", "PJRTBuffer")
-  buffer
-}
-
 #' @export
 value.PJRTBufferPromise <- function(x, ...) {
   impl_buffer_await(x)

@@ -207,7 +207,7 @@ pjrt_buffer.logical <- function(
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
   buffer <- do.call(impl_client_buffer_from_logical, args)
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @export
@@ -220,7 +220,7 @@ pjrt_buffer.integer <- function(
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
   buffer <- do.call(impl_client_buffer_from_integer, args)
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @export
@@ -233,7 +233,7 @@ pjrt_buffer.numeric <- function(
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @export
@@ -264,7 +264,7 @@ pjrt_buffer.raw <- function(
     dtype = dtype,
     row_major = row_major
   )
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @export
@@ -279,7 +279,7 @@ pjrt_scalar.logical <- function(
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
   buffer <- do.call(impl_client_buffer_from_logical, args)
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @export
@@ -294,7 +294,7 @@ pjrt_scalar.integer <- function(
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
   buffer <- do.call(impl_client_buffer_from_integer, args)
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @export
@@ -309,7 +309,7 @@ pjrt_scalar.numeric <- function(
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @export
@@ -324,7 +324,7 @@ pjrt_scalar.raw <- function(
   }
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...)
   buffer <- do.call(impl_client_buffer_from_raw, args)
-  pjrt_buffer_promise(buffer)
+  buffer
 }
 
 #' @title Element Type

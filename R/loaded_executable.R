@@ -73,13 +73,11 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 
   buffers <- impl_loaded_executable_execute(executable, input, execution_options)
 
-  promises <- lapply(buffers, pjrt_buffer_promise)
-
-  if (simplify && length(promises) == 1L) {
-    return(promises[[1L]])
+  if (simplify && length(buffers) == 1L) {
+    return(buffers[[1L]])
   }
 
-  promises
+  buffers
 }
 
 #' @export
