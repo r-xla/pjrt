@@ -54,5 +54,6 @@ Collate:
     'program.R'
     'reexports.R'
     'safetensors.R'
+    'sitrep.R'
     'utils.R'
     'zzz.R'

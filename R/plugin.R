@@ -40,7 +40,7 @@ plugin_client_create <- function(plugin, platform, options = list()) {
     }
   })
   # Otherwise, we get startup message w.r.t. the number of cpu devices
-  client <- withr::with_envvar(c(TF_CPP_MIN_LOG_LEVEL = "1"), {
+  client <- withr::with_envvar(c(TF_CPP_MIN_LOG_LEVEL = Sys.getenv("TF_CPP_MIN_LOG_LEVEL", "3")), {
     impl_plugin_client_create(plugin, opts)
   })
   the[["clients"]][[platform]] <- client
@@ -74,7 +74,9 @@ pjrt_plugin <- function(platform) {
     return(the[["plugins"]][[platform]])
   }
 
-  plugin <- impl_plugin_load(plugin_path(platform))
+  plugin <- withr::with_envvar(c(TF_CPP_MIN_LOG_LEVEL = Sys.getenv("TF_CPP_MIN_LOG_LEVEL", "3")), {
+    impl_plugin_load(plugin_path(platform))
+  })
   attributes(plugin) <- list(platform = platform)
 
   if (platform != "metal") {

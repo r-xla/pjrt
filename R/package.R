@@ -42,3 +42,21 @@ NULL
 #' * `PJRT_CPU_DEVICE_COUNT`: The number of CPU devices to use. Defaults to 1.
 #'    This is primarily intended for testing purposes.
 "_PACKAGE"
+
+#' Recommended CUDA Library Versions
+#'
+#' A named list of the recommended library versions for CUDA support.
+#' The PJRT CUDA plugin was built with these versions.
+#'
+#' @format A named list with character elements:
+#' \describe{
+#'   \item{cuda}{CUDA version}
+#'   \item{cudnn}{cuDNN version}
+#'   \item{nvshmem}{NVSHMEM version}
+#' }
+#' @export
+pjrt_cuda_versions <- list(
+  cuda = "12.8.1",
+  cudnn = "9.8.0",
+  nvshmem = "3.2.5"
+)
