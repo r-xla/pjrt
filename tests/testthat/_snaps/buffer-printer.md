@@ -931,6 +931,24 @@
        ... [output was truncated, set max_rows = -1 to see all]
       [ CPUi32{3x4x5} ] 
 
+# metal
+
+    Code
+      pjrt_buffer(1:10, "f32", device = "metal")
+    Output
+      PJRTBuffer 
+        1
+        2
+        3
+        4
+        5
+        6
+        7
+        8
+        9
+       10
+      [ METALf32{10} ] 
+
 # stress test f32
 
     Code
