@@ -5,7 +5,11 @@ Compile a `PJRTProgram` program into a `PJRTExecutable`.
 ## Usage
 
 ``` r
-pjrt_compile(program, compile_options = new_compile_options(), device = NULL)
+pjrt_compile(
+  program,
+  compile_options = new_compile_options(),
+  client = pjrt_client()
+)
 ```
 
 ## Arguments
@@ -20,13 +24,11 @@ pjrt_compile(program, compile_options = new_compile_options(), device = NULL)
   (`PJRTCompileOptions`)  
   Compile options.
 
-- device:
+- client:
 
-  (`NULL` \| `PJRTDevice` \| `character(1)`)  
-  A `PJRTDevice` object or the name of the platform to use ("cpu",
-  "cuda", ...), in which case the first device for that platform is
-  used. The default is to use the CPU platform, but this can be
-  configured via the `PJRT_PLATFORM` environment variable.
+  (`PJRTClient` \| `character(1)`)  
+  A PJRT client object or the name of the platform to use ("cpu",
+  "cuda", ...), from which the client will be created.
 
 ## Value
 
