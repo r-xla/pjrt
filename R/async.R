@@ -5,7 +5,8 @@
 #' Materialize and return the result of an async operation.
 #' Blocks until the operation is complete if it hasn't finished yet.
 #'
-#' Returns `PJRTBuffer` for buffers or an R array for `PJRTArrayPromise`.
+#' For `PJRTArrayPromise`, returns the materialized R array.
+#' For `PJRTBuffer`, use `await()` to block until ready.
 #'
 #' @param x An async value object.
 #' @param ... Additional arguments (unused).

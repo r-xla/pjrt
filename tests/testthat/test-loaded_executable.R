@@ -301,7 +301,7 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
 
 # Error propagation tests ---------------------------------------------------
 
-test_that("error in execute_async is caught when calling value on buffer_promise", {
+test_that("error in execute_async is caught with wrong shape input", {
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   "func.return"(%x): (tensor<2x2xf32>) -> ()
@@ -339,7 +339,7 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
   )
 })
 
-test_that("async chain with buffer_promise produces correct results", {
+test_that("async chain with buffer produces correct results", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()

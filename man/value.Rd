@@ -18,5 +18,6 @@ The materialized value.
 Materialize and return the result of an async operation.
 Blocks until the operation is complete if it hasn't finished yet.
 
-Returns \code{PJRTBuffer} for buffers or an R array for \code{PJRTArrayPromise}.
+For \code{PJRTArrayPromise}, returns the materialized R array.
+For \code{PJRTBuffer}, use \code{await()} to block until ready.
 }
