@@ -4,7 +4,7 @@
       print(program)
     Output
       PJRTProgram(format=hlo, code_size=158)
-      goo.gle/debugonly    
+      goo.gle/debugproto   
       name: "x*x.3"
       entry_computation_name: "x*x.3"
       computations {

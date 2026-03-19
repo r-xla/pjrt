@@ -11,7 +11,6 @@
 #include "plugin.h"
 #include "utils.h"
 
-
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTPlugin> impl_plugin_load(const std::string &path) {
   auto ptr = std::make_unique<rpjrt::PJRTPlugin>(path);
@@ -144,7 +143,8 @@ std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
   return vec;
 }
 
-// Async buffer creation - handles data lifetime internally via on_ready callback
+// Async buffer creation - handles data lifetime internally via on_ready
+// callback
 template <typename T>
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
@@ -169,8 +169,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
   // Keep data alive until transfer completes
   if (result.event) {
     auto *raw_ptr = data_vec.release();
-    result.event->on_ready(
-        [raw_ptr](PJRT_Error *error) { delete raw_ptr; });
+    result.event->on_ready([raw_ptr](PJRT_Error *error) { delete raw_ptr; });
   }
   // If no event, data_vec is freed here (transfer already complete)
 
@@ -220,7 +219,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
   auto byte_strides_opt =
       get_byte_strides(dims, row_major, sizeof_pjrt_buffer_type(dtype));
   auto result = client->buffer_from_host_async(RAW(data), dims,
-                                                byte_strides_opt, dtype, device);
+                                               byte_strides_opt, dtype, device);
   if (result.event) {
     result.event->await();
   }
@@ -324,7 +323,6 @@ SEXP raw_to_array_impl(const uint8_t *raw_data,
   UNPROTECT(1);
   return out;
 }
-
 
 // [[Rcpp::export()]]
 Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
@@ -648,12 +646,12 @@ Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   // Handle empty buffers
   if (numel == 0) {
     auto empty_vec = std::make_unique<std::vector<uint8_t>>();
-    auto empty_data = std::make_unique<rpjrt::PJRTHostData>(
-        std::move(empty_vec), nullptr);
+    auto empty_data =
+        std::make_unique<rpjrt::PJRTHostData>(std::move(empty_vec), nullptr);
     Rcpp::XPtr<rpjrt::PJRTHostData> data_xptr(empty_data.release(), true);
-    return Rcpp::List::create(
-        Rcpp::Named("data") = data_xptr,
-        Rcpp::Named("dtype") = dtype, Rcpp::Named("dims") = dims);
+    return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
+                              Rcpp::Named("dtype") = dtype,
+                              Rcpp::Named("dims") = dims);
   }
 
   const size_t total_bytes = numel * sizeof_pjrt_buffer_type(element_type);
@@ -665,13 +663,13 @@ Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
   auto event = buffer->buffer_to_host_async(host_buffer);
 
   // Wrap data + event in PJRTHostData (owns both)
-  auto host_data =
-      std::make_unique<rpjrt::PJRTHostData>(std::move(data_vec), std::move(event));
+  auto host_data = std::make_unique<rpjrt::PJRTHostData>(std::move(data_vec),
+                                                         std::move(event));
   Rcpp::XPtr<rpjrt::PJRTHostData> data_xptr(host_data.release(), true);
 
-  return Rcpp::List::create(
-      Rcpp::Named("data") = data_xptr,
-      Rcpp::Named("dtype") = dtype, Rcpp::Named("dims") = dims);
+  return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
+                            Rcpp::Named("dtype") = dtype,
+                            Rcpp::Named("dims") = dims);
 }
 
 // [[Rcpp::export()]]
@@ -768,11 +766,11 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
         false, device->device);
   } else if (dtype == "pred") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
-    return impl_client_buffer_from_logical(client, device, data_conv,
-                                           dims, dtype);
+    return impl_client_buffer_from_logical(client, device, data_conv, dims,
+                                           dtype);
   } else {
     Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
-    return impl_client_buffer_from_integer(client, device, data_conv,
-                                           dims, dtype);
+    return impl_client_buffer_from_integer(client, device, data_conv, dims,
+                                           dtype);
   }
 }
