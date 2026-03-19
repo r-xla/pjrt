@@ -37,6 +37,7 @@ is_ready <- function(x, ...) {
 #' Users should not call this directly - use `pjrt_execute()` or
 #' `pjrt_buffer()` instead.
 #'
+#' A `PJRTBufferPromise` is a `PJRTBuffer` XPtr with an additional class.
 #' The buffer is valid immediately and can be used in subsequent operations
 #' (PJRT handles dependencies internally). Call `value()` to block until
 #' the operation is complete.
@@ -45,43 +46,31 @@ is_ready <- function(x, ...) {
 #' @return A `PJRTBufferPromise` object.
 #' @keywords internal
 pjrt_buffer_promise <- function(buffer) {
-  env <- new.env(parent = emptyenv())
-  env$buffer <- buffer
-  env$awaited <- FALSE
-  structure(env, class = "PJRTBufferPromise")
+  class(buffer) <- c("PJRTBufferPromise", "PJRTBuffer")
+  buffer
 }
 
 #' @export
 value.PJRTBufferPromise <- function(x, ...) {
-  if (!x$awaited) {
-    impl_buffer_await(x$buffer)
-    x$awaited <- TRUE
-  }
-  x$buffer
+  impl_buffer_await(x)
+  class(x) <- "PJRTBuffer"
+  x
 }
 
 #' @export
 is_ready.PJRTBufferPromise <- function(x, ...) {
-  impl_buffer_is_ready(x$buffer)
+  impl_buffer_is_ready(x)
 }
 
 #' @export
 print.PJRTBufferPromise <- function(x, ...) {
-  cat("<PJRTBufferPromise>\n")
-  if (x$awaited) {
-    cat("Status: Awaited\n")
-    cat("Buffer:\n")
-    print(x$buffer)
+  if (is_ready(x)) {
+    NextMethod()
   } else {
-    cat("Status: Not awaited\n")
+    cat("<PJRTBufferPromise> (not ready)\n")
     cat("(Call value() to await and retrieve the buffer)\n")
   }
   invisible(x)
-}
-
-#' @export
-as_array.PJRTBufferPromise <- function(x, ...) {
-  value(as_array_async(x))
 }
 
 #' @keywords internal

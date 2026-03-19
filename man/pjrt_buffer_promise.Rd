@@ -17,6 +17,7 @@ Internal constructor for async buffer results.
 Users should not call this directly - use \code{pjrt_execute()} or
 \code{pjrt_buffer()} instead.
 
+A \code{PJRTBufferPromise} is a \code{PJRTBuffer} XPtr with an additional class.
 The buffer is valid immediately and can be used in subsequent operations
 (PJRT handles dependencies internally). Call \code{value()} to block until
 the operation is complete.

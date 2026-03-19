@@ -11,7 +11,6 @@
 #' format_buffer(buf)
 #' @export
 format_buffer <- function(buffer) {
-  if (is_buffer_promise(buffer)) buffer <- value(buffer)
   if (!is_buffer(buffer)) {
     cli_abort("`buffer` must be a `PJRTBuffer` or `PJRTBufferPromise`")
   }

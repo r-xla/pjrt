@@ -1,12 +1,9 @@
-# Extract the raw PJRTBuffer XPtr from a buffer promise or buffer.
+# Validate that input is a PJRTBuffer (or PJRTBufferPromise, which inherits).
 resolve_buffer_input <- function(x) {
-  if (is_buffer_promise(x)) {
-    x$buffer
-  } else if (is_buffer(x)) {
-    x
-  } else {
+  if (!is_buffer(x)) {
     cli_abort("Expected PJRTBuffer or PJRTBufferPromise")
   }
+  x
 }
 
 #' @title Execute a PJRT program

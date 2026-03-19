@@ -91,7 +91,7 @@ pjrt_buffer <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
 }
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
-  buf <- if (is_buffer_promise(data)) data$buffer else data
+  buf <- data
   if (!is.null(dtype) && !identical(dtype, as.character(elt_type(buf)))) {
     cli_abort("Must use the same data type as the data")
   }
@@ -112,9 +112,7 @@ buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...
 pjrt_buffer.PJRTBuffer <- buffer_identity
 
 #' @export
-pjrt_buffer.PJRTBufferPromise <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
-  buffer_identity(data, dtype, device, shape, ...)
-}
+pjrt_buffer.PJRTBufferPromise <- buffer_identity
 
 #' @rdname pjrt_buffer
 #' @examplesIf plugin_is_downloaded()
@@ -132,9 +130,7 @@ pjrt_scalar.PJRTBuffer <- function(data, dtype = NULL, device = NULL, ...) {
 }
 
 #' @export
-pjrt_scalar.PJRTBufferPromise <- function(data, dtype = NULL, device = NULL, ...) {
-  buffer_identity(data, dtype, device, shape = integer())
-}
+pjrt_scalar.PJRTBufferPromise <- pjrt_scalar.PJRTBuffer
 
 #' @rdname pjrt_buffer
 #' @examplesIf plugin_is_downloaded()
@@ -341,7 +337,6 @@ pjrt_scalar.raw <- function(
 #' elt_type(buf)
 #' @export
 elt_type <- function(x) {
-  if (is_buffer_promise(x)) x <- x$buffer
   impl_buffer_elt_type(x)
 }
 
@@ -378,16 +373,6 @@ as_array_async.PJRTBuffer <- function(x, ...) {
   pjrt_array_promise(result$data, result$dtype, result$dims)
 }
 
-#' @export
-as_array_async.PJRTBufferPromise <- function(x, ...) {
-  result <- impl_buffer_to_host_async(x$buffer)
-  pjrt_array_promise(result$data, result$dtype, result$dims)
-}
-
-#' @export
-as_raw.PJRTBufferPromise <- function(x, row_major, ...) {
-  as_raw(value(x), row_major = row_major, ...)
-}
 
 #' @export
 as_raw.PJRTBuffer <- function(x, row_major, ...) {
@@ -436,11 +421,6 @@ device.PJRTBuffer <- function(x, ...) {
   impl_buffer_device(x)
 }
 
-#' @export
-device.PJRTBufferPromise <- function(x, ...) {
-  device(x$buffer)
-}
-
 
 #' @include client.R
 #' @export
@@ -450,10 +430,6 @@ platform.PJRTBuffer <- function(x, ...) {
   tolower(sub("Device$", "", letters_only))
 }
 
-#' @export
-platform.PJRTBufferPromise <- function(x, ...) {
-  platform(x$buffer)
-}
 
 #' @export
 as.character.PJRTDevice <- function(x, ...) {
@@ -540,10 +516,6 @@ shape.PJRTBuffer <- function(x, ...) {
   impl_buffer_dimensions(x)
 }
 
-#' @export
-shape.PJRTBufferPromise <- function(x, ...) {
-  shape(x$buffer)
-}
 
 #' @export
 `==.PJRTDevice` <- function(e1, e2) {
