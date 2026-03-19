@@ -2,6 +2,7 @@
 
 #include <Rcpp.h>
 
+#include "deferred_release.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
@@ -88,6 +89,11 @@ PJRTBuffer::PJRTBuffer(PJRT_Buffer *buffer, std::shared_ptr<PJRT_Api> api)
     : buffer(buffer), api(api) {}
 
 PJRTBuffer::~PJRTBuffer() {
+  // Drain the deferred release queue while we're on the main R thread.
+  // This ensures R objects preserved for zero-copy transfers get released
+  // when buffers are garbage collected.
+  process_pending_releases();
+
   PJRT_Buffer_Destroy_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Destroy_Args);
   args.buffer = this->buffer;
