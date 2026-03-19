@@ -10,7 +10,7 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
 A PJRT program.}
 
-\item{...}{(\code{PJRTBuffer} | \code{PJRTBufferPromise})\cr
+\item{...}{(\code{PJRTBuffer} | \code{PJRTBuffer})\cr
 Inputs to the program.
 Named are ignored and arguments are passed in order.}
 
@@ -18,11 +18,11 @@ Named are ignored and arguments are passed in order.}
 Optional execution options for configuring buffer donation and other settings.}
 
 \item{simplify}{(\code{logical(1)})\cr
-If \code{TRUE} (default), a single output is returned as a \code{PJRTBufferPromise}.
-If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBufferPromise}.}
+If \code{TRUE} (default), a single output is returned as a \code{PJRTBuffer}.
+If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBuffer}.}
 }
 \value{
-\code{PJRTBufferPromise} | \code{list} of \code{PJRTBufferPromise}s
+\code{PJRTBuffer} | \code{list} of \code{PJRTBuffer}s
 }
 \description{
 Execute a PJRT program with the given inputs and execution options.
@@ -31,7 +31,7 @@ Returns immediately with buffer promise(s) that can be awaited later.
 \strong{Important:}
 Arguments are passed by position and names are ignored.
 
-Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{PJRTBufferPromise}).
+Inputs can be \code{PJRTBuffer} objects or buffer promises (\code{PJRTBuffer}).
 Buffer promises are resolved automatically before execution.
 
 Use \code{value()} to get the result (blocks if not ready).

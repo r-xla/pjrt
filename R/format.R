@@ -12,7 +12,7 @@
 #' @export
 format_buffer <- function(buffer) {
   if (!is_buffer(buffer)) {
-    cli_abort("`buffer` must be a `PJRTBuffer` or `PJRTBufferPromise`")
+    cli_abort("`buffer` must be a `PJRTBuffer`")
   }
   out <- format_raw_buffer_cpp(
     as_raw(buffer, row_major = FALSE),

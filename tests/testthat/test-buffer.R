@@ -9,7 +9,7 @@ test_pjrt_scalar <- function(
   args$dtype <- dtype
   buffer <- do.call(pjrt_scalar, args)
 
-  expect_class(buffer, "PJRTBufferPromise")
+  expect_class(buffer, "PJRTBuffer")
   result <- as_array(buffer)
   testthat::expect_true(!is.array(result))
 
@@ -56,7 +56,7 @@ test_pjrt_buffer <- function(
   args$dtype <- dtype
   buffer <- do.call(pjrt_buffer, args)
 
-  expect_class(buffer, "PJRTBufferPromise")
+  expect_class(buffer, "PJRTBuffer")
   result <- as_array(buffer)
   testthat::expect_true(is.array(result))
 
@@ -679,9 +679,9 @@ test_that("print.PJRTArrayPromise works", {
 
 # Async host-to-device buffer tests
 
-test_that("pjrt_buffer returns PJRTBufferPromise", {
+test_that("pjrt_buffer returns PJRTBuffer", {
   x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-  expect_s3_class(x, "PJRTBufferPromise")
+  expect_s3_class(x, "PJRTBuffer")
 })
 
 test_that("is_ready works for async transfers", {
@@ -723,7 +723,7 @@ test_that("pjrt_buffer works with logical data", {
 test_that("buffer promise can be chained with as_array_async", {
   # Create buffer asynchronously
   transfer <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-  expect_class(transfer, "PJRTBufferPromise")
+  expect_class(transfer, "PJRTBuffer")
 
   # Chain with async to-host transfer
   async_arr <- as_array_async(transfer)
@@ -760,16 +760,16 @@ test_that("buffer promise can be used as input to pjrt_execute", {
 
   # Execute with mixed async/sync inputs - async should auto-wait
   result <- pjrt_execute(executable, x_async, i1_buf, i2_buf)
-  expect_class(result, "PJRTBufferPromise")
+  expect_class(result, "PJRTBuffer")
 
   # Get final value
   arr <- value(as_array_async(result))
   expect_equal(arr, x[1, 2])
 })
 
-test_that("print.PJRTBufferPromise works", {
+test_that("print.PJRTBuffer works", {
   x <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
-  expect_output(print(x), "PJRTBufferPromise")
+  expect_output(print(x), "PJRTBuffer")
 })
 
 test_that("zero-copy sync buffer properly releases preserved R objects", {
@@ -807,7 +807,7 @@ test_that("zero-copy sync buffer properly releases preserved R objects", {
 })
 
 test_that("async buffer inputs to sync execute properly release preserved objects", {
-  # This tests that when PJRTBufferPromise objects are passed to
+  # This tests that when PJRTBuffer objects are passed to
 
   # pjrt_execute() (sync), the data_holder is properly released after
   # the transfer completes. Without proper release queue draining,

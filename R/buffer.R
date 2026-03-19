@@ -111,8 +111,6 @@ buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...
 #' @export
 pjrt_buffer.PJRTBuffer <- buffer_identity
 
-#' @export
-pjrt_buffer.PJRTBufferPromise <- buffer_identity
 
 #' @rdname pjrt_buffer
 #' @examplesIf plugin_is_downloaded()
@@ -129,8 +127,6 @@ pjrt_scalar.PJRTBuffer <- function(data, dtype = NULL, device = NULL, ...) {
   buffer_identity(data, dtype, device, shape = integer())
 }
 
-#' @export
-pjrt_scalar.PJRTBufferPromise <- pjrt_scalar.PJRTBuffer
 
 #' @rdname pjrt_buffer
 #' @examplesIf plugin_is_downloaded()
@@ -330,7 +326,7 @@ pjrt_scalar.raw <- function(
 #' @title Element Type
 #' @description
 #' Get the element type of a buffer.
-#' @param x ([`PJRTBuffer`][pjrt_buffer] or `PJRTBufferPromise`)\cr
+#' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer.
 #' @examplesIf plugin_is_downloaded("cpu")
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0))
@@ -353,7 +349,7 @@ as_array.PJRTBuffer <- function(x, ...) {
 #' Use `value()` to get the R array (blocks if not ready).
 #' Use `is_ready()` to check if transfer has completed (non-blocking).
 #'
-#' @param x A `PJRTBuffer` or `PJRTBufferPromise` object.
+#' @param x A `PJRTBuffer` object.
 #' @param ... Additional arguments (unused).
 #' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
 #' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()]

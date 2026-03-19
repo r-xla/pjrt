@@ -7,7 +7,7 @@
 as_array_async(x, ...)
 }
 \arguments{
-\item{x}{A \code{PJRTBuffer} or \code{PJRTBufferPromise} object.}
+\item{x}{A \code{PJRTBuffer} object.}
 
 \item{...}{Additional arguments (unused).}
 }

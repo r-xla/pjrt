@@ -23,7 +23,7 @@ test_that("can return two values", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   result <- pjrt_execute(executable)
-  expect_list(result, types = "PJRTBufferPromise", len = 2L)
+  expect_list(result, types = "PJRTBuffer", len = 2L)
   expect_equal(as_array(result[[1]]), 3)
   expect_equal(as_array(result[[2]]), 7)
 })
@@ -33,11 +33,11 @@ test_that("single-output returns list when simplify=FALSE", {
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
   result <- pjrt_execute(executable, simplify = FALSE)
-  expect_list(result, types = "PJRTBufferPromise", len = 1L)
+  expect_list(result, types = "PJRTBuffer", len = 1L)
   expect_equal(as_array(result[[1]]), 3)
 
   result <- pjrt_execute(executable, simplify = TRUE)
-  expect_class(result, "PJRTBufferPromise")
+  expect_class(result, "PJRTBuffer")
   expect_equal(as_array(result), 3)
 })
 
@@ -64,7 +64,7 @@ test_that("pjrt_execute returns buffer promise", {
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute(executable)
-  expect_class(result, "PJRTBufferPromise")
+  expect_class(result, "PJRTBuffer")
 })
 
 test_that("pjrt_execute returns a buffer promise", {
@@ -77,7 +77,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
-  expect_s3_class(result, "PJRTBufferPromise")
+  expect_s3_class(result, "PJRTBuffer")
 })
 
 test_that("is_ready works for async values", {
@@ -113,7 +113,7 @@ test_that("async execution with multiple outputs", {
 
   # With multiple outputs, returns list of buffer promises
   result <- pjrt_execute(executable)
-  expect_list(result, types = "PJRTBufferPromise", len = 2L)
+  expect_list(result, types = "PJRTBuffer", len = 2L)
 
   # Each buffer promise can be awaited individually
   buf1 <- value(result[[1]])
@@ -131,20 +131,20 @@ test_that("async execution with simplify=FALSE", {
 
   # With simplify=FALSE, returns list even for single output
   result <- pjrt_execute(executable, simplify = FALSE)
-  expect_list(result, types = "PJRTBufferPromise", len = 1L)
+  expect_list(result, types = "PJRTBuffer", len = 1L)
 
   # The buffer promise contains a single buffer
   buf <- value(result[[1]])
   expect_class(buf, "PJRTBuffer")
 })
 
-test_that("print.PJRTBufferPromise works", {
+test_that("print.PJRTBuffer works", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute(executable)
-  expect_output(print(result), "PJRTBufferPromise")
+  expect_output(print(result), "PJRTBuffer")
 })
 
 test_that("as_array works for async values (single output)", {
@@ -183,7 +183,7 @@ test_that("async execution chained with async buffer-to-host", {
 
   # Start async execution
   async_result <- pjrt_execute(executable)
-  expect_class(async_result, "PJRTBufferPromise")
+  expect_class(async_result, "PJRTBuffer")
 
   # Chain with async buffer-to-host transfer (auto-waits for execution)
   async_array <- as_array_async(async_result)
@@ -212,7 +212,7 @@ test_that("async execution with inputs chained to async buffer-to-host", {
 
   # Execute asynchronously
   async_result <- pjrt_execute(executable, x_buf, i1_buf, i2_buf)
-  expect_class(async_result, "PJRTBufferPromise")
+  expect_class(async_result, "PJRTBuffer")
 
   # Chain with async buffer-to-host transfer
   async_array <- as_array_async(async_result)

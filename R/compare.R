@@ -11,12 +11,6 @@ compare_proxy.PJRTBuffer <- function(x, path) { # nolint
   )
 }
 
-# fmt: skip
-# Await the buffer before comparing
-compare_proxy.PJRTBufferPromise <- function(x, path) { # nolint
-  value(x)
-  NextMethod()
-}
 
 # fmt: skip
 compare_proxy.PJRTArrayPromise <- function(x, path) { # nolint

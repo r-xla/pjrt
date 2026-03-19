@@ -1,12 +1,11 @@
 # Async Value Classes for PJRT
-# Promise-style wrappers for async operation results
 
 #' @title Get the value of an async operation
 #' @description
 #' Materialize and return the result of an async operation.
 #' Blocks until the operation is complete if it hasn't finished yet.
 #'
-#' Returns `PJRTBuffer` for `PJRTBufferPromise` or an R array for `PJRTArrayPromise`.
+#' Returns `PJRTBuffer` for buffers or an R array for `PJRTArrayPromise`.
 #'
 #' @param x An async value object.
 #' @param ... Additional arguments (unused).
@@ -28,35 +27,15 @@ is_ready <- function(x, ...) {
   UseMethod("is_ready")
 }
 
-# PJRTBufferPromise Class ------------------------------------------------
-# Represents a promise of a PJRTBuffer (from execution or host-to-device transfer)
-
 #' @export
-value.PJRTBufferPromise <- function(x, ...) {
+value.PJRTBuffer <- function(x, ...) {
   impl_buffer_await(x)
-  class(x) <- "PJRTBuffer"
   x
 }
 
 #' @export
-is_ready.PJRTBufferPromise <- function(x, ...) {
+is_ready.PJRTBuffer <- function(x, ...) {
   impl_buffer_is_ready(x)
-}
-
-#' @export
-print.PJRTBufferPromise <- function(x, ...) {
-  if (is_ready(x)) {
-    NextMethod()
-  } else {
-    cat("<PJRTBufferPromise> (not ready)\n")
-    cat("(Call value() to await and retrieve the buffer)\n")
-  }
-  invisible(x)
-}
-
-#' @keywords internal
-is_buffer_promise <- function(x) {
-  inherits(x, "PJRTBufferPromise")
 }
 
 # PJRTArrayPromise Class -------------------------------------------------

@@ -1,7 +1,6 @@
-# Validate that input is a PJRTBuffer (or PJRTBufferPromise, which inherits).
 resolve_buffer_input <- function(x) {
   if (!is_buffer(x)) {
-    cli_abort("Expected PJRTBuffer or PJRTBufferPromise")
+    cli_abort("Expected PJRTBuffer")
   }
   x
 }
@@ -14,7 +13,7 @@ resolve_buffer_input <- function(x) {
 #' **Important:**
 #' Arguments are passed by position and names are ignored.
 #'
-#' Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBufferPromise`).
+#' Inputs can be `PJRTBuffer` objects or buffer promises (`PJRTBuffer`).
 #' Buffer promises are resolved automatically before execution.
 #'
 #' Use `value()` to get the result (blocks if not ready).
@@ -23,15 +22,15 @@ resolve_buffer_input <- function(x) {
 #'
 #' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program.
-#' @param ... (`PJRTBuffer` | `PJRTBufferPromise`)\cr
+#' @param ... (`PJRTBuffer` | `PJRTBuffer`)\cr
 #'   Inputs to the program.
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
 #'   Optional execution options for configuring buffer donation and other settings.
 #' @param simplify (`logical(1)`)\cr
-#'   If `TRUE` (default), a single output is returned as a `PJRTBufferPromise`.
-#'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBufferPromise`.
-#' @return `PJRTBufferPromise` | `list` of `PJRTBufferPromise`s
+#'   If `TRUE` (default), a single output is returned as a `PJRTBuffer`.
+#'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBuffer`.
+#' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
 #' @seealso [value()], [is_ready()], [as_array_async()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create and compile a simple identity program

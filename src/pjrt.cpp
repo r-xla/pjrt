@@ -11,10 +11,6 @@
 #include "plugin.h"
 #include "utils.h"
 
-static void set_buffer_promise_class(Rcpp::XPtr<rpjrt::PJRTBuffer> &xptr) {
-  xptr.attr("class") =
-      Rcpp::CharacterVector::create("PJRTBufferPromise", "PJRTBuffer");
-}
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTPlugin> impl_plugin_load(const std::string &path) {
@@ -179,7 +175,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
   // If no event, data_vec is freed here (transfer already complete)
 
   Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  set_buffer_promise_class(buffer_xptr);
+  buffer_xptr.attr("class") = "PJRTBuffer";
   return buffer_xptr;
 }
 
@@ -213,7 +209,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_zerocopy(
   }
 
   Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  set_buffer_promise_class(buffer_xptr);
+  buffer_xptr.attr("class") = "PJRTBuffer";
   return buffer_xptr;
 }
 
@@ -695,7 +691,7 @@ Rcpp::List impl_loaded_executable_execute(
   Rcpp::List buffers(result.buffers.size());
   for (size_t i = 0; i < result.buffers.size(); ++i) {
     Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffers[i].release(), true);
-    set_buffer_promise_class(xptr);
+    xptr.attr("class") = "PJRTBuffer";
     buffers[i] = xptr;
   }
 
