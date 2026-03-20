@@ -160,13 +160,12 @@ In pjrt, this happens automatically. Both `pjrt_buffer()` and `pjrt_execute()` r
 
 `PJRTBuffer` is a transparent async type — it can be used directly in operations even if the underlying computation hasn't completed yet. PJRT handles the dependencies internally.
 
-Supported operations on async objects:
+`PJRTArrayPromise` represents data in transit from device to host. Because R arrays are plain R objects (not under our control like `PJRTBuffer`), we need a separate promise type to represent "array that isn't ready yet." This is why there are two functions for synchronization:
 
-- `is_ready(x)` — non-blocking readiness check
-- `await(x)` — block until ready, return the buffer
-- `as_array(x)` — convert to R array (blocks if needed)
+- `await(x)` — block until a `PJRTBuffer` is ready on the device. Pure synchronization; no data leaves the device. Useful for timing or error checking, but **not required** before passing a buffer to `pjrt_execute()`.
+- `value(x)` — block until a `PJRTArrayPromise` completes, then materialize and return the R array. This is how you get data out of the device.
 
-`PJRTArrayPromise` additionally supports `value(x)` to materialize the R array.
+Both types also support `is_ready(x)` for non-blocking readiness checks.
 
 ### Chaining operations
 

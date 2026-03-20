@@ -1,1 +1,1 @@
-use devtools::test() for running tests
+AGENTS.md

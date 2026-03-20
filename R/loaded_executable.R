@@ -1,10 +1,3 @@
-resolve_buffer_input <- function(x) {
-  if (!is_buffer(x)) {
-    cli_abort("Expected PJRTBuffer")
-  }
-  x
-}
-
 #' @title Execute a PJRT program
 #' @description
 #' Execute a PJRT program with the given inputs and execution options.
@@ -21,8 +14,8 @@ resolve_buffer_input <- function(x) {
 #' Use `as_array_async()` to chain async buffer-to-host transfer.
 #'
 #' @param executable (`PJRTLoadedExecutable`)\cr
-#' A PJRT program.
-#' @param ... (`PJRTBuffer` | `PJRTBuffer`)\cr
+#' A PJRT program
+#' @param ... (`PJRTBuffer`)\cr
 #'   Inputs to the program.
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
@@ -59,8 +52,7 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   check_loaded_executable(executable)
   input_raw <- list(...)
 
-  # Resolve any async inputs (extract buffers)
-  input <- lapply(input_raw, resolve_buffer_input)
+  lapply(input_raw, check_buffer)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()
@@ -70,7 +62,7 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 
   assert_flag(simplify)
 
-  buffers <- impl_loaded_executable_execute(executable, input, execution_options)
+  buffers <- impl_loaded_executable_execute(executable, input_raw, execution_options)
 
   if (simplify && length(buffers) == 1L) {
     return(buffers[[1L]])

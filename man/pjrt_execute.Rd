@@ -8,9 +8,9 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 }
 \arguments{
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
-A PJRT program.}
+A PJRT program}
 
-\item{...}{(\code{PJRTBuffer} | \code{PJRTBuffer})\cr
+\item{...}{(\code{PJRTBuffer})\cr
 Inputs to the program.
 Named are ignored and arguments are passed in order.}
 

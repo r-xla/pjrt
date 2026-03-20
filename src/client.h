@@ -69,7 +69,7 @@ class PJRTClient {
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options,
       PJRTDevice &device);
-  std::unique_ptr<PJRTBuffer> buffer_from_host(
+  AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
       PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);
