@@ -15,15 +15,15 @@ knitr::opts_chunk$set(
 )
 ```
 
-## Main Classes
+## Overview
 
-The {pjrt} package provides an R interface to [PJRT](https://openxla.org/xla/pjrt).
-PJRT is part of the [OpenXLA](https://openxla.org/) project, which is an open source compiler ecosystem for machine learning or more generally Accelerated Linear Algebra (XLA).
-It defines a standardized interface which serves as a portability layer that allows a single framework to be used with different hardware backends.
-PJRT defines what a concrete "backend" needs to be able to do in order to be usable with a frontend (like [JAX](https://jax.readthedocs.io/)) using PJRT.
-Anyone can implement a specific PJRT plugin (`PJRTPlugin`) for a specific hardware backend.
-When using PJRT, such a plugin is loaded as a shared library and is wrapped in a PJRT client (`PJRTClient`).
-In this package, we currently support CPU plugins, NVIDIA GPU plugins, and Metal (Apple GPU; experimental) plugins.
+The {pjrt} package provides an R interface to [PJRT](https://openxla.org/xla/pjrt), part of the [OpenXLA](https://openxla.org/) project.
+PJRT is a portability layer that allows frameworks to work with different hardware backends through a standardized interface.
+Anyone can implement a PJRT plugin for a specific hardware backend, and this package currently supports CPU, NVIDIA GPU, and Metal (Apple GPU; experimental) plugins.
+
+A key design principle of pjrt is **asynchronous dispatch**: operations like buffer creation and program execution return immediately with `PJRTBuffer` objects that may not be ready yet, allowing R to continue preparing work while the device computes in the background. This enables efficient overlap of host and device work, which is critical for performance on accelerators.
+
+## Plugins and Clients
 
 When creating a plugin upon first use, the shared library is downloaded and cached.
 
@@ -58,39 +58,34 @@ cpu_device <- cpu_devices[[1L]]
 
 The most important operations that a client supports are data handling, compilation and execution.
 
-### Data Handling
+## Data Handling
 
-Using a client, we can move data from the host (standard R objects) to a specific device to create a buffer (`PJRTBuffer`) (also known as a tensor or array).
-A buffer has a type, which consists of the types of the (homogenous) elements (`PJRTElementType`) and the shape.
-Scalars are represented as 0-dimensional buffers and dimensions can be 0.
+Using a client, we can move data from the host (standard R objects) to a specific device to create a buffer.
+`pjrt_buffer()` returns a `PJRTBuffer` immediately — the buffer may not be ready yet (the host-to-device transfer happens asynchronously), but R does not block.
 
 ```{r}
 host_data <- 1:4
-device_buffer <- pjrt_buffer(host_data, device = cpu_device, shape = c(2L, 2L), dtype = "f32")
-device_buffer
+buf <- pjrt_buffer(host_data, device = cpu_device, shape = c(2L, 2L), dtype = "f32")
+buf
 ```
 
-After creation, we can inspect the shape and element type of the buffer.
+Even before the transfer finishes, you can inspect buffer metadata — these operations are non-blocking because the metadata is available immediately:
 
 ```{r}
-shape(device_buffer)
-elt_type(device_buffer)
-device(device_buffer)
+shape(buf)
+elt_type(buf)
+device(buf)
 ```
 
-We can also move the data back to the host from a buffer.
+To move data back to the host, use `as_array()`. This blocks until the data is available:
 
 ```{r}
-host_data_from_buffer <- as_array(device_buffer)
-host_data_from_buffer
+as_array(buf)
 ```
 
-In principle, it is also supported to move data from one device to another, but this is not supported yet.
+## Compilation
 
-### Compilation
-
-PJRT offers an interface to compile programs into executables.
-These programs can be written in HLO or the newer StableHLO.
+PJRT compiles programs written in HLO or the newer StableHLO into device-specific executables.
 The [stablehlo](https://github.com/r-xla/stablehla) package allows you to easily create StableHLO programs in R.
 Below, we define a simple program that adds two `f32` tensors of shape `2x2`.
 
@@ -106,32 +101,182 @@ func.func @main(
 )"
 ```
 
-We first create a program (`PJRTProgram`) object from the source code.
+First create a program object, then compile it into an executable.
+Note that compilation depends on the specific device.
 
 ```{r}
 program <- pjrt_program(src, format = "mlir")
-program
-```
-
-We can't really do anything with this, except for compiling it into an executable (`PJRTLoadedExecutable`).
-For compilation, we need to specify the device to use, because the executable depends on the platform as the GPU binary will differ from the CPU binary.
-
-```{r}
 executable <- pjrt_compile(program, device = cpu_device)
 executable
 ```
 
-### Execution
+## Execution
 
-With buffers in place and an executable, we can execute the program.
-We simply pass the same buffer twice as input.
-By default, single outputs are unpacked into a single buffer instead of a list of buffers, but we can disable this by setting `simplify = FALSE`.
+With buffers and an executable ready, we can run the program.
+`pjrt_execute()` also returns a `PJRTBuffer` immediately — R gets control back while the device computes in the background.
 
 ```{r}
-result <- pjrt_execute(executable, device_buffer, device_buffer)
+x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2L, 2L), dtype = "f32")
+y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2L, 2L), dtype = "f32")
+result <- pjrt_execute(executable, x, y)
+result
 ```
 
-It would have also been possible to pass execution options (`PJRTExecuteOptions`) to the execution.
+Single outputs are unpacked by default; set `simplify = FALSE` to always get a list.
+
+To retrieve the result as an R array, call `as_array()`:
+
+```{r}
+as_array(result)
+```
+
+## Asynchronous Dispatch
+
+### Why async?
+
+When running computations on accelerators, a synchronous approach creates **synchronization bubbles** — periods where either the host or the device sits idle waiting for the other:
+
+```
+Host:   [prepare data] [wait...] [prepare data] [wait...] [prepare data]
+Device: [wait.........] [compute] [wait.........] [compute] [wait.........]
+```
+
+With async dispatch, the host and device can work in parallel:
+
+```
+Host:   [prepare batch 1] [prepare batch 2] [prepare batch 3] [prepare batch 4]
+Device:                   [compute 1......] [compute 2......] [compute 3......]
+```
+
+In pjrt, this happens automatically. Both `pjrt_buffer()` and `pjrt_execute()` return `PJRTBuffer` objects immediately without blocking R. The buffer may not be ready yet, but you can pass it directly to other operations. You only pay the synchronization cost when you actually need the host-side result (e.g. calling `as_array()`).
+
+### Async types
+
+| Operation | Returns | Description |
+|-----------|---------|-------------|
+| `pjrt_buffer()` | `PJRTBuffer` | Host-to-device transfer |
+| `pjrt_execute()` | `PJRTBuffer` | Program execution |
+| `as_array_async()` | `PJRTArrayPromise` | Device-to-host transfer |
+
+`PJRTBuffer` is a transparent async type — it can be used directly in operations even if the underlying computation hasn't completed yet. PJRT handles the dependencies internally.
+
+`PJRTArrayPromise` represents data in transit from device to host. Because R arrays are plain R objects (not under our control like `PJRTBuffer`), we need a separate promise type to represent "array that isn't ready yet." This is why there are two functions for synchronization:
+
+- `await(x)` — block until a `PJRTBuffer` is ready on the device. Pure synchronization; no data leaves the device. Useful for timing or error checking, but **not required** before passing a buffer to `pjrt_execute()`.
+- `value(x)` — block until a `PJRTArrayPromise` completes, then materialize and return the R array. This is how you get data out of the device.
+
+Both types also support `is_ready(x)` for non-blocking readiness checks.
+
+### Chaining operations
+
+Buffers can be passed directly to other operations without waiting — PJRT handles the dependencies internally:
+
+```{r}
+# Both transfers start immediately
+buf1 <- pjrt_buffer(matrix(1:4, 2, 2), dtype = "f32")
+buf2 <- pjrt_buffer(matrix(5:8, 2, 2), dtype = "f32")
+
+# Execute with promise inputs — no need to wait for transfers
+result <- pjrt_execute(executable, buf1, buf2)
+
+# Only block when we need the R array
+as_array(result)
+```
+
+You can also chain execution with async device-to-host transfer:
+
+```{r}
+src2 <- r"(
+func.func @main(%x: tensor<1000x1000xf32>) -> tensor<1000x1000xf32> {
+  %0 = "stablehlo.add"(%x, %x) : (tensor<1000x1000xf32>, tensor<1000x1000xf32>) -> tensor<1000x1000xf32>
+  "func.return"(%0): (tensor<1000x1000xf32>) -> ()
+}
+)"
+exec2 <- pjrt_compile(pjrt_program(src2))
+
+# Full async pipeline: transfer -> execute -> transfer back
+buf <- pjrt_buffer(matrix(runif(1e6), 1000, 1000), dtype = "f32")
+result <- pjrt_execute(exec2, buf)
+async_output <- as_array_async(result)   # returns immediately
+
+# R can do other work here...
+
+# Block only when we need the final R array
+output <- value(async_output)
+dim(output)
+```
+
+### When does blocking happen?
+
+Blocking occurs when:
+
+1. Calling `await()` on a buffer
+2. Calling `as_array()` on a buffer
+3. Calling `value()` on a `PJRTArrayPromise`
+4. Printing a buffer (needs to read values to display them)
+
+Operations like `shape()`, `elt_type()`, and `device()` do **not** block — buffer metadata is available immediately.
+
+### Writing efficient loops
+
+**Bad** — blocking every iteration:
+
+```r
+for (i in seq_len(n_iterations)) {
+  result <- pjrt_execute(executable, input)
+  metrics <- as_array(result)  # blocks! device idles during transfer
+  cat("Step", i, "loss:", metrics[1], "\n")
+  input <- prepare_next_batch()  # device still idle
+}
+```
+
+**Better** — log previous iteration's metrics while device computes the next:
+
+```r
+prev_result <- NULL
+for (i in seq_len(n_iterations)) {
+  result <- pjrt_execute(executable, input)
+
+  if (!is.null(prev_result)) {
+    metrics <- as_array(prev_result)  # previous result likely ready
+    cat("Step", i - 1, "loss:", metrics[1], "\n")
+  }
+
+  input <- prepare_next_batch()  # overlap with device work
+  prev_result <- result
+}
+```
+
+### Full pipeline example
+
+```{r}
+# Multiply-add program
+src3 <- r"(
+func.func @main(%x: tensor<100x100xf32>, %y: tensor<100x100xf32>) -> tensor<100x100xf32> {
+  %0 = "stablehlo.multiply"(%x, %y) : (tensor<100x100xf32>, tensor<100x100xf32>) -> tensor<100x100xf32>
+  %1 = "stablehlo.add"(%0, %x) : (tensor<100x100xf32>, tensor<100x100xf32>) -> tensor<100x100xf32>
+  "func.return"(%1): (tensor<100x100xf32>) -> ()
+}
+)"
+exec3 <- pjrt_compile(pjrt_program(src3))
+
+# Mini computation loop with chaining
+shp <- c(100L, 100L)
+x <- pjrt_buffer(matrix(runif(prod(shp)), shp[1], shp[2]), dtype = "f32")
+y <- pjrt_buffer(matrix(runif(prod(shp)), shp[1], shp[2]), dtype = "f32")
+
+for (step in seq_len(5)) {
+  # Returns immediately — auto-waits for x and y if needed
+  result <- pjrt_execute(exec3, x, y)
+  # Chain: use result as input to next iteration
+  x <- result
+}
+
+# Only retrieve the final value
+final <- as_array(result)
+cat("Final result shape:", dim(final), "\n")
+cat("Final result[1,1]:", final[1, 1], "\n")
+```
 
 ## Serialization
 
@@ -143,3 +288,10 @@ safetensors::safe_save_file(list(x = result), tmp, framework = "pjrt")
 reloaded <- safetensors::safe_load_file(tmp, framework = "pjrt")
 reloaded$x
 ```
+
+## Further Reading
+
+The async dispatch design in pjrt is inspired by JAX's approach:
+
+- [Asynchronous dispatch in JAX](https://docs.jax.dev/en/latest/async_dispatch.html)
+- [The Training Cookbook: Efficiency via Asynchronous Dispatch](https://docs.jax.dev/en/latest/the-training-cookbook.html#efficiency-via-asynchronous-dispatch)

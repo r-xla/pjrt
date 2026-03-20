@@ -38,6 +38,19 @@ index a4275fb..e41d842 100644
  }
 
  inline std::ostream& operator<<(std::ostream& os,
+diff --git a/inst/include/xla/ffi/api/api.h b/inst/include/xla/ffi/api/api.h
+--- a/inst/include/xla/ffi/api/api.h
++++ b/inst/include/xla/ffi/api/api.h
+@@ -1813,7 +1813,8 @@ class Handler<Ret(Ts...), ResultType> : public Ffi {
+
+     if constexpr (sizeof...(Ts) > 0) {
+-      // We intentionally use `&`, as it generates fewer branch instructions.
+-      bool all_decoded = (std::get<Is>(args).has_value() & ...);
++      // We intentionally use `&&` (XLA upstream uses `&` for fewer branch
++      // instructions, but that triggers -Wbitwise-instead-of-logical).
++      bool all_decoded = (std::get<Is>(args).has_value() && ...);
+       if (XLA_FFI_PREDICT_FALSE(!all_decoded)) {
+         return FailedDecodeError(
 diff --git a/inst/include/xla/ffi/api/ffi.h b/inst/include/xla/ffi/api/ffi.h
 --- a/inst/include/xla/ffi/api/ffi.h
 +++ b/inst/include/xla/ffi/api/ffi.h

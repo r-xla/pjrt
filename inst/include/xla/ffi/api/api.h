@@ -1810,8 +1810,9 @@ class Handler : public Ffi {
         internal::Decode<Ts>::call(offsets, ctx, diagnostic)...};
 
     if constexpr (sizeof...(Ts) > 0) {
-      // We intentionally use `&`, as it generates fewer branch instructions.
-      bool all_decoded = (std::get<Is>(args).has_value() & ...);
+      // We intentionally use `&&` (XLA upstream uses `&` for fewer branch
+      // instructions, but that triggers -Wbitwise-instead-of-logical).
+      bool all_decoded = (std::get<Is>(args).has_value() && ...);
       if (XLA_FFI_PREDICT_FALSE(!all_decoded)) {
         return FailedDecodeError(
             call_frame, {std::get<Is>(args).has_value()...}, diagnostic);

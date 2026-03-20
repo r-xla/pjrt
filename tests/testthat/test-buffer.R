@@ -621,3 +621,113 @@ test_that("i1 is alias for pred", {
   expect_equal(pjrt_scalar(1, "i1"), pjrt_scalar(1, "pred"))
   expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
 })
+
+# Async buffer-to-host tests
+
+test_that("as_array_async returns PJRTArrayPromise", {
+  buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+  result <- as_array_async(buf)
+  expect_class(result, "PJRTArrayPromise")
+})
+
+test_that("is_ready works for async buffers", {
+  buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), dtype = "f32")
+  result <- as_array_async(buf)
+  ready <- is_ready(result)
+  expect_true(is.logical(ready))
+  expect_length(ready, 1L)
+})
+
+test_that("value() returns correct array for async buffer", {
+  original <- matrix(c(1.0, 2.0, 3.0, 4.0), nrow = 2)
+  buf <- pjrt_buffer(original, dtype = "f32")
+  result <- as_array_async(buf)
+  arr <- value(result)
+  expect_equal(arr, original, tolerance = 1e-6)
+})
+
+test_that("as_array() works for async buffers", {
+  original <- array(c(1.0, 2.0, 3.0))
+  buf <- pjrt_buffer(original, dtype = "f32")
+  result <- as_array_async(buf)
+  arr <- as_array(result)
+  expect_equal(arr, original, tolerance = 1e-6)
+})
+
+test_that("async buffer works with different dtypes", {
+  # f64
+  buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f64")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(1.0, 2.0))
+
+  # i32
+  buf <- pjrt_buffer(c(1L, 2L, 3L), dtype = "i32")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(1L, 2L, 3L))
+
+  # pred
+  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE), dtype = "pred")
+  result <- value(as_array_async(buf))
+  expect_equal(as.vector(result), c(TRUE, FALSE, TRUE))
+})
+
+test_that("print.PJRTArrayPromise works", {
+  buf <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
+  result <- as_array_async(buf)
+  expect_output(print(result), "PJRTArrayPromise")
+})
+
+# is_ready / await for PJRTBuffer
+
+test_that("is_ready works for PJRTBuffer", {
+  x <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
+  ready <- is_ready(x)
+  expect_true(is.logical(ready))
+  expect_length(ready, 1L)
+})
+
+test_that("await works for PJRTBuffer", {
+  original <- c(1.0, 2.0, 3.0, 4.0)
+  x <- pjrt_buffer(original, shape = c(2, 2), dtype = "f32")
+  buf <- await(x)
+  expect_class(buf, "PJRTBuffer")
+  expect_equal(as.vector(as_array(buf)), original, tolerance = 1e-6)
+})
+
+test_that("await properly releases preserved objects", {
+  # await() calls process_pending_releases(), which drains the deferred
+  # release queue. Without this, memory would leak on backends with
+  # async transfers (GPU/TPU).
+
+  gc()
+  gc()
+  baseline <- gc()[2, 2] # Vcells used (MB)
+
+  for (i in seq_len(50)) {
+    # Zero-copy path: f64 from double, i32 from integer
+    data_f64 <- as.double(seq_len(50000)) # ~400KB each
+    buf_f64 <- pjrt_buffer(data_f64, dtype = "f64")
+    await(buf_f64)
+    rm(buf_f64, data_f64)
+
+    data_i32 <- seq_len(50000) # ~200KB each
+    buf_i32 <- pjrt_buffer(data_i32, dtype = "i32")
+    await(buf_i32)
+    rm(buf_i32, data_i32)
+
+    # Copy path: f32 from double (requires type conversion)
+    data_f32 <- as.double(seq_len(50000)) # ~200KB copy
+    buf_f32 <- pjrt_buffer(data_f32, dtype = "f32")
+    await(buf_f32)
+    rm(buf_f32, data_f32)
+  }
+
+  # Force GC to reclaim any properly-released objects
+  gc()
+  gc()
+  after <- gc()[2, 2]
+
+  # Memory growth should be minimal
+  memory_growth_mb <- after - baseline
+  expect_lt(memory_growth_mb, 10)
+})

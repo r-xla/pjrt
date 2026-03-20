@@ -8,9 +8,9 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 }
 \arguments{
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
-A PJRT program.}
+A PJRT program}
 
-\item{...}{(\verb{PJRTBuffer)}\cr
+\item{...}{(\code{PJRTBuffer})\cr
 Inputs to the program.
 Named are ignored and arguments are passed in order.}
 
@@ -26,9 +26,17 @@ If \code{FALSE}, a single output is returned as a \code{list} of length 1 contai
 }
 \description{
 Execute a PJRT program with the given inputs and execution options.
+Returns immediately with \code{PJRTBuffer} object(s) that may not be ready yet.
 
 \strong{Important:}
 Arguments are passed by position and names are ignored.
+
+Inputs can be \code{PJRTBuffer} objects, including buffers that are not yet ready.
+PJRT handles the dependencies internally.
+
+Use \code{await()} to block until the result is ready.
+Use \code{is_ready()} to check if execution has completed (non-blocking).
+Use \code{as_array_async()} to chain async buffer-to-host transfer.
 }
 \examples{
 \dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
@@ -50,4 +58,7 @@ x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
 pjrt_execute(exec, x, y)
 \dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=await]{await()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}
 }

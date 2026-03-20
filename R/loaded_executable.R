@@ -1,13 +1,21 @@
 #' @title Execute a PJRT program
 #' @description
 #' Execute a PJRT program with the given inputs and execution options.
+#' Returns immediately with `PJRTBuffer` object(s) that may not be ready yet.
 #'
 #' **Important:**
 #' Arguments are passed by position and names are ignored.
 #'
+#' Inputs can be `PJRTBuffer` objects, including buffers that are not yet ready.
+#' PJRT handles the dependencies internally.
+#'
+#' Use `await()` to block until the result is ready.
+#' Use `is_ready()` to check if execution has completed (non-blocking).
+#' Use `as_array_async()` to chain async buffer-to-host transfer.
+#'
 #' @param executable (`PJRTLoadedExecutable`)\cr
-#' A PJRT program.
-#' @param ... (`PJRTBuffer)`\cr
+#' A PJRT program
+#' @param ... (`PJRTBuffer`)\cr
 #'   Inputs to the program.
 #'   Named are ignored and arguments are passed in order.
 #' @param execution_options (`PJRTExecuteOptions`)\cr
@@ -16,6 +24,7 @@
 #'   If `TRUE` (default), a single output is returned as a `PJRTBuffer`.
 #'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBuffer`.
 #' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
+#' @seealso [await()], [is_ready()], [as_array_async()]
 #' @examplesIf plugin_is_downloaded()
 #' # Create and compile a simple identity program
 #' src <- r"(
@@ -39,9 +48,11 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   if (!is.null(...names())) {
     cli_abort("Expected unnamed arguments")
   }
+
   check_loaded_executable(executable)
-  input <- list(...)
-  lapply(input, check_buffer)
+  input_raw <- list(...)
+
+  lapply(input_raw, check_buffer)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()
@@ -51,13 +62,13 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 
   assert_flag(simplify)
 
-  result <- impl_loaded_executable_execute(executable, input, execution_options)
+  buffers <- impl_loaded_executable_execute(executable, input_raw, execution_options)
 
-  if (simplify && length(result) == 1L) {
-    return(result[[1]])
+  if (simplify && length(buffers) == 1L) {
+    return(buffers[[1L]])
   }
 
-  result
+  buffers
 }
 
 #' @export

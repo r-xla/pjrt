@@ -2,6 +2,7 @@
 
 #include <Rcpp.h>
 
+#include "deferred_release.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
@@ -88,6 +89,11 @@ PJRTBuffer::PJRTBuffer(PJRT_Buffer *buffer, std::shared_ptr<PJRT_Api> api)
     : buffer(buffer), api(api) {}
 
 PJRTBuffer::~PJRTBuffer() {
+  // Drain the deferred release queue while we're on the main R thread.
+  // This ensures R objects preserved for zero-copy transfers get released
+  // when buffers are garbage collected.
+  process_pending_releases();
+
   PJRT_Buffer_Destroy_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Destroy_Args);
   args.buffer = this->buffer;
@@ -139,31 +145,59 @@ std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
   return std::make_unique<PJRTDevice>(args.device, this->api);
 }
 
-// Copy a device buffer to the host and wait for the copy to complete.
-void BufferToHostAndWait(const PJRT_Api *api,
-                         PJRT_Buffer_ToHostBuffer_Args *args) {
-  check_err(api, api->PJRT_Buffer_ToHostBuffer_(args));
-
-  PJRT_Event_Await_Args event_args = {0};
-  event_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
-  event_args.event = args->event;
-  check_err(api, api->PJRT_Event_Await_(&event_args));
-
-  PJRT_Event_Destroy_Args destroy_args = {0};
-  destroy_args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
-  destroy_args.event = args->event;
-  check_err(api, api->PJRT_Event_Destroy_(&destroy_args));
-}
-
-void PJRTBuffer::buffer_to_host(std::span<uint8_t> &host_buffer) {
+std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
+    std::span<uint8_t> &host_buffer) {
   PJRT_Buffer_ToHostBuffer_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_ToHostBuffer_Args);
   args.src = this->buffer;
   args.dst = host_buffer.data();
   args.dst_size = host_buffer.size();
 
-  // Perform the copy and wait for it to complete
-  BufferToHostAndWait(this->api.get(), &args);
+  // Start the copy but don't wait
+  check_err(this->api.get(), this->api->PJRT_Buffer_ToHostBuffer_(&args));
+
+  // Return the event - caller is responsible for waiting and keeping
+  // host_buffer alive
+  if (args.event != nullptr) {
+    return std::make_unique<PJRTEvent>(args.event, this->api);
+  }
+  return nullptr;
+}
+
+PJRTEvent PJRTBuffer::ready_event() {
+  PJRT_Buffer_ReadyEvent_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
+  args.buffer = this->buffer;
+  check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
+  return PJRTEvent(args.event, this->api);
+}
+
+bool PJRTBuffer::is_ready() {
+  auto event = ready_event();
+  return event.is_ready();
+}
+
+void PJRTBuffer::await() {
+  auto event = ready_event();
+  event.await();
+  event.check_error();
+}
+
+// PJRTHostData implementation
+
+PJRTHostData::PJRTHostData(std::unique_ptr<std::vector<uint8_t>> data,
+                           std::unique_ptr<PJRTEvent> event)
+    : data_(std::move(data)), event_(std::move(event)) {}
+
+bool PJRTHostData::is_ready() const {
+  if (!event_) return true;
+  return event_->is_ready();
+}
+
+void PJRTHostData::await() {
+  if (!event_) return;
+  event_->await();
+  event_->check_error();
 }
 
 }  // namespace rpjrt

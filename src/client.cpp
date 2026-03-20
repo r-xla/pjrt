@@ -52,22 +52,7 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api);
 }
 
-void BufferFromHostAndWait(const PJRT_Api *api,
-                           PJRT_Client_BufferFromHostBuffer_Args *args) {
-  check_err(api, api->PJRT_Client_BufferFromHostBuffer_(args));
-
-  PJRT_Event_Await_Args event_args = {0};
-  event_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
-  event_args.event = args->done_with_host_buffer;
-  check_err(api, api->PJRT_Event_Await_(&event_args));
-
-  PJRT_Event_Destroy_Args efree_args;
-  efree_args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
-  efree_args.event = args->done_with_host_buffer;
-  check_err(api, api->PJRT_Event_Destroy_(&efree_args));
-}
-
-std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
+AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
     void *data, const std::optional<std::vector<int64_t>> &dims,
     const std::optional<std::vector<int64_t>> &strides, PJRT_Buffer_Type dtype,
     PJRT_Device *device) {
@@ -77,26 +62,33 @@ std::unique_ptr<PJRTBuffer> PJRTClient::buffer_from_host(
     device = devices[0];
   }
 
-  // Initialize args to zero to ensure optional fields are null.
   PJRT_Client_BufferFromHostBuffer_Args args{};
   args.struct_size = sizeof(PJRT_Client_BufferFromHostBuffer_Args);
   args.client = this->client;
   args.data = data;
   args.type = dtype;
-  // Set dimensions for the buffer
   args.dims = dims.has_value() ? dims->data() : nullptr;
   args.num_dims = dims.has_value() ? dims->size() : 0;
-  // No custom strides: assume dense layout
   args.byte_strides = strides.has_value() ? strides->data() : nullptr;
   args.num_byte_strides = strides.has_value() ? strides->size() : 0;
   args.host_buffer_semantics =
       PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
   args.device = device;
-  // No preallocated memory
   args.memory = nullptr;
 
-  BufferFromHostAndWait(this->api.get(), &args);
-  return std::make_unique<PJRTBuffer>(args.buffer, this->api);
+  check_err(this->api.get(),
+            this->api->PJRT_Client_BufferFromHostBuffer_(&args));
+
+  AsyncBufferFromHostResult result;
+  result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
+
+  // Return the event so caller can wait for transfer completion
+  if (args.done_with_host_buffer != nullptr) {
+    result.event =
+        std::make_unique<PJRTEvent>(args.done_with_host_buffer, this->api);
+  }
+
+  return result;
 }
 
 // PJRTBuildOptions implementations
@@ -155,7 +147,7 @@ PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   check_err(this->api.get(), this->api->PJRT_LoadedExecutable_Destroy_(&args));
 }
 
-std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
+AsyncExecuteResult PJRTLoadedExecutable::execute_async(
     std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
   PJRT_ExecuteOptions exec_options{};
   exec_options.struct_size = sizeof(PJRT_ExecuteOptions);
@@ -182,8 +174,6 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   // outer list.
   std::vector<PJRT_Buffer *const *> outer;
   if (input.empty()) {
-    // When there are no inputs, we still need to provide a valid pointer
-    // but the inner vector will be empty
     outer = {nullptr};
   } else {
     outer = {inner.data()};
@@ -215,12 +205,18 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
 
   exec_args.output_lists = outer_out.data();
 
+  // Buffer readiness is tracked via PJRT_Buffer_ReadyEvent, so we don't
+  // need device completion events.
+  exec_args.device_complete_events = nullptr;
+
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
 
-  std::vector<std::unique_ptr<PJRTBuffer>> out;
+  // Build result
+  AsyncExecuteResult result;
   for (size_t i = 0; i < num_outputs; ++i) {
-    out.push_back(std::make_unique<PJRTBuffer>(outer_out[0][i], this->api));
+    auto buf = std::make_unique<PJRTBuffer>(outer_out[0][i], this->api);
+    result.buffers.push_back(std::move(buf));
   }
 
   // Clean up the executable we got
@@ -230,7 +226,7 @@ std::vector<std::unique_ptr<PJRTBuffer>> PJRTLoadedExecutable::execute(
   check_err(this->api.get(),
             this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
 
-  return out;
+  return result;
 };
 
 std::string PJRTClient::platform() {
