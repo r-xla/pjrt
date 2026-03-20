@@ -1,20 +1,8 @@
 # Execute a PJRT program
 
 Execute a PJRT program with the given inputs and execution options.
-Returns immediately with `PJRTBuffer` object(s) that may not be ready
-yet.
 
 **Important:** Arguments are passed by position and names are ignored.
-
-Inputs can be `PJRTBuffer` objects, including buffers that are not yet
-ready. PJRT handles the dependencies internally.
-
-Use [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) to
-block until the result is ready. Use
-[`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
-to check if execution has completed (non-blocking). Use
-[`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
-to chain async buffer-to-host transfer.
 
 ## Usage
 
@@ -31,7 +19,7 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 
 - ...:
 
-  (`PJRTBuffer` \| `PJRTBuffer`)  
+  (`PJRTBuffer)`  
   Inputs to the program. Named are ignored and arguments are passed in
   order.
 
@@ -51,12 +39,6 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
 ## Value
 
 `PJRTBuffer` \| `list` of `PJRTBuffer`s
-
-## See also
-
-[`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md),
-[`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md),
-[`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
 
 ## Examples
 
