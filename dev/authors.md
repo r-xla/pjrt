@@ -11,7 +11,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/protect-segfault/DESCRIPTION)
 
 Fischer S, Falbel D (2026). *pjrt: R Interface to PJRT*. R package
 version 0.1.1.9000, <https://r-xla.github.io/pjrt/>.
