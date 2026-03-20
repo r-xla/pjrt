@@ -8,19 +8,30 @@
        2
        3
        4
-      [ F32{4} ]
+      [ f32{4} ]
       PJRTBuffer
        5
        6
        7
        8
-      [ S32{4} ]
+      [ i32{4} ]
       TestBuffer
        1
        0
        1
        0
       CustomFooter
+
+# print handler default footer prints bool not pred
+
+    Code
+      invisible(pjrt_execute(program, buf))
+    Output
+      PJRTBuffer
+       1
+       0
+       1
+      [ bool{3} ]
 
 # print handler supports empty header
 
@@ -30,7 +41,7 @@
        1
        2
        3
-      [ F32{3} ]
+      [ f32{3} ]
 
 # print handler supports custom footer
 

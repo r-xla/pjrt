@@ -134,7 +134,7 @@ pjrt_empty <- function(dtype, shape, device = NULL) {
   if (!any(shape == 0)) {
     cli_abort("Empty buffers must have at least one dimension equal to 0")
   }
-  if (dtype == "i1") {
+  if (dtype %in% c("i1", "bool")) {
     dtype <- "pred"
   }
   device <- as_pjrt_device(device)
@@ -168,7 +168,7 @@ recycle_data <- function(data, shape) {
 
 convert_buffer_args <- function(data, dtype, device, shape, default, recycle = TRUE, ...) {
   dtype <- dtype %??% default
-  if (dtype == "i1") {
+  if (dtype %in% c("i1", "bool")) {
     dtype <- "pred"
   }
   shape <- shape %??% get_dims(data)
@@ -495,12 +495,17 @@ print.PJRTBuffer <- function(
     max_rows_slice = max_rows_slice
   )
   if (is.null(footer)) {
-    footer <- sprintf("[ %s%s{%s} ]", toupper(platform(x)), elt_type(x), shape_str)
+    footer <- sprintf("[ %s%s{%s} ]", toupper(platform(x)), as.character(dtype(x)), shape_str)
   }
   if (nzchar(footer)) {
     cat(footer, "\n")
   }
   invisible(x)
+}
+
+#' @export
+dtype.PJRTBuffer <- function(x, ...) {
+  as_dtype(as.character(elt_type(x)))
 }
 
 #' @export

@@ -72,6 +72,30 @@ func.func @main(
   })
 })
 
+test_that("print handler default footer prints bool not pred", {
+  program <- pjrt_program(
+    r"(
+func.func @main(
+  %b: tensor<3xi1>
+) -> tensor<3xi1> {
+  stablehlo.custom_call @print_tensor(%b) {
+    call_target_name = "print_tensor",
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<3xi1>) -> ()
+  "func.return" (%b) : (tensor<3xi1>) -> ()
+}
+)"
+  )
+
+  program <- pjrt_compile(program)
+  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE))
+
+  expect_snapshot({
+    invisible(pjrt_execute(program, buf))
+  })
+})
+
 test_that("print handler supports empty header", {
   program <- pjrt_program(
     r"(
