@@ -68,6 +68,7 @@ class PJRTBuffer {
 
  private:
   std::shared_ptr<PJRT_Api> api;
+  PJRTEvent ready_event();
 };
 
 // Holds result of an async device-to-host transfer.

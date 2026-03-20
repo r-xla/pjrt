@@ -164,23 +164,21 @@ std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
   return nullptr;
 }
 
-bool PJRTBuffer::is_ready() {
+PJRTEvent PJRTBuffer::ready_event() {
   PJRT_Buffer_ReadyEvent_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
   args.buffer = this->buffer;
   check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
+  return PJRTEvent(args.event, this->api);
+}
 
-  PJRTEvent event(args.event, this->api);
+bool PJRTBuffer::is_ready() {
+  auto event = ready_event();
   return event.is_ready();
 }
 
 void PJRTBuffer::await() {
-  PJRT_Buffer_ReadyEvent_Args args{};
-  args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
-  args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
-
-  PJRTEvent event(args.event, this->api);
+  auto event = ready_event();
   event.await();
   event.check_error();
 }
