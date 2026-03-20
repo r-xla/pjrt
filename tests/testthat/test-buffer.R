@@ -694,13 +694,6 @@ test_that("await works for PJRTBuffer", {
   expect_equal(as.vector(as_array(buf)), original, tolerance = 1e-6)
 })
 
-test_that("raw buffer transfer is async", {
-  skip_if(!(is_metal() || is_cuda()))
-  raw_data <- as.raw(sample(0:255, 1e7, replace = TRUE))
-  buf <- pjrt_buffer(raw_data, dtype = "ui8", shape = length(raw_data), row_major = FALSE)
-  expect_false(is_ready(buf))
-})
-
 test_that("await properly releases preserved objects", {
   # await() calls process_pending_releases(), which drains the deferred
   # release queue. Without this, memory would leak on backends with

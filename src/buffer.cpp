@@ -164,19 +164,25 @@ std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
   return nullptr;
 }
 
-void PJRTBuffer::set_completion_event(std::shared_ptr<PJRTEvent> event) {
-  completion_event_ = std::move(event);
-}
+bool PJRTBuffer::is_ready() {
+  PJRT_Buffer_ReadyEvent_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
+  args.buffer = this->buffer;
+  check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
 
-bool PJRTBuffer::is_ready() const {
-  if (!completion_event_) return true;
-  return completion_event_->is_ready();
+  PJRTEvent event(args.event, this->api);
+  return event.is_ready();
 }
 
 void PJRTBuffer::await() {
-  if (!completion_event_) return;
-  completion_event_->await();
-  completion_event_->check_error();
+  PJRT_Buffer_ReadyEvent_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
+  args.buffer = this->buffer;
+  check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
+
+  PJRTEvent event(args.event, this->api);
+  event.await();
+  event.check_error();
 }
 
 // PJRTHostData implementation
