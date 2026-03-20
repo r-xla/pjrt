@@ -47,6 +47,23 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
+<div class="section level3">
+<h3 id="asynchronous-api-development-version">Asynchronous API<a class="anchor" aria-label="anchor" href="#asynchronous-api-development-version"></a></h3>
+<p>Operations such as host &lt;-&gt; transfers and program execution were previously only synchronous. Now, they are asynchronous which has considerable performance benefits, especially on GPU. Specifically: * <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> return immediately, but the returned buffer is not necessarily ready. To await a transfer or computation of a buffer, use <code><a href="../reference/await.html">await()</a></code>. However, this is handled within PJRT, so this function never has to be called from a user. * <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> is still synchronous, but there is now the asynchronous version <code><a href="../reference/as_array_async.html">as_array_async()</a></code> but this is rarely needed. If used, it returns a <code>PJRTArrayPromise</code> object which can be converted to an R <code>array</code>/<code>vector</code> via <code><a href="../reference/value.html">value()</a></code>. * To check whether a <code>PJRTBuffer</code> or <code>PJRTArrayPromise</code> is ready, use <code><a href="../reference/is_ready.html">is_ready()</a></code>.</p>
+</div>
+<div class="section level3">
+<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
+<ul><li>Added <code>dtype</code> support for <code>PJRTBuffer</code>s via the <code><a href="https://r-xla.github.io/tengen/reference/dtype.html" class="external-link">tengen::dtype</a></code> S3 generic. <code>"bool"</code> is now accepted as an alias for <code>"i1"</code>/<code>"pred"</code>.</li>
+<li>Support <code>device</code> argument in <code><a href="../reference/pjrt_compile.html">pjrt_compile()</a></code>.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
+<ul><li>Protect from segfaults in raw to buffer conversion.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="miscellaneous-development-version">Miscellaneous<a class="anchor" aria-label="anchor" href="#miscellaneous-development-version"></a></h3>
+<ul><li>The printer for <code>PJRTBuffer</code> now uses <code>"bool"</code> instead of <code>"pred"</code> to avoid discrepancies with {anvil}.</li>
+</ul></div>
 </div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.1" id="pjrt-011">pjrt 0.1.1<a class="anchor" aria-label="anchor" href="#pjrt-011"></a></h2>
