@@ -205,18 +205,12 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 
   exec_args.output_lists = outer_out.data();
 
-  // Allocate storage for device completion events (one per device)
-  PJRT_Event *completion_event = nullptr;
-  exec_args.device_complete_events = &completion_event;
+  // Buffer readiness is tracked via PJRT_Buffer_ReadyEvent, so we don't
+  // need device completion events.
+  exec_args.device_complete_events = nullptr;
 
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
-
-  // Clean up the device completion event
-  if (completion_event != nullptr) {
-    PJRTEvent event(completion_event, this->api);
-    // Event is destroyed when it goes out of scope
-  }
 
   // Build result
   AsyncExecuteResult result;
