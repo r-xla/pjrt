@@ -220,9 +220,13 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
       get_byte_strides(dims, row_major, sizeof_pjrt_buffer_type(dtype));
   auto result = client->buffer_from_host_async(RAW(data), dims,
                                                byte_strides_opt, dtype, device);
+
   if (result.event) {
-    result.event->await();
+    R_PreserveObject(data);
+    result.event->on_ready(
+        [data](PJRT_Error *error) { rpjrt::queue_release(data); });
   }
+
   Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffer.release());
   xptr.attr("class") = "PJRTBuffer";
   return xptr;

@@ -102,11 +102,11 @@ func.func @main(
 ```
 
 First create a program object, then compile it into an executable.
-Compilation depends on the platform — a GPU binary differs from a CPU binary.
+Note that compilation depends on the specific device.
 
 ```{r}
 program <- pjrt_program(src, format = "mlir")
-executable <- pjrt_compile(program, client = client)
+executable <- pjrt_compile(program, device = cpu_device)
 executable
 ```
 
