@@ -87,7 +87,7 @@ as_array(buf)
 
 PJRT compiles programs written in HLO or the newer StableHLO into device-specific executables.
 The [stablehlo](https://github.com/r-xla/stablehla) package allows you to easily create StableHLO programs in R.
-Below, we define a simple program that adds two `f32` tensors of shape `(2, 2)`.
+Below, we define a simple program that adds two `f32` tensors of shape `2x2`.
 
 ```{r}
 src <- r"(

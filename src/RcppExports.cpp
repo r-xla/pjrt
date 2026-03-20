@@ -119,15 +119,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_client_program_compile
-Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTProgram> program, Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options);
-RcppExport SEXP _pjrt_impl_client_program_compile(SEXP clientSEXP, SEXP programSEXP, SEXP compile_optionsSEXP) {
+Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, Rcpp::XPtr<rpjrt::PJRTProgram> program, Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options);
+RcppExport SEXP _pjrt_impl_client_program_compile(SEXP clientSEXP, SEXP deviceSEXP, SEXP programSEXP, SEXP compile_optionsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTProgram> >::type program(programSEXP);
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTCompileOptions> >::type compile_options(compile_optionsSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_program_compile(client, program, compile_options));
+    rcpp_result_gen = Rcpp::wrap(impl_client_program_compile(client, device, program, compile_options));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -495,6 +496,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_build_options_create", (DL_FUNC) &_pjrt_impl_build_options_create, 3},
     {"_pjrt_impl_compile_options_create", (DL_FUNC) &_pjrt_impl_compile_options_create, 1},
     {"_pjrt_impl_client_program_compile", (DL_FUNC) &_pjrt_impl_client_program_compile, 3},
+    {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 5},
+    {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 5},
     {"_pjrt_impl_client_buffer_from_raw", (DL_FUNC) &_pjrt_impl_client_buffer_from_raw, 6},
     {"_pjrt_impl_buffer_to_raw", (DL_FUNC) &_pjrt_impl_buffer_to_raw, 3},
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},

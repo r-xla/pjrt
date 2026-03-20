@@ -6,7 +6,11 @@
 #'   A program to compile.
 #' @param compile_options (`PJRTCompileOptions`)\cr
 #'   Compile options.
-#' @template param_client
+#' @param device (`NULL` | `PJRTDevice` | `character(1)`)\cr
+#'   A `PJRTDevice` object or the name of the platform to use ("cpu", "cuda", ...),
+#'   in which case the first device for that platform is used.
+#'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
+#'   environment variable.
 #' @return `PJRTExecutable`
 #' @examplesIf plugin_is_downloaded()
 #' # Create a simple program
@@ -21,13 +25,14 @@
 pjrt_compile <- function(
   program,
   compile_options = new_compile_options(),
-  client = pjrt_client()
+  device = NULL
 ) {
-  client <- as_pjrt_client(client)
+  device <- as_pjrt_device(device)
+  client <- client_from_device(device)
   check_program(program)
   check_compile_options(compile_options)
 
-  impl_client_program_compile(client, program, compile_options)
+  impl_client_program_compile(client, device, program, compile_options)
 }
 
 #' @title Create a Client

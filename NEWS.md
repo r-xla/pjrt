@@ -1,5 +1,7 @@
 # pjrt (development version)
 
+# pjrt 0.1.1
+
 ## Bug fixes
 
 * Fix formatting of +-Inf/NaN for f64
