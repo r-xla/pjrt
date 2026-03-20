@@ -1,7 +1,7 @@
 
 # pjrt
 
-Package website: [release](https://r-xla.github.io/pjrt/) |
+Package website: [release](https://r-xla.github.io/pjrt/) \|
 [dev](https://r-xla.github.io/pjrt/dev/)
 
 <!-- badges: start -->
@@ -69,25 +69,25 @@ program
 #>   %y: tensor<2x2xf32>
 #> ) -> tensor<2x2xf32> {
 #> ...
-executable <- pjrt_compile(program, client = "cpu")
+executable <- pjrt_compile(program, device = "cpu")
 
 x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2, 2), dtype = "f32")
 x
 #> PJRTBuffer 
-#>  1.0000 3.0000
-#>  2.0000 4.0000
+#>  1 3
+#>  2 4
 #> [ CPUf32{2x2} ]
 y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
 y
 #> PJRTBuffer 
-#>  5.0000 7.0000
-#>  6.0000 8.0000
+#>  5 7
+#>  6 8
 #> [ CPUf32{2x2} ]
 
 pjrt_execute(executable, x, y)
 #> PJRTBuffer 
-#>   6.0000 10.0000
-#>   8.0000 12.0000
+#>   6 10
+#>   8 12
 #> [ CPUf32{2x2} ]
 ```
 
@@ -98,6 +98,7 @@ pjrt_execute(executable, x, y)
 - Convert buffers to and from R arrays and vectors.
 - Read and write buffers using the
   [safetensors](https://github.com/mlverse/safetensors) format.
+- Operations are executed asynchronously.
 
 ## Platform Support
 

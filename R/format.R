@@ -11,7 +11,7 @@
 #' format_buffer(buf)
 #' @export
 format_buffer <- function(buffer) {
-  if (!inherits(buffer, "PJRTBuffer")) {
+  if (!is_buffer(buffer)) {
     cli_abort("`buffer` must be a `PJRTBuffer`")
   }
   out <- format_raw_buffer_cpp(

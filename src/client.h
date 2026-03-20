@@ -3,10 +3,23 @@
 #include <vector>
 
 #include "buffer.h"
+#include "event.h"
 #include "program.h"
 #include "proto/xla/pjrt/proto/compile_options.pb.h"
 
 namespace rpjrt {
+
+// Result of async execution containing output buffers.
+// Each buffer has its completion event set internally.
+struct AsyncExecuteResult {
+  std::vector<std::unique_ptr<PJRTBuffer>> buffers;
+};
+
+// Result of async buffer-from-host transfer
+struct AsyncBufferFromHostResult {
+  std::unique_ptr<PJRTBuffer> buffer;
+  std::unique_ptr<PJRTEvent> event;  // Signals when host data can be freed
+};
 
 class PJRTBuildOptions {
  public:
@@ -40,7 +53,7 @@ class PJRTLoadedExecutable {
   std::shared_ptr<PJRT_Api> api;
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                        std::shared_ptr<PJRT_Api> api);
-  std::vector<std::unique_ptr<PJRTBuffer>> execute(
+  AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   ~PJRTLoadedExecutable();
@@ -56,7 +69,7 @@ class PJRTClient {
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options,
       PJRTDevice &device);
-  std::unique_ptr<PJRTBuffer> buffer_from_host(
+  AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
       PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);

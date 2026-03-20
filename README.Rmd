@@ -79,6 +79,7 @@ pjrt_execute(executable, x, y)
 * Provide a runtime to execute compiled programs.
 * Convert buffers to and from R arrays and vectors.
 * Read and write buffers using the [safetensors](https://github.com/mlverse/safetensors) format.
+* Operations are executed asynchronously.
 
 ## Platform Support
 
