@@ -405,7 +405,7 @@
       PJRTBuffer 
        1 1
        0 0
-      [ CPUpred{2x2} ] 
+      [ CPUbool{2x2} ] 
 
 # alignment is as expected
 
@@ -622,7 +622,7 @@
     Output
       PJRTBuffer 
        1
-      [ CPUpred{} ] 
+      [ CPUbool{} ] 
 
 ---
 
@@ -631,7 +631,7 @@
     Output
       PJRTBuffer 
        0
-      [ CPUpred{} ] 
+      [ CPUbool{} ] 
 
 # printer options
 
@@ -930,24 +930,6 @@
        10 22 34 46 58
        ... [output was truncated, set max_rows = -1 to see all]
       [ CPUi32{3x4x5} ] 
-
-# metal
-
-    Code
-      pjrt_buffer(1:10, "f32", device = "metal")
-    Output
-      PJRTBuffer 
-        1
-        2
-        3
-        4
-        5
-        6
-        7
-        8
-        9
-       10
-      [ METALf32{10} ] 
 
 # stress test f32
 

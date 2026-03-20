@@ -5,6 +5,11 @@
 \alias{reexports}
 \alias{shape}
 \alias{dtype}
+\alias{as_dtype}
+\alias{BooleanType}
+\alias{IntegerType}
+\alias{UIntegerType}
+\alias{FloatType}
 \alias{as_array}
 \alias{as_raw}
 \alias{device}
@@ -15,6 +20,6 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{tengen}{\code{\link[tengen]{as_array}}, \code{\link[tengen]{as_raw}}, \code{\link[tengen]{device}}, \code{\link[tengen]{dtype}}, \code{\link[tengen]{shape}}}
+  \item{tengen}{\code{\link[tengen]{as_array}}, \code{\link[tengen]{as_dtype}}, \code{\link[tengen]{as_raw}}, \code{\link[tengen]{BooleanType}}, \code{\link[tengen]{device}}, \code{\link[tengen]{dtype}}, \code{\link[tengen]{FloatType}}, \code{\link[tengen]{IntegerType}}, \code{\link[tengen]{shape}}, \code{\link[tengen]{UIntegerType}}}
 }}
 

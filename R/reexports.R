@@ -5,6 +5,21 @@ tengen::shape
 tengen::dtype
 
 #' @export
+tengen::as_dtype
+
+#' @export
+tengen::BooleanType
+
+#' @export
+tengen::IntegerType
+
+#' @export
+tengen::UIntegerType
+
+#' @export
+tengen::FloatType
+
+#' @export
 tengen::as_array
 
 #' @export

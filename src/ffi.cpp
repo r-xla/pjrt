@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #endif
 
+#include "buffer.h"
 #include "buffer_printer.h"
 #include "plugin.h"
 #include "utils.h"
@@ -76,6 +77,14 @@ XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 constexpr std::string_view kPrintHeaderAttr = "print_header";
 constexpr std::string_view kPrintFooterAttr = "print_footer";
 
+std::string dtype_display_name(xla::ffi::DataType dtype) {
+  PJRT_Buffer_Type pjrt_type = to_pjrt_type(dtype);
+  PJRTElementType elt(pjrt_type);
+  std::string name = elt.as_string();
+  if (name == "pred") return "bool";
+  return name;
+}
+
 // Shared helper: prints buffer data (already on host) using
 // buffer_to_string_lines.
 xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
@@ -119,7 +128,7 @@ xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
       Rcpp::Rcout << *print_footer << "\n";
     }
   } else {
-    Rcpp::Rcout << "[ " << buffer.element_type() << "{";
+    Rcpp::Rcout << "[ " << dtype_display_name(buffer.element_type()) << "{";
     const auto dims = buffer.dimensions();
     for (size_t i = 0; i < dims.size(); ++i) {
       if (i != 0) {

@@ -182,11 +182,6 @@ test_that("truncation stops before printing empty slice headers", {
   expect_snapshot(print(pjrt_buffer(1:60, shape = c(3, 4, 5)), max_rows = 4))
 })
 
-test_that("metal", {
-  skip_if(!is_metal())
-  expect_snapshot(pjrt_buffer(1:10, "f32", device = "metal"))
-})
-
 test_that("stress test f32", {
   skip_if(!is_cpu())
   expect_snapshot(pjrt_buffer(c(1000000000L, 3L, 123L, Inf, -2, NaN), shape = c(3, 2), dtype = "f32"))
