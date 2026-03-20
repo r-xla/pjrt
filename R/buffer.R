@@ -146,6 +146,18 @@ pjrt_empty <- function(dtype, shape, device = NULL) {
   pjrt_buffer(array(data, dim = shape), dtype, device)
 }
 
+check_raw_buffer_size <- function(data, dtype, shape) {
+  element_size <- pjrt_dtype_size(dtype)
+  numel <- if (length(shape)) prod(shape) else 1L
+  expected_bytes <- numel * element_size
+  actual_bytes <- length(data)
+  if (actual_bytes != expected_bytes) {
+    cli_abort(
+      "Raw data has {actual_bytes} byte{?s}, but dtype {.val {dtype}} with shape ({paste(shape, collapse = ', ')}) requires {expected_bytes} byte{?s}."
+    )
+  }
+}
+
 recycle_data <- function(data, shape) {
   data_len <- length(data)
   numel <- if (length(shape)) prod(shape) else 1L
@@ -246,6 +258,7 @@ pjrt_buffer.raw <- function(
   if (...length()) {
     cli_abort("Unused arguments")
   }
+  check_raw_buffer_size(data, dtype, shape)
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
   buffer <- impl_client_buffer_from_raw(
@@ -314,6 +327,7 @@ pjrt_scalar.raw <- function(
   if (is.null(dtype)) {
     cli_abort("dtype must be provided")
   }
+  check_raw_buffer_size(data, dtype, integer())
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...)
   buffer <- do.call(impl_client_buffer_from_raw, args)
   buffer

@@ -402,19 +402,10 @@ test_that("buffer <-> raw: row_major parameter", {
   )
 
   check <- function(pjrt_type, rtype) {
-    data_sexp <- switch(
-      rtype,
-      integer = 1:6L,
-      double = as.double(1:6),
-      logical = c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE),
-      cli_abort()
-    )
-    size <- switch(rtype, integer = 4, double = 8, logical = 4, cli_abort())
-    data_raw <- writeBin(data_sexp, raw(), size = size)
+    data_raw <- as.raw(1:6)
 
     ## pjrt_buffer()
 
-    # for ints we have:
     # buf1: [1, 2, 3, 4, 5, 6] that represents [[1, 2], [3, 4], [5, 6]]
     buf1 <- pjrt_buffer(
       data_raw,
@@ -622,6 +613,29 @@ test_that("i1 is alias for pred", {
   expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
 })
 
+test_that("raw buffer validates dtype and shape compatibility", {
+  # f32 is 4 bytes per element, shape c(2, 3) = 6 elements = 24 bytes
+  expect_error(
+    pjrt_buffer(as.raw(1:10), dtype = "f32", shape = c(2, 3), row_major = FALSE),
+    "Raw data has 10 bytes, but dtype.*f32.*with shape.*2, 3.*requires 24 bytes"
+  )
+
+  # too many bytes
+  expect_error(
+    pjrt_buffer(as.raw(1:8), dtype = "f32", shape = 1L, row_major = FALSE),
+    "Raw data has 8 bytes, but dtype.*f32.*with shape.*1.*requires 4 bytes"
+  )
+
+  # correct size should work
+  buf <- pjrt_buffer(as.raw(rep(0, 24)), dtype = "f32", shape = c(2, 3), row_major = FALSE)
+  expect_equal(shape(buf), c(2, 3))
+
+  # scalar from raw: f32 needs exactly 4 bytes
+  expect_error(
+    pjrt_scalar(as.raw(1:2), dtype = "f32"),
+    "Raw data has 2 bytes, but dtype.*f32.*requires 4 bytes"
+  )
+})
 # Async buffer-to-host tests
 
 test_that("as_array_async returns PJRTArrayPromise", {
