@@ -4,11 +4,7 @@
 \alias{pjrt_compile}
 \title{Compile a Program}
 \usage{
-pjrt_compile(
-  program,
-  compile_options = new_compile_options(),
-  client = pjrt_client()
-)
+pjrt_compile(program, compile_options = new_compile_options(), device = NULL)
 }
 \arguments{
 \item{program}{(\code{character(1)})\cr
@@ -17,9 +13,11 @@ A program to compile.}
 \item{compile_options}{(\code{PJRTCompileOptions})\cr
 Compile options.}
 
-\item{client}{(\code{PJRTClient} | \code{character(1)})\cr
-A PJRT client object or the name of the platform to use ("cpu", "cuda", ...),
-from which the client will be created.}
+\item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr
+A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...),
+in which case the first device for that platform is used.
+The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
+environment variable.}
 }
 \value{
 \code{PJRTExecutable}

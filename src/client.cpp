@@ -28,7 +28,16 @@ std::vector<PJRT_Device *> PJRTClient::devices() {
 }
 
 std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
-    const PJRTProgram &program, PJRTCompileOptions &compile_options) {
+    const PJRTProgram &program, PJRTCompileOptions &compile_options,
+    PJRTDevice &device) {
+  // Get the device's local hardware ID and set it as the device_ordinal
+  PJRT_Device_LocalHardwareId_Args hw_args{};
+  hw_args.struct_size = sizeof(PJRT_Device_LocalHardwareId_Args);
+  hw_args.device = device.device;
+  check_err(this->api.get(), this->api->PJRT_Device_LocalHardwareId_(&hw_args));
+  compile_options.compile_options.mutable_executable_build_options()
+      ->set_device_ordinal(hw_args.local_hardware_id);
+
   PJRT_Client_Compile_Args args{};
   args.struct_size = sizeof(PJRT_Client_Compile_Args);
 

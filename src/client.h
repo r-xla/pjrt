@@ -54,7 +54,8 @@ class PJRTClient {
   ~PJRTClient();
   std::vector<PJRT_Device *> devices();
   std::unique_ptr<PJRTLoadedExecutable> compile(
-      const PJRTProgram &program, PJRTCompileOptions &compile_options);
+      const PJRTProgram &program, PJRTCompileOptions &compile_options,
+      PJRTDevice &device);
   std::unique_ptr<PJRTBuffer> buffer_from_host(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
