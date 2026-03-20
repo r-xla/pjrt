@@ -2,7 +2,7 @@
 
 ## Asynchronous API
 
-Operations such as host <-> transfers and program execution were previously only
+Operations such as host <-> device transfers and program execution were previously only
 synchronous. Now, they are asynchronous which has considerable performance
 benefits, especially on GPU.
 Specifically:
