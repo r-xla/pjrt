@@ -59,7 +59,7 @@ jobs:
               cuda = "https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64",
               CRAN = "https://cloud.r-project.org"
             ))
-            install.packages(c("cuda.runtime", "cuda.cudnn", "cuda.cublas", "cuda.nvshmem"))
+            install.packages(c("cuda.runtime", "cuda.cudnn", "cuda.cublas", "cuda.cupti", "cuda.nvshmem"))
           '
 
       - name: Install extra deps
@@ -75,6 +75,7 @@ jobs:
               cuda.runtime::cuda_runtime_lib_path(),
               cuda.cublas::cuda_cublas_lib_path(),
               cuda.cudnn::cuda_cudnn_lib_path(),
+              cuda.cupti::cuda_cupti_lib_path(),
               cuda.nvshmem::cuda_nvshmem_lib_path(),
               sep = ":"
             ))
@@ -87,6 +88,7 @@ jobs:
           ls $(Rscript -e 'cat(cuda.runtime::cuda_runtime_lib_path())') | head
           ls $(Rscript -e 'cat(cuda.cublas::cuda_cublas_lib_path())') | head
           ls $(Rscript -e 'cat(cuda.cudnn::cuda_cudnn_lib_path())') | head
+          ls $(Rscript -e 'cat(cuda.cupti::cuda_cupti_lib_path())') | head
           ls $(Rscript -e 'cat(cuda.nvshmem::cuda_nvshmem_lib_path())') | head
           nvidia-smi
 
