@@ -32,6 +32,7 @@ jobs:
         run: |
           apt-get update -y
           apt-get install -y \
+            sudo \
             software-properties-common apt-utils tzdata locales \
             libpng-dev pkg-config wget curl \
             libprotobuf-dev protobuf-compiler \
