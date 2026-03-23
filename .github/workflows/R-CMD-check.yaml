@@ -54,6 +54,11 @@ jobs:
         if: ${{ matrix.setup }}
         run: ${{ matrix.setup }}
 
+      - name: Install devscripts (for checkbashisms)
+        if: ${{ matrix.container }}
+        shell: bash
+        run: apt-get update && apt-get install -y devscripts
+
       - uses: actions/checkout@v5
 
       - uses: r-lib/actions/setup-r@v2
