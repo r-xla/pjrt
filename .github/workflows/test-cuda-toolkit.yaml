@@ -1,0 +1,90 @@
+# Tests the CUDA backend using cudatoolkit R packages instead of the
+# nvidia/cuda Docker image. The container only provides the NVIDIA driver;
+# CUDA runtime, cuBLAS, and cuDNN come from R packages.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+name: test-cuda-toolkit
+
+permissions: read-all
+
+jobs:
+  test:
+    runs-on: ['self-hosted', 'gpu']
+    # Minimal NVIDIA base image — provides only the driver runtime.
+    # CUDA libraries are supplied by the cuda.* R packages.
+    container:
+      image: nvidia/cuda:12.8.1-base-ubuntu24.04
+      options: '--gpus all --runtime=nvidia'
+
+    name: CUDA via cudatoolkit R packages
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      PJRT_PLATFORM: cuda
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update -y
+          apt-get install -y \
+            software-properties-common apt-utils tzdata locales \
+            libpng-dev pkg-config wget curl \
+            libprotobuf-dev protobuf-compiler \
+            devscripts
+
+      - uses: actions/checkout@v5
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+          extra-repositories: https://r-xla.r-universe.dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+          cache: false
+
+      - name: Install CUDA toolkit R packages
+        run: |
+          Rscript -e '
+            options(repos = c(
+              cuda = "https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64",
+              CRAN = "https://cloud.r-project.org"
+            ))
+            install.packages(c("cuda.runtime", "cuda.cudnn", "cuda.cublas"))
+          '
+
+      - name: Install extra deps
+        run: |
+          Rscript -e 'install.packages("remotes")'
+          Rscript -e 'remotes::install_github("r-xla/tengen")'
+          Rscript -e 'remotes::install_github("r-xla/xlamisc")'
+
+      - name: Set LD_LIBRARY_PATH from cudatoolkit packages
+        run: |
+          paths=$(Rscript -e '
+            cat(paste(
+              cuda.runtime::cuda_runtime_lib_path(),
+              cuda.cublas::cuda_cublas_lib_path(),
+              cuda.cudnn::cuda_cudnn_lib_path(),
+              sep = ":"
+            ))
+          ')
+          echo "LD_LIBRARY_PATH=${paths}:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Verify CUDA libraries are discoverable
+        run: |
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+          ls $(Rscript -e 'cat(cuda.runtime::cuda_runtime_lib_path())') | head
+          ls $(Rscript -e 'cat(cuda.cublas::cuda_cublas_lib_path())') | head
+          ls $(Rscript -e 'cat(cuda.cudnn::cuda_cudnn_lib_path())') | head
+          nvidia-smi
+
+      - uses: r-xla/actions/r-check@main
