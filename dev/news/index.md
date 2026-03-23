@@ -4,8 +4,8 @@
 
 ### Asynchronous API
 
-Operations such as host \<-\> transfers and program execution were
-previously only synchronous. Now, they are asynchronous which has
+Operations such as host \<-\> device transfers and program execution
+were previously only synchronous. Now, they are asynchronous which has
 considerable performance benefits, especially on GPU. Specifically: \*
 [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)
 and
