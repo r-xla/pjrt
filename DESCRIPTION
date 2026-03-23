@@ -23,15 +23,11 @@ Imports:
     tengen (>= 0.1.0),
     withr
 Suggests:
-    knitr,
-    rmarkdown,
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp
 Remotes:
     r-xla/tengen
-VignetteBuilder:
-    knitr
 Additional_repositories: https://r-xla.r-universe.dev
 Config/build/compilation-database: true
 Config/testthat/edition: 3
