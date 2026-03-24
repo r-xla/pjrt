@@ -54,22 +54,17 @@ jobs:
 
       - name: Install CUDA toolkit R packages
         run: |
-          Rscript -e '
-            options(repos = c(
-              cuda = "https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64",
-              CRAN = "https://cloud.r-project.org"
-            ))
-            # Pin to CUDA 12.8 versions to match the PJRT plugin
-            pak::pkg_install(c(
-              "cuda.runtime@12.8.90",
-              "cuda.cublas@12.8.4.1",
-              "cuda.cupti@12.8.90",
-              "cuda.nvrtc@12.8.61",
-              "cuda.cudnn@9.8.0.87",
-              "cuda.nccl@2.25.1",
-              "cuda.nvshmem@3.4.5"
-            ))
-          '
+          # Pin to CUDA 12.8 versions to match the PJRT plugin.
+          # Install one at a time to avoid pak dependency solver conflicts
+          # between multiple versions of the same package in the repo.
+          cuda_repo="https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64"
+          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.runtime@12.8.90')"
+          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.cublas@12.8.4.1')"
+          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.cupti@12.8.90')"
+          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.nvrtc@12.8.61')"
+          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.cudnn@9.8.0.87')"
+          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.nccl@2.25.1')"
+          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.nvshmem@3.4.5')"
 
       - name: Install extra deps
         run: |
