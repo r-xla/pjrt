@@ -55,16 +55,23 @@ jobs:
       - name: Install CUDA toolkit R packages
         run: |
           # Pin to CUDA 12.8 versions to match the PJRT plugin.
-          # Install one at a time to avoid pak dependency solver conflicts
-          # between multiple versions of the same package in the repo.
-          cuda_repo="https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64"
-          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.runtime@12.8.90')"
-          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.cublas@12.8.4.1')"
-          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.cupti@12.8.90')"
-          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.nvrtc@12.8.61')"
-          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.cudnn@9.8.0.87')"
-          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.nccl@2.25.1')"
-          Rscript -e "options(repos = c(cuda = '${cuda_repo}', CRAN = 'https://cloud.r-project.org')); pak::pkg_install('cuda.nvshmem@3.4.5')"
+          Rscript -e '
+            cuda_repo <- "https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64"
+            install_version <- function(pkg, version) {
+              remotes::install_version(
+                pkg, version = version,
+                repos = cuda_repo
+              )
+            }
+            install.packages("remotes")
+            install_version("cuda.runtime", "12.8.90")
+            install_version("cuda.cublas", "12.8.4.1")
+            install_version("cuda.cupti", "12.8.90")
+            install_version("cuda.nvrtc", "12.8.61")
+            install_version("cuda.cudnn", "9.8.0.87")
+            install_version("cuda.nccl", "2.25.1")
+            install_version("cuda.nvshmem", "3.4.5")
+          '
 
       - name: Install extra deps
         run: |
