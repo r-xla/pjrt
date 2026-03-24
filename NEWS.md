@@ -6,6 +6,7 @@ Operations such as host <-> device transfers and program execution were previous
 synchronous. Now, they are asynchronous which has considerable performance
 benefits, especially on GPU.
 Specifically:
+
 * `pjrt_buffer()` and `pjrt_execute()` return immediately, but the returned buffer is not
   necessarily ready. To await a transfer or computation of a buffer, use
   `await()`. However, this is handled within PJRT, so this function never has to
