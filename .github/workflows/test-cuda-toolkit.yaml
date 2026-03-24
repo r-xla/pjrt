@@ -59,7 +59,16 @@ jobs:
               cuda = "https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64",
               CRAN = "https://cloud.r-project.org"
             ))
-            install.packages(c("cuda.runtime", "cuda.cudnn", "cuda.cublas", "cuda.cupti", "cuda.nvrtc", "cuda.nccl", "cuda.nvshmem"))
+            # Pin to CUDA 12.8 versions to match the PJRT plugin
+            pak::pkg_install(c(
+              "cuda.runtime@12.8.90",
+              "cuda.cublas@12.8.4.1",
+              "cuda.cupti@12.8.90",
+              "cuda.nvrtc@12.8.61",
+              "cuda.cudnn@9.8.0.87",
+              "cuda.nccl@2.25.1",
+              "cuda.nvshmem@3.4.5"
+            ))
           '
 
       - name: Install extra deps
