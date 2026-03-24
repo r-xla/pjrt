@@ -68,32 +68,24 @@ jobs:
           Rscript -e 'remotes::install_github("r-xla/tengen")'
           Rscript -e 'remotes::install_github("r-xla/xlamisc")'
 
-      - name: Set LD_LIBRARY_PATH from cudatoolkit packages
+      - name: Register CUDA libraries with ldconfig
         run: |
-          paths=$(Rscript -e '
-            cat(paste(
+          Rscript -e '
+            paths <- c(
               cuda.runtime::cuda_runtime_lib_path(),
               cuda.cublas::cuda_cublas_lib_path(),
               cuda.cudnn::cuda_cudnn_lib_path(),
               cuda.cupti::cuda_cupti_lib_path(),
               cuda.nvrtc::cuda_nvrtc_lib_path(),
               cuda.nccl::cuda_nccl_lib_path(),
-              cuda.nvshmem::cuda_nvshmem_lib_path(),
-              sep = ":"
-            ))
-          ')
-          echo "LD_LIBRARY_PATH=${paths}:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+              cuda.nvshmem::cuda_nvshmem_lib_path()
+            )
+            writeLines(paths, "/etc/ld.so.conf.d/cuda-r-packages.conf")
+          '
+          ldconfig
+          ldconfig -p | grep -E "nvrtc|cublas|cudnn|cupti|nccl|nvshmem|cudart"
 
-      - name: Verify CUDA libraries are discoverable
-        run: |
-          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-          ls $(Rscript -e 'cat(cuda.runtime::cuda_runtime_lib_path())') | head
-          ls $(Rscript -e 'cat(cuda.cublas::cuda_cublas_lib_path())') | head
-          ls $(Rscript -e 'cat(cuda.cudnn::cuda_cudnn_lib_path())') | head
-          ls $(Rscript -e 'cat(cuda.cupti::cuda_cupti_lib_path())') | head
-          ls $(Rscript -e 'cat(cuda.nvrtc::cuda_nvrtc_lib_path())') | head
-          ls $(Rscript -e 'cat(cuda.nccl::cuda_nccl_lib_path())') | head
-          ls $(Rscript -e 'cat(cuda.nvshmem::cuda_nvshmem_lib_path())') | head
-          nvidia-smi
+      - name: Verify GPU is available
+        run: nvidia-smi
 
       - uses: r-xla/actions/r-check@main
