@@ -86,6 +86,13 @@ jobs:
             )
             writeLines(paths, "/etc/ld.so.conf.d/cuda-r-packages.conf")
           '
+          # Create lib-prefixed symlinks for nvshmem .so files that ldconfig
+          # would otherwise skip (ldconfig only indexes lib*.so* files)
+          nvshmem_lib=$(Rscript -e 'cat(cuda.nvshmem::cuda_nvshmem_lib_path())')
+          for f in "${nvshmem_lib}"/nvshmem_*.so*; do
+            base=$(basename "$f")
+            ln -sf "$f" "${nvshmem_lib}/lib${base}"
+          done
           ldconfig
           ldconfig -p | grep -E "nvrtc|cublas|cudnn|cupti|nccl|nvshmem|cudart"
 
