@@ -74,6 +74,7 @@ jobs:
             install_version("cuda.nvjitlink", "12.8.61")
             install_version("cuda.cudnn", "9.8.0.87")
             install_version("cuda.nccl", "2.29.7")
+            install_version("cuda.nvcc", "12.8.61")
             install_version("cuda.nvshmem", "3.4.5")
           '
 
@@ -82,6 +83,10 @@ jobs:
           Rscript -e 'install.packages("remotes")'
           Rscript -e 'remotes::install_github("r-xla/tengen")'
           Rscript -e 'remotes::install_github("r-xla/xlamisc")'
+
+      - name: Add ptxas to PATH
+        run: |
+          echo "PATH=$(Rscript -e 'cat(cuda.nvcc::cuda_nvcc_bin_path())'):${PATH}" >> "$GITHUB_ENV"
 
       - name: Register CUDA libraries with ldconfig
         run: |
