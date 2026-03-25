@@ -84,9 +84,11 @@ jobs:
           Rscript -e 'remotes::install_github("r-xla/tengen")'
           Rscript -e 'remotes::install_github("r-xla/xlamisc")'
 
-      - name: Add ptxas to PATH
+      - name: Add ptxas to standard CUDA path
         run: |
-          echo "PATH=$(Rscript -e 'cat(cuda.nvcc::cuda_nvcc_bin_path())'):${PATH}" >> "$GITHUB_ENV"
+          mkdir -p /usr/local/cuda/bin
+          ln -sf "$(Rscript -e 'cat(cuda.nvcc::cuda_nvcc_bin_path())')/ptxas" /usr/local/cuda/bin/ptxas
+          /usr/local/cuda/bin/ptxas --version
 
       - name: Register CUDA libraries with ldconfig
         run: |
