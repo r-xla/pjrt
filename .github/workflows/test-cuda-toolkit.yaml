@@ -73,7 +73,7 @@ jobs:
             install_version("cuda.cusparse", "12.5.7.53")
             install_version("cuda.nvjitlink", "12.8.61")
             install_version("cuda.cudnn", "9.8.0.87")
-            install_version("cuda.nccl", "2.25.1")
+            install_version("cuda.nccl", "2.29.7")
             install_version("cuda.nvshmem", "3.4.5")
           '
 
