@@ -68,6 +68,10 @@ jobs:
             install_version("cuda.cublas", "12.8.4.1")
             install_version("cuda.cupti", "12.8.90")
             install_version("cuda.nvrtc", "12.8.61")
+            install_version("cuda.cufft", "11.3.3.41")
+            install_version("cuda.cusolver", "11.7.2.55")
+            install_version("cuda.cusparse", "12.5.7.53")
+            install_version("cuda.nvjitlink", "12.8.61")
             install_version("cuda.cudnn", "9.8.0.87")
             install_version("cuda.nccl", "2.25.1")
             install_version("cuda.nvshmem", "3.4.5")
@@ -88,6 +92,10 @@ jobs:
               cuda.cudnn::cuda_cudnn_lib_path(),
               cuda.cupti::cuda_cupti_lib_path(),
               cuda.nvrtc::cuda_nvrtc_lib_path(),
+              cuda.cufft::cuda_cufft_lib_path(),
+              cuda.cusolver::cuda_cusolver_lib_path(),
+              cuda.cusparse::cuda_cusparse_lib_path(),
+              cuda.nvjitlink::cuda_nvjitlink_lib_path(),
               cuda.nccl::cuda_nccl_lib_path(),
               cuda.nvshmem::cuda_nvshmem_lib_path()
             )
@@ -100,7 +108,7 @@ jobs:
             ln -sf "$f" "/usr/local/lib/$(basename "$f")"
           done
           ldconfig
-          ldconfig -p | grep -E "nvrtc|cublas|cudnn|cupti|nccl|nvshmem|cudart"
+          ldconfig -p | grep -E "nvrtc|cublas|cudnn|cupti|cufft|cusolver|cusparse|nvjitlink|nccl|nvshmem|cudart"
 
       - name: Verify GPU is available
         run: nvidia-smi
