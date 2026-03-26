@@ -339,8 +339,9 @@ print.PJRTPlugin <- function(x, ...) {
   invisible(x)
 }
 
-# Discover installed cuda{X.Y} packages and set LD_LIBRARY_PATH + PATH
-# so the PJRT CUDA plugin can find all CUDA libraries via dlopen.
+# Discover installed cuda{X.Y} packages and pre-load CUDA shared libraries
+# into the process so dlopen can find them when the PJRT plugin loads.
+# Also adds ptxas to PATH for PTX compilation.
 # Called once, right before the plugin is loaded.
 setup_cuda_env <- function() {
   # Find installed cuda packages (e.g., cuda12.8, cuda13.2)
@@ -357,19 +358,24 @@ setup_cuda_env <- function() {
     return(invisible(NULL))
   }
 
-  # Prepend all lib paths to LD_LIBRARY_PATH
+  # Pre-load all .so files from CUDA lib dirs with RTLD_GLOBAL so they're
+  # available when the PJRT plugin resolves its NEEDED entries via dlopen.
+  # We can't use LD_LIBRARY_PATH because it's read once at process startup.
   all_lib_paths <- tryCatch(
     getExportedValue(cuda_pkg, "all_lib_paths")(),
     error = function(e) character(0)
   )
-  if (length(all_lib_paths)) {
-    current_ld <- Sys.getenv("LD_LIBRARY_PATH", "")
-    new_ld <- paste(c(all_lib_paths, if (nzchar(current_ld)) current_ld),
-                    collapse = ":")
-    Sys.setenv(LD_LIBRARY_PATH = new_ld)
+  for (lib_dir in all_lib_paths) {
+    so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
+    for (so in so_files) {
+      tryCatch(
+        dyn.load(so, local = FALSE, now = FALSE),
+        error = function(e) NULL
+      )
+    }
   }
 
-  # Add nvcc bin dir (ptxas) to PATH
+  # Add nvcc bin dir (ptxas) to PATH for PTX compilation
   tryCatch({
     nvcc_bin <- getExportedValue(cuda_pkg, "bin_path")("nvcc")
     if (dir.exists(nvcc_bin)) {
