@@ -363,16 +363,26 @@ setup_cuda_env <- function() {
   # We can't use LD_LIBRARY_PATH because it's read once at process startup.
   lib_dir <- tryCatch(
     getExportedValue(cuda_pkg, "lib_path")(),
-    error = function(e) NULL
+    error = function(e) {
+      cli::cli_warn("Failed to get lib_path from {cuda_pkg}: {conditionMessage(e)}")
+      NULL
+    }
   )
   if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
+    cli::cli_inform(c(i = "Pre-loading {length(so_files)} shared libraries from {.path {lib_dir}}"))
+    loaded <- 0L
     for (so in so_files) {
-      tryCatch(
-        dyn.load(so, local = FALSE, now = FALSE),
-        error = function(e) NULL
-      )
+      tryCatch({
+        dyn.load(so, local = FALSE, now = FALSE)
+        loaded <- loaded + 1L
+      }, error = function(e) {
+        cli::cli_warn("Failed to load {.path {basename(so)}}: {conditionMessage(e)}")
+      })
     }
+    cli::cli_inform(c(v = "Loaded {loaded}/{length(so_files)} libraries."))
+  } else {
+    cli::cli_warn("CUDA lib directory not found: {.val {lib_dir}}")
   }
 
   # Add nvcc bin dir (ptxas) to PATH for PTX compilation
