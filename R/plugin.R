@@ -74,7 +74,13 @@ pjrt_plugin <- function(platform) {
     return(the[["plugins"]][[platform]])
   }
 
-  plugin <- impl_plugin_load(plugin_path(platform))
+  path <- plugin_path(platform)
+
+  if (platform == "cuda") {
+    setup_cuda_env()
+  }
+
+  plugin <- impl_plugin_load(path)
   attributes(plugin) <- list(platform = platform)
 
   if (platform != "metal") {
@@ -331,4 +337,47 @@ as_pjrt_plugin <- function(x) {
 print.PJRTPlugin <- function(x, ...) {
   cat(sprintf("<PJRTPlugin:%s>\n", attr(x, "platform")))
   invisible(x)
+}
+
+# Discover installed cuda{X.Y} packages and set LD_LIBRARY_PATH + PATH
+# so the PJRT CUDA plugin can find all CUDA libraries via dlopen.
+# Called once, right before the plugin is loaded.
+setup_cuda_env <- function() {
+  # Find installed cuda packages (e.g., cuda12.8, cuda13.2)
+  cuda_pkg <- Sys.getenv("CUDA_R_PACKAGE", "")
+  if (cuda_pkg == "") {
+    installed <- rownames(utils::installed.packages())
+    cuda_pkgs <- sort(grep("^cuda\\d+\\.\\d+$", installed, value = TRUE),
+                       decreasing = TRUE)
+    if (length(cuda_pkgs) == 0) return(invisible(NULL))
+    cuda_pkg <- cuda_pkgs[1]
+  }
+
+  if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
+    return(invisible(NULL))
+  }
+
+  # Prepend all lib paths to LD_LIBRARY_PATH
+  all_lib_paths <- tryCatch(
+    getExportedValue(cuda_pkg, "all_lib_paths")(),
+    error = function(e) character(0)
+  )
+  if (length(all_lib_paths)) {
+    current_ld <- Sys.getenv("LD_LIBRARY_PATH", "")
+    new_ld <- paste(c(all_lib_paths, if (nzchar(current_ld)) current_ld),
+                    collapse = ":")
+    Sys.setenv(LD_LIBRARY_PATH = new_ld)
+  }
+
+  # Add nvcc bin dir (ptxas) to PATH
+  tryCatch({
+    nvcc_bin <- getExportedValue(cuda_pkg, "bin_path")("nvcc")
+    if (dir.exists(nvcc_bin)) {
+      current_path <- Sys.getenv("PATH", "")
+      Sys.setenv(PATH = paste(nvcc_bin, current_path, sep = ":"))
+    }
+  }, error = function(e) NULL)
+
+  cli::cli_inform(c(i = "Using {.pkg {cuda_pkg}} for CUDA libraries."))
+  invisible(NULL)
 }

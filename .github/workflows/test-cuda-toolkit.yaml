@@ -62,24 +62,6 @@ jobs:
           Rscript -e 'remotes::install_github("r-xla/tengen")'
           Rscript -e 'remotes::install_github("r-xla/xlamisc")'
 
-      - name: Add ptxas to standard CUDA path
-        run: |
-          mkdir -p /usr/local/cuda/bin
-          ln -sf "$(Rscript -e 'cat(cuda12.8::bin_path("nvcc"))')/ptxas" /usr/local/cuda/bin/ptxas
-          /usr/local/cuda/bin/ptxas --version
-
-      - name: Register CUDA libraries with ldconfig
-        run: |
-          Rscript -e 'writeLines(cuda12.8::all_lib_paths(), "/etc/ld.so.conf.d/cuda-r-packages.conf")'
-          # Symlink non-lib-prefixed nvshmem .so files into /usr/local/lib
-          # so the dynamic linker can find them (ldconfig only indexes lib*.so*)
-          nvshmem_lib=$(Rscript -e 'cat(cuda12.8::lib_path("nvshmem"))')
-          for f in "${nvshmem_lib}"/nvshmem_*.so*; do
-            ln -sf "$f" "/usr/local/lib/$(basename "$f")"
-          done
-          ldconfig
-          ldconfig -p | grep -E "cuda|cublas|cudnn|cupti|cufft|cusolver|cusparse|nvjitlink|nvrtc|nccl|nvshmem"
-
       - name: Verify GPU is available
         run: nvidia-smi
 
