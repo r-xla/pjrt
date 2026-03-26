@@ -1,6 +1,6 @@
-# Tests the CUDA backend using cudatoolkit R packages instead of the
+# Tests the CUDA backend using the cuda12.8 R package instead of the
 # nvidia/cuda Docker image. The container only provides the NVIDIA driver;
-# CUDA runtime, cuBLAS, and cuDNN come from R packages.
+# all CUDA libraries come from the R package.
 on:
   push:
     branches: [main, master]
@@ -14,12 +14,12 @@ jobs:
   test:
     runs-on: ['self-hosted', 'gpu']
     # Minimal NVIDIA base image — provides only the driver runtime.
-    # CUDA libraries are supplied by the cuda.* R packages.
+    # CUDA libraries are supplied by the cuda12.8 R package.
     container:
       image: nvidia/cuda:12.8.1-base-ubuntu24.04
       options: '--gpus all --runtime=nvidia'
 
-    name: CUDA via cudatoolkit R packages
+    name: CUDA via cuda12.8 R package
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -52,31 +52,9 @@ jobs:
           needs: check
           cache: false
 
-      - name: Install CUDA toolkit R packages
+      - name: Install cuda12.8
         run: |
-          # Pin to CUDA 12.8 versions to match the PJRT plugin.
-          Rscript -e '
-            cuda_repo <- "https://cudatoolkit-repo.dfalbel.workers.dev/linux-x64"
-            install_version <- function(pkg, version) {
-              remotes::install_version(
-                pkg, version = version,
-                repos = cuda_repo
-              )
-            }
-            install.packages("remotes")
-            install_version("cuda.runtime", "12.8.90")
-            install_version("cuda.cublas", "12.8.4.1")
-            install_version("cuda.cupti", "12.8.90")
-            install_version("cuda.nvrtc", "12.8.61")
-            install_version("cuda.cufft", "11.3.3.41")
-            install_version("cuda.cusolver", "11.7.2.55")
-            install_version("cuda.cusparse", "12.5.7.53")
-            install_version("cuda.nvjitlink", "12.8.61")
-            install_version("cuda.cudnn", "9.8.0.87")
-            install_version("cuda.nccl", "2.29.7")
-            install_version("cuda.nvcc", "12.8.61")
-            install_version("cuda.nvshmem", "3.4.5")
-          '
+          Rscript -e 'install.packages("cuda12.8", repos = "https://cudatoolkit-repo.dfalbel.workers.dev")'
 
       - name: Install extra deps
         run: |
@@ -87,35 +65,20 @@ jobs:
       - name: Add ptxas to standard CUDA path
         run: |
           mkdir -p /usr/local/cuda/bin
-          ln -sf "$(Rscript -e 'cat(cuda.nvcc::cuda_nvcc_bin_path())')/ptxas" /usr/local/cuda/bin/ptxas
+          ln -sf "$(Rscript -e 'cat(cuda12.8::bin_path("nvcc"))')/ptxas" /usr/local/cuda/bin/ptxas
           /usr/local/cuda/bin/ptxas --version
 
       - name: Register CUDA libraries with ldconfig
         run: |
-          Rscript -e '
-            paths <- c(
-              cuda.runtime::cuda_runtime_lib_path(),
-              cuda.cublas::cuda_cublas_lib_path(),
-              cuda.cudnn::cuda_cudnn_lib_path(),
-              cuda.cupti::cuda_cupti_lib_path(),
-              cuda.nvrtc::cuda_nvrtc_lib_path(),
-              cuda.cufft::cuda_cufft_lib_path(),
-              cuda.cusolver::cuda_cusolver_lib_path(),
-              cuda.cusparse::cuda_cusparse_lib_path(),
-              cuda.nvjitlink::cuda_nvjitlink_lib_path(),
-              cuda.nccl::cuda_nccl_lib_path(),
-              cuda.nvshmem::cuda_nvshmem_lib_path()
-            )
-            writeLines(paths, "/etc/ld.so.conf.d/cuda-r-packages.conf")
-          '
+          Rscript -e 'writeLines(cuda12.8::all_lib_paths(), "/etc/ld.so.conf.d/cuda-r-packages.conf")'
           # Symlink non-lib-prefixed nvshmem .so files into /usr/local/lib
           # so the dynamic linker can find them (ldconfig only indexes lib*.so*)
-          nvshmem_lib=$(Rscript -e 'cat(cuda.nvshmem::cuda_nvshmem_lib_path())')
+          nvshmem_lib=$(Rscript -e 'cat(cuda12.8::lib_path("nvshmem"))')
           for f in "${nvshmem_lib}"/nvshmem_*.so*; do
             ln -sf "$f" "/usr/local/lib/$(basename "$f")"
           done
           ldconfig
-          ldconfig -p | grep -E "nvrtc|cublas|cudnn|cupti|cufft|cusolver|cusparse|nvjitlink|nccl|nvshmem|cudart"
+          ldconfig -p | grep -E "cuda|cublas|cudnn|cupti|cufft|cusolver|cusparse|nvjitlink|nvrtc|nccl|nvshmem"
 
       - name: Verify GPU is available
         run: nvidia-smi
