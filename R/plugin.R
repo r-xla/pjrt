@@ -358,14 +358,14 @@ setup_cuda_env <- function() {
     return(invisible(NULL))
   }
 
-  # Pre-load all .so files from CUDA lib dirs with RTLD_GLOBAL so they're
+  # Pre-load all .so files from the CUDA lib dir with RTLD_GLOBAL so they're
   # available when the PJRT plugin resolves its NEEDED entries via dlopen.
   # We can't use LD_LIBRARY_PATH because it's read once at process startup.
-  all_lib_paths <- tryCatch(
-    getExportedValue(cuda_pkg, "all_lib_paths")(),
-    error = function(e) character(0)
+  lib_dir <- tryCatch(
+    getExportedValue(cuda_pkg, "lib_path")(),
+    error = function(e) NULL
   )
-  for (lib_dir in all_lib_paths) {
+  if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
     for (so in so_files) {
       tryCatch(
