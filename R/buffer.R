@@ -538,6 +538,7 @@ shape.PJRTBuffer <- function(x, ...) {
 
 #' @export
 `!=.PJRTDevice` <- function(e1, e2) {
+  # jarl-ignore comparison_negation: delegates to ==.PJRTDevice
   !(e1 == e2) # nolint
 }
 
