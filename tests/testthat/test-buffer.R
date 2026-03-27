@@ -732,6 +732,7 @@ test_that("await works for PJRTBuffer", {
 })
 
 test_that("pjrt_memory returns a PJRTMemory", {
+  skip_if_metal("PJRT_Buffer_Memory not implemented")
   buf <- pjrt_buffer(1, dtype = "f32")
   mem <- pjrt_memory(buf)
   expect_class(mem, "PJRTMemory")
