@@ -370,19 +370,15 @@ setup_cuda_env <- function() {
   )
   if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
-    cli::cli_inform(c(i = "Pre-loading {length(so_files)} shared libraries from {.path {lib_dir}}"))
-    loaded <- 0L
+    # Skip optional nvshmem transport/bootstrap plugins that require
+    # HPC libraries (MPI, libfabric, UCX, etc.) not typically installed.
+    so_files <- so_files[!grepl("nvshmem_(bootstrap|transport)_", basename(so_files))]
     for (so in so_files) {
-      tryCatch({
-        dyn.load(so, local = FALSE, now = FALSE)
-        loaded <- loaded + 1L
-      }, error = function(e) {
-        cli::cli_warn("Failed to load {.path {basename(so)}}: {conditionMessage(e)}")
-      })
+      tryCatch(
+        dyn.load(so, local = FALSE, now = FALSE),
+        error = function(e) NULL
+      )
     }
-    cli::cli_inform(c(v = "Loaded {loaded}/{length(so_files)} libraries."))
-  } else {
-    cli::cli_warn("CUDA lib directory not found: {.val {lib_dir}}")
   }
 
   # Add nvcc bin dir (ptxas) to PATH for PTX compilation

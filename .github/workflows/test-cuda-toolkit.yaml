@@ -79,12 +79,13 @@ jobs:
             cat("Client created!\n")
 
             # Simple StableHLO program: add two scalars
-            program <- "
+            src <- "
             func.func @main(%arg0: tensor<f32>, %arg1: tensor<f32>) -> tensor<f32> {
               %0 = stablehlo.add %arg0, %arg1 : tensor<f32>
               return %0 : tensor<f32>
             }
             "
+            program <- pjrt_program(src = src)
             compiled <- pjrt_compile(program)
             a <- pjrt_buffer_from_r(1.0)
             b <- pjrt_buffer_from_r(2.0)
