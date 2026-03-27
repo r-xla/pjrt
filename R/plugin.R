@@ -159,7 +159,7 @@ plugin_download <- function(cache_dir, platform = NULL) {
 
   url <- plugin_url(platform)
   tempfile <- tempfile(fileext = ".tar.gz")
-  utils::download.file(url, tempfile)
+  utils::download.file(url, tempfile, mode = "wb")
 
   if (dir.exists(cache_dir)) {
     fs::dir_delete(cache_dir)

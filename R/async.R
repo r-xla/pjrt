@@ -106,8 +106,3 @@ print.PJRTArrayPromise <- function(x, ...) {
   }
   invisible(x)
 }
-
-#' @keywords internal
-is_array_promise <- function(x) {
-  inherits(x, "PJRTArrayPromise")
-}
