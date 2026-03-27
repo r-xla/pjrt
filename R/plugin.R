@@ -370,9 +370,6 @@ setup_cuda_env <- function() {
   )
   if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
-    # Skip optional nvshmem transport/bootstrap plugins that require
-    # HPC libraries (MPI, libfabric, UCX, etc.) not typically installed.
-    so_files <- so_files[!grepl("nvshmem_(bootstrap|transport)_", basename(so_files))]
     for (so in so_files) {
       tryCatch(
         dyn.load(so, local = FALSE, now = FALSE),
