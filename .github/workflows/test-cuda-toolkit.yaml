@@ -65,6 +65,9 @@ jobs:
       - name: Verify GPU is available
         run: nvidia-smi
 
+      - name: Install pjrt from source
+        run: R CMD INSTALL .
+
       - name: Test CUDA plugin loads and runs
         run: |
           Rscript -e '
