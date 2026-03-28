@@ -379,11 +379,20 @@ setup_cuda_env <- function() {
   }
 
   # Add nvcc bin dir (ptxas) to PATH for PTX compilation
+  # and set XLA_FLAGS to point to the CUDA data dir (for nvvm/libdevice)
   tryCatch({
-    nvcc_bin <- getExportedValue(cuda_pkg, "bin_path")("nvcc")
+    cuda_nvcc_path <- getExportedValue(cuda_pkg, "cuda_path")("nvcc")
+    nvcc_bin <- file.path(cuda_nvcc_path, "bin")
     if (dir.exists(nvcc_bin)) {
       current_path <- Sys.getenv("PATH", "")
       Sys.setenv(PATH = paste(nvcc_bin, current_path, sep = ":"))
+    }
+    # XLA needs nvvm/libdevice/libdevice.10.bc — point it to the nvcc dir
+    current_flags <- Sys.getenv("XLA_FLAGS", "")
+    xla_cuda_dir <- paste0("--xla_gpu_cuda_data_dir=", cuda_nvcc_path)
+    if (!grepl("xla_gpu_cuda_data_dir", current_flags)) {
+      new_flags <- if (nzchar(current_flags)) paste(current_flags, xla_cuda_dir) else xla_cuda_dir
+      Sys.setenv(XLA_FLAGS = new_flags)
     }
   }, error = function(e) NULL)
 
