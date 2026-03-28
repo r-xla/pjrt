@@ -89,7 +89,7 @@ jobs:
             compiled <- pjrt_compile(program)
             a <- pjrt_scalar(1.0)
             b <- pjrt_scalar(2.0)
-            result <- pjrt_execute(compiled, list(a, b))
+            result <- pjrt_execute(compiled, a, b)
             cat("1.0 + 2.0 =", as.numeric(as_array(result)), "\n")
           '
 
