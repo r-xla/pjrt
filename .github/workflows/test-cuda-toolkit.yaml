@@ -25,6 +25,7 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
       PJRT_PLATFORM: cuda
+      CUDA_R_PACKAGE: cuda12.8
       DEBIAN_FRONTEND: noninteractive
 
     steps:
@@ -52,14 +53,9 @@ jobs:
           needs: check
           cache: false
 
-      - name: Install cuda12.8
-        run: |
-          Rscript -e 'install.packages("cuda12.8", repos = "https://cudatoolkit-repo.dfalbel.workers.dev")'
-
       - name: Install extra deps
         run: |
           Rscript -e 'install.packages("remotes")'
-          Rscript -e 'remotes::install_github("r-xla/tengen")'
           Rscript -e 'remotes::install_github("r-xla/xlamisc")'
 
       - name: Verify GPU is available
