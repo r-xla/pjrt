@@ -23,6 +23,7 @@ Imports:
     tengen (>= 0.1.0),
     withr
 Suggests:
+    cuda12.8,
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp
