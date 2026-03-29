@@ -370,22 +370,12 @@ setup_cuda_env <- function() {
   )
   if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
-    loaded <- 0L
-    failed <- character()
     for (so in so_files) {
-      tryCatch({
-        dyn.load(so, local = FALSE, now = FALSE)
-        loaded <- loaded + 1L
-      }, error = function(e) {
-        failed <<- c(failed, paste0(basename(so), ": ", conditionMessage(e)))
-      })
+      tryCatch(
+        dyn.load(so, local = FALSE, now = FALSE),
+        error = function(e) NULL
+      )
     }
-    message(sprintf("[pjrt] Pre-loaded %d/%d CUDA libraries from %s", loaded, length(so_files), lib_dir))
-    if (length(failed)) {
-      message(sprintf("[pjrt] Failed to load %d optional libraries (this is usually harmless)", length(failed)))
-    }
-  } else {
-    message(sprintf("[pjrt] CUDA lib directory not found: %s", lib_dir))
   }
 
   # Add nvcc bin dir (ptxas) to PATH for PTX compilation
@@ -406,6 +396,5 @@ setup_cuda_env <- function() {
     }
   }, error = function(e) NULL)
 
-  cli::cli_inform(c(i = "Using {.pkg {cuda_pkg}} for CUDA libraries."))
   invisible(NULL)
 }
