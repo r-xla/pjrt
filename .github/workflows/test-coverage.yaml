@@ -11,3 +11,5 @@ permissions:
 jobs:
   test-coverage:
     uses: r-xla/actions/.github/workflows/test-coverage.yaml@main
+    with:
+      extra-packages: "cuda12.8=?ignore"
