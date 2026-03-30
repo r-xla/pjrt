@@ -28,8 +28,9 @@ Suggests:
 LinkingTo:
     Rcpp
 Remotes:
-    r-xla/tengen
-Additional_repositories: https://r-xla.r-universe.dev, https://cudatoolkit-repo.dfalbel.workers.dev
+    r-xla/tengen,
+    mlverse/cudatoolkit/cuda12.8
+Additional_repositories: https://r-xla.r-universe.dev
 Config/build/compilation-database: true
 Config/testthat/edition: 3
 Encoding: UTF-8
