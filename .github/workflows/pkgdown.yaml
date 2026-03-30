@@ -20,3 +20,4 @@ jobs:
     with:
       setup-pjrt: true
       extra-packages: "cuda12.8=?ignore"
+      extra-repositories: "https://r-xla.r-universe.dev, https://cudatoolkit-repo.dfalbel.workers.dev"
