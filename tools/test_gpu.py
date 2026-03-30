@@ -18,7 +18,7 @@ image = (
         "apt-get update -y",
         "apt-get install -y r-base r-base-dev",
         'Rscript -e \'install.packages("pak", repos = sprintf("https://r-lib.github.io/p/pak/stable/%s/%s/%s", .Platform$pkgType, R.Version()$os, R.Version()$arch))\'',
-        'Rscript -e \'pak::pkg_install("mlverse/cudatoolkit/cuda12.8")\'',
+        'Rscript -e \'options(repos = c(mlverse = "https://mlverse.r-universe.dev", CRAN = "https://cloud.r-project.org")); pak::pkg_install("cuda12.8")\'',
     )
     .add_local_dir(".", "/root/pjrt", copy=True)
     .run_commands(

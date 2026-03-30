@@ -79,7 +79,7 @@ jobs:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
-          extra-repositories: "https://r-xla.r-universe.dev"
+          extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
 
       - uses: r-xla/actions/r-check@main
         with:
