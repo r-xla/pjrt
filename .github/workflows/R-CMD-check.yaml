@@ -32,7 +32,7 @@ jobs:
             # Don't use --as-cran for CUDA: it restricts requireNamespace() to
             # declared deps, but cuda12.8 can't be in Suggests (won't install on
             # non-CUDA platforms). Instead install via Config/Needs/cuda.
-            as-cran: false
+            as-cran: 'false'
             needs: |
               check
               cuda
