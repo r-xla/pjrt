@@ -1,7 +1,7 @@
 on:
   push:
     branches: [main, master]
-  # pull_request:  # temporarily disabled for faster iteration on cuda toolkit PR
+  pull_request:
 
 name: R-CMD-check.yaml
 
