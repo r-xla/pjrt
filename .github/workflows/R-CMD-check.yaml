@@ -21,13 +21,13 @@ jobs:
           - { os: "macos", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
-          - { os: "ubuntu", platform: "cuda"}
+          - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "windows", r: "release", platform: "cpu"}
           - { os: "macos", platform: "metal"}
 
         include:
           - config: {os: "ubuntu", platform: "cuda"}
-            container: {image: 'sebffischer/anvil-cuda-base:latest', options: '--gpus all --runtime=nvidia'}
+            container: {image: 'nvidia/cuda:12.8.1-runtime-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
             runner: ['self-hosted', 'gpu']
             # Don't use --as-cran for CUDA: it restricts requireNamespace() to
             # declared deps, but cuda12.8 can't be in Suggests (won't install on
@@ -61,10 +61,15 @@ jobs:
         if: ${{ matrix.setup }}
         run: ${{ matrix.setup }}
 
-      - name: Install devscripts (for checkbashisms)
+      - name: Install system dependencies for container
         if: ${{ matrix.container }}
         shell: bash
-        run: apt-get update && apt-get install -y devscripts
+        run: |
+          apt-get update
+          apt-get install -y devscripts curl git sudo libcurl4-openssl-dev \
+            libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev \
+            libharfbuzz-dev libfribidi-dev libpng-dev libtiff5-dev \
+            libjpeg-dev pandoc qpdf cmake protobuf-compiler libprotobuf-dev
 
       - uses: actions/checkout@v5
 
