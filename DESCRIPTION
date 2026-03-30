@@ -23,8 +23,8 @@ Imports:
     tengen (>= 0.1.0),
     withr
 Suggests:
+    cuda12.8,
     testthat (>= 3.0.0)
-Config/Needs/cuda: cuda12.8
 LinkingTo:
     Rcpp
 Remotes:
