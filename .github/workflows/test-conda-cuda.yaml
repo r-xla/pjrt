@@ -59,6 +59,10 @@ jobs:
           CXX20FLAGS = -O2 -Wall -fPIC
           MAKEVARS
 
+          # Debug conda activation
+          echo "CONDA_PREFIX=$CONDA_PREFIX"
+          which R
+
           # Show conda's CUDA libs for debugging
           echo "=== Conda CUDA libraries ==="
           find "$CONDA_PREFIX/lib" -name "libcudnn*" -o -name "libcudart*" | head -20
