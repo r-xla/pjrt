@@ -402,4 +402,3 @@ setup_cuda_env <- function() {
 
   invisible(NULL)
 }
-
