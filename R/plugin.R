@@ -371,6 +371,7 @@ setup_cuda_env <- function() {
   )
   if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
+    so_files <- sort_cuda_libs(so_files)
     for (so in so_files) {
       tryCatch(
         dyn.load(so, local = FALSE, now = FALSE),
@@ -401,4 +402,35 @@ setup_cuda_env <- function() {
   )
 
   invisible(NULL)
+}
+
+# Sort CUDA .so files so dependencies are loaded before dependents.
+# Libraries earlier in the priority list are loaded first.
+sort_cuda_libs <- function(paths) {
+  load_order <- c(
+    "libcudart", # CUDA runtime — almost everything depends on this
+    "libcudnn", # cuDNN — load early to prevent LD_LIBRARY_PATH version from being picked up
+    "libnvrtc", # runtime compiler
+    "libnvJitLink", # JIT linker — needed by cufft, cusolver
+    "libcupti", # profiling
+    "libcublasLt", # cuBLAS lightweight — must come before libcublas
+    "libcublas", # cuBLAS
+    "libcusparse", # cuSPARSE
+    "libcusolver", # cuSOLVER — depends on cublas, cusparse, nvjitlink
+    "libcufft", # cuFFT — depends on nvjitlink
+    "libnccl", # NCCL
+    "libnvshmem" # NVSHMEM
+  )
+  basenames <- basename(paths)
+  priority <- vapply(
+    basenames,
+    function(bn) {
+      for (i in seq_along(load_order)) {
+        if (startsWith(bn, load_order[i])) return(i)
+      }
+      length(load_order) + 1L
+    },
+    integer(1)
+  )
+  paths[order(priority, basenames)]
 }
