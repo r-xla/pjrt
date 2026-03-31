@@ -46,6 +46,14 @@ jobs:
           eval "$(conda shell.bash hook)"
           conda activate test-env
 
+          # Conda R doesn't define CXX20 by default — set it in Makevars
+          mkdir -p ~/.R
+          cat > ~/.R/Makevars <<'MAKEVARS'
+          CXX20 = g++
+          CXX20STD = -std=c++20
+          CXX20FLAGS = -O2 -Wall -fPIC
+          MAKEVARS
+
           # Show conda's CUDA libs for debugging
           echo "=== Conda CUDA libraries ==="
           find "$CONDA_PREFIX/lib" -name "libcudnn*" -o -name "libcudart*" | head -20
