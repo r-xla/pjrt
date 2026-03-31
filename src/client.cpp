@@ -147,6 +147,16 @@ PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   check_err(this->api.get(), this->api->PJRT_LoadedExecutable_Destroy_(&args));
 }
 
+std::vector<PJRT_Device *> PJRTLoadedExecutable::addressable_devices() {
+  PJRT_LoadedExecutable_AddressableDevices_Args args{};
+  args.struct_size = sizeof(PJRT_LoadedExecutable_AddressableDevices_Args);
+  args.executable = this->executable;
+  check_err(this->api.get(),
+            this->api->PJRT_LoadedExecutable_AddressableDevices_(&args));
+  return std::vector(args.addressable_devices,
+                     args.addressable_devices + args.num_addressable_devices);
+}
+
 AsyncExecuteResult PJRTLoadedExecutable::execute_async(
     std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
   PJRT_ExecuteOptions exec_options{};

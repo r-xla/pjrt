@@ -52,7 +52,7 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   check_loaded_executable(executable)
   input_raw <- list(...)
 
-  exec_device <- attr(executable, "device")
+  exec_device <- impl_loaded_executable_device(executable)
   lapply(input_raw, check_buffer, device = exec_device)
 
   if (is.null(execution_options)) {
@@ -76,6 +76,11 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
 print.PJRTLoadedExecutable <- function(x, ...) {
   cat("<PJRTLoadedExecutable>\n")
   invisible(x)
+}
+
+#' @export
+device.PJRTLoadedExecutable <- function(x, ...) {
+  impl_loaded_executable_device(x)
 }
 
 check_loaded_executable <- function(x) {

@@ -32,9 +32,7 @@ pjrt_compile <- function(
   check_program(program)
   check_compile_options(compile_options)
 
-  executable <- impl_client_program_compile(client, device, program, compile_options)
-  attr(executable, "device") <- device
-  executable
+  impl_client_program_compile(client, device, program, compile_options)
 }
 
 #' @title Create a Client

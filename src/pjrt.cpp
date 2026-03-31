@@ -99,6 +99,21 @@ Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
   return xptr;
 }
 
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable) {
+  auto devices = executable->addressable_devices();
+  if (devices.empty()) {
+    Rcpp::stop("Loaded executable has no addressable devices");
+  }
+  // We only support single-device executables; return the first device.
+  // PJRTDevice does not own this pointer (the client does), so use a weak ref.
+  Rcpp::XPtr<rpjrt::PJRTDevice> xptr(
+      new rpjrt::PJRTDevice(devices[0], executable->api), true);
+  xptr.attr("class") = "PJRTDevice";
+  return xptr;
+}
+
 // Helper to copy R data to a heap-allocated vector with type conversion
 // The generic type T indicates the target type for PJRT
 template <typename T>

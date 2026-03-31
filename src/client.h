@@ -56,6 +56,7 @@ class PJRTLoadedExecutable {
   AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
+  std::vector<PJRT_Device *> addressable_devices();
   ~PJRTLoadedExecutable();
 };
 

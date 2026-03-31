@@ -41,6 +41,10 @@ impl_client_program_compile <- function(client, device, program, compile_options
     .Call(`_pjrt_impl_client_program_compile`, client, device, program, compile_options)
 }
 
+impl_loaded_executable_device <- function(executable) {
+    .Call(`_pjrt_impl_loaded_executable_device`, executable)
+}
+
 impl_client_buffer_from_raw <- function(client, device, data, dims, dtype, row_major = FALSE) {
     .Call(`_pjrt_impl_client_buffer_from_raw`, client, device, data, dims, dtype, row_major)
 }
