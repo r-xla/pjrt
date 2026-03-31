@@ -34,6 +34,7 @@ jobs:
             protobuf \
             libprotobuf \
             pkg-config \
+            compilers \
             cudnn=9.3.0 \
             cuda-nvrtc
 
