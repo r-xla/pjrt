@@ -59,16 +59,9 @@ jobs:
           CXX20FLAGS = -O2 -Wall -fPIC
           MAKEVARS
 
-          # Debug conda activation
-          echo "CONDA_PREFIX=$CONDA_PREFIX"
-          which R
-
-          # Show conda's CUDA libs for debugging
-          echo "=== Conda CUDA libraries ==="
-          find "$CONDA_PREFIX/lib" -name "libcudnn*" -o -name "libcudart*" | head -20
-          echo "=== LD_LIBRARY_PATH ==="
+          # Simulate conda user: LD_LIBRARY_PATH includes conda's libs
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-          echo $LD_LIBRARY_PATH
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 
           # Use pak to install pjrt + all deps (including cuda12.8) from source
           Rscript -e '
@@ -78,15 +71,5 @@ jobs:
             pak::pkg_install("local::.", dependencies = TRUE)
           '
 
-          # Show RUNPATH for all cuda12.8 .so files
-          echo "=== cuda12.8 RUNPATH ==="
-          LIB_PATH=$(Rscript -e 'cat(cuda12.8::lib_path())')
-          for so in "$LIB_PATH"/*.so*; do
-            [ -f "$so" ] || continue
-            [ -L "$so" ] && continue
-            RPATH=$(readelf -d "$so" 2>/dev/null | grep -E 'RUNPATH|RPATH' || true)
-            echo "$(basename "$so"): $RPATH"
-          done
-
-          # Run tests with LD_DEBUG to trace library resolution
-          LD_DEBUG=libs Rscript -e 'testthat::test_package("pjrt")'
+          # Run tests
+          Rscript -e 'testthat::test_package("pjrt")'
