@@ -63,6 +63,7 @@ jobs:
           echo "=== Conda CUDA libraries ==="
           find "$CONDA_PREFIX/lib" -name "libcudnn*" -o -name "libcudart*" | head -20
           echo "=== LD_LIBRARY_PATH ==="
+          export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
           echo $LD_LIBRARY_PATH
 
           # Use pak to install pjrt + all deps (including cuda12.8) from source
