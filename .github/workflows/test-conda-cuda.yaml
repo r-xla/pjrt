@@ -68,7 +68,7 @@ jobs:
             install.packages("pak", repos = "https://cloud.r-project.org")
             pak::repo_add("r-xla" = "https://r-xla.r-universe.dev")
             pak::repo_add("mlverse" = "https://mlverse.r-universe.dev")
-            pak::pkg_install("local::.", dependencies = TRUE)
+            pak::pkg_install(c("local::.", "devtools"), dependencies = TRUE)
           '
 
           # Show what cuda12.8 provides
@@ -80,13 +80,4 @@ jobs:
           '
 
           # Run tests
-          Rscript -e '
-            library(testthat)
-            library(pjrt)
-            # Verify that CUDA client can be created successfully,
-            # meaning our cuda12.8 libs were loaded instead of conda'\''s
-            client <- pjrt_client("cuda")
-            cat("Platform:", platform(client), "\n")
-            cat("Num devices:", num_devices(client), "\n")
-            test_package("pjrt")
-          '
+          Rscript -e 'devtools::test()'
