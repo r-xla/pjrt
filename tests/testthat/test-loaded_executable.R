@@ -1,3 +1,17 @@
+test_that("device mismatch raises error", {
+  src <- r"(
+func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
+  "func.return"(%x): (tensor<3xf32>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src), device = "cpu:0")
+  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32", device = "cpu:1")
+  expect_error(
+    pjrt_execute(executable, input),
+    "compiled for device"
+  )
+})
+
 test_that("arguments must be unnamed", {
   skip_if_metal("only supports MLIR programs")
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
