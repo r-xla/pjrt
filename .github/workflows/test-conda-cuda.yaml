@@ -78,13 +78,15 @@ jobs:
             pak::pkg_install("local::.", dependencies = TRUE)
           '
 
-          # Show what cuda12.8 provides
-          echo "=== cuda12.8 R package libraries ==="
-          Rscript -e '
-            lib_path <- cuda12.8::lib_path()
-            cat("lib_path:", lib_path, "\n")
-            list.files(lib_path, pattern = "libcudnn|libcudart")
-          '
+          # Show RUNPATH for all cuda12.8 .so files
+          echo "=== cuda12.8 RUNPATH ==="
+          LIB_PATH=$(Rscript -e 'cat(cuda12.8::lib_path())')
+          for so in "$LIB_PATH"/*.so*; do
+            [ -f "$so" ] || continue
+            [ -L "$so" ] && continue
+            RPATH=$(readelf -d "$so" 2>/dev/null | grep -E 'RUNPATH|RPATH' || true)
+            echo "$(basename "$so"): $RPATH"
+          done
 
-          # Run tests — test_package() errors on failure
-          Rscript -e 'testthat::test_package("pjrt")'
+          # Run tests with LD_DEBUG to trace library resolution
+          LD_DEBUG=libs Rscript -e 'testthat::test_package("pjrt")'
