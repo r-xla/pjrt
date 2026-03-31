@@ -80,5 +80,5 @@ jobs:
             list.files(lib_path, pattern = "libcudnn|libcudart")
           '
 
-          # Run tests
-          Rscript -e 'devtools::test()'
+          # Run tests — test_package() errors on failure
+          Rscript -e 'testthat::test_package("pjrt")'
