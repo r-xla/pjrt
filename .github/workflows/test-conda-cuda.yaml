@@ -35,10 +35,9 @@ jobs:
             libprotobuf \
             pkg-config \
             compilers \
-            libxml2 \
-            freetype \
             curl \
             unzip \
+            r-devtools \
             cudnn=9.3.0 \
             cuda-nvrtc
 
@@ -70,7 +69,7 @@ jobs:
             install.packages("pak", repos = "https://cloud.r-project.org")
             pak::repo_add("r-xla" = "https://r-xla.r-universe.dev")
             pak::repo_add("mlverse" = "https://mlverse.r-universe.dev")
-            pak::pkg_install(c("local::.", "devtools"), dependencies = TRUE)
+            pak::pkg_install("local::.", dependencies = TRUE)
           '
 
           # Show what cuda12.8 provides
