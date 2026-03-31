@@ -19,6 +19,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       PJRT_PLATFORM: cuda
+      R_ALWAYS_INSTALL_TESTS: true
 
     steps:
       - name: Create conda environment with R and CUDA libs
