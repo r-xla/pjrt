@@ -142,6 +142,7 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">test</span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu">testthat</span><span class="fu">::</span><span class="fu"><a href="https://testthat.r-lib.org/reference/test_file.html" class="external-link">test_file</a></span><span class="op">(</span><span class="st">"tests/testthat/test-buffer.R"</span><span class="op">)</span></span></code></pre></div>
+<p><strong>Important:</strong> Do not call <code>devtools::load_all()</code> and <code>devtools::test()</code> in the same R process. The protobuf descriptors get registered twice, causing a fatal <code>CHECK failed: GeneratedDatabase()-&gt;Add(...)</code> crash. Use separate <code>Rscript -e</code> calls instead.</p>
 </div>
 
 

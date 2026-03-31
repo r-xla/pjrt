@@ -141,3 +141,8 @@ output.
 devtools::test()
 testthat::test_file("tests/testthat/test-buffer.R")
 ```
+
+**Important:** Do not call `devtools::load_all()` and `devtools::test()`
+in the same R process. The protobuf descriptors get registered twice,
+causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use
+separate `Rscript -e` calls instead.
