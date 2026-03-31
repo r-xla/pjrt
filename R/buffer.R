@@ -1,5 +1,13 @@
-check_buffer <- function(x) {
+check_buffer <- function(x, device = NULL) {
   stopifnot(is_buffer(x))
+  if (!is.null(device)) {
+    buf_device <- device(x)
+    if (buf_device != device) {
+      cli_abort(
+        "Buffer is on device {.val {as.character(buf_device)}}, but expected device {.val {as.character(device)}}."
+      )
+    }
+  }
   invisible(NULL)
 }
 

@@ -23,3 +23,4 @@ Makefile
 ^\.clang-format-ignore$
 ^CLAUDE\.md$
 ^AGENTS\.md$
+^jarl.toml$
