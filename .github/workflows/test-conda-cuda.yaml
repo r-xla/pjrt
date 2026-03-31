@@ -1,0 +1,80 @@
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+name: test-conda-cuda.yaml
+
+permissions: read-all
+
+jobs:
+  test-conda-cuda:
+    runs-on: ['self-hosted', 'gpu']
+    container:
+      image: condaforge/miniforge3:latest
+      options: '--gpus all --runtime=nvidia'
+
+    name: conda R + CUDA (cudnn conflict test)
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      PJRT_PLATFORM: cuda
+
+    steps:
+      - name: Create conda environment with R and CUDA libs
+        shell: bash
+        run: |
+          # Create a conda env that includes R and cudnn from conda-forge,
+          # simulating a user environment where conda's cudnn could conflict
+          # with the cuda12.8 R package.
+          mamba create -y -n test-env \
+            -c conda-forge -c nvidia \
+            r-base=4.4 \
+            cmake \
+            protobuf \
+            libprotobuf \
+            cudnn=9.3.0 \
+            cuda-nvrtc
+
+      - uses: actions/checkout@v5
+
+      - name: Install R package dependencies and run tests
+        shell: bash
+        run: |
+          # Activate the conda environment
+          eval "$(conda shell.bash hook)"
+          conda activate test-env
+
+          # Show conda's CUDA libs for debugging
+          echo "=== Conda CUDA libraries ==="
+          find "$CONDA_PREFIX/lib" -name "libcudnn*" -o -name "libcudart*" | head -20
+          echo "=== LD_LIBRARY_PATH ==="
+          echo "$LD_LIBRARY_PATH"
+
+          # Use pak to install pjrt + all deps (including cuda12.8) from source
+          Rscript -e '
+            install.packages("pak", repos = "https://cloud.r-project.org")
+            pak::repo_add("r-xla" = "https://r-xla.r-universe.dev")
+            pak::repo_add("mlverse" = "https://mlverse.r-universe.dev")
+            pak::pkg_install("local::.", dependencies = TRUE)
+          '
+
+          # Show what cuda12.8 provides
+          echo "=== cuda12.8 R package libraries ==="
+          Rscript -e '
+            lib_path <- cuda12.8::lib_path()
+            cat("lib_path:", lib_path, "\n")
+            list.files(lib_path, pattern = "libcudnn|libcudart")
+          '
+
+          # Run tests
+          Rscript -e '
+            library(testthat)
+            library(pjrt)
+            # Verify that CUDA client can be created successfully,
+            # meaning our cuda12.8 libs were loaded instead of conda'\''s
+            client <- pjrt_client("cuda")
+            cat("Platform:", platform(client), "\n")
+            cat("Num devices:", num_devices(client), "\n")
+            test_package("pjrt")
+          '
