@@ -8,7 +8,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32", device = "cpu:1")
   expect_error(
     pjrt_execute(executable, input),
-    "expected device"
+    "compiled for device"
   )
 })
 

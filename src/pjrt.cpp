@@ -691,15 +691,49 @@ Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
                             Rcpp::Named("dims") = dims);
 }
 
+static std::string device_to_string(PJRT_Device *device, PJRT_Api *api) {
+  PJRT_Device_GetDescription_Args desc_args{};
+  desc_args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
+  desc_args.device = device;
+  check_err(api, api->PJRT_Device_GetDescription_(&desc_args));
+
+  PJRT_DeviceDescription_ToString_Args str_args{};
+  str_args.struct_size = sizeof(PJRT_DeviceDescription_ToString_Args);
+  str_args.device_description = desc_args.device_description;
+  check_err(api, api->PJRT_DeviceDescription_ToString_(&str_args));
+
+  return std::string(str_args.to_string, str_args.to_string_size);
+}
+
 // [[Rcpp::export()]]
 Rcpp::List impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
+  auto api = executable->api;
+  auto exec_devices = executable->addressable_devices();
+
   std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
   for (auto i = 0; i < input.size(); i++) {
     auto elt = input[i];
     auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
     inputs[i] = buffer.get();
+
+    auto buf_device = buffer->device();
+    bool on_exec_device = false;
+    for (auto *dev : exec_devices) {
+      if (buf_device->device == dev) {
+        on_exec_device = true;
+        break;
+      }
+    }
+    if (!on_exec_device) {
+      auto buf_dev_str = device_to_string(buf_device->device, api.get());
+      auto exec_dev_str = device_to_string(exec_devices[0], api.get());
+      Rcpp::stop(
+          "Input %d is on device '%s', but the executable was "
+          "compiled for device '%s'.",
+          i + 1, buf_dev_str.c_str(), exec_dev_str.c_str());
+    }
   }
 
   auto result = executable->execute_async(inputs, *execution_options);

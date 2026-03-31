@@ -52,8 +52,7 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   check_loaded_executable(executable)
   input_raw <- list(...)
 
-  exec_device <- impl_loaded_executable_device(executable)
-  lapply(input_raw, check_buffer, device = exec_device)
+  lapply(input_raw, check_buffer)
 
   if (is.null(execution_options)) {
     execution_options <- pjrt_execution_options()
