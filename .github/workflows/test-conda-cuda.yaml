@@ -36,6 +36,7 @@ jobs:
             pkg-config \
             compilers \
             libxml2 \
+            freetype \
             curl \
             unzip \
             cudnn=9.3.0 \
