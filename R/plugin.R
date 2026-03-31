@@ -159,7 +159,9 @@ plugin_download <- function(cache_dir, platform = NULL) {
 
   url <- plugin_url(platform)
   tempfile <- tempfile(fileext = ".tar.gz")
-  utils::download.file(url, tempfile, mode = "wb")
+  cli::cli_inform("Downloading PJRT plugin from {.url {url}}")
+  withr::local_options(timeout = max(getOption("timeout"), 600L))
+  utils::download.file(url, tempfile, mode = "wb", quiet = FALSE)
 
   if (dir.exists(cache_dir)) {
     fs::dir_delete(cache_dir)
