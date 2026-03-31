@@ -33,6 +33,7 @@ jobs:
             cmake \
             protobuf \
             libprotobuf \
+            pkg-config \
             cudnn=9.3.0 \
             cuda-nvrtc
 
