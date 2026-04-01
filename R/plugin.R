@@ -77,7 +77,22 @@ pjrt_plugin <- function(platform) {
     setup_cuda_env()
   }
 
-  plugin <- impl_plugin_load(path)
+  plugin <- tryCatch(
+    impl_plugin_load(path),
+    error = function(e) {
+      if (platform == "cuda" && Sys.info()[["sysname"]] == "Linux") {
+        cuda_pkg <- Sys.getenv("PJRT_CUDA_R_PACKAGE", "cuda12.8")
+        if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
+          cli::cli_abort(c(
+            conditionMessage(e),
+            i = "CUDA R package {.pkg {cuda_pkg}} is not installed.",
+            i = "Install it with {.code install.packages(\"{cuda_pkg}\", repos = \"https://mlverse.r-universe.dev\")}."
+          ))
+        }
+      }
+      stop(e)
+    }
+  )
   attributes(plugin) <- list(platform = platform)
 
   if (platform != "metal") {

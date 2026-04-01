@@ -47,15 +47,15 @@ options(repos = c(
 ### CUDA
 
 To use the CUDA backend, install the `cuda12.8` R package which provides
-the required CUDA runtime libraries:
+the required CUDA runtime libraries and you only need to have a
+compatible CUDA driver.
 
 ``` r
 pak::pak("mlverse/cudatoolkit/cuda12.8")
 ```
 
 Alternatively, install from
-[r-universe](https://mlverse.r-universe.dev/) by adding the mlverse
-repository to your `.Rprofile`:
+[r-universe](https://mlverse.r-universe.dev/) by adding it to `repos`.
 
 ``` r
 options(repos = c(
@@ -68,6 +68,20 @@ install.packages("cuda12.8")
 You can use a different CUDA version by setting the
 `PJRT_CUDA_R_PACKAGE` environment variable (e.g., `"cuda12.6"`), but
 other versions may not work with the XLA plugin.
+
+**Troubleshooting**
+
+To trouble-shoot the CUDA installation, run the following in a new R
+session for maximum debug output.
+
+``` r
+Sys.setenv(PJRT_DEBUG = "1", TF_CPP_MIN_LOG_LEVEL = "0")
+pjrt::pjrt_buffer(1, device = "cuda")
+```
+
+Note that if another package is using a different cudatoolkit package
+(such as \`cuda12.6\`\`), there might be some issues, so in this case
+it’s best to run separate R processes.
 
 ## Quick Start
 

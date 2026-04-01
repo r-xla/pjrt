@@ -80,62 +80,6 @@ jobs:
           # Run tests
           Rscript -e 'testthat::test_package("pjrt")'
 
-  test-cuda13:
-    if: >-
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(join(github.event.pull_request.labels.*.name, ','), 'cuda')
-    runs-on: ['self-hosted', 'gpu']
-    container:
-      image: 'nvidia/cuda:12.8.1-runtime-ubuntu24.04'
-      options: '--gpus all --runtime=nvidia'
-
-    name: cuda13.2 compatibility test
-
-    env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      PJRT_PLATFORM: cuda
-      R_ALWAYS_INSTALL_TESTS: true
-
-    steps:
-      - name: Install system dependencies
-        shell: bash
-        run: |
-          apt-get update
-          apt-get install -y devscripts curl git sudo libcurl4-openssl-dev \
-            libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev \
-            libharfbuzz-dev libfribidi-dev libpng-dev libtiff5-dev \
-            libjpeg-dev pandoc qpdf cmake protobuf-compiler libprotobuf-dev \
-            locales
-          sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
-          locale-gen en_US.UTF-8
-          update-locale LANG=en_US.UTF-8
-          echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
-          echo "LC_ALL=en_US.UTF-8" >> $GITHUB_ENV
-
-      - uses: actions/checkout@v5
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: release
-          use-public-rspm: true
-          extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
-
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::testthat, local::.
-
-      - name: Install cuda13.2
-        shell: Rscript {0}
-        run: |
-          pak::pkg_install("mlverse/cudatoolkit/cuda13.2")
-
-      - name: Run tests
-        shell: Rscript {0}
-        run: |
-          library(cuda13.2)
-          testthat::test_package("pjrt")
-
   test-cuda-conflict:
     if: >-
       github.event_name == 'push' ||
@@ -146,7 +90,7 @@ jobs:
       image: 'nvidia/cuda:12.8.1-runtime-ubuntu24.04'
       options: '--gpus all --runtime=nvidia'
 
-    name: cuda12.6 conflict warning test
+    name: cuda conflict warning tests
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -179,27 +123,45 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::testthat, local::.
+          extra-packages: any::testthat, local::., cuda12.8=?ignore
 
-      - name: Install cuda12.6
+      - name: Test missing cuda package error message
+        shell: Rscript {0}
+        run: |
+          testthat::expect_error(
+            pjrt::pjrt_plugin("cuda"),
+            "cuda12.8.*is not installed"
+          )
+
+      - name: Install cuda12.8
+        shell: Rscript {0}
+        run: |
+          pak::pkg_install("mlverse/cudatoolkit/cuda12.8")
+
+      - name: Install cuda12.6 and cuda13.2
         shell: Rscript {0}
         run: |
           pak::pkg_install("mlverse/cudatoolkit/cuda12.6")
+          pak::pkg_install("mlverse/cudatoolkit/cuda13.2")
 
-      - name: Test conflict warning
+      - name: Test conflict warning (cuda12.6)
         shell: Rscript {0}
         run: |
-          library(cuda12.6)
-
-          # Load cuda12.6 DLLs via setup_cuda_env
           Sys.setenv(PJRT_CUDA_R_PACKAGE = "cuda12.6")
           pjrt:::setup_cuda_env()
-
-          # Now unset and trigger default cuda12.8 loading via pjrt_buffer.
-          # This should produce warnings about already-loaded DLLs.
           Sys.unsetenv("PJRT_CUDA_R_PACKAGE")
-          options(pjrt.debug_level = "warn")
-          lgr::lgr$set_threshold("warn")
+
+          testthat::expect_warning(
+            pjrt::pjrt_buffer(1, device = "cuda"),
+            "already loaded"
+          )
+
+      - name: Test conflict warning (cuda13.2)
+        shell: Rscript {0}
+        run: |
+          Sys.setenv(PJRT_CUDA_R_PACKAGE = "cuda13.2")
+          pjrt:::setup_cuda_env()
+          Sys.unsetenv("PJRT_CUDA_R_PACKAGE")
 
           testthat::expect_warning(
             pjrt::pjrt_buffer(1, device = "cuda"),
