@@ -380,21 +380,7 @@ setup_cuda_env <- function() {
   if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
     pjrt_debug("Loading {length(so_files)} .so files from {.path {lib_dir}}")
-    loaded <- getLoadedDLLs()
     for (so in so_files) {
-      lib_name <- sub("\\.so.*$", "", basename(so))
-      already <- Filter(
-        function(dll) {
-          sub("\\.so.*$", "", basename(dll[["path"]])) == lib_name &&
-            normalizePath(dll[["path"]], mustWork = FALSE) != normalizePath(so, mustWork = FALSE)
-        },
-        loaded
-      )
-      if (length(already)) {
-        existing_path <- already[[1L]][["path"]]
-        cli::cli_warn("{.val {lib_name}} is already loaded from {.path {existing_path}}, skipping {.path {so}}")
-        next
-      }
       tryCatch(
         dyn.load(so, local = FALSE, now = TRUE),
         error = function(e) {

@@ -134,37 +134,21 @@ jobs:
             "cuda12.8.*is not installed"
           )
 
-      - name: Install cuda12.8
+      - name: Install cuda12.8 and 12.6
         shell: Rscript {0}
         run: |
           pak::pkg_install("mlverse/cudatoolkit/cuda12.8")
-
-      - name: Install cuda12.6 and cuda13.2
-        shell: Rscript {0}
-        run: |
           pak::pkg_install("mlverse/cudatoolkit/cuda12.6")
-          pak::pkg_install("mlverse/cudatoolkit/cuda13.2")
 
-      - name: Test conflict warning (cuda12.6)
+      - name: Test error when cuda 12.6 is loaded before 12.8
         shell: Rscript {0}
         run: |
           Sys.setenv(PJRT_CUDA_R_PACKAGE = "cuda12.6")
           pjrt:::setup_cuda_env()
           Sys.unsetenv("PJRT_CUDA_R_PACKAGE")
 
-          testthat::expect_warning(
+          # same error would happen with cuda 13.2
+          testthat::expect_error(
             pjrt::pjrt_buffer(1, device = "cuda"),
-            "already loaded"
-          )
-
-      - name: Test conflict warning (cuda13.2)
-        shell: Rscript {0}
-        run: |
-          Sys.setenv(PJRT_CUDA_R_PACKAGE = "cuda13.2")
-          pjrt:::setup_cuda_env()
-          Sys.unsetenv("PJRT_CUDA_R_PACKAGE")
-
-          testthat::expect_warning(
-            pjrt::pjrt_buffer(1, device = "cuda"),
-            "already loaded"
+            "Failed to load plugin"
           )
