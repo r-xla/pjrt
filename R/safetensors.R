@@ -64,7 +64,6 @@ pjrt_dtype_size <- function(pjrt_dtype) {
     "ui64" = 8L,
     "f32" = 4L,
     "f64" = 8L,
-    "pred" = 1L,
     cli::cli_abort("Unsupported PJRT data type {.val {pjrt_dtype}}")
   )
 }

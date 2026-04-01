@@ -204,11 +204,6 @@ print.PJRTClient <- function(x, ...) {
   cat(sprintf("<PJRTClient:%s>\n", platform(x)))
 }
 
-check_client <- function(client) {
-  stopifnot(inherits(client, "PJRTClient"))
-  invisible(NULL)
-}
-
 new_compile_options <- function(
   build_options = new_build_options(
     num_replicas = 1L,

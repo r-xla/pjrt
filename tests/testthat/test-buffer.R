@@ -731,6 +731,14 @@ test_that("await works for PJRTBuffer", {
   expect_equal(as.vector(as_array(buf)), original, tolerance = 1e-6)
 })
 
+test_that("pjrt_memory returns a PJRTMemory", {
+  skip_if_metal("PJRT_Buffer_Memory not implemented")
+  buf <- pjrt_buffer(1, dtype = "f32")
+  mem <- pjrt_memory(buf)
+  expect_class(mem, "PJRTMemory")
+  expect_output(print(mem), "PJRTMemory")
+})
+
 test_that("await properly releases preserved objects", {
   # await() calls process_pending_releases(), which drains the deferred
   # release queue. Without this, memory would leak on backends with

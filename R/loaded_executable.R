@@ -77,11 +77,12 @@ print.PJRTLoadedExecutable <- function(x, ...) {
   invisible(x)
 }
 
+#' @export
+device.PJRTLoadedExecutable <- function(x, ...) {
+  impl_loaded_executable_device(x)
+}
+
 check_loaded_executable <- function(x) {
   stopifnot(inherits(x, "PJRTLoadedExecutable"))
   invisible(NULL)
-}
-
-is_loaded_executable <- function(x) {
-  inherits(x, "PJRTLoadedExecutable")
 }
