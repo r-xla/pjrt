@@ -119,12 +119,12 @@ jobs:
         with:
           r-version: release
           use-public-rspm: true
-          cache: false
           extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::testthat, local::., cuda12.8=?ignore
+          cache: false
 
       - name: Test missing cuda package error message
         shell: Rscript {0}
