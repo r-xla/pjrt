@@ -39,10 +39,7 @@ plugin_client_create <- function(plugin, platform, options = list()) {
       cli_abort("Client options must be integers of length 1")
     }
   })
-  # Otherwise, we get startup message w.r.t. the number of cpu devices
-  client <- withr::with_envvar(c(TF_CPP_MIN_LOG_LEVEL = "1"), {
-    impl_plugin_client_create(plugin, opts)
-  })
+  client <- impl_plugin_client_create(plugin, opts)
   the[["clients"]][[platform]] <- client
   # in order to go from device -> client, we go through the platform name, which might
   # not be the same as the "cuda" string, but might be "nvidia h100" etc.
@@ -344,15 +341,9 @@ print.PJRTPlugin <- function(x, ...) {
 # Also adds ptxas to PATH for PTX compilation.
 # Called once, right before the plugin is loaded.
 setup_cuda_env <- function() {
-  # Find installed cuda packages (e.g., cuda12.8, cuda13.2)
-  cuda_pkg <- Sys.getenv("CUDA_R_PACKAGE", "")
-  if (cuda_pkg == "") {
-    installed <- rownames(utils::installed.packages())
-    cuda_pkgs <- sort(grep("^cuda\\d+\\.\\d+$", installed, value = TRUE), decreasing = TRUE)
-    if (length(cuda_pkgs) == 0) {
-      return(invisible(NULL))
-    }
-    cuda_pkg <- cuda_pkgs[1]
+  cuda_pkg <- Sys.getenv("PJRT_CUDA_R_PACKAGE", "cuda12.8")
+  if (cuda_pkg != "cuda12.8") {
+    pjrt_debug("PJRT_CUDA_R_PACKAGE set to {.val {cuda_pkg}} (default: cuda12.8)")
   }
 
   if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
@@ -371,10 +362,27 @@ setup_cuda_env <- function() {
   )
   if (!is.null(lib_dir) && dir.exists(lib_dir)) {
     so_files <- list.files(lib_dir, pattern = "\\.so[.0-9]*$", full.names = TRUE)
+    pjrt_debug("Loading {length(so_files)} .so files from {.path {lib_dir}}")
+    loaded <- getLoadedDLLs()
     for (so in so_files) {
+      lib_name <- sub("\\.so.*$", "", basename(so))
+      already <- Filter(
+        function(dll) {
+          sub("\\.so.*$", "", basename(dll[["path"]])) == lib_name &&
+            normalizePath(dll[["path"]], mustWork = FALSE) != normalizePath(so, mustWork = FALSE)
+        },
+        loaded
+      )
+      if (length(already)) {
+        existing_path <- already[[1L]][["path"]]
+        cli::cli_warn("{.val {lib_name}} is already loaded from {.path {existing_path}}, skipping {.path {so}}")
+        next
+      }
       tryCatch(
         dyn.load(so, local = FALSE, now = TRUE),
-        error = function(e) NULL
+        error = function(e) {
+          pjrt_debug("dyn.load failed for {.path {so}}: {conditionMessage(e)}")
+        }
       )
     }
   }
@@ -386,18 +394,26 @@ setup_cuda_env <- function() {
       cuda_nvcc_path <- getExportedValue(cuda_pkg, "cuda_path")("nvcc")
       nvcc_bin <- file.path(cuda_nvcc_path, "bin")
       if (dir.exists(nvcc_bin)) {
+        pjrt_debug("Adding nvcc bin to PATH: {.path {nvcc_bin}}")
         current_path <- Sys.getenv("PATH", "")
         Sys.setenv(PATH = paste(nvcc_bin, current_path, sep = ":"))
+      } else {
+        pjrt_debug("nvcc bin dir does not exist: {.path {nvcc_bin}}")
       }
       # XLA needs nvvm/libdevice/libdevice.10.bc — point it to the nvcc dir
       current_flags <- Sys.getenv("XLA_FLAGS", "")
       xla_cuda_dir <- paste0("--xla_gpu_cuda_data_dir=", cuda_nvcc_path)
       if (!grepl("xla_gpu_cuda_data_dir", current_flags)) {
         new_flags <- if (nzchar(current_flags)) paste(current_flags, xla_cuda_dir) else xla_cuda_dir
+        pjrt_debug("Setting XLA_FLAGS: {new_flags}")
         Sys.setenv(XLA_FLAGS = new_flags)
+      } else {
+        pjrt_debug("xla_gpu_cuda_data_dir already set in XLA_FLAGS, skipping")
       }
     },
-    error = function(e) NULL
+    error = function(e) {
+      pjrt_debug("Failed to configure nvcc/XLA_FLAGS: {conditionMessage(e)}")
+    }
   )
 
   invisible(NULL)

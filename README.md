@@ -44,6 +44,31 @@ options(repos = c(
 ))
 ```
 
+### CUDA
+
+To use the CUDA backend, install the `cuda12.8` R package which provides
+the required CUDA runtime libraries:
+
+``` r
+pak::pak("mlverse/cudatoolkit/cuda12.8")
+```
+
+Alternatively, install from
+[r-universe](https://mlverse.r-universe.dev/) by adding the mlverse
+repository to your `.Rprofile`:
+
+``` r
+options(repos = c(
+  mlverse = "https://mlverse.r-universe.dev",
+  CRAN = "https://cloud.r-project.org/"
+))
+install.packages("cuda12.8")
+```
+
+You can use a different CUDA version by setting the
+`PJRT_CUDA_R_PACKAGE` environment variable (e.g., `"cuda12.6"`), but
+other versions may not work with the XLA plugin.
+
 ## Quick Start
 
 Below, we create and run a stableHLO program that adds two `f32` tensors

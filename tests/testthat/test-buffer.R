@@ -109,25 +109,25 @@ test_pjrt_buffer <- function(
 
 test_that("dtype works for PJRTBuffer", {
   buf_f32 <- pjrt_buffer(1.0, dtype = "f32")
-  expect_equal(dtype(buf_f32), FloatType(32L))
+  expect_equal(dtype(buf_f32), tengen::FloatType(32L))
 
   buf_f64 <- pjrt_buffer(1.0, dtype = "f64")
-  expect_equal(dtype(buf_f64), FloatType(64L))
+  expect_equal(dtype(buf_f64), tengen::FloatType(64L))
 
   buf_i32 <- pjrt_buffer(1L, dtype = "i32")
-  expect_equal(dtype(buf_i32), IntegerType(32L))
+  expect_equal(dtype(buf_i32), tengen::IntegerType(32L))
 
   buf_i8 <- pjrt_buffer(1L, dtype = "i8")
-  expect_equal(dtype(buf_i8), IntegerType(8L))
+  expect_equal(dtype(buf_i8), tengen::IntegerType(8L))
 
   buf_pred <- pjrt_buffer(TRUE, dtype = "pred")
-  expect_equal(dtype(buf_pred), BooleanType())
+  expect_equal(dtype(buf_pred), tengen::BooleanType())
 
   buf_bool <- pjrt_buffer(TRUE, dtype = "bool")
-  expect_equal(dtype(buf_bool), BooleanType())
+  expect_equal(dtype(buf_bool), tengen::BooleanType())
 
   buf_ui8 <- pjrt_buffer(1L, dtype = "ui8")
-  expect_equal(dtype(buf_ui8), UIntegerType(8L))
+  expect_equal(dtype(buf_ui8), tengen::UIntegerType(8L))
 })
 
 test_that("pjrt_scalar roundtrip works for scalar data", {

@@ -1,0 +1,207 @@
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+
+name: test-cuda.yaml
+
+permissions: read-all
+
+jobs:
+  test-conda-cuda:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.pull_request.labels.*.name, ','), 'cuda')
+    runs-on: ['self-hosted', 'gpu']
+    container:
+      image: condaforge/miniforge3:latest
+      options: '--gpus all --runtime=nvidia'
+
+    name: conda R + CUDA (cudnn conflict test)
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      PJRT_PLATFORM: cuda
+      R_ALWAYS_INSTALL_TESTS: true
+
+    steps:
+      - name: Create conda environment with R and CUDA libs
+        shell: bash
+        run: |
+          # Create a conda env that includes R and cudnn from conda-forge,
+          # simulating a user environment where conda's cudnn could conflict
+          # with the cuda12.8 R package.
+          mamba create -y -n test-env \
+            -c conda-forge -c nvidia \
+            r-base=4.4 \
+            cmake \
+            protobuf \
+            libprotobuf \
+            pkg-config \
+            compilers \
+            curl \
+            unzip \
+            r-devtools \
+            cudnn=9.3.0 \
+            cuda-nvrtc
+
+      - uses: actions/checkout@v5
+
+      - name: Install R package dependencies and run tests
+        shell: bash
+        run: |
+          # Activate the conda environment
+          eval "$(conda shell.bash hook)"
+          conda activate test-env
+
+          # Conda R doesn't define CXX20 by default — set it in Makevars
+          mkdir -p ~/.R
+          cat > ~/.R/Makevars <<'MAKEVARS'
+          CXX20 = g++
+          CXX20STD = -std=c++20
+          CXX20FLAGS = -O2 -Wall -fPIC
+          MAKEVARS
+
+          # Simulate conda user: LD_LIBRARY_PATH includes conda's libs
+          export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+
+          # Use pak to install pjrt + all deps (including cuda12.8) from source
+          Rscript -e '
+            install.packages("pak", repos = "https://cloud.r-project.org")
+            pak::repo_add("r-xla" = "https://r-xla.r-universe.dev")
+            pak::repo_add("mlverse" = "https://mlverse.r-universe.dev")
+            pak::pkg_install("local::.", dependencies = TRUE)
+          '
+
+          # Run tests
+          Rscript -e 'testthat::test_package("pjrt")'
+
+  test-cuda13:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.pull_request.labels.*.name, ','), 'cuda')
+    runs-on: ['self-hosted', 'gpu']
+    container:
+      image: 'nvidia/cuda:12.8.1-runtime-ubuntu24.04'
+      options: '--gpus all --runtime=nvidia'
+
+    name: cuda13.2 compatibility test
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      PJRT_PLATFORM: cuda
+      R_ALWAYS_INSTALL_TESTS: true
+
+    steps:
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y devscripts curl git sudo libcurl4-openssl-dev \
+            libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev \
+            libharfbuzz-dev libfribidi-dev libpng-dev libtiff5-dev \
+            libjpeg-dev pandoc qpdf cmake protobuf-compiler libprotobuf-dev \
+            locales
+          sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+          locale-gen en_US.UTF-8
+          update-locale LANG=en_US.UTF-8
+          echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
+          echo "LC_ALL=en_US.UTF-8" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v5
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+          extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat, local::.
+
+      - name: Install cuda13.2
+        shell: Rscript {0}
+        run: |
+          pak::pkg_install("mlverse/cudatoolkit/cuda13.2")
+
+      - name: Run tests
+        shell: Rscript {0}
+        run: |
+          library(cuda13.2)
+          testthat::test_package("pjrt")
+
+  test-cuda-conflict:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.pull_request.labels.*.name, ','), 'cuda')
+    runs-on: ['self-hosted', 'gpu']
+    container:
+      image: 'nvidia/cuda:12.8.1-runtime-ubuntu24.04'
+      options: '--gpus all --runtime=nvidia'
+
+    name: cuda12.6 conflict warning test
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      PJRT_PLATFORM: cuda
+      R_ALWAYS_INSTALL_TESTS: true
+
+    steps:
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y devscripts curl git sudo libcurl4-openssl-dev \
+            libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev \
+            libharfbuzz-dev libfribidi-dev libpng-dev libtiff5-dev \
+            libjpeg-dev pandoc qpdf cmake protobuf-compiler libprotobuf-dev \
+            locales
+          sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+          locale-gen en_US.UTF-8
+          update-locale LANG=en_US.UTF-8
+          echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
+          echo "LC_ALL=en_US.UTF-8" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v5
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+          extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat, local::.
+
+      - name: Install cuda12.6
+        shell: Rscript {0}
+        run: |
+          pak::pkg_install("mlverse/cudatoolkit/cuda12.6")
+
+      - name: Test conflict warning
+        shell: Rscript {0}
+        run: |
+          library(cuda12.6)
+
+          # Load cuda12.6 DLLs via setup_cuda_env
+          Sys.setenv(PJRT_CUDA_R_PACKAGE = "cuda12.6")
+          pjrt:::setup_cuda_env()
+
+          # Now unset and trigger default cuda12.8 loading via pjrt_buffer.
+          # This should produce warnings about already-loaded DLLs.
+          Sys.unsetenv("PJRT_CUDA_R_PACKAGE")
+          options(pjrt.debug_level = "warn")
+          lgr::lgr$set_threshold("warn")
+
+          testthat::expect_warning(
+            pjrt::pjrt_buffer(1, device = "cuda"),
+            "already loaded"
+          )

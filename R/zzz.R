@@ -1,3 +1,11 @@
+setup_logging <- function() {
+  # TF_CPP_MIN_LOG_LEVEL: 0 = info, 1 = warn (default), 2 = error, 3 = off
+  # Users can set this env var directly; we default to 1 to suppress startup info.
+  if (Sys.getenv("TF_CPP_MIN_LOG_LEVEL", "") == "") {
+    Sys.setenv(TF_CPP_MIN_LOG_LEVEL = "1")
+  }
+}
+
 register_namespace_callback <- function(pkgname, namespace, callback) {
   # nocov start
   assert_string(pkgname)
@@ -33,6 +41,7 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
 
 .onLoad <- function(libname, pkgname) {
   # nocov start
+  setup_logging()
   # this allows for tests without as_array() conversion
   register_s3_method("waldo", "compare_proxy", "PJRTBuffer")
   register_s3_method("waldo", "compare_proxy", "PJRTArrayPromise")
