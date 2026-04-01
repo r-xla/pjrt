@@ -55,19 +55,17 @@ pak::pak("mlverse/cudatoolkit/cuda12.8")
 ```
 
 Alternatively, install from
-[r-universe](https://mlverse.r-universe.dev/) by adding it to `repos`.
+[r-universe](https://mlverse.r-universe.dev/).
 
 ``` r
-options(repos = c(
-  mlverse = "https://mlverse.r-universe.dev",
-  CRAN = "https://cloud.r-project.org/"
-))
-install.packages("cuda12.8")
+install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
 ```
 
-You can use a different CUDA version by setting the
-`PJRT_CUDA_R_PACKAGE` environment variable (e.g., `"cuda12.6"`), but
-other versions may not work with the XLA plugin.
+When the `cuda12.8` is not installed, the correct runtime libraries
+needt to be installed on the system, which can be difficult to set up.
+The specific versions of the CUDA runtime libraries provided with
+`cuda12.8` are provided
+[here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
 
 **Troubleshooting**
 
@@ -80,7 +78,7 @@ pjrt::pjrt_buffer(1, device = "cuda")
 ```
 
 Note that if another package is using a different cudatoolkit package
-(such as \`cuda12.6\`\`), there might be some issues, so in this case
+(e.g. when using {torch}), there might be some issues, so in this case
 it’s best to run separate R processes.
 
 ## Quick Start
