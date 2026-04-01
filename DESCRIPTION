@@ -20,6 +20,7 @@ Imports:
     Rcpp,
     rlang,
     safetensors(>= 0.2.0),
+    withr,
     tengen (>= 0.1.0)
 Suggests:
     cuda12.8,

@@ -58,3 +58,6 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
   })
   # nocov end
 }
+
+# silence rcmd check
+withr::local_options
