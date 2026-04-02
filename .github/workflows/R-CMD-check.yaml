@@ -30,6 +30,7 @@ jobs:
             container: {image: 'nvidia/cuda:12.8.1-runtime-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
             runner: ['self-hosted', 'gpu']
             extra-packages: "any::rcmdcheck, cuda12.8"
+            extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
           - config: {os: "macos", platform: "cpu"}
@@ -79,11 +80,11 @@ jobs:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
-          extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+          extra-repositories: ${{ matrix.extra-repositories || 'https://r-xla.r-universe.dev' }}
 
       - uses: r-xla/actions/r-check@main
         with:
           depends-only: ${{ matrix.config.depends_only == true }}
           extra-deps: ${{ matrix.extra-deps }}
           as-cran: ${{ matrix.as-cran || 'true' }}
-          extra-packages: ${{ matrix.extra-packages || 'any::rcmdcheck, cuda12.8=?ignore' }}
+          extra-packages: ${{ matrix.extra-packages || 'any::rcmdcheck' }}
