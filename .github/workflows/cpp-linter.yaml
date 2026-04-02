@@ -9,5 +9,4 @@ jobs:
   cpp-linter:
     uses: r-xla/actions/.github/workflows/cpp-linter.yaml@main
     with:
-      extra-packages: "cuda12.8=?ignore"
-      extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+      extra-repositories: "https://r-xla.r-universe.dev"
