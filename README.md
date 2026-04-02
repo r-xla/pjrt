@@ -46,7 +46,7 @@ options(repos = c(
 
 ### CUDA
 
-To use the CUDA backend, install the `cuda12.8` R package which provides
+To use the CUDA backend, install the {cuda12.8} R package which provides
 the required CUDA runtime libraries and you only need to have a
 compatible CUDA driver.
 
@@ -61,10 +61,10 @@ Alternatively, install from
 install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
 ```
 
-When the `cuda12.8` is not installed, the correct runtime libraries
-need to be installed on the system, which can be difficult to set up.
-The specific versions of the CUDA runtime libraries provided with
-`cuda12.8` are provided
+When the {cuda12.8} package is not installed, the correct runtime
+libraries need to be installed on the system, which can be difficult to
+set up. The specific versions of the CUDA runtime libraries provided
+with {cuda12.8} are provided
 [here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
 
 **Troubleshooting**

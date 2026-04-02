@@ -14,6 +14,8 @@ knitr::opts_chunk$set(
   fig.path = "man/figures/README-",
   out.width = "100%"
 )
+pkgload::load_all(quiet = TRUE)
+cuda_pkg <- cuda_r_package()
 ```
 
 <!-- badges: start -->
@@ -48,20 +50,20 @@ options(repos = c(
 
 ### CUDA
 
-To use the CUDA backend, install the `cuda12.8` R package which provides the required CUDA runtime libraries and you only need to have a compatible CUDA driver.
+To use the CUDA backend, install the  {`r cuda_pkg`} R package which provides the required CUDA runtime libraries and you only need to have a compatible CUDA driver.
 
-```{r, eval = FALSE}
-pak::pak("mlverse/cudatoolkit/cuda12.8")
+```{r, echo = FALSE, results = "asis"}
+cat(sprintf('```r\npak::pak("mlverse/cudatoolkit/%s")\n```', cuda_pkg))
 ```
 
 Alternatively, install from [r-universe](https://mlverse.r-universe.dev/).
 
-```{r, eval = FALSE}
-install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
+```{r, echo = FALSE, results = "asis"}
+cat(sprintf('```r\ninstall.packages("%s", repos = "https://mlverse.r-universe.dev")\n```', cuda_pkg))
 ```
 
-When the `cuda12.8` is not installed, the correct runtime libraries need to be installed on the system, which can be difficult to set up.
-The specific versions of the CUDA runtime libraries provided with `cuda12.8` are provided [here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
+When the {`r cuda_pkg`} package is not installed, the correct runtime libraries need to be installed on the system, which can be difficult to set up.
+The specific versions of the CUDA runtime libraries provided with {`r cuda_pkg`} are provided [here](`r sprintf("https://github.com/mlverse/cudatoolkit/blob/main/%s/inst/components.tsv", cuda_pkg)`).
 
 **Troubleshooting**
 
