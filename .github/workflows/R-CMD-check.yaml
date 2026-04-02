@@ -31,6 +31,7 @@ jobs:
             runner: ['self-hosted', 'gpu']
             extra-packages: "any::rcmdcheck, cuda12.8"
             extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+            as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
           - config: {os: "macos", platform: "cpu"}
