@@ -3,7 +3,8 @@ the <- hashtab()
 the[["plugins"]] <- hashtab()
 the[["clients"]] <- hashtab()
 the[["config"]] <- list(
-  cpu_device_count = 1L
+  cpu_device_count = 1L,
+  cuda_r_package = "cuda12.8"
 )
 
 #' @title Create PJRT Client
@@ -81,7 +82,7 @@ pjrt_plugin <- function(platform) {
     impl_plugin_load(path),
     error = function(e) {
       if (platform == "cuda" && Sys.info()[["sysname"]] == "Linux") {
-        cuda_pkg <- Sys.getenv("PJRT_CUDA_R_PACKAGE", "cuda12.8")
+        cuda_pkg <- Sys.getenv("PJRT_CUDA_R_PACKAGE", cuda_r_package())
         if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
           cli::cli_abort(c(
             conditionMessage(e),
@@ -353,14 +354,18 @@ print.PJRTPlugin <- function(x, ...) {
   invisible(x)
 }
 
+cuda_r_package <- function() {
+  the[["config"]][["cuda_r_package"]]
+}
+
 # Discover installed cuda{X.Y} packages and pre-load CUDA shared libraries
 # into the process so dlopen can find them when the PJRT plugin loads.
 # Also adds ptxas to PATH for PTX compilation.
 # Called once, right before the plugin is loaded.
 setup_cuda_env <- function() {
-  cuda_pkg <- Sys.getenv("PJRT_CUDA_R_PACKAGE", "cuda12.8")
-  if (cuda_pkg != "cuda12.8") {
-    pjrt_debug("PJRT_CUDA_R_PACKAGE set to {.val {cuda_pkg}} (default: cuda12.8)")
+  cuda_pkg <- Sys.getenv("PJRT_CUDA_R_PACKAGE", cuda_r_package())
+  if (cuda_pkg != cuda_r_package()) {
+    pjrt_debug("PJRT_CUDA_R_PACKAGE set to {.val {cuda_pkg}} (default: {cuda_r_package()})")
   }
 
   if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
