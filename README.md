@@ -62,7 +62,7 @@ install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
 ```
 
 When the `cuda12.8` is not installed, the correct runtime libraries
-needt to be installed on the system, which can be difficult to set up.
+need to be installed on the system, which can be difficult to set up.
 The specific versions of the CUDA runtime libraries provided with
 `cuda12.8` are provided
 [here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
