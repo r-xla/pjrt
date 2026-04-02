@@ -84,13 +84,13 @@
 <div class="section level3">
 <h3 id="cuda">CUDA<a class="anchor" aria-label="anchor" href="#cuda"></a>
 </h3>
-<p>To use the CUDA backend, install the <code>cuda12.8</code> R package which provides the required CUDA runtime libraries and you only need to have a compatible CUDA driver.</p>
+<p>To use the CUDA backend, install the {cuda12.8} R package which provides the required CUDA runtime libraries and you only need to have a compatible CUDA driver.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"mlverse/cudatoolkit/cuda12.8"</span><span class="op">)</span></span></code></pre></div>
 <p>Alternatively, install from <a href="https://mlverse.r-universe.dev/" class="external-link">r-universe</a>.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"cuda12.8"</span>, repos <span class="op">=</span> <span class="st">"https://mlverse.r-universe.dev"</span><span class="op">)</span></span></code></pre></div>
-<p>When the <code>cuda12.8</code> is not installed, the correct runtime libraries need to be installed on the system, which can be difficult to set up. The specific versions of the CUDA runtime libraries provided with <code>cuda12.8</code> are provided <a href="https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv" class="external-link">here</a>.</p>
+<p>When the {cuda12.8} package is not installed, the correct runtime libraries need to be installed on the system, which can be difficult to set up. The specific versions of the CUDA runtime libraries provided with {cuda12.8} are provided <a href="https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv" class="external-link">here</a>.</p>
 <p><strong>Troubleshooting</strong></p>
 <p>To trouble-shoot the CUDA installation, run the following in a new R session for maximum debug output.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">

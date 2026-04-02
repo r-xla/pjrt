@@ -77,9 +77,9 @@ Only used when downloading plugins from zml/pjrt-artifacts.</p></li>
 <li><p><code>PJRT_CPU_DEVICE_COUNT</code>: The number of CPU devices to use. Defaults to 1.
 This is primarily intended for testing purposes.</p></li>
 <li><p><code>PJRT_CUDA_R_PACKAGE</code>: Name of the R package providing CUDA libraries.
-Defaults to <code>"cuda12.8"</code>. Set this to use a different CUDA toolkit package
-(e.g., <code>"cuda12.6"</code>), but note that other versions may not work with the
-XLA plugin.</p></li>
+Defaults to the value of cuda12.8.
+Set this to use a different CUDA toolkit package, but note that other
+versions may not work with the XLA plugin.</p></li>
 <li><p><code>PJRT_DEBUG</code>: If set (to any non-empty value), enables verbose debug output
 via <code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>.</p></li>
 </ul></div>
