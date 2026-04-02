@@ -44,6 +44,15 @@ scattered across various websites. The options include:
 - `PJRT_CPU_DEVICE_COUNT`: The number of CPU devices to use. Defaults
   to 1. This is primarily intended for testing purposes.
 
+- `PJRT_CUDA_R_PACKAGE`: Name of the R package providing CUDA libraries.
+  Defaults to `"cuda12.8"`. Set this to use a different CUDA toolkit
+  package (e.g., `"cuda12.6"`), but note that other versions may not
+  work with the XLA plugin.
+
+- `PJRT_DEBUG`: If set (to any non-empty value), enables verbose debug
+  output via
+  [`cli::cli_inform()`](https://cli.r-lib.org/reference/cli_abort.html).
+
 ## See also
 
 Useful links:

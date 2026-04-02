@@ -32,6 +32,43 @@ options(repos = c(
 ))
 ```
 
+### CUDA
+
+To use the CUDA backend, install the `cuda12.8` R package which provides
+the required CUDA runtime libraries and you only need to have a
+compatible CUDA driver.
+
+``` r
+pak::pak("mlverse/cudatoolkit/cuda12.8")
+```
+
+Alternatively, install from
+[r-universe](https://mlverse.r-universe.dev/).
+
+``` r
+install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
+```
+
+When the `cuda12.8` is not installed, the correct runtime libraries need
+to be installed on the system, which can be difficult to set up. The
+specific versions of the CUDA runtime libraries provided with `cuda12.8`
+are provided
+[here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
+
+**Troubleshooting**
+
+To trouble-shoot the CUDA installation, run the following in a new R
+session for maximum debug output.
+
+``` r
+Sys.setenv(PJRT_DEBUG = "1", TF_CPP_MIN_LOG_LEVEL = "0")
+pjrt::pjrt_buffer(1, device = "cuda")
+```
+
+Note that if another package is using a different cudatoolkit package
+(e.g. when using {torch}), there might be some issues, so in this case
+it’s best to run separate R processes.
+
 ## Quick Start
 
 Below, we create and run a stableHLO program that adds two `f32` tensors
