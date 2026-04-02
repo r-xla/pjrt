@@ -20,15 +20,16 @@ Imports:
     Rcpp,
     rlang,
     safetensors(>= 0.2.0),
-    tengen (>= 0.1.0),
-    withr
+    withr,
+    tengen (>= 0.1.0)
 Suggests:
+    cuda12.8,
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp
 Remotes:
     r-xla/tengen
-Additional_repositories: https://r-xla.r-universe.dev
+Additional_repositories: https://r-xla.r-universe.dev, https://mlverse.r-universe.dev
 Config/build/compilation-database: true
 Config/testthat/edition: 3
 Encoding: UTF-8

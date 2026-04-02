@@ -1,3 +1,9 @@
+pjrt_debug <- function(..., .envir = parent.frame()) {
+  if (nzchar(Sys.getenv("PJRT_DEBUG", ""))) {
+    cli::cli_inform(..., .envir = .envir)
+  }
+}
+
 get_dims <- function(data) {
   if (is.null(dim(data))) {
     if (length(data) == 1) {

@@ -1,0 +1,81 @@
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+
+name: test-cuda.yaml
+
+permissions: read-all
+
+jobs:
+  test-conda-cuda:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.pull_request.labels.*.name, ','), 'cuda')
+    runs-on: ['self-hosted', 'gpu']
+    container:
+      image: condaforge/miniforge3:latest
+      options: '--gpus all --runtime=nvidia'
+
+    name: conda R + CUDA (cudnn conflict test)
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      PJRT_PLATFORM: cuda
+      R_ALWAYS_INSTALL_TESTS: true
+
+    steps:
+      - name: Create conda environment with R and CUDA libs
+        shell: bash
+        run: |
+          # Create a conda env that includes R and cudnn from conda-forge,
+          # simulating a user environment where conda's cudnn could conflict
+          # with the cuda12.8 R package.
+          mamba create -y -n test-env \
+            -c conda-forge -c nvidia \
+            r-base=4.4 \
+            cmake \
+            protobuf \
+            libprotobuf \
+            pkg-config \
+            compilers \
+            curl \
+            unzip \
+            r-devtools \
+            cudnn=9.3.0 \
+            cuda-nvrtc
+
+      - uses: actions/checkout@v5
+
+      - name: Install R package dependencies and run tests
+        shell: bash
+        run: |
+          # Activate the conda environment
+          eval "$(conda shell.bash hook)"
+          conda activate test-env
+
+          # Conda R doesn't define CXX20 by default — set it in Makevars
+          mkdir -p ~/.R
+          cat > ~/.R/Makevars <<'MAKEVARS'
+          CXX20 = g++
+          CXX20STD = -std=c++20
+          CXX20FLAGS = -O2 -Wall -fPIC
+          MAKEVARS
+
+          # Simulate conda user: LD_LIBRARY_PATH includes conda's libs
+          export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+
+          # Use pak to install pjrt + all deps (including cuda12.8) from source
+          Rscript -e '
+            install.packages("pak", repos = "https://cloud.r-project.org")
+            pak::repo_add("r-xla" = "https://r-xla.r-universe.dev")
+            pak::repo_add("mlverse" = "https://mlverse.r-universe.dev")
+            pak::pkg_install("local::.", dependencies = TRUE)
+          '
+
+          # Run tests
+          Rscript -e 'testthat::test_package("pjrt")'

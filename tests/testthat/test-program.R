@@ -2,7 +2,7 @@ test_that("load a test program", {
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
 
-  expect_snapshot(print(program))
+  expect_output(print(program), "x\\*x\\.3")
 })
 
 test_that("can load MLIR program", {

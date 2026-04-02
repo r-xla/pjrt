@@ -19,3 +19,5 @@ jobs:
     uses: r-xla/actions/.github/workflows/pkgdown.yaml@main
     with:
       setup-pjrt: true
+      extra-packages: "cuda12.8=?ignore"
+      extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
