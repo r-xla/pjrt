@@ -67,7 +67,7 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 </div>
 <div class="section level3">
 <h3 id="plugin-and-client-lifecycle">Plugin and Client Lifecycle<a class="anchor" aria-label="anchor" href="#plugin-and-client-lifecycle"></a></h3>
-<p>Plugins and clients are singletons cached in a global hashtable (<code>the</code> in plugin.R):</p>
+<p>Plugins and clients are singletons cached in a global environment (<code>the</code> in plugin.R):</p>
 <ol style="list-style-type: decimal"><li>
 <code>pjrt_client(platform)</code> checks the cache, otherwise loads the plugin and creates a client.</li>
 <li>Plugin loading: checks <code>PJRT_PLUGIN_PATH_&lt;PLATFORM&gt;</code> env var, falls back to downloading from zml/pjrt-artifacts into <code>R_user_dir("pjrt", "cache")</code>.</li>
@@ -93,10 +93,6 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 <li>
 <code><a href="reference/is_ready.html">is_ready()</a></code> polls without blocking; <code><a href="reference/await.html">await()</a></code> and <code><a href="reference/value.html">value()</a></code> block until complete.</li>
 </ul></div>
-<div class="section level3">
-<h3 id="tengen-integration">Tengen Integration<a class="anchor" aria-label="anchor" href="#tengen-integration"></a></h3>
-<p><code>pjrt</code> implements S3 methods for tengen generics on <code>PJRTBuffer</code>: <code><a href="https://r-xla.github.io/tengen/reference/shape.html" class="external-link">shape()</a></code>, <code><a href="https://r-xla.github.io/tengen/reference/dtype.html" class="external-link">dtype()</a></code>, <code><a href="https://r-xla.github.io/tengen/reference/device.html" class="external-link">device()</a></code>, <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>, <code><a href="https://r-xla.github.io/tengen/reference/as_raw.html" class="external-link">as_raw()</a></code>. These are re-exported so users don’t need to load tengen directly.</p>
-</div>
 <div class="section level3">
 <h3 id="column-major-convention">Column-Major Convention<a class="anchor" aria-label="anchor" href="#column-major-convention"></a></h3>
 <p>R uses column-major (Fortran) order. The C++ layer handles row-to-column-major conversion when transferring between R and device buffers.</p>
@@ -129,20 +125,7 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 <code>reexports.R</code> – tengen re-exports</li>
 <li>
 <code>src/</code> – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options</li>
-</ul></div>
-<div class="section level2">
-<h2 id="configuration">Configuration<a class="anchor" aria-label="anchor" href="#configuration"></a></h2>
-<p>Environment variables: - <code>PJRT_PLATFORM</code> – default platform (“cpu”, “cuda”, “metal”), defaults to “cpu” - <code>PJRT_PLUGIN_PATH_&lt;PLATFORM&gt;</code> – override plugin shared library path - <code>PJRT_CPU_DEVICE_COUNT</code> – number of CPU devices (default: 1)</p>
-<p>R options: - <code>pjrt.print_max_rows</code>, <code>pjrt.print_max_width</code> – buffer display limits</p>
-</div>
-<div class="section level2">
-<h2 id="testing">Testing<a class="anchor" aria-label="anchor" href="#testing"></a></h2>
-<p>Tests require the CPU plugin to be downloaded. Most tests skip otherwise via <code>skip_if_not_downloaded_pjrt()</code> in <code>helper-skip.R</code>. The test setup (<code>setup.R</code>) sets <code>PJRT_CPU_DEVICE_COUNT=2</code> for multi-device testing.</p>
-<p>Test files mirror the object hierarchy: <code>test-plugin.R</code>, <code>test-client.R</code>, <code>test-buffer.R</code>, <code>test-device.R</code>, <code>test-loaded_executable.R</code>, etc. Snapshot tests cover buffer formatting output.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">test</span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="fu">testthat</span><span class="fu">::</span><span class="fu"><a href="https://testthat.r-lib.org/reference/test_file.html" class="external-link">test_file</a></span><span class="op">(</span><span class="st">"tests/testthat/test-buffer.R"</span><span class="op">)</span></span></code></pre></div>
-<p><strong>Important:</strong> Do not call <code>devtools::load_all()</code> and <code>devtools::test()</code> in the same R process. The protobuf descriptors get registered twice, causing a fatal <code>CHECK failed: GeneratedDatabase()-&gt;Add(...)</code> crash. Use separate <code>Rscript -e</code> calls instead.</p>
+</ul><p><strong>Important:</strong> Do not call <code>devtools::load_all()</code> and <code>devtools::test()</code> in the same R process. The protobuf descriptors get registered twice, causing a fatal <code>CHECK failed: GeneratedDatabase()-&gt;Add(...)</code> crash. Use separate <code>Rscript -e</code> calls instead.</p>
 </div>
 
 

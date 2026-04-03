@@ -29,7 +29,7 @@ Rcpp):
 
 ### Plugin and Client Lifecycle
 
-Plugins and clients are singletons cached in a global hashtable (`the`
+Plugins and clients are singletons cached in a global environment (`the`
 in plugin.R):
 
 1.  `pjrt_client(platform)` checks the cache, otherwise loads the plugin
@@ -70,16 +70,6 @@ Both execution and buffer transfers are asynchronous:
   [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) block
   until complete.
 
-### Tengen Integration
-
-`pjrt` implements S3 methods for tengen generics on `PJRTBuffer`:
-[`shape()`](https://r-xla.github.io/tengen/reference/shape.html),
-[`dtype()`](https://r-xla.github.io/tengen/reference/dtype.html),
-[`device()`](https://r-xla.github.io/tengen/reference/device.html),
-[`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html),
-[`as_raw()`](https://r-xla.github.io/tengen/reference/as_raw.html).
-These are re-exported so users don’t need to load tengen directly.
-
 ### Column-Major Convention
 
 R uses column-major (Fortran) order. The C++ layer handles
@@ -115,32 +105,6 @@ buffers.
 - `reexports.R` – tengen re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for
   compile options
-
-## Configuration
-
-Environment variables: - `PJRT_PLATFORM` – default platform (“cpu”,
-“cuda”, “metal”), defaults to “cpu” - `PJRT_PLUGIN_PATH_<PLATFORM>` –
-override plugin shared library path - `PJRT_CPU_DEVICE_COUNT` – number
-of CPU devices (default: 1)
-
-R options: - `pjrt.print_max_rows`, `pjrt.print_max_width` – buffer
-display limits
-
-## Testing
-
-Tests require the CPU plugin to be downloaded. Most tests skip otherwise
-via `skip_if_not_downloaded_pjrt()` in `helper-skip.R`. The test setup
-(`setup.R`) sets `PJRT_CPU_DEVICE_COUNT=2` for multi-device testing.
-
-Test files mirror the object hierarchy: `test-plugin.R`,
-`test-client.R`, `test-buffer.R`, `test-device.R`,
-`test-loaded_executable.R`, etc. Snapshot tests cover buffer formatting
-output.
-
-``` r
-devtools::test()
-testthat::test_file("tests/testthat/test-buffer.R")
-```
 
 **Important:** Do not call `devtools::load_all()` and `devtools::test()`
 in the same R process. The protobuf descriptors get registered twice,
