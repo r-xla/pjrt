@@ -581,6 +581,53 @@ void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
   buffer_print(buffer, max_rows, max_width, max_rows_slice);
 }
 
+// [[Rcpp::export()]]
+Rcpp::CharacterVector impl_format_array(SEXP data, int max_rows, int max_width,
+                                        int max_rows_slice) {
+  PJRT_Buffer_Type element_type;
+  const void *data_ptr;
+  std::vector<uint8_t> logical_data;
+
+  if (Rf_isReal(data)) {
+    element_type = PJRT_Buffer_Type_F64;
+    data_ptr = REAL(data);
+  } else if (Rf_isInteger(data)) {
+    element_type = PJRT_Buffer_Type_S32;
+    data_ptr = INTEGER(data);
+  } else if (Rf_isLogical(data)) {
+    int n = Rf_length(data);
+    logical_data.resize(n);
+    int *lgl = LOGICAL(data);
+    for (int i = 0; i < n; i++) {
+      logical_data[i] = static_cast<uint8_t>(lgl[i] != 0);
+    }
+    element_type = PJRT_Buffer_Type_PRED;
+    data_ptr = logical_data.data();
+  } else {
+    Rcpp::stop("Unsupported R type for formatting.");
+  }
+
+  SEXP dim_attr = Rf_getAttrib(data, R_DimSymbol);
+  std::vector<int64_t> dimensions;
+  if (!Rf_isNull(dim_attr)) {
+    int ndim = Rf_length(dim_attr);
+    int *dim_ptr = INTEGER(dim_attr);
+    for (int i = 0; i < ndim; i++) {
+      dimensions.push_back(static_cast<int64_t>(dim_ptr[i]));
+    }
+  } else {
+    int n = Rf_length(data);
+    if (n != 1) {
+      dimensions.push_back(static_cast<int64_t>(n));
+    }
+  }
+
+  auto lines = buffer_to_string_lines(data_ptr, dimensions, element_type,
+                                      max_rows, max_width, max_rows_slice,
+                                      /*row_major=*/false);
+  return Rcpp::wrap(lines);
+}
+
 // Async status functions for buffers and host data
 
 // [[Rcpp::export()]]
