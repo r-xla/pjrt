@@ -1,7 +1,7 @@
-the <- hashtab()
+the <- new.env(parent = emptyenv())
 
-the[["plugins"]] <- hashtab()
-the[["clients"]] <- hashtab()
+the[["plugins"]] <- new.env(parent = emptyenv())
+the[["clients"]] <- new.env(parent = emptyenv())
 the[["config"]] <- list(
   cpu_device_count = 1L,
   cuda_r_package = "cuda12.8"
@@ -68,7 +68,7 @@ check_plugin <- function(plugin) {
 #' plugin
 #' @export
 pjrt_plugin <- function(platform) {
-  if (platform %in% names(the[["plugins"]])) {
+  if (exists(platform, envir = the[["plugins"]], inherits = FALSE)) {
     return(the[["plugins"]][[platform]])
   }
 
