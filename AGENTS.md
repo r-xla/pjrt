@@ -29,7 +29,7 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)
 
 ### Plugin and Client Lifecycle
 
-Plugins and clients are singletons cached in a global hashtable (`the` in plugin.R):
+Plugins and clients are singletons cached in a global environment (`the` in plugin.R):
 
 1. `pjrt_client(platform)` checks the cache, otherwise loads the plugin and creates a client.
 2. Plugin loading: checks `PJRT_PLUGIN_PATH_<PLATFORM>` env var, falls back to downloading from zml/pjrt-artifacts into `R_user_dir("pjrt", "cache")`.
@@ -55,10 +55,6 @@ Both execution and buffer transfers are asynchronous:
 - `as_array_async()` returns a `PJRTArrayPromise` (non-blocking device-to-host transfer).
 - `is_ready()` polls without blocking; `await()` and `value()` block until complete.
 
-### Tengen Integration
-
-`pjrt` implements S3 methods for tengen generics on `PJRTBuffer`: `shape()`, `dtype()`, `device()`, `as_array()`, `as_raw()`. These are re-exported so users don't need to load tengen directly.
-
 ### Column-Major Convention
 
 R uses column-major (Fortran) order. The C++ layer handles row-to-column-major conversion when transferring between R and device buffers.
@@ -76,26 +72,5 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `safetensors.R` – safetensors read/write integration
 - `reexports.R` – tengen re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options
-
-## Configuration
-
-Environment variables:
-- `PJRT_PLATFORM` – default platform ("cpu", "cuda", "metal"), defaults to "cpu"
-- `PJRT_PLUGIN_PATH_<PLATFORM>` – override plugin shared library path
-- `PJRT_CPU_DEVICE_COUNT` – number of CPU devices (default: 1)
-
-R options:
-- `pjrt.print_max_rows`, `pjrt.print_max_width` – buffer display limits
-
-## Testing
-
-Tests require the CPU plugin to be downloaded. Most tests skip otherwise via `skip_if_not_downloaded_pjrt()` in `helper-skip.R`. The test setup (`setup.R`) sets `PJRT_CPU_DEVICE_COUNT=2` for multi-device testing.
-
-Test files mirror the object hierarchy: `test-plugin.R`, `test-client.R`, `test-buffer.R`, `test-device.R`, `test-loaded_executable.R`, etc. Snapshot tests cover buffer formatting output.
-
-```r
-devtools::test()
-testthat::test_file("tests/testthat/test-buffer.R")
-```
 
 **Important:** Do not call `devtools::load_all()` and `devtools::test()` in the same R process. The protobuf descriptors get registered twice, causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use separate `Rscript -e` calls instead.
