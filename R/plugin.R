@@ -4,7 +4,7 @@ the[["plugins"]] <- new.env(parent = emptyenv())
 the[["clients"]] <- new.env(parent = emptyenv())
 the[["config"]] <- list(
   cpu_device_count = 1L,
-  cuda_r_package = "cuda12.8"
+  cuda_r_package = "cuda13.0"
 )
 
 #' @title Create PJRT Client
@@ -269,7 +269,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "14.0.1"
+  "17.0.0"
 }
 
 # nocov start

@@ -1,8 +1,6 @@
-diff --git a/inst/include/xla/ffi/api/c_api.h b/inst/include/xla/ffi/api/c_api.h
-index bc430ab..ce0cad9 100644
---- a/inst/include/xla/ffi/api/c_api.h
-+++ b/inst/include/xla/ffi/api/c_api.h
-@@ -156,7 +156,7 @@ struct XLA_FFI_Error_Create_Args {
+--- a/inst/include/xla/ffi/api/c_api.h	2026-04-03 17:09:15.731815003 +0000
++++ b/inst/include/xla/ffi/api/c_api.h	2026-04-03 17:09:06.846715692 +0000
+@@ -156,7 +156,7 @@
  
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Error_Create_Args, errc);
  
@@ -11,7 +9,7 @@ index bc430ab..ce0cad9 100644
  
  struct XLA_FFI_Error_GetMessage_Args {
    size_t struct_size;
-@@ -167,7 +167,7 @@ struct XLA_FFI_Error_GetMessage_Args {
+@@ -167,7 +167,7 @@
  
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Error_GetMessage_Args, message);
  
@@ -20,7 +18,7 @@ index bc430ab..ce0cad9 100644
  
  struct XLA_FFI_Error_Destroy_Args {
    size_t struct_size;
-@@ -177,7 +177,7 @@ struct XLA_FFI_Error_Destroy_Args {
+@@ -177,7 +177,7 @@
  
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Error_Destroy_Args, error);
  
@@ -29,7 +27,7 @@ index bc430ab..ce0cad9 100644
  
  //===----------------------------------------------------------------------===//
  // DataType
-@@ -332,7 +332,7 @@ struct XLA_FFI_Future_Create_Args {
+@@ -332,7 +332,7 @@
  
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Future_Create_Args, extension_start);
  
@@ -38,7 +36,7 @@ index bc430ab..ce0cad9 100644
  
  struct XLA_FFI_Future_SetAvailable_Args {
    size_t struct_size;
-@@ -342,7 +342,7 @@ struct XLA_FFI_Future_SetAvailable_Args {
+@@ -342,7 +342,7 @@
  
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Future_SetAvailable_Args, future);
  
@@ -47,7 +45,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_Future_SetAvailable_Args* args);
  
  struct XLA_FFI_Future_SetError_Args {
-@@ -354,7 +354,7 @@ struct XLA_FFI_Future_SetError_Args {
+@@ -354,7 +354,7 @@
  
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Future_SetError_Args, error);
  
@@ -56,7 +54,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_Future_SetError_Args* args);
  
  //===----------------------------------------------------------------------===//
-@@ -491,7 +491,7 @@ struct XLA_FFI_Handler_Register_Args {
+@@ -491,7 +491,7 @@
  
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Handler_Register_Args, traits);
  
@@ -65,7 +63,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_Handler_Register_Args* args);
  
  //===----------------------------------------------------------------------===//
-@@ -515,7 +515,7 @@ XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Type_Register_Args, type_id);
+@@ -515,7 +515,7 @@
  // XLA will assign a unique type id and return it in `type_id` out argument,
  // otherwise XLA will verify that type id is unique and matches the type id of
  // the type registered with the same `name` earlier.
@@ -74,7 +72,7 @@ index bc430ab..ce0cad9 100644
  
  //===----------------------------------------------------------------------===//
  // ExecutionContext
-@@ -533,7 +533,7 @@ struct XLA_FFI_ExecutionContext_Get_Args {
+@@ -533,7 +533,7 @@
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_ExecutionContext_Get_Args, data);
  
  // Returns an opaque data from the execution context for a given type id.
@@ -83,7 +81,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_ExecutionContext_Get_Args* args);
  
  //===----------------------------------------------------------------------===//
-@@ -554,7 +554,7 @@ XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_State_Set_Args, deleter);
+@@ -554,7 +554,7 @@
  
  // Sets execution state to the `state` of type `type_id`. Returns an error if
  // state already set.
@@ -92,7 +90,7 @@ index bc430ab..ce0cad9 100644
  
  struct XLA_FFI_State_Get_Args {
    size_t struct_size;
-@@ -569,7 +569,7 @@ XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_State_Get_Args, state);
+@@ -570,7 +570,7 @@
  
  // Gets execution state of type `type_id`. Returns an error if state is not set,
  // or set with a state of a different type.
@@ -101,7 +99,7 @@ index bc430ab..ce0cad9 100644
  
  //===----------------------------------------------------------------------===//
  // Stream
-@@ -587,7 +587,7 @@ XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Stream_Get_Args, stream);
+@@ -588,7 +588,7 @@
  
  // Returns an underling platform-specific stream via out argument, i.e. for CUDA
  // platform it returns `CUstream` (same as `cudaStream`).
@@ -110,7 +108,7 @@ index bc430ab..ce0cad9 100644
  
  //===----------------------------------------------------------------------===//
  // Device memory allocation
-@@ -606,7 +606,7 @@ struct XLA_FFI_DeviceMemory_Allocate_Args {
+@@ -607,7 +607,7 @@
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_DeviceMemory_Allocate_Args, data);
  
  // Allocates a block of memory on the device bound to the execution context.
@@ -119,7 +117,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_DeviceMemory_Allocate_Args* args);
  
  struct XLA_FFI_DeviceMemory_Free_Args {
-@@ -621,7 +621,7 @@ struct XLA_FFI_DeviceMemory_Free_Args {
+@@ -622,7 +622,7 @@
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_DeviceMemory_Free_Args, data);
  
  // Frees previously allocated device memory.
@@ -128,7 +126,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_DeviceMemory_Free_Args* args);
  
  //===----------------------------------------------------------------------===//
-@@ -652,7 +652,7 @@ XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_ThreadPool_Schedule_Args, data);
+@@ -653,7 +653,7 @@
  
  // Schedules a task to be executed on a thread pool managed by XLA runtime.
  // Returns an error if thread pool is not available.
@@ -137,7 +135,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_ThreadPool_Schedule_Args* args);
  
  struct XLA_FFI_ThreadPool_NumThreads_Args {
-@@ -666,7 +666,7 @@ struct XLA_FFI_ThreadPool_NumThreads_Args {
+@@ -667,7 +667,7 @@
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_ThreadPool_NumThreads_Args, num_threads);
  
  // Returns the number of threads in the thread pool managed by XLA runtime.
@@ -146,7 +144,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_ThreadPool_NumThreads_Args* args);
  
  //===----------------------------------------------------------------------===//
-@@ -694,7 +694,7 @@ struct XLA_FFI_RunId_Get_Args {
+@@ -695,7 +695,7 @@
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_RunId_Get_Args, run_id);
  
  // Returns a unique identifier for the current logical execution.
@@ -155,7 +153,7 @@ index bc430ab..ce0cad9 100644
  
  //===----------------------------------------------------------------------===//
  // DeviceOrdinal
-@@ -711,7 +711,7 @@ struct XLA_FFI_DeviceOrdinal_Get_Args {
+@@ -712,7 +712,7 @@
  XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_DeviceOrdinal_Get_Args, device_ordinal);
  
  // Returns a unique identifier for the current logical execution.
@@ -164,7 +162,7 @@ index bc430ab..ce0cad9 100644
      XLA_FFI_DeviceOrdinal_Get_Args* args);
  
  //===----------------------------------------------------------------------===//
-@@ -745,7 +745,7 @@ XLA_FFI_DEFINE_STRUCT_TRAITS(XLA_FFI_Metadata_Extension, metadata);
+@@ -746,7 +746,7 @@
  // API access
  //===----------------------------------------------------------------------===//
  

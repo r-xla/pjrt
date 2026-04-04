@@ -1,13 +1,11 @@
-diff --git a/inst/include/xla/pjrt/c/pjrt_c_api.h b/inst/include/xla/pjrt/c/pjrt_c_api.h
-index fd2dbad..94f8a3a 100644
---- a/inst/include/xla/pjrt/c/pjrt_c_api.h
-+++ b/inst/include/xla/pjrt/c/pjrt_c_api.h
-@@ -2684,7 +2684,7 @@ typedef struct PJRT_Api {
+--- a/inst/include/xla/pjrt/c/pjrt_c_api.h	2026-04-03 17:09:25.917815007 +0000
++++ b/inst/include/xla/pjrt/c/pjrt_c_api.h	2026-04-03 17:09:06.907625630 +0000
+@@ -3005,7 +3005,7 @@
+   _PJRT_API_STRUCT_FIELD(PJRT_Buffer_Bitcast);
+ } PJRT_Api;
  
- enum {
-   PJRT_Api_STRUCT_SIZE =
--      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_LoadedExecutable_GetDeviceAssignment)
-+      PJRT_STRUCT_SIZE(PJRT_Api, PJRT_LoadedExecutable_GetDeviceAssignment_)
- };
+-enum { PJRT_Api_STRUCT_SIZE = PJRT_STRUCT_SIZE(PJRT_Api, PJRT_Buffer_Bitcast) };
++enum { PJRT_Api_STRUCT_SIZE = PJRT_STRUCT_SIZE(PJRT_Api, PJRT_Buffer_Bitcast_) };
  
  #undef _PJRT_API_STRUCT_FIELD
+ 
