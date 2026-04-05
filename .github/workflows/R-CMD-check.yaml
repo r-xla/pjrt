@@ -37,10 +37,10 @@ jobs:
         include:
           - config: {os: "ubuntu", platform: "cuda"}
             container:
-              image: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && 'nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04' || 'nvidia/cuda:12.8.1-runtime-ubuntu24.04' }}
+              image: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && 'nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04' || 'nvidia/cuda:12.9.1-runtime-ubuntu24.04' }}
               options: '--gpus all --runtime=nvidia'
             runner: ['self-hosted', 'gpu']
-            extra-packages: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && 'any::rcmdcheck' || 'any::rcmdcheck, cuda12.8' }}
+            extra-packages: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && 'any::rcmdcheck' || 'any::rcmdcheck, cuda12.9' }}
             extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
             as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
