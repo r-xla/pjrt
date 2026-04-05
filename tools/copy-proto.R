@@ -16,10 +16,12 @@ if (!dir.exists("inst/proto")) {
 PROTO_FILES <- c(
   "xla/pjrt/proto/compile_options.proto",
   "xla/stream_executor/device_description.proto",
+  "xla/stream_executor/cuda/cuda_compute_capability.proto",
+  "xla/stream_executor/sycl/oneapi_compute_capability.proto",
+  "xla/backends/autotuner/backends.proto",
   "xla/xla.proto",
   "xla/xla_data.proto",
   "xla/autotune_results.proto",
-  "xla/stream_executor/cuda/cuda_compute_capability.proto",
   "xla/autotuning.proto",
   "xla/tsl/protobuf/dnn.proto",
   "xla/service/hlo.proto",
@@ -35,4 +37,17 @@ for (file in PROTO_FILES) {
   }
 
   fs::file_copy(from, dest, overwrite = TRUE)
+}
+
+# Convert proto files using `edition = "2023"` to `syntax = "proto3"` for
+# compatibility with protoc 3.x. The edition syntax is only supported by
+# protoc 5.x+, but the generated code is wire-compatible.
+for (file in PROTO_FILES) {
+  dest <- fs::path("inst/proto", file)
+  lines <- readLines(dest)
+  idx <- grep('^edition\\s*=\\s*"2023"', lines)
+  if (length(idx) > 0) {
+    lines[idx] <- 'syntax = "proto3";'
+    writeLines(lines, dest)
+  }
 }
