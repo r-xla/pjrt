@@ -1,0 +1,46 @@
+--- a/xla/ffi/api/api.h
++++ b/xla/ffi/api/api.h
+@@ -31,6 +31,7 @@
+ #include <optional>
+ #include <ostream>
+ #include <sstream>
++#include <stdexcept>
+ #include <string>
+ #include <string_view>
+ #include <tuple>
+@@ -163,6 +164,7 @@
+     case XLA_FFI_DataType_F8E8M0FNU:
+       return os << "F8E8M0FNU";
+   }
++  throw std::runtime_error("Unexpected type");
+ }
+ 
+ inline std::ostream& operator<<(std::ostream& os, const XLA_FFI_AttrType type) {
+@@ -176,6 +178,7 @@
+     case XLA_FFI_AttrType_STRING:
+       return os << "string";
+   }
++  throw std::runtime_error("Unexpected type");
+ }
+ 
+ inline std::ostream& operator<<(std::ostream& os,
+@@ -190,6 +193,7 @@
+     case XLA_FFI_ExecutionStage_EXECUTE:
+       return os << "execute";
+   }
++  throw std::runtime_error("unknown execution stage");
+ }
+ 
+ //===----------------------------------------------------------------------===//
+@@ -1874,8 +1878,9 @@
+         internal::Decode<Ts>::call(offsets, ctx, diagnostic)...};
+ 
+     if constexpr (sizeof...(Ts) > 0) {
+-      // We intentionally use `&`, as it generates fewer branch instructions.
+-      bool all_decoded = (std::get<Is>(args).has_value() & ...);
++      // We intentionally use `&&` (XLA upstream uses `&` for fewer branch
++      // instructions, but that triggers -Wbitwise-instead-of-logical).
++      bool all_decoded = (std::get<Is>(args).has_value() && ...);
+       if (XLA_FFI_PREDICT_FALSE(!all_decoded)) {
+         return FailedDecodeError(
+             call_frame, {std::get<Is>(args).has_value()...}, diagnostic);

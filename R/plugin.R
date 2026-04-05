@@ -269,7 +269,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "14.0.1"
+  "17.0.0"
 }
 
 # nocov start

@@ -23,7 +23,9 @@ PROTO_FILES <- c(
   "xla/autotuning.proto",
   "xla/tsl/protobuf/dnn.proto",
   "xla/service/hlo.proto",
-  "xla/service/metrics.proto"
+  "xla/service/metrics.proto",
+  "xla/backends/autotuner/backends.proto",
+  "xla/stream_executor/sycl/oneapi_compute_capability.proto"
 )
 
 for (file in PROTO_FILES) {

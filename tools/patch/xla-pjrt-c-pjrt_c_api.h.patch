@@ -1,0 +1,20 @@
+--- a/xla/pjrt/c/pjrt_c_api.h
++++ b/xla/pjrt/c/pjrt_c_api.h
+@@ -2836,7 +2836,7 @@
+ 
+ // -------------------------------- API access ---------------------------------
+ 
+-#define _PJRT_API_STRUCT_FIELD(fn_type) fn_type* fn_type
++#define _PJRT_API_STRUCT_FIELD(fn_type) fn_type* fn_type##_
+ 
+ // Please modify PJRT_Api_STRUCT_SIZE if the last field of PJRT_Api is changed.
+ typedef struct PJRT_Api {
+@@ -3003,7 +3003,7 @@
+   _PJRT_API_STRUCT_FIELD(PJRT_Buffer_Bitcast);
+ } PJRT_Api;
+ 
+-enum { PJRT_Api_STRUCT_SIZE = PJRT_STRUCT_SIZE(PJRT_Api, PJRT_Buffer_Bitcast) };
++enum { PJRT_Api_STRUCT_SIZE = PJRT_STRUCT_SIZE(PJRT_Api, PJRT_Buffer_Bitcast_) };
+ 
+ #undef _PJRT_API_STRUCT_FIELD
+ 

@@ -1,0 +1,10 @@
+--- a/xla/ffi/api/ffi.h
++++ b/xla/ffi/api/ffi.h
+@@ -186,6 +186,7 @@
+     case DataType::C128:
+       return 16;
+   }
++  throw std::runtime_error("Unexpected data type");
+ }
+ 
+ //===----------------------------------------------------------------------===//
