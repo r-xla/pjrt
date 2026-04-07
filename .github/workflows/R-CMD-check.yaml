@@ -66,13 +66,13 @@ jobs:
         if: ${{ matrix.container }}
         shell: bash
         run: |
-          export DEBIAN_FRONTEND=noninteractive
           apt-get update
-          apt-get install -y devscripts curl wget git sudo pkg-config \
-            libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev \
-            libfreetype6-dev libharfbuzz-dev libfribidi-dev libpng-dev \
-            libtiff5-dev libjpeg-dev pandoc qpdf cmake protobuf-compiler \
-            libprotobuf-dev locales
+          apt-get install -y devscripts curl git sudo libcurl4-openssl-dev \
+            libssl-dev libxml2-dev libfontconfig1-dev libfreetype6-dev \
+            libharfbuzz-dev libfribidi-dev libpng-dev libtiff5-dev \
+            libjpeg-dev pandoc qpdf cmake protobuf-compiler libprotobuf-dev \
+            locales
+
           sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
           locale-gen en_US.UTF-8
           update-locale LANG=en_US.UTF-8
