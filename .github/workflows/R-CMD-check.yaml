@@ -97,7 +97,7 @@ jobs:
           sudo dpkg -i nvshmem-local-repo-ubuntu2404-3.4.5_3.4.5-1_amd64.deb
           sudo cp /var/nvshmem-local-repo-ubuntu2404-3.4.5/nvshmem-*-keyring.gpg /usr/share/keyrings/
           sudo apt-get update
-          sudo apt-get -y --allow-change-held-packages install \
+          sudo apt-get -y --allow-change-held-packages --allow-downgrades install \
             libnccl2=2.27.7-1+cuda13.0 libnccl-dev=2.27.7-1+cuda13.0 \
             libnvshmem3-cuda-13=3.4.5-1 \
             libnvshmem3-static-cuda-13=3.4.5-1 \

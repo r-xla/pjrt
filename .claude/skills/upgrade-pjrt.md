@@ -145,7 +145,26 @@ done
 
 Only files with actual diffs should have patch files.
 
-### 9. Create PR and monitor CI
+### 9. Update CUDA dependency versions in manual-cuda step
+
+The "Install CUDA libraries manually" step in `.github/workflows/R-CMD-check.yaml`
+installs specific versions of NCCL and NVSHMEM. These versions must match what the
+PJRT artifact was built against.
+
+Find the correct versions in the **pjrt-artifacts** repo at the tag matching the
+artifact version (e.g. `v17.0.0`), in the file
+`openxla/bazelrc/upstream/.bazelrc`. Look for variables like `NCCL_VERSION` and
+`NVSHMEM_VERSION`.
+
+Update the following in the `Install CUDA libraries manually` step:
+
+- **nvshmem `.deb` URL and package versions** (`libnvshmem3-cuda-*`)
+- **NCCL package versions** (`libnccl2`, `libnccl-dev`)
+- **CUDA major version suffixes** on package names (e.g. `-cuda-13`)
+
+
+
+### 10. Create PR and monitor CI
 
 Use the `/pr-create` skill to create a pull request. Wait for CI to pass and
 debug any failures. Windows CI is expected to fail and can be ignored.
