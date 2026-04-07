@@ -3,14 +3,6 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
-    inputs:
-      manual-cuda:
-        description: >
-          Install CUDA libraries manually instead of using the cuda R package.
-          Use this when upgrading PJRT plugins before the cuda R package is
-          updated.
-        type: boolean
-        default: false
 
 name: R-CMD-check.yaml
 
@@ -38,11 +30,10 @@ jobs:
         include:
           - config: {os: "ubuntu", platform: "cuda"}
             container:
-              image: nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
+              image: nvidia/cuda:13.0.2-runtime-ubuntu24.04
               options: '--gpus all --runtime=nvidia'
             runner: ['self-hosted', 'gpu']
-            extra-packages: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && 'any::rcmdcheck' || 'any::rcmdcheck, cuda13.0' }}
-            extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+            extra-repositories: "https://r-xla.r-universe.dev"
             as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
@@ -88,21 +79,6 @@ jobs:
           echo "LANG=en_US.UTF-8" >> $GITHUB_ENV
           echo "LC_ALL=en_US.UTF-8" >> $GITHUB_ENV
 
-      - name: Install CUDA libraries manually
-        if: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && matrix.config.platform == 'cuda' }}
-        shell: bash
-        run: |
-          cd /tmp
-          wget https://developer.download.nvidia.com/compute/nvshmem/3.4.5/local_installers/nvshmem-local-repo-ubuntu2404-3.4.5_3.4.5-1_amd64.deb
-          sudo dpkg -i nvshmem-local-repo-ubuntu2404-3.4.5_3.4.5-1_amd64.deb
-          sudo cp /var/nvshmem-local-repo-ubuntu2404-3.4.5/nvshmem-*-keyring.gpg /usr/share/keyrings/
-          sudo apt-get update
-          sudo apt-get -y --allow-change-held-packages --allow-downgrades install \
-            libnccl2=2.27.7-1+cuda13.0 libnccl-dev=2.27.7-1+cuda13.0 \
-            libnvshmem3-cuda-13=3.4.5-1 \
-            libnvshmem3-static-cuda-13=3.4.5-1 \
-            libnvshmem3-dev-cuda-13=3.4.5-1
-
       - uses: actions/checkout@v5
 
       - uses: r-lib/actions/setup-r@v2
@@ -112,6 +88,13 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
           extra-repositories: ${{ matrix.extra-repositories || 'https://r-xla.r-universe.dev' }}
+
+      - name: Install CUDA R package
+        if: ${{ matrix.config.platform == 'cuda' }}
+        shell: Rscript {0}
+        run: |
+          install.packages("pak", repos = "https://cloud.r-project.org")
+          pak::pak("sebffischer/cudatoolkit/cuda13.0")
 
       - uses: r-xla/actions/r-check@main
         with:
