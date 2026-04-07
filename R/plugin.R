@@ -257,7 +257,7 @@ plugin_url <- function(platform) {
 
   if (os == "linux" && arch == "aarch64") {
     # on linux arm download from our pre-built artifacts
-    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6319f0d-linux-aarch64.tar.gz"
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-a4df377-linux-aarch64.tar.gz"
     return(url)
   }
 
