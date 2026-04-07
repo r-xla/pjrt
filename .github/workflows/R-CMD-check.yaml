@@ -94,7 +94,7 @@ jobs:
         shell: Rscript {0}
         run: |
           install.packages("pak", repos = "https://cloud.r-project.org")
-          pak::pak("sebffischer/cudatoolkit/cuda13.0")
+          pak::pak("sebffischer/cudatoolkit/cuda13.0@cuda13.0")
 
       - uses: r-xla/actions/r-check@main
         with:
