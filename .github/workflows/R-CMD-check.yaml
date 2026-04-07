@@ -22,6 +22,7 @@ jobs:
           - { os: "ubuntu", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
           - { os: "ubuntu", r: "release", platform: "cuda"}
+          - { os: "ubuntu-arm", r: "release", platform: "cpu"}
           - { os: "windows", r: "release", platform: "cpu"}
           - { os: "macos", platform: "metal"}
 
@@ -34,6 +35,8 @@ jobs:
             as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
+          - config: {os: "ubuntu-arm", platform: "cpu"}
+            runner: 'ubuntu-24.04-arm'
           - config: {os: "macos", platform: "cpu"}
             runner: 'macos-latest'
             setup: |
