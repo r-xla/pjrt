@@ -1,0 +1,8 @@
+--- a/xla/backends/autotuner/backends.proto
++++ b/xla/backends/autotuner/backends.proto
+@@ -1,4 +1,4 @@
+-edition = "2023";
++syntax = "proto3";
+ 
+ package xla.autotuner;
+ 

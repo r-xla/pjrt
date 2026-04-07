@@ -2,6 +2,7 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  workflow_dispatch:
 
 name: R-CMD-check.yaml
 
@@ -23,17 +24,21 @@ jobs:
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
           - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "windows", r: "release", platform: "cpu"}
+          - { os: "ubuntu-arm", r: "release", platform: "cpu"}
           - { os: "macos", platform: "metal"}
 
         include:
           - config: {os: "ubuntu", platform: "cuda"}
-            container: {image: 'nvidia/cuda:12.8.1-runtime-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
+            container:
+              image: nvidia/cuda:13.0.2-base-ubuntu24.04
+              options: '--gpus all --runtime=nvidia'
             runner: ['self-hosted', 'gpu']
-            extra-packages: "any::rcmdcheck, cuda12.8"
-            extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+            extra-repositories: "https://r-xla.r-universe.dev"
             as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
+          - config: {os: "ubuntu-arm", platform: "cpu"}
+            runner: 'ubuntu-24.04-arm'
           - config: {os: "macos", platform: "cpu"}
             runner: 'macos-latest'
             setup: |
@@ -51,6 +56,7 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
       PJRT_PLATFORM: ${{ matrix.config.platform }}
+      PJRT_DEBUG: "1"
 
     steps:
       - name: Setup
@@ -67,6 +73,7 @@ jobs:
             libharfbuzz-dev libfribidi-dev libpng-dev libtiff5-dev \
             libjpeg-dev pandoc qpdf cmake protobuf-compiler libprotobuf-dev \
             locales
+
           sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
           locale-gen en_US.UTF-8
           update-locale LANG=en_US.UTF-8
@@ -83,9 +90,21 @@ jobs:
           use-public-rspm: true
           extra-repositories: ${{ matrix.extra-repositories || 'https://r-xla.r-universe.dev' }}
 
+      - name: Install CUDA R package
+        if: ${{ matrix.config.platform == 'cuda' }}
+        shell: Rscript {0}
+        run: |
+          install.packages("pak", repos = "https://cloud.r-project.org")
+          pak::pak("sebffischer/cudatoolkit/cuda13.0@cuda13.0")
       - uses: r-xla/actions/r-check@main
         with:
           depends-only: ${{ matrix.config.depends_only == true }}
           extra-deps: ${{ matrix.extra-deps }}
           as-cran: ${{ matrix.as-cran || 'true' }}
           extra-packages: ${{ matrix.extra-packages || 'any::rcmdcheck' }}
+
+      - name: List CUDA R package libraries
+        if: ${{ matrix.config.platform == 'cuda' }}
+        shell: Rscript {0}
+        run: |
+          cat(list.files(cuda13.0::lib_path(), full.names = TRUE), sep = "\n")

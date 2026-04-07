@@ -4,7 +4,7 @@ the[["plugins"]] <- new.env(parent = emptyenv())
 the[["clients"]] <- new.env(parent = emptyenv())
 the[["config"]] <- list(
   cpu_device_count = 1L,
-  cuda_r_package = "cuda12.8"
+  cuda_r_package = "cuda13.0"
 )
 
 #' @title Create PJRT Client
@@ -269,7 +269,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "14.0.1"
+  "17.0.0"
 }
 
 # nocov start
@@ -288,7 +288,7 @@ plugin_os <- function() {
 plugin_arch <- function() {
   if (Sys.info()["machine"] == "x86_64") {
     return("amd64")
-  } else if (Sys.info()["machine"] == "arm64") {
+  } else if (Sys.info()["machine"] %in% c("arm64", "aarch64")) {
     return("arm64")
   } else if (.Platform$r_arch == "x64") {
     return("amd64")
@@ -369,6 +369,7 @@ setup_cuda_env <- function() {
   }
 
   if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
+    pjrt_debug("{.val {cuda_pkg}} is not installed")
     return(invisible(NULL))
   }
 
