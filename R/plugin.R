@@ -369,6 +369,7 @@ setup_cuda_env <- function() {
   }
 
   if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
+    pjrt_debug("{.val {cuda_pkg}} is not installed")
     return(invisible(NULL))
   }
 
