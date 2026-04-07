@@ -25,6 +25,16 @@ PJRT on a specified backend (CPU, GPU, etc.). For a low-level R
 interface to *create* stableHLO programs, see the
 [stablehlo](https://github.com/r-xla/stablehlo) package.
 
+## System Requirements
+
+The package requires `protobuf` and `protoc` (the protobuf compiler)
+version 3.21 or later.
+
+- **Debian / Ubuntu**:
+  `sudo apt-get install libprotobuf-dev protobuf-compiler`
+- **Fedora / RHEL**: `sudo dnf install protobuf-devel`
+- **macOS (Homebrew)**: `brew install protobuf@21`
+
 ## Installation
 
 From GitHub:
