@@ -30,7 +30,7 @@ jobs:
         include:
           - config: {os: "ubuntu", platform: "cuda"}
             container:
-              image: nvidia/cuda:13.0.2-runtime-ubuntu24.04
+              image: nvidia/cuda:13.0.2-base-ubuntu24.04
               options: '--gpus all --runtime=nvidia'
             runner: ['self-hosted', 'gpu']
             extra-repositories: "https://r-xla.r-universe.dev"
