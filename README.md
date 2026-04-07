@@ -46,26 +46,26 @@ options(repos = c(
 
 ### CUDA
 
-To use the CUDA backend, install the {cuda12.8} R package which provides
+To use the CUDA backend, install the {cuda12.9} R package which provides
 the required CUDA runtime libraries and you only need to have a
 compatible CUDA driver.
 
 ``` r
-pak::pak("mlverse/cudatoolkit/cuda12.8")
+pak::pak("mlverse/cudatoolkit/cuda12.9")
 ```
 
 Alternatively, install from
 [r-universe](https://mlverse.r-universe.dev/).
 
 ``` r
-install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
+install.packages("cuda12.9", repos = "https://mlverse.r-universe.dev")
 ```
 
-When the {cuda12.8} package is not installed, the correct runtime
+When the {cuda12.9} package is not installed, the correct runtime
 libraries need to be installed on the system, which can be difficult to
 set up. The specific versions of the CUDA runtime libraries provided
-with {cuda12.8} are provided
-[here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
+with {cuda12.9} are provided
+[here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.9/inst/components.tsv).
 
 **Troubleshooting**
 
@@ -139,17 +139,12 @@ pjrt_execute(executable, x, y)
 
 ## Platform Support
 
-- **Linux**
-  - :white_check_mark: CPU backend is fully supported.
-  - :white_check_mark: CUDA (NVIDIA GPU) backend is fully supported.
-- **Windows**
-  - :white_check_mark: CPU backend is fully supported.
-  - :warning: GPU is only supported via Windows Subsystem for Linux
-    (WSL2).
-- **macOS**
-  - :white_check_mark: CPU backend is supported.
-  - :warning: Metal (Apple GPU) backend is available but not fully
-    functional.
+| Platform       | CPU                | GPU                            |
+|----------------|--------------------|--------------------------------|
+| Linux (x86_64) | :white_check_mark: | :white_check_mark: CUDA        |
+| Linux (ARM)    | :white_check_mark: | :x:                            |
+| Windows        | :white_check_mark: | :warning: WSL2 only            |
+| macOS          | :white_check_mark: | :warning: Metal (experimental) |
 
 ## Acknowledgements
 

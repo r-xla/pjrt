@@ -288,7 +288,7 @@ plugin_os <- function() {
 plugin_arch <- function() {
   if (Sys.info()["machine"] == "x86_64") {
     return("amd64")
-  } else if (Sys.info()["machine"] == "arm64") {
+  } else if (Sys.info()["machine"] %in% c("arm64", "aarch64")) {
     return("arm64")
   } else if (.Platform$r_arch == "x64") {
     return("amd64")
