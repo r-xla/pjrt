@@ -102,3 +102,9 @@ jobs:
           extra-deps: ${{ matrix.extra-deps }}
           as-cran: ${{ matrix.as-cran || 'true' }}
           extra-packages: ${{ matrix.extra-packages || 'any::rcmdcheck' }}
+
+      - name: List CUDA R package libraries
+        if: ${{ matrix.config.platform == 'cuda' }}
+        shell: Rscript {0}
+        run: |
+          cat(list.files(cuda13.0::lib_path(), full.names = TRUE), sep = "\n")
