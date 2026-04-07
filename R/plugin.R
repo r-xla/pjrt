@@ -4,7 +4,7 @@ the[["plugins"]] <- new.env(parent = emptyenv())
 the[["clients"]] <- new.env(parent = emptyenv())
 the[["config"]] <- list(
   cpu_device_count = 1L,
-  cuda_r_package = "cuda12.9"
+  cuda_r_package = "cuda13.0"
 )
 
 #' @title Create PJRT Client

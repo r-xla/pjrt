@@ -38,10 +38,10 @@ jobs:
         include:
           - config: {os: "ubuntu", platform: "cuda"}
             container:
-              image: nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
+              image: nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
               options: '--gpus all --runtime=nvidia'
             runner: ['self-hosted', 'gpu']
-            extra-packages: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && 'any::rcmdcheck' || 'any::rcmdcheck, cuda12.9' }}
+            extra-packages: ${{ (inputs.manual-cuda || contains(github.event.pull_request.labels.*.name, 'manual-cuda')) && 'any::rcmdcheck' || 'any::rcmdcheck, cuda13.0' }}
             extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
             as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
@@ -93,15 +93,15 @@ jobs:
         shell: bash
         run: |
           cd /tmp
-          wget https://developer.download.nvidia.com/compute/nvshmem/3.2.5/local_installers/nvshmem-local-repo-ubuntu2404-3.2.5_3.2.5-1_amd64.deb
-          sudo dpkg -i nvshmem-local-repo-ubuntu2404-3.2.5_3.2.5-1_amd64.deb
-          sudo cp /var/nvshmem-local-repo-ubuntu2404-3.2.5/nvshmem-*-keyring.gpg /usr/share/keyrings/
+          wget https://developer.download.nvidia.com/compute/nvshmem/3.4.5/local_installers/nvshmem-local-repo-ubuntu2404-3.4.5_3.4.5-1_amd64.deb
+          sudo dpkg -i nvshmem-local-repo-ubuntu2404-3.4.5_3.4.5-1_amd64.deb
+          sudo cp /var/nvshmem-local-repo-ubuntu2404-3.4.5/nvshmem-*-keyring.gpg /usr/share/keyrings/
           sudo apt-get update
           sudo apt-get -y --allow-change-held-packages install \
-            libnccl2=2.28.9-1+cuda12.9 libnccl-dev=2.28.9-1+cuda12.9 \
-            libnvshmem3-cuda-12=3.2.5-1 \
-            libnvshmem3-static-cuda-12=3.2.5-1 \
-            libnvshmem3-dev-cuda-12=3.2.5-1
+            libnccl2=2.27.7-1+cuda13.0 libnccl-dev=2.27.7-1+cuda13.0 \
+            libnvshmem3-cuda-13=3.4.5-1 \
+            libnvshmem3-static-cuda-13=3.4.5-1 \
+            libnvshmem3-dev-cuda-13=3.4.5-1
 
       - uses: actions/checkout@v5
 
