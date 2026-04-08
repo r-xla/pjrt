@@ -41,7 +41,7 @@ is_buffer <- function(x) {
 #'
 #' @param data (any)\cr
 #'  Data to convert to a `PJRTBuffer`.
-#' @param dtype (`NULL` | `character(1)`)\cr
+#' @param dtype (`NULL` | `character(1)` | [`DataType`][tengen::DataType])\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
@@ -88,6 +88,9 @@ pjrt_buffer <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   buf <- data
+  if (inherits(dtype, "DataType")) {
+    dtype <- as.character(dtype)
+  }
   if (!is.null(dtype) && !identical(dtype, as.character(elt_type(buf)))) {
     cli_abort("Must use the same data type as the data")
   }
@@ -134,9 +137,7 @@ pjrt_empty <- function(dtype, shape, device = NULL) {
   if (!any(shape == 0)) {
     cli_abort("Empty buffers must have at least one dimension equal to 0")
   }
-  if (dtype %in% c("i1", "bool")) {
-    dtype <- "pred"
-  }
+  dtype <- as_dtype_string(dtype)
   device <- as_pjrt_device(device)
   data <- if (identical(dtype, "pred")) {
     logical()
@@ -178,11 +179,18 @@ recycle_data <- function(data, shape) {
   }
 }
 
-convert_buffer_args <- function(data, dtype, device, shape, default, recycle = TRUE, ...) {
-  dtype <- dtype %??% default
+as_dtype_string <- function(dtype) {
+  if (inherits(dtype, "DataType")) {
+    dtype <- as.character(dtype)
+  }
   if (dtype %in% c("i1", "bool")) {
     dtype <- "pred"
   }
+  dtype
+}
+
+convert_buffer_args <- function(data, dtype, device, shape, default, recycle = TRUE, ...) {
+  dtype <- as_dtype_string(dtype %??% default)
   shape <- shape %??% get_dims(data)
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
@@ -255,6 +263,7 @@ pjrt_buffer.raw <- function(
   if (is.null(dtype)) {
     cli_abort("dtype must be provided")
   }
+  dtype <- as_dtype_string(dtype)
   if (...length()) {
     cli_abort("Unused arguments")
   }
@@ -327,6 +336,7 @@ pjrt_scalar.raw <- function(
   if (is.null(dtype)) {
     cli_abort("dtype must be provided")
   }
+  dtype <- as_dtype_string(dtype)
   check_raw_buffer_size(data, dtype, integer())
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...)
   buffer <- do.call(impl_client_buffer_from_raw, args)
