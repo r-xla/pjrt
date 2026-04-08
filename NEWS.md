@@ -1,8 +1,4 @@
-# pjrt (development version)
-
-## Platform Support
-
-* Added support for Linux ARM (aarch64) using CPU backend.
+# pjrt 0.2.0
 
 ## Asynchronous API
 
@@ -25,11 +21,19 @@ Specifically:
 ## Features
 
 * Added `dtype` support for `PJRTBuffer`s via the `tengen::dtype` S3 generic. `"bool"` is now accepted as an alias for `"i1"`/`"pred"`.
+* Accept `DataType` objects in the `dtype` parameter of `pjrt_buffer()`.
 * Support `device` argument in `pjrt_compile()`.
 
 ## Bug fixes
 
 * Protect from segfaults in raw to buffer conversion.
+* Protect from segfault during device mismatch in `pjrt_execute()`.
+
+## Platforms & Installation
+
+* Added support for Linux ARM (aarch64) using CPU backend.
+* Simplified CUDA installation via the `cuda12.8` package, which now only
+  requires compatible drivers to be installed.
 
 ## Miscellaneous
 
