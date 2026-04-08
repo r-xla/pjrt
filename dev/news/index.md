@@ -2,6 +2,10 @@
 
 ## pjrt (development version)
 
+### Platform Support
+
+- Added support for Linux ARM (aarch64) using CPU backend.
+
 ### Asynchronous API
 
 Operations such as host \<-\> device transfers and program execution
