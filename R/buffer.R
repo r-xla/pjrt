@@ -88,7 +88,9 @@ pjrt_buffer <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   buf <- data
-  if (inherits(dtype, "DataType")) dtype <- as.character(dtype)
+  if (inherits(dtype, "DataType")) {
+    dtype <- as.character(dtype)
+  }
   if (!is.null(dtype) && !identical(dtype, as.character(elt_type(buf)))) {
     cli_abort("Must use the same data type as the data")
   }
