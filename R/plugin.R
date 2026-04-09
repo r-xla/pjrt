@@ -2,6 +2,7 @@ the <- new.env(parent = emptyenv())
 
 the[["plugins"]] <- new.env(parent = emptyenv())
 the[["clients"]] <- new.env(parent = emptyenv())
+the[["custom_calls"]] <- list()
 the[["config"]] <- list(
   cpu_device_count = 1L,
   cuda_r_package = "cuda12.8"
@@ -97,13 +98,7 @@ pjrt_plugin <- function(platform) {
   attributes(plugin) <- list(platform = platform)
 
   if (platform != "metal") {
-    # metal is not supported
-    if (!ffi_register_print_tensor(plugin)) {
-      cli::cli_warn(c(
-        x = "Unable to register the print tensor handler.",
-        i = "Using the {.fn print_tensor} custom call won't be possible."
-      ))
-    }
+    drain_custom_calls(plugin, platform)
   }
 
   class(plugin) <- "PJRTPlugin"
@@ -275,7 +270,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "14.0.1"
+  "17.0.0"
 }
 
 # nocov start
