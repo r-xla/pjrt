@@ -1,5 +1,7 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://r-xla.github.io/pjrt/404.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/AGENTS.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/CLAUDE.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/LICENSE-text.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/LICENSE.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/articles/index.html</loc></url>
@@ -8,14 +10,18 @@
 <url><loc>https://r-xla.github.io/pjrt/index.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/news/index.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as.character.PJRTElementType.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/reference/as_array_async.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_device.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_plugin.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/reference/await.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/devices.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/elt_type.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/format_buffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/index.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/reference/is_ready.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt-package.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/reference/pjrt_array_promise.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt_buffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt_compile.html</loc></url>
@@ -30,5 +36,6 @@
 <url><loc>https://r-xla.github.io/pjrt/reference/plugin_is_downloaded.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/print.PJRTBuffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/reexports.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/reference/value.html</loc></url>
 </urlset>
 
