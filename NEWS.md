@@ -10,7 +10,7 @@ Specifically:
 * `pjrt_buffer()` and `pjrt_execute()` return immediately, but the returned buffer is not
   necessarily ready. To await a transfer or computation of a buffer, use
   `await()`. However, this is handled within PJRT, so this function never has to
-  be called from a user.
+  be called by a user.
 * `as_array()` is still synchronous, but there is now the asynchronous version
   `as_array_async()` but this is rarely needed.
   If used, it returns a `PJRTArrayPromise` object which can be converted to
