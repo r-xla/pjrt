@@ -28,7 +28,9 @@ pjrt_register_custom_call <- function(target_name, handler, .package = NULL) {
   checkmate::assert_string(target_name)
 
   if (!is.list(handler) || is.null(names(handler)) || !all(nzchar(names(handler)))) {
-    cli_abort("{.arg handler} must be a named list of external pointers keyed by platform (e.g. {.val host}, {.val cuda}).")
+    cli_abort(
+      "{.arg handler} must be a named list of external pointers keyed by platform (e.g. {.val host}, {.val cuda})."
+    )
   }
   if (!all(vapply(handler, is, logical(1), "externalptr"))) {
     cli_abort("All elements of {.arg handler} must be external pointers.")

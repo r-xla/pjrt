@@ -22,18 +22,21 @@ jobs:
           - { os: "ubuntu", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
           - { os: "ubuntu", r: "release", platform: "cuda"}
+          - { os: "ubuntu-arm", r: "release", platform: "cpu"}
           - { os: "windows", r: "release", platform: "cpu"}
-          - { os: "macos", platform: "metal"}
+          - { os: "macos", r: "release", platform: "metal"}
 
         include:
           - config: {os: "ubuntu", platform: "cuda"}
-            container: {image: 'nvidia/cuda:13.0.2-runtime-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
+            container: {image: 'nvidia/cuda:12.8.1-base-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
             runner: ['self-hosted', 'gpu']
             extra-packages: "any::rcmdcheck, cuda13.0"
             extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
             as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
+          - config: {os: "ubuntu-arm", platform: "cpu"}
+            runner: 'ubuntu-24.04-arm'
           - config: {os: "macos", platform: "cpu"}
             runner: 'macos-latest'
             setup: |
@@ -42,7 +45,7 @@ jobs:
           - config: {os: "windows"}
             runner: 'windows-latest'
           - config: {os: "macos", platform: "metal"}
-            runner: ['self-hosted', 'metal']
+            runner: 'macos-15'
             setup: |
               brew install protobuf@21
               brew link protobuf@21 --force --overwrite

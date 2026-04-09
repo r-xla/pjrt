@@ -250,6 +250,12 @@ plugin_url <- function(platform) {
     return(url)
   }
 
+  if (os == "linux" && arch == "aarch64") {
+    # on linux arm download from our pre-built artifacts
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-a4df377-linux-aarch64.tar.gz"
+    return(url)
+  }
+
   sprintf(
     "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
     zml_version,
@@ -285,6 +291,8 @@ plugin_arch <- function() {
     return("amd64")
   } else if (Sys.info()["machine"] == "arm64") {
     return("arm64")
+  } else if (Sys.info()["machine"] == "aarch64") {
+    return("aarch64")
   } else if (.Platform$r_arch == "x64") {
     return("amd64")
   } else if (.Platform$r_arch == "arm64") {

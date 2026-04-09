@@ -3,3 +3,9 @@ test_that("cuda plugin can be downloaded", {
   expect_no_error(pjrt_plugin("cuda"))
   expect_true(plugin_is_downloaded("cuda"))
 })
+
+test_that("metal plugin can be downloaded", {
+  skip_if(!is_metal(), "Not running on Metal platform")
+  expect_no_error(pjrt_plugin("metal"))
+  expect_true(plugin_is_downloaded("metal"))
+})

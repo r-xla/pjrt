@@ -636,6 +636,65 @@ test_that("i1 is alias for pred", {
   expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
 })
 
+test_that("pjrt_buffer accepts DataType objects", {
+  # pjrt_buffer with DataType
+  expect_equal(
+    pjrt_buffer(c(1, 2, 3), dtype = tengen::FloatType(32)),
+    pjrt_buffer(c(1, 2, 3), dtype = "f32")
+  )
+  expect_equal(
+    pjrt_buffer(c(1, 2, 3), dtype = tengen::FloatType(64)),
+    pjrt_buffer(c(1, 2, 3), dtype = "f64")
+  )
+  expect_equal(
+    pjrt_buffer(1L, dtype = tengen::IntegerType(32)),
+    pjrt_buffer(1L, dtype = "i32")
+  )
+  expect_equal(
+    pjrt_buffer(1L, dtype = tengen::UIntegerType(8)),
+    pjrt_buffer(1L, dtype = "ui8")
+  )
+  expect_equal(
+    pjrt_buffer(TRUE, dtype = tengen::BooleanType()),
+    pjrt_buffer(TRUE, dtype = "pred")
+  )
+
+  # pjrt_scalar with DataType
+  expect_equal(
+    pjrt_scalar(42L, dtype = tengen::IntegerType(32)),
+    pjrt_scalar(42L, dtype = "i32")
+  )
+  expect_equal(
+    pjrt_scalar(3.14, dtype = tengen::FloatType(64)),
+    pjrt_scalar(3.14, dtype = "f64")
+  )
+
+  # pjrt_empty with DataType
+  expect_equal(
+    pjrt_empty(dtype = tengen::FloatType(32), shape = c(0, 3)),
+    pjrt_empty(dtype = "f32", shape = c(0, 3))
+  )
+
+  # raw buffer with DataType
+  raw_data <- as.raw(rep(0, 24))
+  expect_equal(
+    pjrt_buffer(raw_data, dtype = tengen::FloatType(32), shape = c(2, 3), row_major = FALSE),
+    pjrt_buffer(raw_data, dtype = "f32", shape = c(2, 3), row_major = FALSE)
+  )
+
+  # raw scalar with DataType
+  raw_scalar <- as.raw(rep(0, 4))
+  expect_equal(
+    pjrt_scalar(raw_scalar, dtype = tengen::FloatType(32)),
+    pjrt_scalar(raw_scalar, dtype = "f32")
+  )
+
+  # identity preserves buffer when DataType matches
+  buf <- pjrt_buffer(c(1, 2), dtype = "f32")
+  expect_equal(pjrt_buffer(buf, dtype = tengen::FloatType(32)), buf)
+  expect_error(pjrt_buffer(buf, dtype = tengen::IntegerType(32)), "Must use the same data type")
+})
+
 test_that("raw buffer validates dtype and shape compatibility", {
   # f32 is 4 bytes per element, shape c(2, 3) = 6 elements = 24 bytes
   expect_error(

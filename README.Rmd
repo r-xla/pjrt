@@ -114,9 +114,12 @@ pjrt_execute(executable, x, y)
 
 ## Platform Support
 
-* **Linux**
+* **Linux (x86_64)**
   * :white_check_mark: CPU backend is fully supported.
   * :white_check_mark: CUDA (NVIDIA GPU) backend is fully supported.
+* **Linux (ARM)**
+  * :white_check_mark: CPU backend is fully supported.
+  * :x: GPU is not supported.
 * **Windows**
   * :white_check_mark: CPU backend is fully supported.
   * :warning: GPU is only supported via Windows Subsystem for Linux (WSL2).
