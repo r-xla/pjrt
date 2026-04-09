@@ -32,7 +32,7 @@ pjrt_register_custom_call <- function(target_name, handler, .package = NULL) {
       "{.arg handler} must be a named list of external pointers keyed by platform (e.g. {.val host}, {.val cuda})."
     )
   }
-  if (!all(vapply(handler, is, logical(1), "externalptr"))) {
+  if (!all(vapply(handler, inherits, logical(1), "externalptr"))) {
     cli_abort("All elements of {.arg handler} must be external pointers.")
   }
   names(handler) <- vapply(names(handler), pjrt_platform_name, character(1))

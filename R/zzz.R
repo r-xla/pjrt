@@ -18,7 +18,7 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
       hooks,
       function(x) {
         ee <- environment(x)
-        if (isNamespace(ee)) environmentName(ee) else environment(x)$pkgname
+        if (isNamespace(ee)) environmentName(ee) else ee$pkgname %||% NA_character_
       },
       NA_character_
     )
