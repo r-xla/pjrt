@@ -16,7 +16,7 @@ pjrt_empty(dtype, shape, device = NULL)
 \item{data}{(any)\cr
 Data to convert to a \code{PJRTBuffer}.}
 
-\item{dtype}{(\code{NULL} | \code{character(1)})\cr
+\item{dtype}{(\code{NULL} | \code{character(1)} | \code{\link[tengen:DataType]{DataType}})\cr
 The type of the buffer.
 Currently supported types are:
 \itemize{
