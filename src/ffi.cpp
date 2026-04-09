@@ -255,37 +255,40 @@ void register_ffi_handlers(PJRTPlugin *plugin,
 }  // namespace rpjrt
 
 // [[Rcpp::export]]
-bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
+void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin,
+                               const std::string &target_name,
+                               SEXP handler_ptr,
+                               const std::string &platform_name) {
+  if (TYPEOF(handler_ptr) != EXTPTRSXP) {
+    throw std::runtime_error("handler must be an external pointer");
+  }
+  void *handler = R_ExternalPtrAddr(handler_ptr);
+  if (handler == nullptr) {
+    throw std::runtime_error("handler external pointer is NULL");
+  }
+
+  auto ffi_extension = get_pjrt_ffi_extension(plugin.get());
+
   PJRT_FFI_Register_Handler_Args args{};
   args.struct_size = sizeof(PJRT_FFI_Register_Handler_Args);
-  args.handler = (void *)rpjrt::print_handler;
-  args.target_name = "print_tensor";
-  args.target_name_size = strlen(args.target_name);
-  args.platform_name = "host";
-  args.platform_name_size = strlen(args.platform_name);
+  args.handler = handler;
+  args.target_name = target_name.c_str();
+  args.target_name_size = target_name.size();
+  args.platform_name = platform_name.c_str();
+  args.platform_name_size = platform_name.size();
 
-  try {
-    auto ffi_extension = get_pjrt_ffi_extension(plugin.get());
-    check_err(plugin->api.get(), ffi_extension->register_handler(&args));
-  } catch (const std::exception &e) {
-    return false;
-  }
+  check_err(plugin->api.get(), ffi_extension->register_handler(&args));
+}
 
-  std::string platform_name = plugin.attr("platform");
-  if (platform_name == "cuda") {
-    args.handler = (void *)rpjrt::print_handler_cuda;
-    args.platform_name = "cuda";
-    args.platform_name_size = strlen(args.platform_name);
+// [[Rcpp::export]]
+SEXP get_print_handler() {
+  return R_MakeExternalPtr((void *)rpjrt::print_handler, R_NilValue, R_NilValue);
+}
 
-    try {
-      auto ffi_extension = get_pjrt_ffi_extension(plugin.get());
-      check_err(plugin->api.get(), ffi_extension->register_handler(&args));
-    } catch (const std::exception &e) {
-      return false;
-    }
-  }
-
-  return true;
+// [[Rcpp::export]]
+SEXP get_print_handler_cuda() {
+  return R_MakeExternalPtr((void *)rpjrt::print_handler_cuda, R_NilValue,
+                           R_NilValue);
 }
 
 // [[Rcpp::export]]

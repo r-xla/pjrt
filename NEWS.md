@@ -20,6 +20,9 @@ Specifically:
 
 ## Features
 
+* New `pjrt_register_custom_call()` allows external packages to register C/C++
+  XLA FFI handlers with the PJRT plugin. Registration is deferred until the
+  plugin loads, so handlers can be registered during `.onLoad()`.
 * Added `dtype` support for `PJRTBuffer`s via the `tengen::dtype` S3 generic. `"bool"` is now accepted as an alias for `"i1"`/`"pred"`.
 * Support `device` argument in `pjrt_compile()`.
 

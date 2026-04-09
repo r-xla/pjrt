@@ -41,7 +41,7 @@ Only used when downloading plugins from zml/pjrt-artifacts.
 \item \code{PJRT_CPU_DEVICE_COUNT}: The number of CPU devices to use. Defaults to 1.
 This is primarily intended for testing purposes.
 \item \code{PJRT_CUDA_R_PACKAGE}: Name of the R package providing CUDA libraries.
-Defaults to the value of cuda12.8.
+Defaults to the value of cuda13.0.
 Set this to use a different CUDA toolkit package, but note that other
 versions may not work with the XLA plugin.
 \item \code{PJRT_DEBUG}: If set (to any non-empty value), enables verbose debug output
