@@ -8,5 +8,6 @@ old_opts <- options(
 old_opts <- lapply(old_opts, function(x) if (is.null(x)) FALSE else x)
 the[["clients"]] <- new.env(parent = emptyenv())
 the[["plugins"]] <- new.env(parent = emptyenv())
+custom_calls_before <- names(the[["custom_calls"]])
 # so we can test multiple devices.
 Sys.setenv(PJRT_CPU_DEVICE_COUNT = 2L)

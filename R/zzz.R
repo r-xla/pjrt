@@ -18,7 +18,7 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
       hooks,
       function(x) {
         ee <- environment(x)
-        if (isNamespace(ee)) environmentName(ee) else environment(x)$pkgname
+        if (isNamespace(ee)) environmentName(ee) else ee$pkgname %||% NA_character_
       },
       NA_character_
     )
@@ -46,6 +46,12 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
   register_s3_method("waldo", "compare_proxy", "PJRTBuffer")
   register_s3_method("waldo", "compare_proxy", "PJRTArrayPromise")
   # make safetensors work with pjrt
+  pjrt_register_custom_call(
+    "print_tensor",
+    list(host = get_print_handler(), cuda = get_print_handler_cuda()),
+    .package = pkgname
+  )
+
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(
       "safetensors_frameworks",

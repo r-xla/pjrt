@@ -11,14 +11,36 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// ffi_register_print_tensor
-bool ffi_register_print_tensor(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin);
-RcppExport SEXP _pjrt_ffi_register_print_tensor(SEXP pluginSEXP) {
+// impl_register_custom_call
+void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin, const std::string& target_name, SEXP handler_ptr, const std::string& platform_name);
+RcppExport SEXP _pjrt_impl_register_custom_call(SEXP pluginSEXP, SEXP target_nameSEXP, SEXP handler_ptrSEXP, SEXP platform_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTPlugin> >::type plugin(pluginSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type target_name(target_nameSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type handler_ptr(handler_ptrSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type platform_name(platform_nameSEXP);
+    impl_register_custom_call(plugin, target_name, handler_ptr, platform_name);
+    return R_NilValue;
+END_RCPP
+}
+// get_print_handler
+SEXP get_print_handler();
+RcppExport SEXP _pjrt_get_print_handler() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTPlugin> >::type plugin(pluginSEXP);
-    rcpp_result_gen = Rcpp::wrap(ffi_register_print_tensor(plugin));
+    rcpp_result_gen = Rcpp::wrap(get_print_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_print_handler_cuda
+SEXP get_print_handler_cuda();
+RcppExport SEXP _pjrt_get_print_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_print_handler_cuda());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -497,7 +519,9 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_pjrt_ffi_register_print_tensor", (DL_FUNC) &_pjrt_ffi_register_print_tensor, 1},
+    {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},
+    {"_pjrt_get_print_handler", (DL_FUNC) &_pjrt_get_print_handler, 0},
+    {"_pjrt_get_print_handler_cuda", (DL_FUNC) &_pjrt_get_print_handler_cuda, 0},
     {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 2},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},

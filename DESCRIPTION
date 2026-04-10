@@ -39,6 +39,7 @@ Collate:
     'client.R'
     'buffer.R'
     'compare.R'
+    'custom_call.R'
     'device.R'
     'execution_options.R'
     'format.R'
