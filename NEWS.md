@@ -6,6 +6,12 @@
   XLA FFI handlers with the PJRT plugin. Registration is deferred until the
   plugin loads, so handlers can be registered during `.onLoad()`.
 
+## Bug Fixes
+
+* The configure script now uses the `protoc` compiler from the same installation
+  as the linked protobuf library, preventing version mismatches when multiple
+  protobuf versions are installed.
+
 # pjrt 0.2.0
 
 ## Asynchronous API
