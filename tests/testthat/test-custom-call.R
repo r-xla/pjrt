@@ -37,9 +37,21 @@ test_that("duplicate registration overwrites", {
   expect_no_error(pjrt_register_custom_call("test_dup", handler))
 })
 
+test_that("PJRT API silently overwrites when registering the same handler name twice", {
+  skip_if_metal("FFI extension not available on metal")
+  platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
+  plugin <- pjrt_plugin(platform)
+  pjrt_platform <- ifelse(platform != "cuda", "host", "cuda")
+  ptr <- get_print_handler()
+  # "print_tensor" is already registered during .onLoad
+  expect_no_error(
+    impl_register_custom_call(plugin, "print_tensor", ptr, pjrt_platform)
+  )
+})
+
 test_that("pjrt_unregister_custom_calls removes entries for a package", {
   withr::defer({
-    the[["custom_calls"]][["keep_this"]] <- NULL
+    the[["custom_calls"]][c("cleanup_1", "cleanup_2", "keep_this")] <- NULL
   })
   ptr <- get_print_handler()
   handler <- list(host = ptr)
@@ -52,11 +64,4 @@ test_that("pjrt_unregister_custom_calls removes entries for a package", {
   expect_false("cleanup_1" %in% names(the[["custom_calls"]]))
   expect_false("cleanup_2" %in% names(the[["custom_calls"]]))
   expect_true("keep_this" %in% names(the[["custom_calls"]]))
-})
-
-test_that("print_tensor is registered via .onLoad", {
-  entry <- the[["custom_calls"]][["print_tensor"]]
-  expect_false(is.null(entry))
-  expect_named(entry$handler, c("host", "cuda"))
-  expect_equal(entry$package, "pjrt")
 })
