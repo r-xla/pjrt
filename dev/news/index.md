@@ -2,7 +2,15 @@
 
 ## pjrt (development version)
 
-### Bug fixes
+### Features
+
+- New
+  [`pjrt_register_custom_call()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_register_custom_call.md)
+  allows external packages to register C/C++ XLA FFI handlers with the
+  PJRT plugin. Registration is deferred until the plugin loads, so
+  handlers can be registered during `.onLoad()`.
+
+### Bug Fixes
 
 - The configure script now uses the `protoc` compiler from the same
   installation as the linked protobuf library, preventing version

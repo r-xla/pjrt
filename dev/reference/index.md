@@ -66,6 +66,9 @@
 
   Create a `PJRTProgram`
 
+- [`pjrt_register_custom_call()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_register_custom_call.md)
+  : Register a Custom Call Handler
+
 - [`platform()`](https://r-xla.github.io/pjrt/dev/reference/platform.md)
   : Platform Name
 

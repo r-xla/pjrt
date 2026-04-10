@@ -32,7 +32,8 @@ pjrt_empty(dtype, shape, device = NULL)
 
 - dtype:
 
-  (`NULL` \| `character(1)`)  
+  (`NULL` \| `character(1)` \|
+  [`DataType`](https://r-xla.github.io/tengen/reference/DataType.html))  
   The type of the buffer. Currently supported types are:
 
   - `"pred"`: predicate (i.e. a boolean)

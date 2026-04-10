@@ -48,7 +48,11 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
 <div class="section level3">
-<h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
+<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
+<ul><li>New <code><a href="../reference/pjrt_register_custom_call.html">pjrt_register_custom_call()</a></code> allows external packages to register C/C++ XLA FFI handlers with the PJRT plugin. Registration is deferred until the plugin loads, so handlers can be registered during <code>.onLoad()</code>.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-development-version">Bug Fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>The configure script now uses the <code>protoc</code> compiler from the same installation as the linked protobuf library, preventing version mismatches when multiple protobuf versions are installed.</li>
 </ul></div>
 </div>
