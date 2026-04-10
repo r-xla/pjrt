@@ -1,5 +1,11 @@
 # pjrt (development version)
 
+## Bug fixes
+
+* The configure script now uses the `protoc` compiler from the same installation
+  as the linked protobuf library, preventing version mismatches when multiple
+  protobuf versions are installed.
+
 # pjrt 0.2.0
 
 ## Asynchronous API
