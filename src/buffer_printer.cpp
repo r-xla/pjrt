@@ -204,23 +204,45 @@ static std::pair<int64_t, int64_t> build_buffer_lines_subset(
   return {r, c_end};
 }
 
-// Create a contiguous span over the last two dimensions for a given leading
-// index
+// Extract a 2D slice (last two dimensions) into row-major order.
+// For row-major input, the slice is contiguous and simply copied.
+// For column-major input, elements are gathered using column-major strides.
 template <typename T>
-static std::span<const T> make_last2_contiguous_span(
+static std::vector<T> extract_last2_slice(
     const std::span<const T> &flat, const std::vector<int64_t> &pseudo_dims,
-    const std::vector<int64_t> &lead_index) {
+    const std::vector<int64_t> &lead_index, bool row_major) {
   const int nprint = static_cast<int>(pseudo_dims.size());
-  std::vector<int64_t> stride(nprint, 1);
-  for (int i = nprint - 2; i >= 0; --i)
-    stride[i] = stride[i + 1] * pseudo_dims[i + 1];
-  int64_t base = 0;
-  for (size_t k = 0; k < lead_index.size(); ++k)
-    base += lead_index[k] * stride[k];
   const int64_t nrows = pseudo_dims[nprint - 2];
   const int64_t ncols = pseudo_dims[nprint - 1];
-  return std::span<const T>(flat.data() + static_cast<size_t>(base),
-                            static_cast<size_t>(nrows * ncols));
+  const size_t slice_size = static_cast<size_t>(nrows * ncols);
+
+  if (row_major) {
+    std::vector<int64_t> stride(nprint, 1);
+    for (int i = nprint - 2; i >= 0; --i)
+      stride[i] = stride[i + 1] * pseudo_dims[i + 1];
+    int64_t base = 0;
+    for (size_t k = 0; k < lead_index.size(); ++k)
+      base += lead_index[k] * stride[k];
+    const T *start = flat.data() + static_cast<size_t>(base);
+    return std::vector<T>(start, start + slice_size);
+  }
+
+  // Column-major: gather elements using column-major strides
+  std::vector<int64_t> strides = dims2strides(pseudo_dims, false);
+  int64_t base = 0;
+  for (size_t k = 0; k < lead_index.size(); ++k)
+    base += lead_index[k] * strides[k];
+  int64_t row_stride = strides[nprint - 2];
+  int64_t col_stride = strides[nprint - 1];
+
+  std::vector<T> result(slice_size);
+  for (int64_t r = 0; r < nrows; ++r) {
+    for (int64_t c = 0; c < ncols; ++c) {
+      result[static_cast<size_t>(r * ncols + c)] =
+          flat[static_cast<size_t>(base + r * row_stride + c * col_stride)];
+    }
+  }
+  return result;
 }
 
 // core printer
@@ -231,7 +253,8 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
                                     int max_width, int max_rows_slice,
                                     int rows_left,
                                     std::vector<std::string> &cont,
-                                    std::span<const CopyT> temp_vec) {
+                                    std::span<const CopyT> temp_vec,
+                                    bool row_major) {
   const int ndim = dimensions.size();
 
   // pseudo_dims are used so we don't have to treat the 0d and 1d cases special
@@ -281,10 +304,10 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
       cont.push_back(hdr.str());
     }
 
-    // Extract this slice as a span (because of row-major ordering,
-    // this data is contigous)
-    std::span<const CopyT> slice =
-        make_last2_contiguous_span<CopyT>(temp_vec, pseudo_dims, lead_index);
+    // Extract this slice as a row-major ordered vector
+    std::vector<CopyT> slice_vec =
+        extract_last2_slice<CopyT>(temp_vec, pseudo_dims, lead_index, row_major);
+    std::span<const CopyT> slice(slice_vec);
 
     // now do the actual data printing
     int64_t rows_to_print = nrows;
@@ -407,7 +430,7 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
 std::vector<std::string> buffer_to_string_lines(
     const void *data, const std::vector<int64_t> &dimensions,
     PJRT_Buffer_Type element_type, int max_rows, int max_width,
-    int max_rows_slice) {
+    int max_rows_slice, bool row_major) {
   int64_t numel = dimensions.empty() ? 1 : number_of_elements(dimensions);
 
   if (numel == 0) {
@@ -425,7 +448,7 @@ std::vector<std::string> buffer_to_string_lines(
     std::span<const FP> temp_span(static_cast<const FP *>(data),
                                   static_cast<size_t>(numel));
     print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
-                            cont, temp_span);
+                            cont, temp_span, row_major);
   };
 
   auto handle_integer = [&](auto int_tag) {
@@ -433,7 +456,7 @@ std::vector<std::string> buffer_to_string_lines(
     std::span<const IT> temp_span(static_cast<const IT *>(data),
                                   static_cast<size_t>(numel));
     print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
-                            cont, temp_span);
+                            cont, temp_span, row_major);
   };
 
   auto handle_logical = [&]() {
@@ -441,7 +464,7 @@ std::vector<std::string> buffer_to_string_lines(
     std::span<const BT> temp_span(static_cast<const BT *>(data),
                                   static_cast<size_t>(numel));
     print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
-                            cont, temp_span);
+                            cont, temp_span, row_major);
   };
 
   switch (element_type) {

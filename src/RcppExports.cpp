@@ -384,6 +384,20 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// impl_format_array
+Rcpp::CharacterVector impl_format_array(SEXP data, int max_rows, int max_width, int max_rows_slice);
+RcppExport SEXP _pjrt_impl_format_array(SEXP dataSEXP, SEXP max_rowsSEXP, SEXP max_widthSEXP, SEXP max_rows_sliceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< int >::type max_rows(max_rowsSEXP);
+    Rcpp::traits::input_parameter< int >::type max_width(max_widthSEXP);
+    Rcpp::traits::input_parameter< int >::type max_rows_slice(max_rows_sliceSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_format_array(data, max_rows, max_width, max_rows_slice));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_buffer_is_ready
 bool impl_buffer_is_ready(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
 RcppExport SEXP _pjrt_impl_buffer_is_ready(SEXP bufferSEXP) {
@@ -551,6 +565,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
     {"_pjrt_impl_device_platform", (DL_FUNC) &_pjrt_impl_device_platform, 1},
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
+    {"_pjrt_impl_format_array", (DL_FUNC) &_pjrt_impl_format_array, 4},
     {"_pjrt_impl_buffer_is_ready", (DL_FUNC) &_pjrt_impl_buffer_is_ready, 1},
     {"_pjrt_impl_buffer_await", (DL_FUNC) &_pjrt_impl_buffer_await, 1},
     {"_pjrt_impl_host_data_is_ready", (DL_FUNC) &_pjrt_impl_host_data_is_ready, 1},
