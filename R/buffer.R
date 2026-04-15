@@ -434,7 +434,7 @@ print.PJRTElementType <- function(x, ...) {
 
 #' @export
 device.PJRTBuffer <- function(x, ...) {
-  impl_buffer_device(x)
+  cached_device(impl_buffer_device(x))
 }
 
 
