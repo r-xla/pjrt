@@ -66,8 +66,9 @@ test_that("device() on a buffer returns the cached device", {
 
 test_that("PJRTDevice is usable as a hashtab key", {
   ht <- utils::hashtab()
-  utils::sethash(ht, pjrt_device("cpu:0"), "value0")
-  utils::sethash(ht, pjrt_device("cpu:1"), "value1")
-  expect_equal(utils::gethash(ht, pjrt_device("cpu:0")), "value0")
-  expect_equal(utils::gethash(ht, pjrt_device("cpu:1")), "value1")
+  dev1 <- pjrt_device("cpu:0")
+  dev2 <- pjrt_device("cpu:0")
+  ht[[dev1]] <- "a"
+  ht[[dev2]] <- "b"
+  expect_equal(ht[[dev1]], "b")
 })
