@@ -127,7 +127,12 @@ platform.PJRTClient <- function(x, ...) {
 #' devices(client)
 #' @export
 devices <- function(client = NULL) {
-  impl_client_devices(as_pjrt_client(client))
+  client <- as_pjrt_client(client)
+  plat <- platform(client)
+  if (!exists(plat, envir = the[["devices"]], inherits = FALSE)) {
+    the[["devices"]][[plat]] <- impl_client_devices(client)
+  }
+  the[["devices"]][[plat]]
 }
 
 #' @title Convert to PJRT Device
@@ -187,6 +192,23 @@ client_from_device <- function(device) {
     cli_abort("Must be a PJRTDevice")
   }
   the[["clients"]][[platform(device)]]
+}
+
+# Map a freshly-created PJRTDevice xptr to the cached device with the same
+# string representation, so equal devices share one external pointer and can
+# be used as stable hashtab keys.
+cached_device <- function(device) {
+  client <- client_from_device(device)
+  if (is.null(client)) {
+    return(device)
+  }
+  target <- as.character(device)
+  for (d in devices(client)) {
+    if (identical(as.character(d), target)) {
+      return(d)
+    }
+  }
+  device
 }
 
 #' @export

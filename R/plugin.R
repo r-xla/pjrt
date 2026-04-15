@@ -2,6 +2,7 @@ the <- new.env(parent = emptyenv())
 
 the[["plugins"]] <- new.env(parent = emptyenv())
 the[["clients"]] <- new.env(parent = emptyenv())
+the[["devices"]] <- new.env(parent = emptyenv())
 the[["custom_calls"]] <- list()
 the[["config"]] <- list(
   cpu_device_count = 1L,

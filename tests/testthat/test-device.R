@@ -52,3 +52,23 @@ test_that("platform", {
   skip_if(!(is_metal() || is_cuda()))
   device_name <- Sys.getenv("PJRT_PLATFORM")
 })
+
+test_that("devices are cached (stable external pointer)", {
+  expect_identical(pjrt_device("cpu"), pjrt_device("cpu"))
+  expect_identical(pjrt_device("cpu:0"), pjrt_device("cpu:0"))
+  expect_identical(pjrt_device("cpu:0"), devices("cpu")[[1L]])
+})
+
+test_that("device() on a buffer returns the cached device", {
+  buf <- pjrt_buffer(1, device = "cpu:0")
+  expect_identical(device(buf), pjrt_device("cpu:0"))
+})
+
+test_that("PJRTDevice is usable as a hashtab key", {
+  ht <- utils::hashtab()
+  dev1 <- pjrt_device("cpu:0")
+  dev2 <- pjrt_device("cpu:0")
+  ht[[dev1]] <- "a"
+  ht[[dev2]] <- "b"
+  expect_equal(ht[[dev1]], "b")
+})
