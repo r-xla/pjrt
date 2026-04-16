@@ -397,6 +397,27 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
   impl_buffer_to_raw(client, x, row_major = row_major)
 }
 
+#' @title Copy Buffer to Device
+#' @description
+#' Copy a [`PJRTBuffer`][pjrt_buffer] to a different device within the same client.
+#' Returns a new buffer on the target device; the original buffer is unchanged.
+#'
+#' @template param_buffer
+#' @param device (`PJRTDevice` | `character(1)`)\cr
+#'   The target device. A `PJRTDevice` object or a device specification
+#'   (e.g., `"cpu:0"`, `"cpu:1"`, `"cuda:0"`).
+#' @return A new `PJRTBuffer` on the target device.
+#' @examplesIf plugin_is_downloaded()
+#' buf <- pjrt_buffer(c(1, 2, 3), device = "cpu:0")
+#' buf2 <- pjrt_copy_to_device(buf, "cpu:1")
+#' device(buf2)
+#' @export
+pjrt_copy_to_device <- function(buffer, device) {
+  check_buffer(buffer)
+  device <- as_pjrt_device(device)
+  impl_buffer_copy_to_device(buffer, device)
+}
+
 #' Gets the memory of a Pjrt buffer
 #' @noRd
 pjrt_memory <- function(buffer) {

@@ -429,6 +429,16 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer,
+    Rcpp::XPtr<rpjrt::PJRTDevice> device) {
+  auto new_buf = buffer->copy_to_device(*device);
+  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(new_buf.release(), true);
+  xptr.attr("class") = "PJRTBuffer";
+  return xptr;
+}
+
+// [[Rcpp::export()]]
 std::string impl_client_platform(Rcpp::XPtr<rpjrt::PJRTClient> client) {
   return client->platform();
 }

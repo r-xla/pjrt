@@ -61,6 +61,10 @@ impl_buffer_to_raw <- function(client, buffer, row_major = FALSE) {
     .Call(`_pjrt_impl_buffer_to_raw`, client, buffer, row_major)
 }
 
+impl_buffer_copy_to_device <- function(buffer, device) {
+    .Call(`_pjrt_impl_buffer_copy_to_device`, buffer, device)
+}
+
 impl_client_platform <- function(client) {
     .Call(`_pjrt_impl_client_platform`, client)
 }
