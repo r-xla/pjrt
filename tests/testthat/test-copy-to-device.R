@@ -37,3 +37,12 @@ test_that("copy to same device returns equivalent buffer", {
   buf2 <- pjrt_copy_to_device(buf, "cpu:0")
   expect_equal(as_array(buf2), as_array(buf))
 })
+
+test_that("copy buffer on cuda device", {
+  skip_if(!is_cuda())
+  buf <- pjrt_buffer(matrix(c(1, 2, 3, 4), nrow = 2), device = "cuda:0")
+  buf2 <- pjrt_copy_to_device(buf, "cuda:0")
+  expect_equal(as_array(buf2), as_array(buf))
+  expect_equal(shape(buf2), shape(buf))
+  expect_equal(dtype(buf2), dtype(buf))
+})
