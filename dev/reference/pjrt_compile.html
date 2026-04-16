@@ -84,8 +84,7 @@ environment variable.</p></dd>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># plugins_downloaded()</span></span></span>
-<span class="r-in"><span><span class="co"># Create a simple program</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Create a simple program</span></span></span>
 <span class="r-in"><span><span class="va">src</span> <span class="op">&lt;-</span> <span class="st">r"(</span></span></span>
 <span class="r-in"><span><span class="st">func.func @main(\%arg0: tensor&lt;2xf32&gt;) -&gt; tensor&lt;2xf32&gt; {</span></span></span>
 <span class="r-in"><span><span class="st">  return \%arg0 : tensor&lt;2xf32&gt;</span></span></span>
@@ -93,7 +92,8 @@ environment variable.</p></dd>
 <span class="r-in"><span><span class="st">)"</span></span></span>
 <span class="r-in"><span><span class="va">prog</span> <span class="op">&lt;-</span> <span class="fu"><a href="pjrt_program.html">pjrt_program</a></span><span class="op">(</span>src <span class="op">=</span> <span class="va">src</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">exec</span> <span class="op">&lt;-</span> <span class="fu">pjrt_compile</span><span class="op">(</span><span class="va">prog</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span></span></span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error:</span> -:2:17: error: unexpected character</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> &lt;unknown&gt;:0: error: Failed to parse using StableHLO v1.13.2, this could indicate forward incompatibility, &gt;12w old unsupported plugin, or a portable artifact that needs to be further downgraded.</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

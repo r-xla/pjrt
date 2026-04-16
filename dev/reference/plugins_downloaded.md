@@ -22,8 +22,7 @@ plugins_downloaded(platforms = NULL)
 ## Examples
 
 ``` r
-if (FALSE) { # plugins_downloaded("cpu")
 # Check if CPU plugin is downloaded
 plugins_downloaded("cpu")
-}
+#> [1] TRUE
 ```

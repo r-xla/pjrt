@@ -38,9 +38,8 @@ pjrt_client(platform = NULL, ...)
 ## Examples
 
 ``` r
-if (FALSE) { # plugins_downloaded()
 # Create a client (defaults to CPU)
 client <- pjrt_client()
 client
-}
+#> <PJRTClient:cpu>
 ```

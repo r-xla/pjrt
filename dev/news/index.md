@@ -16,6 +16,8 @@
 - The configure script now uses the `protoc` compiler from the same
   installation as the linked protobuf library, preventing version
   mismatches when multiple protobuf versions are installed.
+- Compiling a program for a specific CPU device (e.g. `cpu:1`) now
+  targets that device instead of silently falling back to `cpu:0`.
 
 ### Error messages
 
