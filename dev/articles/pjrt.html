@@ -98,22 +98,18 @@ downloaded and cached.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-xla.github.io/pjrt/">pjrt</a></span><span class="op">)</span></span>
 <span><span class="va">plugin</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_plugin.html">pjrt_plugin</a></span><span class="op">(</span><span class="st">"cpu"</span><span class="op">)</span></span>
-<span><span class="va">plugin</span></span>
-<span><span class="co">#&gt; &lt;PJRTPlugin:cpu&gt;</span></span></code></pre></div>
+<span><span class="va">plugin</span></span></code></pre></div>
 <p>Such a plugin can be used to create a client for a specific
 platform.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">client</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plugin_client_create.html">plugin_client_create</a></span><span class="op">(</span><span class="va">plugin</span>, <span class="st">"cpu"</span><span class="op">)</span></span>
-<span><span class="va">client</span></span>
-<span><span class="co">#&gt; &lt;PJRTClient:cpu&gt;</span></span></code></pre></div>
+<span><span class="va">client</span></span></code></pre></div>
 <p>Currently, there will be exactly one client per platform and they are
 stored in a global cache.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">the</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/getFromNamespace.html" class="external-link">getFromNamespace</a></span><span class="op">(</span><span class="st">"the"</span>, <span class="st">"pjrt"</span><span class="op">)</span></span>
 <span><span class="va">the</span><span class="op">[[</span><span class="st">"clients"</span><span class="op">]</span><span class="op">]</span><span class="op">[[</span><span class="st">"cpu"</span><span class="op">]</span><span class="op">]</span></span>
-<span><span class="co">#&gt; &lt;PJRTClient:cpu&gt;</span></span>
-<span><span class="va">the</span><span class="op">[[</span><span class="st">"plugins"</span><span class="op">]</span><span class="op">]</span><span class="op">[[</span><span class="st">"cpu"</span><span class="op">]</span><span class="op">]</span></span>
-<span><span class="co">#&gt; &lt;PJRTPlugin:cpu&gt;</span></span></code></pre></div>
+<span><span class="va">the</span><span class="op">[[</span><span class="st">"plugins"</span><span class="op">]</span><span class="op">]</span><span class="op">[[</span><span class="st">"cpu"</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
 <p>A client can have one or more devices. This is not relevant for CPU
 clients, but is in principle useful for GPUs, although this is not fully
 supported yet.</p>
@@ -134,28 +130,18 @@ does not block.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">host_data</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span></span>
 <span><span class="va">buf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">host_data</span>, device <span class="op">=</span> <span class="va">cpu_device</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
-<span><span class="va">buf</span></span>
-<span><span class="co">#&gt; PJRTBuffer </span></span>
-<span><span class="co">#&gt;  1 3</span></span>
-<span><span class="co">#&gt;  2 4</span></span>
-<span><span class="co">#&gt; [ CPUf32{2x2} ]</span></span></code></pre></div>
+<span><span class="va">buf</span></span></code></pre></div>
 <p>Even before the transfer finishes, you can inspect buffer metadata —
 these operations are non-blocking because the metadata is available
 immediately:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/shape.html" class="external-link">shape</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 2 2</span></span>
 <span><span class="fu"><a href="../reference/elt_type.html">elt_type</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;f32&gt;</span></span>
-<span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/device.html" class="external-link">device</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;CpuDevice(id=0)&gt;</span></span></code></pre></div>
+<span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/device.html" class="external-link">device</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span></code></pre></div>
 <p>To move data back to the host, use <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>. This
 blocks until the data is available:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      [,1] [,2]</span></span>
-<span><span class="co">#&gt; [1,]    1    3</span></span>
-<span><span class="co">#&gt; [2,]    2    4</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="compilation">Compilation<a class="anchor" aria-label="anchor" href="#compilation"></a>
@@ -180,8 +166,7 @@ Note that compilation depends on the specific device.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">program</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_program.html">pjrt_program</a></span><span class="op">(</span><span class="va">src</span>, format <span class="op">=</span> <span class="st">"mlir"</span><span class="op">)</span></span>
 <span><span class="va">executable</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_compile.html">pjrt_compile</a></span><span class="op">(</span><span class="va">program</span>, device <span class="op">=</span> <span class="va">cpu_device</span><span class="op">)</span></span>
-<span><span class="va">executable</span></span>
-<span><span class="co">#&gt; &lt;PJRTLoadedExecutable&gt;</span></span></code></pre></div>
+<span><span class="va">executable</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="execution">Execution<a class="anchor" aria-label="anchor" href="#execution"></a>
@@ -194,20 +179,13 @@ background.</p>
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">6</span>, <span class="fl">7</span>, <span class="fl">8</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fl">2L</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">x</span>, <span class="va">y</span><span class="op">)</span></span>
-<span><span class="va">result</span></span>
-<span><span class="co">#&gt; PJRTBuffer </span></span>
-<span><span class="co">#&gt;   6 10</span></span>
-<span><span class="co">#&gt;   8 12</span></span>
-<span><span class="co">#&gt; [ CPUf32{2x2} ]</span></span></code></pre></div>
+<span><span class="va">result</span></span></code></pre></div>
 <p>Single outputs are unpacked by default; set
 <code>simplify = FALSE</code> to always get a list.</p>
 <p>To retrieve the result as an R array, call
 <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      [,1] [,2]</span></span>
-<span><span class="co">#&gt; [1,]    6   10</span></span>
-<span><span class="co">#&gt; [2,]    8   12</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="asynchronous-dispatch">Asynchronous Dispatch<a class="anchor" aria-label="anchor" href="#asynchronous-dispatch"></a>
@@ -293,10 +271,7 @@ PJRT handles the dependencies internally:</p>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">buf1</span>, <span class="va">buf2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Only block when we need the R array</span></span>
-<span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      [,1] [,2]</span></span>
-<span><span class="co">#&gt; [1,]    6   10</span></span>
-<span><span class="co">#&gt; [2,]    8   12</span></span></code></pre></div>
+<span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></code></pre></div>
 <p>You can also chain execution with async device-to-host transfer:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">src2</span> <span class="op">&lt;-</span> <span class="st">r"(</span></span>
@@ -316,8 +291,7 @@ PJRT handles the dependencies internally:</p>
 <span></span>
 <span><span class="co"># Block only when we need the final R array</span></span>
 <span><span class="va">output</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/value.html">value</a></span><span class="op">(</span><span class="va">async_output</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">output</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 1000 1000</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">output</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="when-does-blocking-happen">When does blocking happen?<a class="anchor" aria-label="anchor" href="#when-does-blocking-happen"></a>
@@ -390,9 +364,7 @@ device computes the next:</p>
 <span><span class="co"># Only retrieve the final value</span></span>
 <span><span class="va">final</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Final result shape:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">final</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Final result shape: 100 100</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Final result[1,1]:"</span>, <span class="va">final</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Final result[1,1]: 22.14824</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Final result[1,1]:"</span>, <span class="va">final</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -404,41 +376,7 @@ which allows storing named lists of buffers.</p>
 <code class="sourceCode R"><span><span class="va">tmp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".safetensors"</span><span class="op">)</span></span>
 <span><span class="fu">safetensors</span><span class="fu">::</span><span class="fu"><a href="https://mlverse.github.io/safetensors/reference/safe_save_file.html" class="external-link">safe_save_file</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">result</span><span class="op">)</span>, <span class="va">tmp</span>, framework <span class="op">=</span> <span class="st">"pjrt"</span><span class="op">)</span></span>
 <span><span class="va">reloaded</span> <span class="op">&lt;-</span> <span class="fu">safetensors</span><span class="fu">::</span><span class="fu"><a href="https://mlverse.github.io/safetensors/reference/safe_load_file.html" class="external-link">safe_load_file</a></span><span class="op">(</span><span class="va">tmp</span>, framework <span class="op">=</span> <span class="st">"pjrt"</span><span class="op">)</span></span>
-<span><span class="va">reloaded</span><span class="op">$</span><span class="va">x</span></span>
-<span><span class="co">#&gt; PJRTBuffer </span></span>
-<span><span class="co">#&gt; Columns 1 to 7</span></span>
-<span><span class="co">#&gt;  2.2148e+01 1.6243e+00 3.1992e+00 3.3661e+00 3.2027e+00 3.7586e+00 2.0813e+00</span></span>
-<span><span class="co">#&gt;  1.6443e+01 2.4477e-01 4.1511e+00 4.1295e+00 2.4273e+00 1.6176e+00 3.6497e-01</span></span>
-<span><span class="co">#&gt;  1.0526e+00 1.4976e+00 9.9318e-01 1.9173e+00 8.9408e+00 1.2844e-01 1.1338e+01</span></span>
-<span><span class="co">#&gt;  1.7938e+00 1.2325e-01 1.1881e+00 2.4539e+00 2.9107e-02 1.1639e+01 3.7073e+00</span></span>
-<span><span class="co">#&gt;  2.5915e+01 2.1596e+00 3.3475e-02 4.2064e+00 1.1248e+00 1.4394e+01 9.0609e-01</span></span>
-<span><span class="co">#&gt;  2.0549e+00 1.1823e+01 2.4401e+00 2.6452e+00 1.1399e+00 1.6505e+01 1.7988e+00</span></span>
-<span><span class="co">#&gt;  5.0847e+00 2.3894e+00 6.9374e-01 7.1540e+00 1.9468e+00 1.2250e+01 1.5661e+00</span></span>
-<span><span class="co">#&gt;  1.7365e+00 7.0727e-01 1.1450e+01 2.8378e-02 7.8192e+00 2.5113e+00 1.8746e+01</span></span>
-<span><span class="co">#&gt;  6.6238e+00 3.4759e+00 1.2597e+00 1.2197e+01 1.0617e+00 4.2360e-01 8.6550e+00</span></span>
-<span><span class="co">#&gt;  1.8511e-01 3.8913e+00 2.9864e+00 1.2368e+01 3.8097e+00 7.9126e-01 6.6415e-01</span></span>
-<span><span class="co">#&gt;  1.9836e-01 1.7327e+00 1.0690e+01 1.2025e+00 7.5129e-01 1.8660e-01 3.4132e+00</span></span>
-<span><span class="co">#&gt;  7.9593e-01 4.0803e+00 3.1893e+00 2.4257e-02 5.9005e+00 1.9903e+01 9.4508e+00</span></span>
-<span><span class="co">#&gt;  4.5504e+00 2.0023e+00 1.6533e+01 3.2972e+00 4.3016e+00 1.1033e+00 5.8061e-01</span></span>
-<span><span class="co">#&gt;  4.6889e+00 8.7448e+00 7.7285e+00 6.5496e-01 8.9090e+00 2.4281e+00 6.8213e+00</span></span>
-<span><span class="co">#&gt;  4.0073e-01 4.9153e+00 1.9894e+00 4.4955e-01 8.8144e+00 4.8487e+00 3.4146e-01</span></span>
-<span><span class="co">#&gt;  4.8680e-01 1.5711e+01 2.7894e+00 2.6457e+01 3.9455e+00 1.7037e+00 6.1513e+00</span></span>
-<span><span class="co">#&gt;  2.6114e+00 8.1016e-01 1.2146e-01 1.6320e+00 7.8187e-03 2.5365e+00 1.5105e+01</span></span>
-<span><span class="co">#&gt;  4.4820e-01 4.7786e-01 1.0679e+00 2.8630e-01 3.1332e+00 3.0947e-02 8.6495e+00</span></span>
-<span><span class="co">#&gt;  4.6614e-01 3.0826e-01 7.0557e+00 2.1700e+00 1.5732e+00 2.2271e-01 4.7378e-02</span></span>
-<span><span class="co">#&gt;  1.3440e+00 2.9234e+00 1.1559e+01 8.8668e+00 1.8729e+00 1.3320e+00 1.4763e+01</span></span>
-<span><span class="co">#&gt;  6.0223e+00 5.5660e+00 7.3217e+00 8.8343e-01 2.4898e+00 2.2978e+00 1.2654e+00</span></span>
-<span><span class="co">#&gt;  5.0453e+00 1.7959e+00 1.1050e+00 6.8665e+00 1.0883e+01 9.7641e+00 6.3046e-01</span></span>
-<span><span class="co">#&gt;  6.3220e-01 1.5343e+00 3.7788e-02 1.0085e+01 1.0526e+00 3.9324e+00 1.2135e+00</span></span>
-<span><span class="co">#&gt;  3.9624e+00 1.4638e+00 5.2830e-01 5.1944e-01 1.7337e+00 2.7231e-01 6.3342e+00</span></span>
-<span><span class="co">#&gt;  7.0109e-01 9.1790e-01 1.1373e+01 1.7708e+01 5.8359e+00 5.4447e+00 1.4719e+00</span></span>
-<span><span class="co">#&gt;  1.8467e+01 1.9650e+00 5.8906e+00 1.1622e+01 2.3799e+01 1.9868e+00 4.0531e-01</span></span>
-<span><span class="co">#&gt;  4.5296e+00 2.0595e+01 6.0703e+00 1.1153e+00 2.1703e-01 4.6344e+00 3.5762e-01</span></span>
-<span><span class="co">#&gt;  1.3230e+01 6.8999e+00 2.0481e+00 1.7136e+00 1.0243e+01 2.6142e+00 1.1486e+00</span></span>
-<span><span class="co">#&gt;  5.5286e+00 4.1406e-01 1.0848e+01 4.4146e-01 7.3570e+00 1.2660e+00 8.3911e+00</span></span>
-<span><span class="co">#&gt;  2.5474e+01 3.8595e+00 8.9820e+00 1.1383e+00 2.4344e+00 1.5862e+00 1.2519e+01</span></span>
-<span><span class="co">#&gt;  ... [output was truncated, set max_rows = -1 to see all]</span></span>
-<span><span class="co">#&gt; [ CPUf32{100x100} ]</span></span></code></pre></div>
+<span><span class="va">reloaded</span><span class="op">$</span><span class="va">x</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="further-reading">Further Reading<a class="anchor" aria-label="anchor" href="#further-reading"></a>

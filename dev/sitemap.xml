@@ -14,6 +14,7 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/as_pjrt_device.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/as_pjrt_plugin.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/await.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/dev/reference/copy_buffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/devices.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/elt_type.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/format_buffer.html</loc></url>
@@ -33,7 +34,7 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/platform.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/plugin_attributes.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/plugin_client_create.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/dev/reference/plugin_is_downloaded.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/dev/reference/plugins_downloaded.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/print.PJRTBuffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/reexports.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/value.html</loc></url>

@@ -41,12 +41,10 @@ the R array.
 ## Examples
 
 ``` r
+if (FALSE) { # plugins_downloaded()
 buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 result <- as_array_async(buf)
 is_ready(result)
-#> [1] TRUE
 value(result)
-#>      [,1] [,2]
-#> [1,]    1    3
-#> [2,]    2    4
+}
 ```

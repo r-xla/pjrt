@@ -4,17 +4,23 @@
 
 ### Features
 
+- Added `buffer_copy()` function to copy buffer between devices.
 - New
   [`pjrt_register_custom_call()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_register_custom_call.md)
   allows external packages to register C/C++ XLA FFI handlers with the
   PJRT plugin. Registration is deferred until the plugin loads, so
   handlers can be registered during `.onLoad()`.
 
-### Bug Fixes
+### Bug fixes
 
 - The configure script now uses the `protoc` compiler from the same
   installation as the linked protobuf library, preventing version
   mismatches when multiple protobuf versions are installed.
+
+### Error messages
+
+- Improved error message when attempting to use CUDA on unsupported OS
+  or platform.
 
 ## pjrt 0.2.0
 
