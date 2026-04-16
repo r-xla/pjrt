@@ -79,7 +79,7 @@ print.PJRTLoadedExecutable <- function(x, ...) {
 
 #' @export
 device.PJRTLoadedExecutable <- function(x, ...) {
-  impl_loaded_executable_device(x)
+  cached_device(impl_loaded_executable_device(x))
 }
 
 check_loaded_executable <- function(x) {
