@@ -190,8 +190,8 @@ as_dtype_string <- function(dtype) {
 }
 
 convert_buffer_args <- function(data, dtype, device, shape, default, recycle = TRUE, ...) {
-  dtype <- as_dtype_string(dtype %??% default)
-  shape <- shape %??% get_dims(data)
+  dtype <- as_dtype_string(dtype %||% default)
+  shape <- shape %||% get_dims(data)
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
   if (...length()) {

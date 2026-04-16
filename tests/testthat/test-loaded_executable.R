@@ -250,6 +250,8 @@ func.func @main(%x: tensor<1xf32>) -> tensor<1xf32> {
   progr <- pjrt_program(src)
   exec0 <- pjrt_compile(progr, device = dev0)
   exec1 <- pjrt_compile(progr, device = dev1)
+  expect_equal(device(exec0), dev0)
+  expect_equal(device(exec1), dev1)
   expect_equal(
     device(pjrt_execute(exec0, pjrt_buffer(1, device = dev0))),
     dev0
