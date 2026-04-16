@@ -26,7 +26,7 @@ environment variable.}
 Compile a \code{PJRTProgram} program into a \code{PJRTExecutable}.
 }
 \examples{
-\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
 # Create a simple program
 src <- r"(
 func.func @main(\%arg0: tensor<2xf32>) -> tensor<2xf32> {

@@ -39,7 +39,7 @@ Use \code{is_ready()} to check if execution has completed (non-blocking).
 Use \code{as_array_async()} to chain async buffer-to-host transfer.
 }
 \examples{
-\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
 # Create and compile a simple identity program
 src <- r"(
 func.func @main(

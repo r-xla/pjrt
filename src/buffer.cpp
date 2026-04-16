@@ -183,6 +183,15 @@ void PJRTBuffer::await() {
   event.check_error();
 }
 
+std::unique_ptr<PJRTBuffer> PJRTBuffer::copy_to_device(PJRTDevice &dst_device) {
+  PJRT_Buffer_CopyToDevice_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_CopyToDevice_Args);
+  args.buffer = this->buffer;
+  args.dst_device = dst_device.device;
+  check_err(this->api.get(), this->api->PJRT_Buffer_CopyToDevice_(&args));
+  return std::make_unique<PJRTBuffer>(args.dst_buffer, this->api);
+}
+
 // PJRTHostData implementation
 
 PJRTHostData::PJRTHostData(std::unique_ptr<std::vector<uint8_t>> data,

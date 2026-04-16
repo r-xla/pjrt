@@ -66,6 +66,9 @@ class PJRTBuffer {
   // Block until the buffer's data is ready, then check for errors
   void await();
 
+  // Copy the buffer to a different device within the same client
+  std::unique_ptr<PJRTBuffer> copy_to_device(PJRTDevice& dst_device);
+
  private:
   std::shared_ptr<PJRT_Api> api;
   PJRTEvent ready_event();

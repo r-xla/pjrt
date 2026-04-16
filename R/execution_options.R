@@ -18,7 +18,7 @@
 #'   to detect scheduling errors in multi-host programs.
 #'
 #' @return `PJRTExecuteOptions`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create default execution options
 #' opts <- pjrt_execution_options()
 #'

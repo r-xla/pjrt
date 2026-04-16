@@ -17,7 +17,7 @@ Object convertible to a \code{PJRTClient}.}
 Get the addressable devices for a PJRT client.
 }
 \examples{
-\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
 # Create client (defaults to CPU)
 client <- pjrt_client()
 devices(client)

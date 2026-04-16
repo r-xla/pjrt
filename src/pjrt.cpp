@@ -429,6 +429,44 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    Rcpp::XPtr<rpjrt::PJRTClient> dst_client, bool cross_client) {
+  std::unique_ptr<rpjrt::PJRTBuffer> new_buf;
+  if (cross_client) {
+    // Host roundtrip: device -> host bytes -> new buffer on target client
+    auto dims = buffer->dimensions();
+    auto dtype = buffer->element_type();
+    auto numel = number_of_elements(dims);
+    size_t total_bytes = numel * sizeof_pjrt_buffer_type(dtype);
+
+    std::vector<uint8_t> host_bytes(total_bytes);
+    std::span<uint8_t> host_span(host_bytes.data(), total_bytes);
+    auto event = buffer->buffer_to_host_async(host_span);
+    if (event) {
+      event->await();
+      event->check_error();
+    }
+
+    // Row-major strides so the data lands in the same layout
+    auto byte_strides =
+        get_byte_strides(dims, true, sizeof_pjrt_buffer_type(dtype));
+    auto result = dst_client->buffer_from_host_async(
+        host_bytes.data(), dims, byte_strides, dtype, device->device);
+    if (result.event) {
+      result.event->await();
+      result.event->check_error();
+    }
+    new_buf = std::move(result.buffer);
+  } else {
+    new_buf = buffer->copy_to_device(*device);
+  }
+  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(new_buf.release(), true);
+  xptr.attr("class") = "PJRTBuffer";
+  return xptr;
+}
+
+// [[Rcpp::export()]]
 std::string impl_client_platform(Rcpp::XPtr<rpjrt::PJRTClient> client) {
   return client->platform();
 }

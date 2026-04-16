@@ -24,7 +24,7 @@ Create a PJRT Device from an R object.
 }
 
 \examples{
-\dontshow{if (plugin_is_downloaded("cpu")) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded("cpu")) withAutoprint(\{ # examplesIf}
 # Show available devices for CPU client
 devices(pjrt_client("cpu"))
 # Create device 0 for CPU client

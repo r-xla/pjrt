@@ -12,7 +12,7 @@
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
 #' @return `PJRTExecutable`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create a simple program
 #' src <- r"(
 #' func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {
@@ -50,7 +50,7 @@ pjrt_compile <- function(
 #'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices.
 #'   You can also configure this via `PJRT_CPU_DEVICE_COUNT` environment variable.
 #' @return `PJRTClient`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create a client (defaults to CPU)
 #' client <- pjrt_client()
 #' client
@@ -74,7 +74,7 @@ default_client_options <- function(platform) {
 #' @param x (`PJRTClient` | `character(1)`)\cr
 #'   Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "metal").
 #' @return `PJRTClient`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Convert from platform name
 #' client <- as_pjrt_client("cpu")
 #' client
@@ -102,7 +102,7 @@ as_pjrt_client <- function(x) {
 #'   The buffer.
 #' @param ... Additional arguments (unused).
 #' @return `character(1)`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' buf <- pjrt_buffer(c(1, 2, 3))
 #' platform(buf)
 #' @export
@@ -121,7 +121,7 @@ platform.PJRTClient <- function(x, ...) {
 #' @param client ([`PJRTClient`][pjrt_client])\cr
 #'   Object convertible to a `PJRTClient`.
 #' @return `list` of `PJRTDevice`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create client (defaults to CPU)
 #' client <- pjrt_client()
 #' devices(client)
