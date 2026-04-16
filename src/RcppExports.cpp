@@ -195,14 +195,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_buffer_copy_to_device
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, Rcpp::XPtr<rpjrt::PJRTDevice> device);
-RcppExport SEXP _pjrt_impl_buffer_copy_to_device(SEXP bufferSEXP, SEXP deviceSEXP) {
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, Rcpp::XPtr<rpjrt::PJRTDevice> device, Rcpp::XPtr<rpjrt::PJRTClient> dst_client, bool cross_client);
+RcppExport SEXP _pjrt_impl_buffer_copy_to_device(SEXP bufferSEXP, SEXP deviceSEXP, SEXP dst_clientSEXP, SEXP cross_clientSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTBuffer> >::type buffer(bufferSEXP);
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_buffer_copy_to_device(buffer, device));
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTClient> >::type dst_client(dst_clientSEXP);
+    Rcpp::traits::input_parameter< bool >::type cross_client(cross_clientSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_copy_to_device(buffer, device, dst_client, cross_client));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -546,7 +548,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_loaded_executable_device", (DL_FUNC) &_pjrt_impl_loaded_executable_device, 1},
     {"_pjrt_impl_client_buffer_from_raw", (DL_FUNC) &_pjrt_impl_client_buffer_from_raw, 6},
     {"_pjrt_impl_buffer_to_raw", (DL_FUNC) &_pjrt_impl_buffer_to_raw, 3},
-    {"_pjrt_impl_buffer_copy_to_device", (DL_FUNC) &_pjrt_impl_buffer_copy_to_device, 2},
+    {"_pjrt_impl_buffer_copy_to_device", (DL_FUNC) &_pjrt_impl_buffer_copy_to_device, 4},
     {"_pjrt_impl_client_platform", (DL_FUNC) &_pjrt_impl_client_platform, 1},
     {"_pjrt_impl_client_devices", (DL_FUNC) &_pjrt_impl_client_devices, 1},
     {"_pjrt_impl_buffer_elt_type", (DL_FUNC) &_pjrt_impl_buffer_elt_type, 1},
