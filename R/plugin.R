@@ -257,6 +257,14 @@ plugin_url <- function(platform) {
     return(url)
   }
 
+  if (platform == "cuda" && !(os == "linux" && arch == "amd64")) {
+    cli_abort(c(
+      "The CUDA PJRT plugin is only available for Linux x86_64.",
+      i = "Detected platform: {.val {os}-{arch}}.",
+      i = "To override, set the {.envvar PJRT_PLUGIN_URL_CUDA} environment variable to a plugin URL, or {.envvar PJRT_PLUGIN_PATH_CUDA} to a local plugin file."
+    ))
+  }
+
   sprintf(
     "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
     zml_version,
