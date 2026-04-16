@@ -124,7 +124,7 @@ platform_cache_dir <- function(platform) {
 #' @export
 plugins_downloaded <- function(platforms = NULL) {
   platforms <- platforms %||% Sys.getenv("PJRT_PLATFORM", "cpu")
-  all(vapply(platforms, dir.exists, logical(1)))
+  all(vapply(platforms, \(p) dir.exists(platform_cache_dir(p)), logical(1)))
 }
 
 plugin_path <- function(platform) {
