@@ -874,7 +874,7 @@ describe("copy_buffer", {
     buf <- pjrt_buffer(matrix(c(1, 2, 3, 4), nrow = 2), dtype = "f32", device = "cpu:0")
     buf2 <- copy_buffer(buf, "cuda:0")
 
-    expect_equal(platform(device(buf2)), "cuda")
+    expect_equal(device(buf2), pjrt_device("cuda:0"))
     expect_equal(as_array(buf2), as_array(buf))
     expect_equal(shape(buf2), shape(buf))
     expect_equal(dtype(buf2), dtype(buf))
