@@ -25,7 +25,7 @@ This commonly includes:
 But the implementation depends on the plugin.
 }
 \examples{
-\dontshow{if (plugin_is_downloaded("cpu")) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded("cpu")) withAutoprint(\{ # examplesIf}
 plugin_attributes("cpu")
 \dontshow{\}) # examplesIf}
 }

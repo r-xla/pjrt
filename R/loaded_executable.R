@@ -25,7 +25,7 @@
 #'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBuffer`.
 #' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
 #' @seealso [await()], [is_ready()], [as_array_async()]
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create and compile a simple identity program
 #' src <- r"(
 #' func.func @main(

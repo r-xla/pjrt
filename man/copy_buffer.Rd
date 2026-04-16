@@ -21,13 +21,15 @@ A new \code{PJRTBuffer} on the target device.
 Copy a \code{\link[=pjrt_buffer]{PJRTBuffer}} to a different device.
 Returns a new buffer on the target device; the original buffer is unchanged.
 
+If the buffer already lives in the requested device, no copy is performed.
+
 When the target device belongs to a different client (e.g. copying from CPU
 to CUDA), the transfer is performed via a host roundtrip.
 }
 \examples{
-\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
-buf <- pjrt_buffer(c(1, 2, 3), device = "cpu:0")
-buf2 <- copy_buffer(buf, "cpu:1")
+\dontshow{if (plugins_downloaded(c("cpu", "cuda"))) withAutoprint(\{ # examplesIf}
+buf <- pjrt_buffer(c(1, 2, 3), device = "cpu")
+buf2 <- copy_buffer(buf, "cuda")
 device(buf2)
 \dontshow{\}) # examplesIf}
 }

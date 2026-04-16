@@ -8,7 +8,7 @@
 #' @param format (`character(1)`)
 #'   One of "mlir" or "hlo".
 #' @return `PJRTProgram`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create a program from source
 #' src <- "
 #' func.func @main(%arg0: tensor<2xf32>) -> tensor<2xf32> {

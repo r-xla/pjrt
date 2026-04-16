@@ -22,7 +22,7 @@ Use \code{value()} to get the R array (blocks if not ready).
 Use \code{is_ready()} to check if transfer has completed (non-blocking).
 }
 \examples{
-\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
 buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 result <- as_array_async(buf)
 is_ready(result)

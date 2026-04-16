@@ -65,7 +65,7 @@ check_plugin <- function(plugin) {
 #' @param platform (`character(1)`)\cr
 #'   Platform name (e.g., "cpu", "cuda", "metal").
 #' @return `PJRTPlugin`
-#' @examplesIf plugin_is_downloaded("cpu")
+#' @examplesIf plugins_downloaded("cpu")
 #' plugin <- pjrt_plugin("cpu")
 #' plugin
 #' @export
@@ -113,18 +113,18 @@ platform_cache_dir <- function(platform) {
 
 #' @title Check if Plugin is Downloaded
 #' @description
-#' Check if a plugin is downloaded.
+#' Check if one more more plugin is already downloaded.
 #'
-#' @param platform (`character(1)`)\cr
-#'   Platform name.
+#' @param platforms (`character()`)\cr
+#'   Platform names.
 #' @return `logical(1)`
-#' @examplesIf plugin_is_downloaded("cpu")
+#' @examplesIf plugins_downloaded("cpu")
 #' # Check if CPU plugin is downloaded
-#' plugin_is_downloaded("cpu")
+#' plugins_downloaded("cpu")
 #' @export
-plugin_is_downloaded <- function(platform = NULL) {
-  platform <- platform %||% Sys.getenv("PJRT_PLATFORM", "cpu")
-  dir.exists(platform_cache_dir(platform))
+plugins_downloaded <- function(platforms = NULL) {
+  platforms <- platforms %||% Sys.getenv("PJRT_PLATFORM", "cpu")
+  all(vapply(platforms, dir.exists, logical(1)))
 }
 
 plugin_path <- function(platform) {
@@ -322,7 +322,7 @@ pjrt_api_version <- function(plugin = pjrt_plugin()) {
 #' @param plugin (`PJRTPlugin` | `character(1)`)\cr
 #'   The plugin (or platform name) to get the attributes of.
 #' @return named `list()`
-#' @examplesIf plugin_is_downloaded("cpu")
+#' @examplesIf plugins_downloaded("cpu")
 #' plugin_attributes("cpu")
 #' @export
 plugin_attributes <- function(plugin) {
@@ -337,7 +337,7 @@ plugin_attributes <- function(plugin) {
 #' @param x (any)\cr
 #'   Object to convert to a PJRT plugin. Currently supports `PJRTPlugin` and `character(1)`.
 #' @return `PJRTPlugin`
-#' @examplesIf plugin_is_downloaded("cpu")
+#' @examplesIf plugins_downloaded("cpu")
 #' # Convert from platform name
 #' plugin <- as_pjrt_plugin("cpu")
 #' plugin

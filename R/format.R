@@ -6,7 +6,7 @@
 #' @template param_buffer
 #'
 #' @return `character()` A character vector containing the formatted elements.
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' buf <- pjrt_buffer(c(1.5, 2.5, 3.5))
 #' format_buffer(buf)
 #' @export

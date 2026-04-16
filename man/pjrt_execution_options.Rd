@@ -30,7 +30,7 @@ during runtime. The program also needs to specify this during compile-time
 via input-output aliasing (stableHLO attribute \code{tf.aliasing_output}).
 }
 \examples{
-\dontshow{if (plugin_is_downloaded()) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
 # Create default execution options
 opts <- pjrt_execution_options()
 

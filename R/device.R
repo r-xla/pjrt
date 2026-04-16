@@ -6,7 +6,7 @@
 #' @param device (any)\cr
 #'   The device.
 #' @return `PJRTDevice`
-#' @examplesIf plugin_is_downloaded("cpu")
+#' @examplesIf plugins_downloaded("cpu")
 #' # Show available devices for CPU client
 #' devices(pjrt_client("cpu"))
 #' # Create device 0 for CPU client

@@ -67,7 +67,7 @@ is_buffer <- function(x) {
 #'   - `row_major`: Whether to read the data in row-major format or column-major format.
 #'     R uses column-major format.
 #' @return `PJRTBuffer`
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create a buffer from a numeric vector
 #' buf <- pjrt_buffer(c(1, 2, 3, 4))
 #' buf
@@ -112,7 +112,7 @@ pjrt_buffer.PJRTBuffer <- buffer_identity
 
 
 #' @rdname pjrt_buffer
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create a scalar (0-dimensional array)
 #' scalar <- pjrt_scalar(42, dtype = "f32")
 #' scalar
@@ -128,7 +128,7 @@ pjrt_scalar.PJRTBuffer <- function(data, dtype = NULL, device = NULL, ...) {
 
 
 #' @rdname pjrt_buffer
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' # Create an empty buffer
 #' empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
 #' empty
@@ -348,7 +348,7 @@ pjrt_scalar.raw <- function(
 #' Get the element type of a buffer.
 #' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer.
-#' @examplesIf plugin_is_downloaded("cpu")
+#' @examplesIf plugins_downloaded("cpu")
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0))
 #' elt_type(buf)
 #' @export
@@ -373,7 +373,7 @@ as_array.PJRTBuffer <- function(x, ...) {
 #' @param ... Additional arguments (unused).
 #' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
 #' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()], [await()]
-#' @examplesIf plugin_is_downloaded()
+#' @examplesIf plugins_downloaded()
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 #' result <- as_array_async(buf)
 #' is_ready(result)
@@ -402,6 +402,8 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
 #' Copy a [`PJRTBuffer`][pjrt_buffer] to a different device.
 #' Returns a new buffer on the target device; the original buffer is unchanged.
 #'
+#' If the buffer already lives in the requested device, no copy is performed.
+#'
 #' When the target device belongs to a different client (e.g. copying from CPU
 #' to CUDA), the transfer is performed via a host roundtrip.
 #'
@@ -410,9 +412,9 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
 #'   The target device. A `PJRTDevice` object or a device specification
 #'   (e.g., `"cpu:0"`, `"cpu:1"`, `"cuda:0"`).
 #' @return A new `PJRTBuffer` on the target device.
-#' @examplesIf plugin_is_downloaded()
-#' buf <- pjrt_buffer(c(1, 2, 3), device = "cpu:0")
-#' buf2 <- copy_buffer(buf, "cpu:1")
+#' @examplesIf plugins_downloaded(c("cpu", "cuda"))
+#' buf <- pjrt_buffer(c(1, 2, 3), device = "cpu")
+#' buf2 <- copy_buffer(buf, "cuda")
 #' device(buf2)
 #' @export
 copy_buffer <- function(buffer, device) {

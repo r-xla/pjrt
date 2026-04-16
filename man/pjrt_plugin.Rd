@@ -24,7 +24,7 @@ Create a PJRT plugin for a specific platform.
 }
 
 \examples{
-\dontshow{if (plugin_is_downloaded("cpu")) withAutoprint(\{ # examplesIf}
+\dontshow{if (plugins_downloaded("cpu")) withAutoprint(\{ # examplesIf}
 plugin <- pjrt_plugin("cpu")
 plugin
 \dontshow{\}) # examplesIf}
