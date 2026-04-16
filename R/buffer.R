@@ -399,8 +399,11 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
 
 #' @title Copy Buffer to Device
 #' @description
-#' Copy a [`PJRTBuffer`][pjrt_buffer] to a different device within the same client.
+#' Copy a [`PJRTBuffer`][pjrt_buffer] to a different device.
 #' Returns a new buffer on the target device; the original buffer is unchanged.
+#'
+#' When the target device belongs to a different client (e.g. copying from CPU
+#' to CUDA), the transfer is performed via a host roundtrip.
 #'
 #' @template param_buffer
 #' @param device (`PJRTDevice` | `character(1)`)\cr
@@ -415,6 +418,11 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
 pjrt_copy_to_device <- function(buffer, device) {
   check_buffer(buffer)
   device <- as_pjrt_device(device)
+  if (platform(device(buffer)) != platform(device)) {
+    raw <- as_raw(buffer, row_major = TRUE)
+    return(pjrt_buffer(raw, dtype = as.character(elt_type(buffer)),
+      shape = shape(buffer), device = device, row_major = TRUE))
+  }
   impl_buffer_copy_to_device(buffer, device)
 }
 
