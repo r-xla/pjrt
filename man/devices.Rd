@@ -4,17 +4,19 @@
 \alias{devices}
 \title{Devices}
 \usage{
-devices(client = NULL)
+devices(x = NULL, ...)
 }
 \arguments{
-\item{client}{(\code{\link[=pjrt_client]{PJRTClient}})\cr
-Object convertible to a \code{PJRTClient}.}
+\item{x}{An object to get devices from: a \code{\link[=pjrt_client]{PJRTClient}},
+a \code{\link[=pjrt_compile]{PJRTLoadedExecutable}}, or \code{NULL} (default client).}
+
+\item{...}{Additional arguments (currently unused).}
 }
 \value{
 \code{list} of \code{PJRTDevice}
 }
 \description{
-Get the addressable devices for a PJRT client.
+Get the addressable devices.
 }
 \examples{
 \dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}

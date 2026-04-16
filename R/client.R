@@ -117,20 +117,30 @@ platform.PJRTClient <- function(x, ...) {
 
 #' @title Devices
 #' @description
-#' Get the addressable devices for a PJRT client.
-#' @param client ([`PJRTClient`][pjrt_client])\cr
-#'   Object convertible to a `PJRTClient`.
+#' Get the addressable devices.
+#' @param x An object to get devices from: a [`PJRTClient`][pjrt_client],
+#'   a [`PJRTLoadedExecutable`][pjrt_compile], or `NULL` (default client).
+#' @param ... Additional arguments (currently unused).
 #' @return `list` of `PJRTDevice`
 #' @examplesIf plugins_downloaded()
 #' # Create client (defaults to CPU)
 #' client <- pjrt_client()
 #' devices(client)
 #' @export
-devices <- function(client = NULL) {
-  client <- as_pjrt_client(client)
-  plat <- platform(client)
+devices <- function(x = NULL, ...) {
+  UseMethod("devices")
+}
+
+#' @export
+devices.default <- function(x = NULL, ...) {
+  devices(as_pjrt_client(x))
+}
+
+#' @export
+devices.PJRTClient <- function(x, ...) {
+  plat <- platform(x)
   if (!exists(plat, envir = the[["devices"]], inherits = FALSE)) {
-    the[["devices"]][[plat]] <- impl_client_devices(client)
+    the[["devices"]][[plat]] <- impl_client_devices(x)
   }
   the[["devices"]][[plat]]
 }

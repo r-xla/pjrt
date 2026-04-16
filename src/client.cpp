@@ -30,13 +30,29 @@ std::vector<PJRT_Device *> PJRTClient::devices() {
 std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
     const PJRTProgram &program, PJRTCompileOptions &compile_options,
     PJRTDevice &device) {
-  // Get the device's local hardware ID and set it as the device_ordinal
-  PJRT_Device_LocalHardwareId_Args hw_args{};
-  hw_args.struct_size = sizeof(PJRT_Device_LocalHardwareId_Args);
-  hw_args.device = device.device;
-  check_err(this->api.get(), this->api->PJRT_Device_LocalHardwareId_(&hw_args));
-  compile_options.compile_options.mutable_executable_build_options()
-      ->set_device_ordinal(hw_args.local_hardware_id);
+  // Set device_assignment so the executable targets the requested device.
+  // device_ordinal alone is insufficient: it uses StreamExecutor ordinals,
+  // which don't distinguish virtual CPU devices.
+  PJRT_Device_GetDescription_Args desc_args{};
+  desc_args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
+  desc_args.device = device.device;
+  check_err(this->api.get(),
+            this->api->PJRT_Device_GetDescription_(&desc_args));
+
+  PJRT_DeviceDescription_Id_Args id_args{};
+  id_args.struct_size = sizeof(PJRT_DeviceDescription_Id_Args);
+  id_args.device_description = desc_args.device_description;
+  check_err(this->api.get(), this->api->PJRT_DeviceDescription_Id_(&id_args));
+
+  auto *build_opts =
+      compile_options.compile_options.mutable_executable_build_options();
+  build_opts->set_device_ordinal(id_args.id);
+
+  auto *da = build_opts->mutable_device_assignment();
+  da->set_replica_count(build_opts->num_replicas());
+  da->set_computation_count(build_opts->num_partitions());
+  auto *cd = da->add_computation_devices();
+  cd->add_replica_device_ids(id_args.id);
 
   PJRT_Client_Compile_Args args{};
   args.struct_size = sizeof(PJRT_Client_Compile_Args);

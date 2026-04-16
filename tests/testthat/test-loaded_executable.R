@@ -238,3 +238,32 @@ func.func @main(%x: tensor<1000x1000xf32>) -> tensor<1000x1000xf32> {
   result <- pjrt_execute(executable, input)
   expect_output(print(result), "PJRTBuffer")
 })
+
+test_that("cpu devices work", {
+  src <- r"(
+func.func @main(%x: tensor<1xf32>) -> tensor<1xf32> {
+  "func.return"(%x): (tensor<1xf32>) -> ()
+}
+)"
+  dev0 <- as_pjrt_device("cpu:0")
+  dev1 <- as_pjrt_device("cpu:1")
+  progr <- pjrt_program(src)
+  exec0 <- pjrt_compile(progr, device = dev0)
+  exec1 <- pjrt_compile(progr, device = dev1)
+  expect_equal(
+    device(pjrt_execute(exec0, pjrt_buffer(1, device = dev0))),
+    dev0
+  )
+  expect_equal(
+    device(pjrt_execute(exec1, pjrt_buffer(1, device = dev1))),
+    dev1
+  )
+  expect_error(
+    pjrt_execute(exec1, pjrt_buffer(1, device = dev0)),
+    "is on device"
+  )
+  expect_error(
+    pjrt_execute(exec0, pjrt_buffer(1, device = dev1)),
+    "is on device"
+  )
+})
