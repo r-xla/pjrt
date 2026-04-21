@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">pjrt</a>
 
-    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.2.0</small>
+    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,26 @@
       <small>Source: <a href="https://github.com/r-xla/pjrt/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.3.0" id="pjrt-030">pjrt 0.3.0<a class="anchor" aria-label="anchor" href="#pjrt-030"></a></h2>
+<div class="section level3">
+<h3 id="features-0-3-0">Features<a class="anchor" aria-label="anchor" href="#features-0-3-0"></a></h3>
+<ul><li>Added <code>buffer_copy()</code> function to copy buffer between devices.</li>
+<li>New <code><a href="../reference/pjrt_register_custom_call.html">pjrt_register_custom_call()</a></code> allows external packages to register C/C++ XLA FFI handlers with the PJRT plugin. Registration is deferred until the plugin loads, so handlers can be registered during <code>.onLoad()</code>.</li>
+<li>
+<code><a href="../reference/pjrt_device.html">pjrt_device()</a></code> now returns cached <code>PJRTDevice</code> instances, so repeated calls for the same device yield objects with stable identity (useful for hashing and caching, e.g. in <code>{anvil}</code>’s JIT).</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-3-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-3-0"></a></h3>
+<ul><li>The configure script now uses the <code>protoc</code> compiler from the same installation as the linked protobuf library, preventing version mismatches when multiple protobuf versions are installed.</li>
+<li>Compiling a program for a specific CPU device (e.g. <code>cpu:1</code>) now targets that device instead of silently falling back to <code>cpu:0</code>.</li>
+<li>Fixed device targeting when compiling against a distributed PJRT client, where global device IDs and local hardware ordinals diverge.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="error-messages-0-3-0">Error messages<a class="anchor" aria-label="anchor" href="#error-messages-0-3-0"></a></h3>
+<ul><li>Improved error message when attempting to use CUDA on unsupported OS or platform.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.0" id="pjrt-020">pjrt 0.2.0<a class="anchor" aria-label="anchor" href="#pjrt-020"></a></h2>
 <div class="section level3">

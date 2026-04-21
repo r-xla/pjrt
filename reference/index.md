@@ -22,6 +22,9 @@
 - [`await()`](https://r-xla.github.io/pjrt/reference/await.md) : Await
   an async operation
 
+- [`copy_buffer()`](https://r-xla.github.io/pjrt/reference/copy_buffer.md)
+  : Copy Buffer to Device
+
 - [`devices()`](https://r-xla.github.io/pjrt/reference/devices.md) :
   Devices
 
@@ -66,6 +69,9 @@
 
   Create a `PJRTProgram`
 
+- [`pjrt_register_custom_call()`](https://r-xla.github.io/pjrt/reference/pjrt_register_custom_call.md)
+  : Register a Custom Call Handler
+
 - [`platform()`](https://r-xla.github.io/pjrt/reference/platform.md) :
   Platform Name
 
@@ -75,7 +81,7 @@
 - [`plugin_client_create()`](https://r-xla.github.io/pjrt/reference/plugin_client_create.md)
   : Create PJRT Client
 
-- [`plugin_is_downloaded()`](https://r-xla.github.io/pjrt/reference/plugin_is_downloaded.md)
+- [`plugins_downloaded()`](https://r-xla.github.io/pjrt/reference/plugins_downloaded.md)
   : Check if Plugin is Downloaded
 
 - [`print(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/reference/print.PJRTBuffer.md)

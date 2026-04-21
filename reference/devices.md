@@ -1,19 +1,26 @@
 # Devices
 
-Get the addressable devices for a PJRT client.
+Get the addressable devices.
 
 ## Usage
 
 ``` r
-devices(client = NULL)
+devices(x = NULL, ...)
 ```
 
 ## Arguments
 
-- client:
+- x:
 
-  ([`PJRTClient`](https://r-xla.github.io/pjrt/reference/pjrt_client.md))  
-  Object convertible to a `PJRTClient`.
+  An object to get devices from: a
+  [`PJRTClient`](https://r-xla.github.io/pjrt/reference/pjrt_client.md),
+  a
+  [`PJRTLoadedExecutable`](https://r-xla.github.io/pjrt/reference/pjrt_compile.md),
+  or `NULL` (default client).
+
+- ...:
+
+  Additional arguments (currently unused).
 
 ## Value
 

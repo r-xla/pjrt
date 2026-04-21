@@ -1,5 +1,35 @@
 # Changelog
 
+## pjrt 0.3.0
+
+### Features
+
+- Added `buffer_copy()` function to copy buffer between devices.
+- New
+  [`pjrt_register_custom_call()`](https://r-xla.github.io/pjrt/reference/pjrt_register_custom_call.md)
+  allows external packages to register C/C++ XLA FFI handlers with the
+  PJRT plugin. Registration is deferred until the plugin loads, so
+  handlers can be registered during `.onLoad()`.
+- [`pjrt_device()`](https://r-xla.github.io/pjrt/reference/pjrt_device.md)
+  now returns cached `PJRTDevice` instances, so repeated calls for the
+  same device yield objects with stable identity (useful for hashing and
+  caching, e.g. in `{anvil}`’s JIT).
+
+### Bug fixes
+
+- The configure script now uses the `protoc` compiler from the same
+  installation as the linked protobuf library, preventing version
+  mismatches when multiple protobuf versions are installed.
+- Compiling a program for a specific CPU device (e.g. `cpu:1`) now
+  targets that device instead of silently falling back to `cpu:0`.
+- Fixed device targeting when compiling against a distributed PJRT
+  client, where global device IDs and local hardware ordinals diverge.
+
+### Error messages
+
+- Improved error message when attempting to use CUDA on unsupported OS
+  or platform.
+
 ## pjrt 0.2.0
 
 ### Asynchronous API
