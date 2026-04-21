@@ -17,6 +17,8 @@
   protobuf versions are installed.
 * Compiling a program for a specific CPU device (e.g. `cpu:1`) now targets
   that device instead of silently falling back to `cpu:0`.
+* Fixed device targeting when compiling against a distributed PJRT client,
+  where global device IDs and local hardware ordinals diverge.
 
 ## Error messages
 
