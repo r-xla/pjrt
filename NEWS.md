@@ -1,4 +1,4 @@
-# pjrt (development version)
+# pjrt 0.3.0
 
 ## Features
 
@@ -6,6 +6,9 @@
 * New `pjrt_register_custom_call()` allows external packages to register C/C++
   XLA FFI handlers with the PJRT plugin. Registration is deferred until the
   plugin loads, so handlers can be registered during `.onLoad()`.
+* `pjrt_device()` now returns cached `PJRTDevice` instances, so repeated calls
+  for the same device yield objects with stable identity (useful for hashing
+  and caching, e.g. in `{anvil}`'s JIT).
 
 ## Bug fixes
 
@@ -14,6 +17,8 @@
   protobuf versions are installed.
 * Compiling a program for a specific CPU device (e.g. `cpu:1`) now targets
   that device instead of silently falling back to `cpu:0`.
+* Fixed device targeting when compiling against a distributed PJRT client,
+  where global device IDs and local hardware ordinals diverge.
 
 ## Error messages
 
