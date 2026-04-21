@@ -17,8 +17,6 @@
   protobuf versions are installed.
 * Compiling a program for a specific CPU device (e.g. `cpu:1`) now targets
   that device instead of silently falling back to `cpu:0`.
-* `PJRTDevice$device_ordinal` now reports the local hardware ordinal instead of
-  the global device id.
 
 ## Error messages
 
