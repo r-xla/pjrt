@@ -82,7 +82,7 @@ considerable performance benefits, especially on GPU. Specifically:
 ### Miscellaneous
 
 - The printer for `PJRTBuffer` now uses `"bool"` instead of `"pred"` to
-  avoid discrepancies with {anvil}.
+  avoid discrepancies with {anvl}.
 
 ## pjrt 0.1.1
 
