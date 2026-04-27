@@ -7,8 +7,8 @@ Authors@R: c(
     person("Daniel", "Falbel", , "daniel@posit.co", role = "aut",
            comment = c(ORCID = "https://orcid.org/0009-0006-0143-2392"))
   )
-Description: Provides an R interface to PJRT (Pretty much Just another
-    RunTime), which allows you to run XLA or stableHLO programs on a
+Description: Provides an R interface to PJRT (Pluggable Jit RunTime),
+    which allows you to run XLA or stableHLO programs on a
     variety of hardware backends including CPU, GPU, and TPU.
 License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
