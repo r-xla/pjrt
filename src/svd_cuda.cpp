@@ -26,11 +26,12 @@ namespace rpjrt {
 
 #ifndef _WIN32
 template <typename T>
-static Error svd_cuda_impl(void *stream, AnyBuffer input,
-                           Result<AnyBuffer> u_out, Result<AnyBuffer> s_out,
+static Error svd_cuda_impl(void *stream, ScratchAllocator &scratch,
+                           AnyBuffer input, Result<AnyBuffer> u_out,
+                           Result<AnyBuffer> s_out,
                            Result<AnyBuffer> vt_out) {
   Solver solver(get_gpu_libs());
-  PJRT_RETURN_IF_ERROR(solver.begin(stream));
+  PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
 
   auto dims = input.dimensions();
@@ -52,9 +53,11 @@ static Error svd_cuda_impl(void *stream, AnyBuffer input,
 
   // gesvd overwrites A. Allocate a working copy so the input buffer is
   // preserved (XLA may have aliased it elsewhere).
-  DeviceMem d_a(g);
-  PJRT_RETURN_IF_GPU_ERROR(d_a.alloc(a_bytes), "cuMemAlloc (A)");
-  PJRT_RETURN_IF_GPU_ERROR(g.memcpy_dtod(d_a.ptr, input_ptr, a_bytes, stream),
+  T *d_a;
+  PJRT_RETURN_IF_ERROR(allocate_workspace<T>(
+      scratch, static_cast<std::size_t>(m) * n, "A copy", d_a));
+  PJRT_RETURN_IF_GPU_ERROR(g.memcpy_dtod(reinterpret_cast<CUdeviceptr>(d_a),
+                                         input_ptr, a_bytes, stream),
                            "cuMemcpyDtoDAsync (input -> A)");
 
   int lwork = 0;
@@ -62,43 +65,41 @@ static Error svd_cuda_impl(void *stream, AnyBuffer input,
       CuSolver<T>::gesvd_bs(g)(solver.handle.get(), m, n, &lwork),
       "cusolverDn?gesvd_bufferSize");
 
-  DeviceMem d_work(g);
-  PJRT_RETURN_IF_ERROR(
-      allocate_workspace<T>(lwork, "cuMemAlloc (gesvd workspace)", d_work));
+  T *d_work;
+  PJRT_RETURN_IF_ERROR(allocate_workspace<T>(
+      scratch, static_cast<std::size_t>(lwork), "gesvd workspace", d_work));
 
   // jobu / jobvt are 'S' (reduced). They're typed as signed char in the
   // cuSOLVER ABI; passing the literal char works because of integer
   // promotion at the call site.
   PJRT_RETURN_IF_GPU_ERROR(
-      CuSolver<T>::gesvd(g)(solver.handle.get(), 'S', 'S', m, n,
-                            reinterpret_cast<T *>(d_a.ptr), m,
+      CuSolver<T>::gesvd(g)(solver.handle.get(), 'S', 'S', m, n, d_a, m,
                             reinterpret_cast<T *>(s_ptr),
                             reinterpret_cast<T *>(u_ptr), m,
-                            reinterpret_cast<T *>(vt_ptr), n,
-                            reinterpret_cast<T *>(d_work.ptr), lwork,
-                            /*rwork=*/nullptr,
-                            reinterpret_cast<int *>(solver.info.ptr)),
+                            reinterpret_cast<T *>(vt_ptr), n, d_work, lwork,
+                            /*rwork=*/nullptr, solver.info),
       "cusolverDn?gesvd");
 
   return Error::Success();
 }
 #endif // _WIN32
 
-static Error do_svd_cuda(void *stream, AnyBuffer input,
-                         Result<AnyBuffer> u_out, Result<AnyBuffer> s_out,
-                         Result<AnyBuffer> vt_out) {
+static Error do_svd_cuda(void *stream, ScratchAllocator scratch,
+                         AnyBuffer input, Result<AnyBuffer> u_out,
+                         Result<AnyBuffer> s_out, Result<AnyBuffer> vt_out) {
 #ifdef _WIN32
   return Error(ErrorCode::kUnimplemented,
                "CUDA SVD is not supported on Windows");
 #else
-  PJRT_DISPATCH_FLOAT(input.element_type(), svd_cuda_impl, stream, input, u_out,
-                      s_out, vt_out);
+  PJRT_DISPATCH_FLOAT(input.element_type(), svd_cuda_impl, stream, scratch,
+                      input, u_out, s_out, vt_out);
 #endif
 }
 
 XLA_FFI_DEFINE_HANDLER(svd_handler_cuda, do_svd_cuda,
                        Ffi::Bind()
                            .Ctx<PlatformStream<void *>>()
+                           .Ctx<ScratchAllocator>()
                            .Arg<AnyBuffer>()
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>()

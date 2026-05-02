@@ -71,7 +71,8 @@ For a new built-in custom call `foo`:
 The shared FFI kit -- `src/ffi_common.h`, `src/ffi_lapack.h`,
 `src/ffi_cusolver.{h,cpp}` -- holds the pieces every kernel uses (status
 macros, dtype dispatch, `dim_to_int`, the LAPACK promotion trait, the
-cuSOLVER handle pool and `DeviceMem` RAII). See section 7 below.
+cuSOLVER handle pool, and the scratch-allocator-backed `allocate_workspace`
+helper). See section 7 below.
 
 `src/Makevars.in` adds `$(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)` to the link
 line; this works on Linux/macOS/Windows out of the box. The CUDA path uses
@@ -109,13 +110,15 @@ void *get_foo_handler(void) { return (void *)foo_handler; }
 }
 ```
 
-For CUDA you also bind the platform stream so cuSOLVER can be told where to
-launch:
+For CUDA you also bind the platform stream (so cuSOLVER knows where to
+launch) and the FFI scratch allocator (where workspace and `devInfo` come
+from -- see section 6):
 
 ```c++
 XLA_FFI_DEFINE_HANDLER(foo_handler_cuda, do_foo_cuda,
                        Ffi::Bind()
                            .Ctx<PlatformStream<void *>>()
+                           .Ctx<ScratchAllocator>()
                            .Arg<AnyBuffer>()
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());
@@ -253,12 +256,17 @@ cuSOLVER runs **asynchronously** on a CUDA stream supplied by XLA. The
 handler:
 
 1. Resolves the stream from `Ctx<PlatformStream<void *>>()`.
-2. Borrows a stream-bound cuSOLVER handle from a pool.
-3. Allocates device memory for working buffers (input copy, `tau`,
-   `devInfo`, workspace).
-4. Issues async D2D memcpys / kernel launches on the stream.
-5. Returns immediately. The caller's stream synchronisation makes the work
-   visible.
+2. Resolves the FFI scratch allocator from `Ctx<ScratchAllocator>()`.
+3. Borrows a stream-bound cuSOLVER handle from a pool.
+4. Asks `ScratchAllocator` for device memory for working buffers (input
+   copy, `tau`, `devInfo`, workspace). The scratch allocator is backed by
+   XLA's BFC pool, so allocations are reused across calls and visible to
+   XLA's memory accounting -- the kernel does not call `cuMemAlloc` itself.
+5. Issues async D2D memcpys / kernel launches on the stream.
+6. Returns immediately. The caller's stream synchronisation makes the work
+   visible. `ScratchAllocator` frees its allocations when the handler
+   returns; the underlying XLA allocator stream-orders the free against the
+   work the kernel just launched.
 
 Inputs and outputs are already on the GPU; the handler only sees device
 pointers (cast `untyped_data()` to `CUdeviceptr`, an `unsigned long long`).
@@ -282,6 +290,11 @@ has to mirror the cuSOLVER and CUDA driver APIs by hand, and an opaque
 to `GpuLibs` and to the loader in `ffi_cusolver.cpp::get_gpu_libs()`, then
 expose them through a `CuSolver<T>` trait specialisation.
 
+The dlopen surface is intentionally small: cuSOLVER itself plus the few
+CUDA driver helpers cuSOLVER doesn't provide (`cuMemcpyDtoDAsync_v2`,
+`cuMemsetD8Async`). Allocation goes through `ffi::ScratchAllocator`, so
+`cuMemAlloc`/`cuMemFree` are not loaded.
+
 ### The cuSOLVER handle is stateful
 
 A `cusolverDnHandle_t` is bound to a stream by `cusolverDnSetStream`. If
@@ -301,9 +314,11 @@ call `borrow_solver_handle(g, stream, handle)`.
 ### devInfo lives on the device
 
 cuSOLVER routines take a `devInfo` pointer that must be in device memory.
-You must allocate `sizeof(int)` of device space and pass it. The value
-itself only flags illegal arguments (mirroring LAPACK's `info < 0` case),
-which the handler already validates up front via dimension checks.
+You must allocate `sizeof(int)` of device space and pass it -- the
+`Solver::begin(scratch, stream)` prologue handles this for you, so the
+kernel just reads `solver.info`. The value itself only flags illegal
+arguments (mirroring LAPACK's `info < 0` case), which the handler already
+validates up front via dimension checks.
 
 `jaxlib`'s `GeqrfImpl`/`OrgqrImpl` allocate the buffer and never read its
 value back. We do the same: don't pay for a D2H copy + sync just to check
@@ -318,10 +333,13 @@ launch-time error, matching jaxlib's getrf path.
 
 ### Status codes: check every call
 
-Every CUDA driver call (`cuMemAlloc`, `cuMemcpyDtoDAsync`, `cuMemsetD8Async`,
-`cuStreamSynchronize`) and every cuSOLVER call (including the workspace
-size queries and `cusolverDnSetStream`) returns an `int` status. Non-zero
-means failure. **Drop none of them.**
+Every CUDA driver call (`cuMemcpyDtoDAsync`, `cuMemsetD8Async`) and every
+cuSOLVER call (including the workspace size queries and
+`cusolverDnSetStream`) returns an `int` status. Non-zero means failure.
+**Drop none of them.** `ScratchAllocator::Allocate` returns
+`std::optional<void*>` instead -- `allocate_workspace<T>` translates the
+nullopt into an `Error::Internal` for you, so kernels can use
+`PJRT_RETURN_IF_ERROR` uniformly.
 
 The pattern in `ffi_cusolver.h` (used by every kernel):
 
@@ -336,9 +354,9 @@ The pattern in `ffi_cusolver.h` (used by every kernel):
   } while (0)
 ```
 
-A failed `cuMemAlloc` whose status is dropped leaves the device pointer at
-0; the next memcpy then writes through a null device pointer and corrupts
-arbitrary device state. There is no debug message, just garbage results.
+A failed memcpy or kernel launch whose status is dropped leaves the
+output buffer with garbage but produces no error -- the failure surfaces
+later as wrong numerical answers. There is no debug message.
 
 ### Workspace queries
 
@@ -348,7 +366,7 @@ as LAPACK: query, allocate, run.
 
 If you call `geqrf` and then `orgqr` on the same problem, their workspace
 sizes differ. Query both. If `orgqr_lwork <= geqrf_lwork`, reuse the
-buffer; otherwise allocate a second one. See `qr_cuda.cpp` for the
+buffer; otherwise ask `scratch` for a second one. See `qr_cuda.cpp` for the
 two-workspace pattern.
 
 ### Integer overflow on size math
@@ -385,9 +403,10 @@ size_t a_bytes = static_cast<size_t>(m) * n * sizeof(T);
 | `int` overflow on `m * n * sizeof(T)` for large matrices | Cast to `size_t` before multiplying. |
 | `int64_t` -> `int` truncation on dimension cast | `dim_to_int` with bounds check. |
 | Read `devInfo` D2H without a sync -> get the value before the kernel ran | Either don't read it, or `cuStreamSynchronize` first. |
-| `cuMemAlloc(0)` from `lwork = 0` | Guard or accept the allocation error. |
+| `scratch.Allocate(0)` from `lwork = 0` -> `nullopt`, surfaces as Error | Guard zero-sized requests, or accept the (rare) error. |
 | Handler synchronises the stream -> kills async pipelining | Don't call `cuStreamSynchronize` unless you need a host-visible result. |
-| Forgot `Ctx<PlatformStream<void *>>()` in the FFI bind -> no stream available | Add it; cuSOLVER on the default stream serialises with everything else. |
+| Forgot `Ctx<PlatformStream<void *>>()` or `Ctx<ScratchAllocator>()` in the FFI bind | Both are required for a CUDA linalg kernel; the bind order must match the function arg order. |
+| Holding a scratch pointer past handler return -> use-after-free | All scratch allocations are freed when the handler returns; never cache them in a static. |
 | `dlopen("libcusolver.so")` fails on a runtime-only CUDA install | Fall back through SONAME variants (`.so.11`, etc.) and degrade gracefully. |
 | In-place aliasing of input and output buffers | Always copy input to a working device buffer before factorising. |
 
@@ -403,7 +422,7 @@ Most of the boilerplate above is in shared headers, so a new linalg op is
 |---|---|
 | `src/ffi_common.h`    | `PJRT_RETURN_IF_ERROR`, `PJRT_DISPATCH_FLOAT`, `dim_to_int`                              |
 | `src/ffi_lapack.h`    | LAPACK Fortran extern decls (geqrf/orgqr/getrf/gesdd/syevd, plus `s*_` on non-Windows). `Lapack<T>` trait whose `::S` is the LAPACK storage type (Windows: always `double`; elsewhere: matches `T`). `lapack_check_info`. |
-| `src/ffi_cusolver.h`  | `CUdeviceptr` opaque typedef, `PJRT_RETURN_IF_GPU_ERROR`, `GpuLibs` (function-pointer table), `DeviceMem` RAII, `HandleGuard` (per-stream pool borrow), `borrow_solver_handle`, `CuSolver<T>` dispatch trait. |
+| `src/ffi_cusolver.h`  | `CUdeviceptr` opaque typedef, `PJRT_RETURN_IF_GPU_ERROR`, `GpuLibs` (function-pointer table for cuSOLVER + memcpy/memset helpers), `HandleGuard` (per-stream pool borrow), `borrow_solver_handle`, `Solver` prologue (handle + scratch-allocated `devInfo`), `allocate_workspace<T>(scratch, n_elements, name, T*&)`, `CuSolver<T>` dispatch trait. |
 | `src/ffi_cusolver.cpp`| `get_gpu_libs()` (singleton dlopen loader) and the SolverHandlePool (mutex-guarded free-list keyed by stream). Shared across all CUDA kernels. |
 
 ### What an op looks like with the kit
@@ -427,19 +446,26 @@ static Error do_qr(AnyBuffer input, Result<AnyBuffer> q_out, Result<AnyBuffer> r
 
 No `#ifdef _WIN32` in the kernel body; the trait absorbs it.
 
-The CUDA kernel is similarly slimmer because `GpuLibs`, `DeviceMem`,
-`HandleGuard`, and the pool live in `ffi_cusolver.cpp`:
+The CUDA kernel is similarly slimmer because `GpuLibs`, `Solver`,
+`HandleGuard`, and the pool live in `ffi_cusolver.cpp`. Workspace,
+`devInfo`, and the input copy all come from the FFI scratch allocator:
 
 ```cpp
 template <typename T>
-static Error qr_cuda_impl(void *stream, AnyBuffer input, ...) {
-  auto &g = get_gpu_libs();
-  if (!g.loaded) return Error::Internal("CUDA/cuSOLVER libraries not available");
-  HandleGuard handle;
-  PJRT_RETURN_IF_ERROR(borrow_solver_handle(g, stream, handle));
-  DeviceMem d_a(g), d_tau(g), d_info(g), d_work(g);
-  // ...alloc, memcpy_dtod, CuSolver<T>::geqrf(g)(handle.get(), ...) wrapped in
-  //    PJRT_RETURN_IF_GPU_ERROR...
+static Error qr_cuda_impl(void *stream, ScratchAllocator &scratch,
+                          AnyBuffer input, ...) {
+  Solver solver(get_gpu_libs());
+  PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));   // handle + devInfo
+  auto &g = solver.g;
+
+  T *d_a, *d_tau, *d_work;
+  PJRT_RETURN_IF_ERROR(allocate_workspace<T>(scratch, m * n, "A copy", d_a));
+  PJRT_RETURN_IF_ERROR(allocate_workspace<T>(scratch, k,     "tau",    d_tau));
+  // ...workspace bufferSize query...
+  PJRT_RETURN_IF_ERROR(allocate_workspace<T>(scratch, lwork, "work",   d_work));
+
+  // ...memcpy_dtod, CuSolver<T>::geqrf(g)(solver.handle.get(), ..., solver.info)
+  //    wrapped in PJRT_RETURN_IF_GPU_ERROR...
 }
 ```
 
@@ -526,12 +552,11 @@ To add a new built-in factorisation `foo`:
      `do_foo_cuda` dispatcher returns `Error::Unimplemented` on Windows.
      This keeps a single `[[Rcpp::export]] get_foo_handler_cuda()` valid
      on every platform without `#ifdef`s around the export.
-   - Borrow a handle: `HandleGuard handle; borrow_solver_handle(g, stream, handle);`
-   - `DeviceMem` for working buffers + `devInfo`. Don't read `devInfo` back
-     unless your op uses values beyond illegal-argument flagging.
-   - Workspace bufferSize, then `d_work.alloc(...)`, then the call.
-   - Every CUDA / cuSOLVER call wrapped in `PJRT_RETURN_IF_GPU_ERROR`.
-   - Bind the FFI with `.Ctx<PlatformStream<void *>>()`.
+   - Open with the `Solver` prologue: `Solver solver(get_gpu_libs()); solver.begin(scratch, stream);`. This borrows a stream-bound handle and allocates `devInfo` from `scratch`.
+   - Use `allocate_workspace<T>(scratch, n_elements, name, T*&)` for every working buffer (input copy, `tau`, workspace, anything you'd otherwise `cuMemAlloc`). Don't read `solver.info` back unless your op uses values beyond illegal-argument flagging.
+   - Workspace bufferSize, then `allocate_workspace<T>(scratch, lwork, ...)`, then the call.
+   - Every memcpy / memset / cuSOLVER call wrapped in `PJRT_RETURN_IF_GPU_ERROR`; allocate calls go through `PJRT_RETURN_IF_ERROR` (the helper translates `nullopt` into `Error::Internal`).
+   - Bind the FFI with `.Ctx<PlatformStream<void *>>().Ctx<ScratchAllocator>()` -- both are required, in that order.
 
 5. **Regenerate Rcpp wrappers**: `Rscript -e 'Rcpp::compileAttributes(".")'`.
 

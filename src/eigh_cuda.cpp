@@ -20,10 +20,11 @@ namespace rpjrt {
 
 #ifndef _WIN32
 template <typename T>
-static Error eigh_cuda_impl(void *stream, AnyBuffer input,
-                            Result<AnyBuffer> v_out, Result<AnyBuffer> w_out) {
+static Error eigh_cuda_impl(void *stream, ScratchAllocator &scratch,
+                            AnyBuffer input, Result<AnyBuffer> v_out,
+                            Result<AnyBuffer> w_out) {
   Solver solver(get_gpu_libs());
-  PJRT_RETURN_IF_ERROR(solver.begin(stream));
+  PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
 
   auto dims = input.dimensions();
@@ -54,36 +55,37 @@ static Error eigh_cuda_impl(void *stream, AnyBuffer input,
                                reinterpret_cast<const T *>(w_ptr), &lwork),
       "cusolverDn?syevd_bufferSize");
 
-  DeviceMem d_work(g);
-  PJRT_RETURN_IF_ERROR(
-      allocate_workspace<T>(lwork, "cuMemAlloc (syevd workspace)", d_work));
+  T *d_work;
+  PJRT_RETURN_IF_ERROR(allocate_workspace<T>(
+      scratch, static_cast<std::size_t>(lwork), "syevd workspace", d_work));
 
   PJRT_RETURN_IF_GPU_ERROR(
       CuSolver<T>::syevd(g)(solver.handle.get(), jobz, uplo, n,
                             reinterpret_cast<T *>(v_ptr), n,
-                            reinterpret_cast<T *>(w_ptr),
-                            reinterpret_cast<T *>(d_work.ptr), lwork,
-                            reinterpret_cast<int *>(solver.info.ptr)),
+                            reinterpret_cast<T *>(w_ptr), d_work, lwork,
+                            solver.info),
       "cusolverDn?syevd");
 
   return Error::Success();
 }
 #endif // _WIN32
 
-static Error do_eigh_cuda(void *stream, AnyBuffer input,
-                          Result<AnyBuffer> v_out, Result<AnyBuffer> w_out) {
+static Error do_eigh_cuda(void *stream, ScratchAllocator scratch,
+                          AnyBuffer input, Result<AnyBuffer> v_out,
+                          Result<AnyBuffer> w_out) {
 #ifdef _WIN32
   return Error(ErrorCode::kUnimplemented,
                "CUDA eigh is not supported on Windows");
 #else
-  PJRT_DISPATCH_FLOAT(input.element_type(), eigh_cuda_impl, stream, input,
-                      v_out, w_out);
+  PJRT_DISPATCH_FLOAT(input.element_type(), eigh_cuda_impl, stream, scratch,
+                      input, v_out, w_out);
 #endif
 }
 
 XLA_FFI_DEFINE_HANDLER(eigh_handler_cuda, do_eigh_cuda,
                        Ffi::Bind()
                            .Ctx<PlatformStream<void *>>()
+                           .Ctx<ScratchAllocator>()
                            .Arg<AnyBuffer>()
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());

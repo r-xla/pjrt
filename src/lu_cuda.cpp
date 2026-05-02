@@ -19,11 +19,11 @@ namespace rpjrt {
 
 #ifndef _WIN32
 template <typename T>
-static Error lu_cuda_impl(void *stream, AnyBuffer input,
-                          Result<AnyBuffer> lu_out,
+static Error lu_cuda_impl(void *stream, ScratchAllocator &scratch,
+                          AnyBuffer input, Result<AnyBuffer> lu_out,
                           Result<AnyBuffer> piv_out) {
   Solver solver(get_gpu_libs());
-  PJRT_RETURN_IF_ERROR(solver.begin(stream));
+  PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
 
   auto dims = input.dimensions();
@@ -48,16 +48,14 @@ static Error lu_cuda_impl(void *stream, AnyBuffer input,
                                reinterpret_cast<T *>(lu_ptr), m, &lwork),
       "cusolverDn?getrf_bufferSize");
 
-  DeviceMem d_work(g);
-  PJRT_RETURN_IF_ERROR(
-      allocate_workspace<T>(lwork, "cuMemAlloc (getrf workspace)", d_work));
+  T *d_work;
+  PJRT_RETURN_IF_ERROR(allocate_workspace<T>(
+      scratch, static_cast<std::size_t>(lwork), "getrf workspace", d_work));
 
   PJRT_RETURN_IF_GPU_ERROR(
       CuSolver<T>::getrf(g)(solver.handle.get(), m, n,
-                            reinterpret_cast<T *>(lu_ptr), m,
-                            reinterpret_cast<T *>(d_work.ptr),
-                            reinterpret_cast<int *>(piv_ptr),
-                            reinterpret_cast<int *>(solver.info.ptr)),
+                            reinterpret_cast<T *>(lu_ptr), m, d_work,
+                            reinterpret_cast<int *>(piv_ptr), solver.info),
       "cusolverDn?getrf");
 
   // devInfo is intentionally not read back: a singular matrix surfaces as
@@ -68,20 +66,21 @@ static Error lu_cuda_impl(void *stream, AnyBuffer input,
 }
 #endif // _WIN32
 
-static Error do_lu_cuda(void *stream, AnyBuffer input,
+static Error do_lu_cuda(void *stream, ScratchAllocator scratch, AnyBuffer input,
                         Result<AnyBuffer> lu_out, Result<AnyBuffer> piv_out) {
 #ifdef _WIN32
   return Error(ErrorCode::kUnimplemented,
                "CUDA LU is not supported on Windows");
 #else
-  PJRT_DISPATCH_FLOAT(input.element_type(), lu_cuda_impl, stream, input, lu_out,
-                      piv_out);
+  PJRT_DISPATCH_FLOAT(input.element_type(), lu_cuda_impl, stream, scratch,
+                      input, lu_out, piv_out);
 #endif
 }
 
 XLA_FFI_DEFINE_HANDLER(lu_handler_cuda, do_lu_cuda,
                        Ffi::Bind()
                            .Ctx<PlatformStream<void *>>()
+                           .Ctx<ScratchAllocator>()
                            .Arg<AnyBuffer>()
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());

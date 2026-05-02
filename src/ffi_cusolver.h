@@ -3,6 +3,12 @@
 // without a CUDA install. Mirrors the role of jaxlib/gpu/solver_kernels_ffi.cc
 // + jaxlib/gpu/solver_handle_pool.cc, adapted to a runtime-link-only model.
 //
+// Workspace, devInfo, and per-call working buffers are allocated through XLA's
+// ffi::ScratchAllocator (BFC-pool-backed, integrated with XLA's memory
+// accounting). The dlopen surface only covers cuSOLVER itself plus the
+// memcpy/memset/sync helpers cuSOLVER doesn't provide; raw cuMemAlloc/cuMemFree
+// are no longer needed.
+//
 // Only the non-Windows half is meaningful; on Windows there is no CUDA, and
 // dlopen is POSIX-only.
 #pragma once
@@ -88,28 +94,15 @@ struct GpuLibs {
   int (*d_syevd)(void *, int, int, int, double *, int, double *, double *, int,
                  int *);
 
-  // CUDA driver.
-  int (*mem_alloc)(CUdeviceptr *, std::size_t);
-  int (*mem_free)(CUdeviceptr);
+  // CUDA driver helpers. Allocation goes through ffi::ScratchAllocator, but
+  // memcpy / memset / stream-sync still need driver entry points.
   int (*memcpy_dtod)(CUdeviceptr, CUdeviceptr, std::size_t, void *);
   int (*memset_d8)(CUdeviceptr, unsigned char, std::size_t, void *);
-  int (*stream_sync)(void *);
 
   bool loaded = false;
 };
 
 GpuLibs &get_gpu_libs();
-
-// RAII wrapper for cuMemAlloc'd device memory.
-struct DeviceMem {
-  CUdeviceptr ptr = 0;
-  GpuLibs &g;
-  explicit DeviceMem(GpuLibs &g) : g(g) {}
-  ~DeviceMem();
-  DeviceMem(const DeviceMem &) = delete;
-  DeviceMem &operator=(const DeviceMem &) = delete;
-  int alloc(std::size_t bytes);
-};
 
 // Borrowed cuSOLVER handle, returned to the per-stream pool on destruction.
 class HandleGuard {
@@ -133,30 +126,39 @@ xla::ffi::Error borrow_solver_handle(GpuLibs &g, void *stream,
                                      HandleGuard &out);
 
 // Bundled prologue for a CUDA linalg kernel: a borrowed cuSOLVER handle on
-// `stream`, plus a pre-allocated device `int` for `devInfo` (every cuSOLVER
-// routine wants one). All four built-in linalg kernels open with the same
-// three steps -- loaded-check, handle borrow, info alloc -- and `Solver`
-// rolls them into one initialiser. `g` and `info` mirror the shape of
-// jaxlib's GeqrfImpl prologue (cf. solver_kernels_ffi.cc).
+// `stream`, plus a scratch-allocated device `int` for `devInfo` (every
+// cuSOLVER routine wants one). All four built-in linalg kernels open with the
+// same three steps -- loaded-check, handle borrow, info alloc -- and `Solver`
+// rolls them into one initialiser.
+//
+// `info` is owned by the caller's ScratchAllocator and freed when the FFI
+// handler returns. Mirrors jaxlib's GeqrfImpl prologue in
+// solver_kernels_ffi.cc (which also threads ScratchAllocator through every
+// solver kernel).
 struct Solver {
   GpuLibs &g;
   HandleGuard handle;
-  DeviceMem info;
-  explicit Solver(GpuLibs &g) : g(g), info(g) {}
+  int *info = nullptr;
+  explicit Solver(GpuLibs &g) : g(g) {}
 
-  // Borrow a handle for `stream` and allocate devInfo. Call once per
-  // kernel invocation, before any cuSOLVER calls.
-  xla::ffi::Error begin(void *stream);
+  // Borrow a handle for `stream` and allocate devInfo from `scratch`. Call
+  // once per kernel invocation, before any cuSOLVER calls.
+  xla::ffi::Error begin(xla::ffi::ScratchAllocator &scratch, void *stream);
 };
 
-// Allocate `lwork * sizeof(T)` bytes of device memory into `out`, with a
-// site-name annotation. Centralises the int -> size_t widening so each
-// kernel doesn't open-code it per workspace.
+// Allocate `n_elements * sizeof(T)` bytes from `scratch`, with a site-name
+// annotation. Centralises the size widening and the optional -> Error
+// translation so each kernel doesn't open-code it per workspace.
 template <typename T>
-xla::ffi::Error allocate_workspace(int lwork, const char *name,
-                                   DeviceMem &out) {
-  std::size_t bytes = static_cast<std::size_t>(lwork) * sizeof(T);
-  PJRT_RETURN_IF_GPU_ERROR(out.alloc(bytes), name);
+xla::ffi::Error allocate_workspace(xla::ffi::ScratchAllocator &scratch,
+                                   std::size_t n_elements, const char *name,
+                                   T *&out) {
+  auto p = scratch.Allocate(n_elements * sizeof(T));
+  if (!p.has_value()) {
+    return xla::ffi::Error::Internal(std::string(name) +
+                                     " scratch allocation failed");
+  }
+  out = static_cast<T *>(*p);
   return xla::ffi::Error::Success();
 }
 

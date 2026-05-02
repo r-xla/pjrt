@@ -1,7 +1,8 @@
-// Implementation of the shared cuSOLVER infrastructure: dlopen-based loader,
-// device-memory RAII, and a per-stream handle pool. All cuSOLVER-backed
-// kernels (qr, lu, svd, eigh) use these singletons so they share one set of
-// loaded function pointers and one handle pool.
+// Implementation of the shared cuSOLVER infrastructure: dlopen-based loader
+// and a per-stream handle pool. All cuSOLVER-backed kernels (qr, lu, svd,
+// eigh) use these singletons so they share one set of loaded function
+// pointers and one handle pool. Device-memory allocation goes through XLA's
+// ffi::ScratchAllocator, not via this loader.
 #include "ffi_cusolver.h"
 
 #ifndef _WIN32
@@ -77,24 +78,13 @@ GpuLibs &get_gpu_libs() {
   g.s_syevd = load_sym<decltype(g.s_syevd)>(cusolver, "cusolverDnSsyevd");
   g.d_syevd = load_sym<decltype(g.d_syevd)>(cusolver, "cusolverDnDsyevd");
 
-  g.mem_alloc = load_sym<decltype(g.mem_alloc)>(cuda, "cuMemAlloc_v2");
-  g.mem_free = load_sym<decltype(g.mem_free)>(cuda, "cuMemFree_v2");
   g.memcpy_dtod =
       load_sym<decltype(g.memcpy_dtod)>(cuda, "cuMemcpyDtoDAsync_v2");
   g.memset_d8 = load_sym<decltype(g.memset_d8)>(cuda, "cuMemsetD8Async");
-  g.stream_sync =
-      load_sym<decltype(g.stream_sync)>(cuda, "cuStreamSynchronize");
 
   g.loaded = true;
   return g;
 }
-
-DeviceMem::~DeviceMem() {
-  if (ptr)
-    g.mem_free(ptr);
-}
-
-int DeviceMem::alloc(std::size_t bytes) { return g.mem_alloc(&ptr, bytes); }
 
 // Per-stream cuSOLVER handle pool.
 //
@@ -170,11 +160,14 @@ Error borrow_solver_handle(GpuLibs &g, void *stream, HandleGuard &out) {
   return Error::Success();
 }
 
-Error Solver::begin(void *stream) {
+Error Solver::begin(ScratchAllocator &scratch, void *stream) {
   if (!g.loaded)
     return Error::Internal("CUDA/cuSOLVER libraries not available");
   PJRT_RETURN_IF_ERROR(borrow_solver_handle(g, stream, handle));
-  PJRT_RETURN_IF_GPU_ERROR(info.alloc(sizeof(int)), "cuMemAlloc (devInfo)");
+  auto p = scratch.Allocate(sizeof(int));
+  if (!p.has_value())
+    return Error::Internal("scratch allocation failed (devInfo)");
+  info = static_cast<int *>(*p);
   return Error::Success();
 }
 
