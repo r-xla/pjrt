@@ -1,0 +1,589 @@
+---
+title: "Adding custom calls backed by LAPACK and cuSOLVER"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Adding custom calls backed by LAPACK and cuSOLVER}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+Some operations -- QR, LU, Cholesky, SVD, eigendecomposition -- cannot be
+expressed directly in StableHLO. pjrt provides them as **built-in custom
+calls**: C++ FFI handlers registered with the runtime under well-known
+target names (`qr`, `lu`, `svd`, `eigh`). Downstream packages (anvl, future
+bindings) invoke them via `stablehlo.custom_call @<target>(...)` without
+having to ship their own LAPACK linkage.
+
+This document describes how to add a new built-in custom call with two
+backends: a host (LAPACK) implementation and a CUDA (cuSOLVER)
+implementation. The existing implementations (`src/qr.cpp`+`qr_cuda.cpp`,
+`src/lu.cpp`+`lu_cuda.cpp`, `src/svd.cpp`+`svd_cuda.cpp`,
+`src/eigh.cpp`+`eigh_cuda.cpp`) plus the shared FFI kit
+(`src/ffi_common.h`, `src/ffi_lapack.h`, `src/ffi_cusolver.{h,cpp}`) are
+the reference; this doc generalises them.
+
+---
+
+## 1. End-to-end wiring
+
+```
+   downstream package (e.g. anvl)
+       │
+       │  emits stablehlo.custom_call @foo(operand) {...}
+       ▼
+   StableHLO program with a custom_call op
+       │
+       │  XLA compiler keeps custom_call as-is, links it to a handler
+       ▼
+   PJRT runtime
+       │
+       │  looks up "foo" in the registered-handlers table
+       ▼
+   FFI handler (XLA_FFI_DEFINE_HANDLER) in src/foo.cpp / src/foo_cuda.cpp
+       │
+       │  calls LAPACK or cuSOLVER, writes outputs to provided buffers
+       ▼
+   Outputs returned to the caller
+```
+
+Handlers are registered from pjrt's own `R/zzz.R` (alongside `print_tensor`)
+via `pjrt_register_custom_call` with a per-platform map (`host`, `cuda`).
+The `call_target_name` used by the downstream package (e.g. `"qr"`) must
+match the name passed to the registration call.
+
+---
+
+## 2. Files you will touch
+
+For a new built-in custom call `foo`:
+
+| File | What goes here |
+|---|---|
+| `src/ffi_lapack.h` | LAPACK extern decl for the new routine + `Lapack<T>::foo` method on each precision specialisation |
+| `src/foo.cpp` | Host (LAPACK) FFI handler + `[[Rcpp::export]] get_foo_handler()` |
+| `src/ffi_cusolver.h` | New cuSOLVER function pointers in `GpuLibs` + `CuSolver<T>::foo` accessor |
+| `src/ffi_cusolver.cpp` | Load the new symbols inside `get_gpu_libs()` |
+| `src/foo_cuda.cpp` | CUDA (cuSOLVER) FFI handler + `[[Rcpp::export]] get_foo_handler_cuda()` |
+| `R/zzz.R` | Register the handler pair with PJRT inside `.onLoad` |
+| `tests/testthat/test-linalg.R` | Property tests against base R / `solve()` / `eigen()` etc. |
+
+The shared FFI kit -- `src/ffi_common.h`, `src/ffi_lapack.h`,
+`src/ffi_cusolver.{h,cpp}` -- holds the pieces every kernel uses (status
+macros, dtype dispatch, `dim_to_int`, the LAPACK promotion trait, the
+cuSOLVER handle pool and `DeviceMem` RAII). See section 7 below.
+
+`src/Makevars.in` adds `$(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)` to the link
+line; this works on Linux/macOS/Windows out of the box. The CUDA path uses
+`dlopen` and needs no extra link flags.
+
+Don't forget to run `Rscript -e 'Rcpp::compileAttributes(".")'` after
+adding new `[[Rcpp::export]]` getters.
+
+---
+
+## 3. The FFI handler signature
+
+XLA's FFI binds typed contexts and buffers. A typical handler with one input
+matrix and two outputs looks like this:
+
+```c++
+#include "xla/ffi/api/ffi.h"
+using namespace xla::ffi;
+
+static Error do_foo(AnyBuffer input,
+                    Result<AnyBuffer> out_a,
+                    Result<AnyBuffer> out_b) {
+  // ...
+  return Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(foo_handler, do_foo,
+                       Ffi::Bind()
+                           .Arg<AnyBuffer>()    // input
+                           .Ret<AnyBuffer>()    // first output
+                           .Ret<AnyBuffer>());  // second output
+
+extern "C" {
+void *get_foo_handler(void) { return (void *)foo_handler; }
+}
+```
+
+For CUDA you also bind the platform stream so cuSOLVER can be told where to
+launch:
+
+```c++
+XLA_FFI_DEFINE_HANDLER(foo_handler_cuda, do_foo_cuda,
+                       Ffi::Bind()
+                           .Ctx<PlatformStream<void *>>()
+                           .Arg<AnyBuffer>()
+                           .Ret<AnyBuffer>()
+                           .Ret<AnyBuffer>());
+```
+
+`AnyBuffer` exposes `untyped_data()`, `element_type()`, `dimensions()`, and
+`size_bytes()`. `Result<AnyBuffer>` wraps an output buffer; dereference with
+`(*out).untyped_data()`.
+
+---
+
+## 4. Buffer layout: column-major
+
+LAPACK and cuSOLVER both use **column-major** (Fortran) layout. XLA defaults
+to row-major, so the StableHLO rule must override layouts on the
+`hlo_custom_call`:
+
+```r
+stablehlo::hlo_custom_call(
+  operand,
+  call_target_name = "foo",
+  api_version = 4L,
+  output_types = list(q_type, r_type),
+  operand_layouts = list(col_major_layout(2L)),
+  result_layouts = list(col_major_layout(2L), col_major_layout(2L))
+)
+```
+
+`col_major_layout(ndim)` returns `c(0L, 1L, ..., ndim-1L)` (minor-to-major
+ordering). With these layouts in place, XLA materialises the buffers in
+column-major order on entry to the handler, and reads them column-major on
+exit. **The handler does not transpose**; it reads/writes directly in
+LAPACK-native layout.
+
+If you forget the layout overrides, the data will silently appear transposed
+to LAPACK and you will get wrong answers (no error).
+
+---
+
+## 5. The host (LAPACK) backend
+
+### Execution model
+
+LAPACK runs synchronously on the host. The handler:
+
+1. Reads dimensions from `input.dimensions()` (an `int64_t` span).
+2. Copies the input to a writable working buffer (LAPACK overwrites in
+   place).
+3. Calls the workspace-query form of the routine to learn `lwork`.
+4. Allocates `work` of size `lwork`.
+5. Calls the routine for real.
+6. Copies/zeroes the relevant slices into the output buffers.
+
+There is no async / no streams. The handler returns when the work is done.
+
+### LAPACK calling convention
+
+LAPACK is Fortran. Every argument is by pointer, names are lowercased with a
+trailing underscore, and the leading dimension `lda` must be passed
+explicitly:
+
+```c++
+extern "C" {
+void dgeqrf_(const int *m, const int *n, double *a, const int *lda,
+             double *tau, double *work, const int *lwork, int *info);
+}
+```
+
+The workspace-query idiom:
+
+```c++
+int lwork = -1;          // sentinel: don't compute, just return optimal lwork
+double work_size;
+int info;
+dgeqrf_(&m, &n, a.data(), &m, tau.data(), &work_size, &lwork, &info);
+if (info != 0) return Error::Internal("workspace query failed");
+
+lwork = static_cast<int>(work_size);
+std::vector<double> work(lwork);
+dgeqrf_(&m, &n, a.data(), &m, tau.data(), work.data(), &lwork, &info);
+if (info != 0) return Error::Internal("geqrf failed");
+```
+
+Always check `info` after every call. `info < 0` means an illegal argument
+at position `|info|`; `info > 0` is routine-specific (e.g. for `dpotrf`,
+the leading minor that's not positive definite).
+
+### Windows: f32 promotion
+
+R on Windows ships its own `Rlapack.dll`, which contains **only
+double-precision** routines. There is no `sgeqrf_`, `sorgqr_`, etc. On
+macOS and Linux, R links against system LAPACK (Accelerate, OpenBLAS, MKL)
+which has both precisions.
+
+The `Lapack<T>` trait in `src/ffi_lapack.h` absorbs this asymmetry. Each
+specialisation exposes a typedef `::S` that is the precision actually
+handed to the LAPACK call:
+
+| target           | `Lapack<float>::S` | `Lapack<double>::S` |
+|---|---|---|
+| Linux / macOS    | `float`            | `double`            |
+| Windows          | `double`           | `double`            |
+
+A kernel writes:
+
+```c++
+using S = typename Lapack<T>::S;
+std::vector<S> a(...);              // promoted copy of input
+Lapack<T>::geqrf(&m, &n, a.data(), ...);
+// ... cast outputs back to T at the boundary
+```
+
+and gets the right behaviour on both platforms with no `#ifdef` in the
+kernel body. See `src/qr.cpp` for the full pattern.
+
+### What can go wrong (host)
+
+| Failure mode | Mitigation |
+|---|---|
+| Forgot `operand_layouts` / `result_layouts` -> data appears transposed | Always set both in the StableHLO rule. |
+| Skipped workspace query -> `info = -7` (illegal lwork) | Always do the two-call query/run pattern. |
+| Wrote results to a stack buffer and `memcpy`'d -> stack overflow on big inputs | Use `std::vector<T>` (heap). |
+| `info` not checked -> garbage outputs, no error | Check `info` after every LAPACK call. |
+| Used `int64_t` for `m`/`n` -> mismatch with LAPACK's `int` | LAPACK takes `const int *`; cast and check overflow. |
+| f32 on Windows -> link error, undefined symbol | Use the `Lapack<T>::S` trait; never call `s*_` directly outside `ffi_lapack.h`. |
+| Aliased input/output buffers -> garbled output | Always copy input to a working buffer (LAPACK overwrites in place). |
+
+---
+
+## 6. The CUDA (cuSOLVER) backend
+
+### Execution model
+
+cuSOLVER runs **asynchronously** on a CUDA stream supplied by XLA. The
+handler:
+
+1. Resolves the stream from `Ctx<PlatformStream<void *>>()`.
+2. Borrows a stream-bound cuSOLVER handle from a pool.
+3. Allocates device memory for working buffers (input copy, `tau`,
+   `devInfo`, workspace).
+4. Issues async D2D memcpys / kernel launches on the stream.
+5. Returns immediately. The caller's stream synchronisation makes the work
+   visible.
+
+Inputs and outputs are already on the GPU; the handler only sees device
+pointers (cast `untyped_data()` to `CUdeviceptr`, an `unsigned long long`).
+Do not synchronise. Do not memcpy to/from host unless you have to.
+
+### Why dlopen instead of linking against CUDA
+
+`src/ffi_cusolver.cpp` uses `dlopen("libcusolver.so", ...)` and looks up
+symbols with `dlsym`. The reasons:
+
+- The R package can be built without the CUDA SDK headers being present.
+- Users who don't have CUDA installed get a clean fallback (the handler
+  registration in `R/zzz.R` returns `NULL` and CUDA execution silently
+  isn't available) instead of a hard load-time link error.
+- The cuSOLVER SONAME varies by CUDA version (`.so.11` for CUDA 11+12 at
+  the time of writing). Probe a list of candidates.
+
+The trade-off: the function-pointer table (`GpuLibs` in `ffi_cusolver.h`)
+has to mirror the cuSOLVER and CUDA driver APIs by hand, and an opaque
+`CUdeviceptr` typedef stands in for the real one. New ops add their entries
+to `GpuLibs` and to the loader in `ffi_cusolver.cpp::get_gpu_libs()`, then
+expose them through a `CuSolver<T>` trait specialisation.
+
+### The cuSOLVER handle is stateful
+
+A `cusolverDnHandle_t` is bound to a stream by `cusolverDnSetStream`. If
+two FFI calls share a handle but issue work on different streams, the
+second call's `cusolverDnSetStream` rebinds the handle while the first
+call's launches are still in flight, and they may end up on the wrong
+stream. **A single shared handle is unsafe under concurrent execution**.
+
+The fix, mirroring `jaxlib/gpu/solver_handle_pool.cc`: keep a
+mutex-guarded free-list of handles **per stream**. Borrow a handle (create
+one if the list is empty), call `SetStream`, use it, return it on scope
+exit. Because the handle is keyed by stream, the bind is idempotent and
+no race exists. See `ffi_cusolver.cpp::SolverHandlePool` and
+`borrow_solver_handle`. Kernels just declare a `HandleGuard handle;` and
+call `borrow_solver_handle(g, stream, handle)`.
+
+### devInfo lives on the device
+
+cuSOLVER routines take a `devInfo` pointer that must be in device memory.
+You must allocate `sizeof(int)` of device space and pass it. The value
+itself only flags illegal arguments (mirroring LAPACK's `info < 0` case),
+which the handler already validates up front via dimension checks.
+
+`jaxlib`'s `GeqrfImpl`/`OrgqrImpl` allocate the buffer and never read its
+value back. We do the same: don't pay for a D2H copy + sync just to check
+something we already validated. Keep the allocation, skip the read-back.
+
+If you implement a routine where `devInfo` carries information beyond
+illegal-argument (e.g. `geqrfBatched`'s per-batch status, or `getrf`'s
+zero-pivot row), you do need to read it back -- and that requires a D2H
+memcpy + stream sync. `lu_cuda.cpp` deliberately does NOT do this; a
+singular factor surfaces as numerical garbage downstream rather than a
+launch-time error, matching jaxlib's getrf path.
+
+### Status codes: check every call
+
+Every CUDA driver call (`cuMemAlloc`, `cuMemcpyDtoDAsync`, `cuMemsetD8Async`,
+`cuStreamSynchronize`) and every cuSOLVER call (including the workspace
+size queries and `cusolverDnSetStream`) returns an `int` status. Non-zero
+means failure. **Drop none of them.**
+
+The pattern in `ffi_cusolver.h` (used by every kernel):
+
+```c++
+#define PJRT_RETURN_IF_GPU_ERROR(expr, what)                              \
+  do {                                                                    \
+    int _status = (expr);                                                 \
+    if (_status != 0) {                                                   \
+      return Error::Internal(std::string(what) + " failed with status = " \
+                             + std::to_string(_status));                  \
+    }                                                                     \
+  } while (0)
+```
+
+A failed `cuMemAlloc` whose status is dropped leaves the device pointer at
+0; the next memcpy then writes through a null device pointer and corrupts
+arbitrary device state. There is no debug message, just garbage results.
+
+### Workspace queries
+
+cuSOLVER routines have a `_bufferSize` companion (`cusolverDnSgeqrf_bufferSize`,
+etc.) that returns the optimal `lwork` for given dimensions. Same pattern
+as LAPACK: query, allocate, run.
+
+If you call `geqrf` and then `orgqr` on the same problem, their workspace
+sizes differ. Query both. If `orgqr_lwork <= geqrf_lwork`, reuse the
+buffer; otherwise allocate a second one. See `qr_cuda.cpp` for the
+two-workspace pattern.
+
+### Integer overflow on size math
+
+Dimensions arrive as `int64_t` from `input.dimensions()`, and cuSOLVER's
+API takes `int`. For a 50000x50000 matrix, byte offsets like `j * m *
+sizeof(T)` overflow `int` long before being widened to `size_t`.
+
+Two guards, mirroring `jaxlib`'s `MaybeCastNoOverflow`:
+
+```c++
+static Error dim_to_int(int64_t v, const char *name, int &out) {
+  if (v < 0 || v > std::numeric_limits<int>::max()) {
+    return Error::InvalidArgument(std::string(name) + " out of int range");
+  }
+  out = static_cast<int>(v);
+  return Error::Success();
+}
+```
+
+And `static_cast<size_t>(...)` on at least one operand of every byte-size
+computation:
+
+```c++
+size_t a_bytes = static_cast<size_t>(m) * n * sizeof(T);
+```
+
+### What can go wrong (CUDA)
+
+| Failure mode | Mitigation |
+|---|---|
+| Status code dropped -> silent garbage outputs | `PJRT_RETURN_IF_GPU_ERROR` on every call. |
+| Shared handle + per-call `SetStream` -> race when called from multiple streams | Per-stream handle pool with mutex. |
+| `int` overflow on `m * n * sizeof(T)` for large matrices | Cast to `size_t` before multiplying. |
+| `int64_t` -> `int` truncation on dimension cast | `dim_to_int` with bounds check. |
+| Read `devInfo` D2H without a sync -> get the value before the kernel ran | Either don't read it, or `cuStreamSynchronize` first. |
+| `cuMemAlloc(0)` from `lwork = 0` | Guard or accept the allocation error. |
+| Handler synchronises the stream -> kills async pipelining | Don't call `cuStreamSynchronize` unless you need a host-visible result. |
+| Forgot `Ctx<PlatformStream<void *>>()` in the FFI bind -> no stream available | Add it; cuSOLVER on the default stream serialises with everything else. |
+| `dlopen("libcusolver.so")` fails on a runtime-only CUDA install | Fall back through SONAME variants (`.so.11`, etc.) and degrade gracefully. |
+| In-place aliasing of input and output buffers | Always copy input to a working device buffer before factorising. |
+
+---
+
+## 7. The shared FFI kit
+
+Most of the boilerplate above is in shared headers, so a new linalg op is
+~80 lines of host kernel + ~80 lines of CUDA kernel rather than the ~250 +
+~400 the original QR implementation needed.
+
+| Header                | Owns                                                                                     |
+|---|---|
+| `src/ffi_common.h`    | `PJRT_RETURN_IF_ERROR`, `PJRT_DISPATCH_FLOAT`, `dim_to_int`                              |
+| `src/ffi_lapack.h`    | LAPACK Fortran extern decls (geqrf/orgqr/getrf/gesdd/syevd, plus `s*_` on non-Windows). `Lapack<T>` trait whose `::S` is the LAPACK storage type (Windows: always `double`; elsewhere: matches `T`). `lapack_check_info`. |
+| `src/ffi_cusolver.h`  | `CUdeviceptr` opaque typedef, `PJRT_RETURN_IF_GPU_ERROR`, `GpuLibs` (function-pointer table), `DeviceMem` RAII, `HandleGuard` (per-stream pool borrow), `borrow_solver_handle`, `CuSolver<T>` dispatch trait. |
+| `src/ffi_cusolver.cpp`| `get_gpu_libs()` (singleton dlopen loader) and the SolverHandlePool (mutex-guarded free-list keyed by stream). Shared across all CUDA kernels. |
+
+### What an op looks like with the kit
+
+The QR host kernel collapses to one template:
+
+```cpp
+template <typename T>
+static Error qr_impl(AnyBuffer input, Result<AnyBuffer> q_out,
+                     Result<AnyBuffer> r_out) {
+  using S = typename Lapack<T>::S;          // f32 on Linux/macOS, double on Windows
+  // ...dim_to_int, copy input -> std::vector<S>, workspace query, geqrf, orgqr...
+  Lapack<T>::geqrf(&m, &n, a.data(), &m, tau.data(), work.data(), &lwork, &info);
+  PJRT_RETURN_IF_ERROR(lapack_check_info(info, "geqrf"));
+  // ...
+}
+static Error do_qr(AnyBuffer input, Result<AnyBuffer> q_out, Result<AnyBuffer> r_out) {
+  PJRT_DISPATCH_FLOAT(input.element_type(), qr_impl, input, q_out, r_out);
+}
+```
+
+No `#ifdef _WIN32` in the kernel body; the trait absorbs it.
+
+The CUDA kernel is similarly slimmer because `GpuLibs`, `DeviceMem`,
+`HandleGuard`, and the pool live in `ffi_cusolver.cpp`:
+
+```cpp
+template <typename T>
+static Error qr_cuda_impl(void *stream, AnyBuffer input, ...) {
+  auto &g = get_gpu_libs();
+  if (!g.loaded) return Error::Internal("CUDA/cuSOLVER libraries not available");
+  HandleGuard handle;
+  PJRT_RETURN_IF_ERROR(borrow_solver_handle(g, stream, handle));
+  DeviceMem d_a(g), d_tau(g), d_info(g), d_work(g);
+  // ...alloc, memcpy_dtod, CuSolver<T>::geqrf(g)(handle.get(), ...) wrapped in
+  //    PJRT_RETURN_IF_GPU_ERROR...
+}
+```
+
+---
+
+## 8. Per-op cheatsheet
+
+### LU (`?getrf` / `cusolverDn?getrf`)
+
+- No LAPACK workspace argument (pivoting is in-place); cuSOLVER does have a
+  bufferSize companion.
+- Outputs: `LU` (m, n) packed (L strict-lower with implicit unit diagonal,
+  U on/above), `pivots` (k = min(m, n)) **int32**, 1-based row swaps.
+- `info > 0` from getrf means a pivot was zero (singular). We surface that
+  as an Internal error on the host. On CUDA `devInfo` lives in device
+  memory and we do not read it back -- a singular factor degrades
+  numerically downstream rather than raising a stream-time error. (Matches
+  jaxlib's `LuDecomposition` behaviour.)
+- Reference: `src/lu.cpp`, `src/lu_cuda.cpp`.
+
+### SVD (`?gesdd` host / `cusolverDn?gesvd` CUDA)
+
+- Host uses `gesdd` (divide-and-conquer): faster than `gesvd` for medium
+  and large matrices, what jaxlib uses too. Needs `iwork` of size `8*k`
+  alongside the real workspace.
+- `jobz = 'S'`: reduced ("economy") SVD. Outputs are `U (m, k)`, `S (k,)`,
+  `Vt (k, n)` with `k = min(m, n)`.
+- **CUDA limitation: cuSOLVER's `gesvd` requires `m >= n`.** The wide case
+  (`m < n`) returns `InvalidArgument` -- the user can SVD the transpose
+  and swap U <-> V. Jax has the same restriction unless you switch to
+  `gesvdj`/`gesvdr`. The host backend handles any shape.
+- `cusolverDn?gesvd_bufferSize` does **not** take `jobu`/`jobvt` -- the
+  reported workspace is the worst case. Just call it with `(handle, m, n,
+  &lwork)`.
+- `rwork` is unused for real precisions: pass `nullptr`.
+- `jobu` / `jobvt` are `signed char` in the cuSOLVER ABI; passing the
+  literal `'S'` works thanks to integer promotion at the call site.
+- Reference: `src/svd.cpp`, `src/svd_cuda.cpp`.
+
+### Symmetric eigh (`?syevd` / `cusolverDn?syevd`)
+
+- We always compute eigenvectors (`jobz = 'V'`/`= 1`) and read the lower
+  triangle (`uplo = 'L'`/`= 0`). For values-only the user can drop V.
+- LAPACK `syevd` needs **two** workspaces: the real `work` and an
+  integer `iwork`. Both are queried with `lwork = -1` / `liwork = -1`,
+  reading from `work[0]` / `iwork[0]`. Easy to forget the second one.
+- cuSOLVER takes `jobz` and `uplo` as `int` enums (`1` and `0` for our
+  choice) rather than chars.
+- Outputs: `V (n, n)` (eigenvectors as columns, orthonormal), `W (n,)`
+  (eigenvalues in **ascending** order). Note that R's `eigen()` returns
+  descending order -- if you want to match it, reverse W and the columns
+  of V.
+- Reference: `src/eigh.cpp`, `src/eigh_cuda.cpp`.
+
+---
+
+## 9. Putting it together: a recipe (pjrt side)
+
+To add a new built-in factorisation `foo`:
+
+1. **Add LAPACK extern decls** to `src/ffi_lapack.h` (both `d` and `s`, the
+   latter under `#ifndef _WIN32`) and a `Lapack<T>::foo` method on each
+   specialisation. No `#ifdef` in the per-op kernel afterwards.
+
+2. **Write the host kernel** in `src/foo.cpp`:
+   - `template <typename T> static Error foo_impl(...)` using
+     `using S = typename Lapack<T>::S;`.
+   - Copy input -> `std::vector<S>`, workspace query (if applicable), run,
+     extract outputs. `PJRT_RETURN_IF_ERROR(lapack_check_info(...))` after
+     each LAPACK call.
+   - `static Error do_foo(...) { PJRT_DISPATCH_FLOAT(et, foo_impl, ...); }`.
+   - `XLA_FFI_DEFINE_HANDLER(foo_handler, do_foo, ...)` inside
+     `namespace rpjrt`.
+   - At the bottom of the file, outside `namespace rpjrt`, expose
+     `// [[Rcpp::export]] SEXP get_foo_handler() { ... }`.
+
+3. **Add cuSOLVER function pointers** to `GpuLibs` in
+   `src/ffi_cusolver.h`, then load them in `src/ffi_cusolver.cpp::get_gpu_libs()`.
+   Add a `CuSolver<T>::foo()` method on each specialisation.
+
+4. **Write the CUDA kernel** in `src/foo_cuda.cpp`:
+   - Implementation body under `#ifndef _WIN32`.
+   - The handler symbol (`foo_handler_cuda`) is **always** defined; the
+     `do_foo_cuda` dispatcher returns `Error::Unimplemented` on Windows.
+     This keeps a single `[[Rcpp::export]] get_foo_handler_cuda()` valid
+     on every platform without `#ifdef`s around the export.
+   - Borrow a handle: `HandleGuard handle; borrow_solver_handle(g, stream, handle);`
+   - `DeviceMem` for working buffers + `devInfo`. Don't read `devInfo` back
+     unless your op uses values beyond illegal-argument flagging.
+   - Workspace bufferSize, then `d_work.alloc(...)`, then the call.
+   - Every CUDA / cuSOLVER call wrapped in `PJRT_RETURN_IF_GPU_ERROR`.
+   - Bind the FFI with `.Ctx<PlatformStream<void *>>()`.
+
+5. **Regenerate Rcpp wrappers**: `Rscript -e 'Rcpp::compileAttributes(".")'`.
+
+6. **Register handlers** in `R/zzz.R` -- the `register_linalg_handler()`
+   helper wires up host + (optional) CUDA in one line:
+   ```r
+   register_linalg_handler("foo", get_foo_handler(), get_foo_handler_cuda())
+   ```
+
+7. **Tests** in `tests/testthat/test-linalg.R`. We test the FFI handlers
+   end-to-end through a small JIT-compiled `stablehlo.custom_call` program
+   built directly in pjrt -- there is no need to depend on anvl. See the
+   existing tests for the harness and the property-test patterns
+   (reconstruction, orthogonality, comparison against base R).
+
+### On the downstream (anvl) side
+
+Once the handler is registered in pjrt, anvl exposes it by:
+
+- adding a `p_foo`/`nvl_foo` primitive in `R/primitives.R` whose `infer_fn`
+  returns the output `AbstractArray`s,
+- writing a `p_foo[["stablehlo"]]` rule in `R/rules-stablehlo.R` that
+  emits `stablehlo::hlo_custom_call(call_target_name = "foo", ...)` with
+  the right column-major operand/result layouts,
+- adding a `nv_foo` user-facing wrapper in `R/api.R`,
+- adding a reverse-mode rule in `R/rules-reverse.R` if differentiable,
+- adding `nv_foo` to the Linear Algebra section of `_pkgdown.yml`.
+
+The pjrt registration call name and the StableHLO `call_target_name` must
+match exactly.
+
+---
+
+## 10. Reading list
+
+- `src/ffi_common.h`, `src/ffi_lapack.h`, `src/ffi_cusolver.h{,.cpp}` --
+  the shared kit. Read these first.
+- `src/qr.cpp` / `src/qr_cuda.cpp` -- reference host + CUDA implementations
+  using the kit.
+- `src/lu.cpp` / `src/lu_cuda.cpp` -- single-call op with int32 secondary
+  output.
+- `src/svd.cpp` / `src/svd_cuda.cpp` -- multi-output op; CUDA m>=n
+  restriction.
+- `src/eigh.cpp` / `src/eigh_cuda.cpp` -- two-workspace LAPACK call,
+  `int`-enum cuSOLVER.
+- `R/rules-stablehlo.R` (search for `p_qr`) -- example custom_call rule
+  with column-major layouts.
+- `R/zzz.R` -- handler registration with platform map.
+- `jaxlib/gpu/solver_kernels_ffi.cc` -- JAX's reference for cuSOLVER FFI
+  patterns; we mirror its `JAX_FFI_RETURN_IF_GPU_ERROR`,
+  `MaybeCastNoOverflow`, and `SolverHandlePool` idioms.
+- `jaxlib/cpu/lapack_kernels.cc` -- JAX's reference for the host
+  kernel/trait pattern. Their `Lapack<T>` carries function pointers
+  bound at startup; we use static `static void foo(...)` methods because
+  the symbol set is fixed at compile time.

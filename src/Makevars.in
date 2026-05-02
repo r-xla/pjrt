@@ -2,7 +2,7 @@ CXX_STD=CXX20
 
 PKG_CPPFLAGS=@cflags@ -Iproto -I$(R_PACKAGE_DIR)/include -I../inst/include
 PKG_CXXFLAGS=$(C_VISIBILITY)
-PKG_LIBS=@libs@
+PKG_LIBS=@libs@ $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
 
 CPP_SOURCES=@cppsrc@
 CC_SOURCES=@pbsrc@

@@ -11,6 +11,26 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// get_eigh_handler
+SEXP get_eigh_handler();
+RcppExport SEXP _pjrt_get_eigh_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_eigh_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_eigh_handler_cuda
+SEXP get_eigh_handler_cuda();
+RcppExport SEXP _pjrt_get_eigh_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_eigh_handler_cuda());
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_register_custom_call
 void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin, const std::string& target_name, SEXP handler_ptr, const std::string& platform_name);
 RcppExport SEXP _pjrt_impl_register_custom_call(SEXP pluginSEXP, SEXP target_nameSEXP, SEXP handler_ptrSEXP, SEXP platform_nameSEXP) {
@@ -66,6 +86,26 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type shape(shapeSEXP);
     rcpp_result_gen = Rcpp::wrap(format_raw_buffer_cpp(data, dtype, shape));
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_lu_handler
+SEXP get_lu_handler();
+RcppExport SEXP _pjrt_get_lu_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_lu_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_lu_handler_cuda
+SEXP get_lu_handler_cuda();
+RcppExport SEXP _pjrt_get_lu_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_lu_handler_cuda());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -531,13 +571,57 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_qr_handler
+SEXP get_qr_handler();
+RcppExport SEXP _pjrt_get_qr_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_qr_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_qr_handler_cuda
+SEXP get_qr_handler_cuda();
+RcppExport SEXP _pjrt_get_qr_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_qr_handler_cuda());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_svd_handler
+SEXP get_svd_handler();
+RcppExport SEXP _pjrt_get_svd_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_svd_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_svd_handler_cuda
+SEXP get_svd_handler_cuda();
+RcppExport SEXP _pjrt_get_svd_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_svd_handler_cuda());
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
+    {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
     {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},
     {"_pjrt_get_print_handler", (DL_FUNC) &_pjrt_get_print_handler, 0},
     {"_pjrt_get_print_handler_cuda", (DL_FUNC) &_pjrt_get_print_handler_cuda, 0},
     {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 2},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
+    {"_pjrt_get_lu_handler", (DL_FUNC) &_pjrt_get_lu_handler, 0},
+    {"_pjrt_get_lu_handler_cuda", (DL_FUNC) &_pjrt_get_lu_handler_cuda, 0},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
     {"_pjrt_impl_plugin_client_create", (DL_FUNC) &_pjrt_impl_plugin_client_create, 2},
     {"_pjrt_impl_program_load", (DL_FUNC) &_pjrt_impl_program_load, 2},
@@ -577,6 +661,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 5},
     {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 5},
     {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 5},
+    {"_pjrt_get_qr_handler", (DL_FUNC) &_pjrt_get_qr_handler, 0},
+    {"_pjrt_get_qr_handler_cuda", (DL_FUNC) &_pjrt_get_qr_handler_cuda, 0},
+    {"_pjrt_get_svd_handler", (DL_FUNC) &_pjrt_get_svd_handler, 0},
+    {"_pjrt_get_svd_handler_cuda", (DL_FUNC) &_pjrt_get_svd_handler_cuda, 0},
     {NULL, NULL, 0}
 };
 
