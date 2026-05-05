@@ -6,9 +6,16 @@
 \alias{pjrt_empty}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
+pjrt_buffer(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  scan_na = FALSE,
+  ...
+)
 
-pjrt_scalar(data, dtype = NULL, device = NULL, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, scan_na = FALSE, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 }
@@ -40,6 +47,15 @@ environment variable.}
 The dimensions of the buffer.
 The default (\code{NULL}) is to infer them from the data if possible.
 The default (\code{NULL}) depends on the method.}
+
+\item{scan_na}{(\code{logical(1)})\cr
+If \code{TRUE}, scan \code{data} for \code{NA} values before transferring to the device and
+raise an error if any are present. R's \code{NA} markers have no representation
+at the XLA level (e.g. \code{NA_integer_} is just the bit pattern \code{-2147483648},
+and \code{NA} of \code{logical} type is silently coerced to \code{TRUE}), so missing values
+are silently lost on transfer. Defaults to \code{FALSE} for performance; set to
+\code{TRUE} to fail loudly instead of silently corrupting data.
+Not applicable to \code{raw} input.}
 
 \item{...}{(any)\cr
 Additional arguments.
