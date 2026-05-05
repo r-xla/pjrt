@@ -157,10 +157,6 @@ impl_raw_to_array <- function(host_data, dtype, dims) {
     .Call(`_pjrt_impl_raw_to_array`, host_data, dtype, dims)
 }
 
-impl_raw_to_integer64_array <- function(host_data, dims) {
-    .Call(`_pjrt_impl_raw_to_integer64_array`, host_data, dims)
-}
-
 impl_buffer_to_host_async <- function(buffer) {
     .Call(`_pjrt_impl_buffer_to_host_async`, buffer)
 }

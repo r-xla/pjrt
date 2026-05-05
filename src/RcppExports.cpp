@@ -462,18 +462,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_raw_to_integer64_array
-SEXP impl_raw_to_integer64_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data, Rcpp::IntegerVector dims);
-RcppExport SEXP _pjrt_impl_raw_to_integer64_array(SEXP host_dataSEXP, SEXP dimsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTHostData> >::type host_data(host_dataSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dims(dimsSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_raw_to_integer64_array(host_data, dims));
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_buffer_to_host_async
 Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer);
 RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP bufferSEXP) {
@@ -598,7 +586,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_host_data_await", (DL_FUNC) &_pjrt_impl_host_data_await, 1},
     {"_pjrt_impl_process_pending_releases", (DL_FUNC) &_pjrt_impl_process_pending_releases, 0},
     {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 3},
-    {"_pjrt_impl_raw_to_integer64_array", (DL_FUNC) &_pjrt_impl_raw_to_integer64_array, 2},
     {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
     {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 5},

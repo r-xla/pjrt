@@ -315,9 +315,20 @@ SEXP raw_to_array_impl(const uint8_t *raw_data,
   void *out_data;
 
   if (r_type == REALSXP) {
-    out_data = REAL(out);
-    row_to_col_order<T, double>(temp_vec, static_cast<double *>(out_data),
-                                dimensions);
+    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>) {
+      // 64-bit integer -> "pseudo-double": REALSXP slots carry the int64 bit
+      // pattern (the storage layout used by bit64::integer64). The R caller
+      // attaches the integer64 class.
+      static_assert(sizeof(double) == sizeof(int64_t),
+                    "bit64::integer64 layout requires sizeof(double) == "
+                    "sizeof(int64_t)");
+      int64_t *out_data_i64 = reinterpret_cast<int64_t *>(REAL(out));
+      row_to_col_order<T, int64_t>(temp_vec, out_data_i64, dimensions);
+    } else {
+      out_data = REAL(out);
+      row_to_col_order<T, double>(temp_vec, static_cast<double *>(out_data),
+                                  dimensions);
+    }
   } else if (r_type == INTSXP) {
     out_data = INTEGER(out);
     row_to_col_order<T, int>(temp_vec, static_cast<int *>(out_data),
@@ -672,9 +683,7 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
   } else if (dtype == "i32") {
     return raw_to_array_impl<int32_t>(raw_data, dimensions, INTSXP);
   } else if (dtype == "i64") {
-    // R has no native 64-bit integer; truncates to int32. Callers wanting
-    // full-range round-trip should use impl_raw_to_integer64_array.
-    return raw_to_array_impl<int64_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<int64_t>(raw_data, dimensions, REALSXP);
   } else if (dtype == "ui8") {
     return raw_to_array_impl<uint8_t>(raw_data, dimensions, INTSXP);
   } else if (dtype == "ui16") {
@@ -682,42 +691,12 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
   } else if (dtype == "ui32") {
     return raw_to_array_impl<uint32_t>(raw_data, dimensions, INTSXP);
   } else if (dtype == "ui64") {
-    return raw_to_array_impl<uint64_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP);
   } else if (dtype == "pred") {
     return raw_to_array_impl<uint8_t>(raw_data, dimensions, LGLSXP);
   } else {
     Rcpp::stop("Unsupported dtype: %s", dtype.c_str());
   }
-}
-
-// Materialize an i64 buffer into a REALSXP whose 8-byte slots hold the int64
-// bit patterns (the storage layout used by bit64::integer64). The R-level
-// "integer64" class attribute is set by the caller.
-// [[Rcpp::export()]]
-SEXP impl_raw_to_integer64_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
-                                 Rcpp::IntegerVector dims) {
-  std::vector<int64_t> dimensions(dims.begin(), dims.end());
-  const auto numel = number_of_elements(dimensions);
-
-  SEXP out = PROTECT(Rf_allocVector(REALSXP, numel));
-  if (numel > 0 && host_data.get() != nullptr && !host_data->data().empty()) {
-    const int64_t *typed_data =
-        reinterpret_cast<const int64_t *>(host_data->data().data());
-    std::vector<int64_t> temp_vec(typed_data, typed_data + numel);
-    int64_t *out_data = reinterpret_cast<int64_t *>(REAL(out));
-    row_to_col_order<int64_t, int64_t>(temp_vec, out_data, dimensions);
-  }
-
-  if (dimensions.size() > 0) {
-    SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
-    int *dim_data = INTEGER(dim_attr);
-    std::copy(dimensions.begin(), dimensions.end(), dim_data);
-    Rf_setAttrib(out, R_DimSymbol, dim_attr);
-    UNPROTECT(1);
-  }
-
-  UNPROTECT(1);
-  return out;
 }
 
 // [[Rcpp::export()]]
