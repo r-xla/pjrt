@@ -843,16 +843,26 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
 
 // bit64::integer64 stores int64 values inside a REALSXP (8 bytes per slot),
 // so we can hand the underlying buffer to PJRT zero-copy as int64.
+// The bit pattern is identical for signed/unsigned 64-bit ints, so the same
+// data can be uploaded as either S64 or U64.
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims) {
+    SEXP data, std::vector<int64_t> dims, std::string dtype) {
   static_assert(sizeof(double) == sizeof(int64_t),
                 "bit64::integer64 zero-copy requires sizeof(double) == "
                 "sizeof(int64_t)");
-  return create_buffer_from_array_async_zerocopy(
-      client, data, REAL(data), dims, PJRT_Buffer_Type_S64, sizeof(int64_t),
-      false, device->device);
+  PJRT_Buffer_Type buffer_type;
+  if (dtype == "i64") {
+    buffer_type = PJRT_Buffer_Type_S64;
+  } else if (dtype == "ui64") {
+    buffer_type = PJRT_Buffer_Type_U64;
+  } else {
+    Rcpp::stop("Unsupported type: %s", dtype.c_str());
+  }
+  return create_buffer_from_array_async_zerocopy(client, data, REAL(data), dims,
+                                                 buffer_type, sizeof(int64_t),
+                                                 false, device->device);
 }
 
 // [[Rcpp::export()]]
