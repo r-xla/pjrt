@@ -61,16 +61,13 @@ is_ready.PJRTBuffer <- function(x, ...) {
 #' @param data XPtr to PJRTHostData holding raw bytes and completion event.
 #' @param dtype Element type string (e.g., "f32", "i32").
 #' @param shape Integer vector of dimensions.
-#' @param as_integer64 If `TRUE` and `dtype == "i64"`, materialize as
-#'   `bit64::integer64` instead of `integer`.
 #' @return A `PJRTArrayPromise` object.
 #' @keywords internal
-pjrt_array_promise <- function(data, dtype, shape, as_integer64 = FALSE) {
+pjrt_array_promise <- function(data, dtype, shape) {
   env <- new.env(parent = emptyenv())
   env$data <- data
   env$dtype <- dtype
   env$shape <- shape
-  env$as_integer64 <- isTRUE(as_integer64)
   env$materialized <- NULL
   structure(env, class = "PJRTArrayPromise")
 }
@@ -79,7 +76,11 @@ pjrt_array_promise <- function(data, dtype, shape, as_integer64 = FALSE) {
 value.PJRTArrayPromise <- function(x, ...) {
   if (is.null(x$materialized)) {
     impl_host_data_await(x$data)
-    if (x$as_integer64 && identical(x$dtype, "i64")) {
+    if (x$dtype %in% c("i64", "ui64")) {
+      rlang::check_installed(
+        "bit64",
+        reason = "to materialize {.val i64} / {.val ui64} buffers as {.cls integer64}."
+      )
       out <- impl_raw_to_integer64_array(x$data, x$shape)
       class(out) <- "integer64"
       x$materialized <- out

@@ -26,6 +26,16 @@ test_pjrt_scalar <- function(
     }
   }
 
+  # i64/ui64 buffers materialize as bit64::integer64; coerce the expected value
+  # so the equality check sees matching types.
+  coerce_expected <- function(x) {
+    if (identical(dtype, "i64") || identical(dtype, "ui64")) {
+      bit64::as.integer64(x)
+    } else {
+      x
+    }
+  }
+
   # Test that modifying the original data doesn't change the buffer
   original_data <- data
   data[1L] <- modify(data)
@@ -33,7 +43,7 @@ test_pjrt_scalar <- function(
   result_after_modification <- as_array(buffer)
   testthat::expect_equal(
     result_after_modification,
-    original_data,
+    coerce_expected(original_data),
     tolerance = tolerance
   )
 
@@ -41,7 +51,11 @@ test_pjrt_scalar <- function(
   result[1L] <- modify(result)
 
   result_recreated <- as_array(buffer)
-  testthat::expect_equal(result_recreated, original_data, tolerance = tolerance)
+  testthat::expect_equal(
+    result_recreated,
+    coerce_expected(original_data),
+    tolerance = tolerance
+  )
 
   TRUE
 }
@@ -193,54 +207,47 @@ test_that("pjrt_buffer preserves 3d dimensions", {
 })
 
 test_that("pjrt_buffer dispatches on integer64 to i64", {
-  skip_if_not_installed("bit64")
   x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
   buf <- pjrt_buffer(x)
   expect_equal(as.character(elt_type(buf)), "i64")
   expect_equal(shape(buf), 4L)
-
-  # Default as_array() still casts to R integer (lossy) — preserves prior behaviour.
-  expect_type(as_array(buf), "integer")
 })
 
-test_that("pjrt_buffer / as_array round-trip integer64 with full 64-bit range", {
-  skip_if_not_installed("bit64")
+test_that("pjrt_buffer / as_array round-trip i64 with full 64-bit range", {
   x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
   buf <- pjrt_buffer(x)
-  back <- as_array(buf, integer64 = TRUE)
+  back <- as_array(buf)
   expect_s3_class(back, "integer64")
   expect_equal(as.character(back), as.character(x))
 })
 
 test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {
-  skip_if_not_installed("bit64")
   x <- bit64::as.integer64(9223372036854775000)
   buf <- pjrt_scalar(x)
   expect_equal(shape(buf), integer())
   expect_equal(as.character(elt_type(buf)), "i64")
 
-  back <- as_array(buf, integer64 = TRUE)
+  back <- as_array(buf)
   expect_s3_class(back, "integer64")
   expect_equal(as.character(back), as.character(x))
 
-  # Length-1 integer64 must error from pjrt_scalar if length != 1.
   expect_error(pjrt_scalar(bit64::as.integer64(c(1, 2))), "length 1")
 })
 
 test_that("pjrt_buffer.integer64 rejects non-i64 dtype", {
-  skip_if_not_installed("bit64")
   expect_error(
     pjrt_buffer(bit64::as.integer64(1), dtype = "i32"),
     "only supports.*i64"
   )
 })
 
-test_that("integer64 = TRUE is a no-op for non-i64 dtypes", {
-  buf_i32 <- pjrt_buffer(1:3, dtype = "i32")
-  expect_type(as_array(buf_i32, integer64 = TRUE), "integer")
-
-  buf_f32 <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
-  expect_type(as_array(buf_f32, integer64 = TRUE), "double")
+test_that("ui64 buffers also materialize as integer64", {
+  # bit64::integer64 is signed; ui64 -> integer64 preserves bit pattern but
+  # values >= 2^63 will appear as negative integer64.
+  buf <- pjrt_buffer(c(0L, 1L, 100L), dtype = "ui64")
+  back <- as_array(buf)
+  expect_s3_class(back, "integer64")
+  expect_equal(as.character(back), c("0", "1", "100"))
 })
 
 test_that("raw", {
@@ -300,6 +307,14 @@ test_that("raw", {
     # Compare original with roundtrip
     if (dtype %in% c("f32", "f64")) {
       expect_equal(roundtrip_data, original_data, tolerance = 1e-6)
+    } else if (dtype %in% c("i64", "ui64")) {
+      # 64-bit integer buffers materialize as bit64::integer64 — array() drops
+      # the class, so compare the unboxed bit pattern via as.character().
+      expect_equal(
+        as.character(roundtrip_data),
+        as.character(bit64::as.integer64(as.vector(original_data)))
+      )
+      expect_equal(dim(roundtrip_data), dim(original_data))
     } else {
       expect_equal(roundtrip_data, original_data)
     }

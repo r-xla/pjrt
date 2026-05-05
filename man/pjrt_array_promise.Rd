@@ -4,7 +4,7 @@
 \alias{pjrt_array_promise}
 \title{Create a PJRT Array Promise (internal)}
 \usage{
-pjrt_array_promise(data, dtype, shape, as_integer64 = FALSE)
+pjrt_array_promise(data, dtype, shape)
 }
 \arguments{
 \item{data}{XPtr to PJRTHostData holding raw bytes and completion event.}
@@ -12,9 +12,6 @@ pjrt_array_promise(data, dtype, shape, as_integer64 = FALSE)
 \item{dtype}{Element type string (e.g., "f32", "i32").}
 
 \item{shape}{Integer vector of dimensions.}
-
-\item{as_integer64}{If \code{TRUE} and \code{dtype == "i64"}, materialize as
-\code{bit64::integer64} instead of \code{integer}.}
 }
 \value{
 A \code{PJRTArrayPromise} object.
