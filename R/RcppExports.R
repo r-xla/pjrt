@@ -169,6 +169,10 @@ impl_client_buffer_from_integer <- function(client, device, data, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype)
 }
 
+impl_client_buffer_from_integer64 <- function(client, device, data, dims) {
+    .Call(`_pjrt_impl_client_buffer_from_integer64`, client, device, data, dims)
+}
+
 impl_client_buffer_from_logical <- function(client, device, data, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype)
 }

@@ -1,5 +1,8 @@
 # pjrt (development version)
 
+## Features
+
+* Added support for the `bit64` package to better support long integers.
 * `pjrt_buffer()`, `pjrt_scalar()`, and `as_array()` gain a `scan_na`
   argument (default `FALSE`). When `TRUE`, host → device transfers error if
   the input contains any `NA` values; device → host transfers error if a

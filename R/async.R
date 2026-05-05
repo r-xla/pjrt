@@ -76,7 +76,11 @@ pjrt_array_promise <- function(data, dtype, shape) {
 value.PJRTArrayPromise <- function(x, ...) {
   if (is.null(x$materialized)) {
     impl_host_data_await(x$data)
-    x$materialized <- impl_raw_to_array(x$data, x$dtype, x$shape)
+    out <- impl_raw_to_array(x$data, x$dtype, x$shape)
+    if (x$dtype %in% c("i64", "ui64")) {
+      class(out) <- "integer64"
+    }
+    x$materialized <- out
   }
   x$materialized
 }

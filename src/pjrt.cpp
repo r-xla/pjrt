@@ -315,9 +315,20 @@ SEXP raw_to_array_impl(const uint8_t *raw_data,
   void *out_data;
 
   if (r_type == REALSXP) {
-    out_data = REAL(out);
-    row_to_col_order<T, double>(temp_vec, static_cast<double *>(out_data),
-                                dimensions);
+    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>) {
+      // 64-bit integer -> "pseudo-double": REALSXP slots carry the int64 bit
+      // pattern (the storage layout used by bit64::integer64). The R caller
+      // attaches the integer64 class.
+      static_assert(sizeof(double) == sizeof(int64_t),
+                    "bit64::integer64 layout requires sizeof(double) == "
+                    "sizeof(int64_t)");
+      int64_t *out_data_i64 = reinterpret_cast<int64_t *>(REAL(out));
+      row_to_col_order<T, int64_t>(temp_vec, out_data_i64, dimensions);
+    } else {
+      out_data = REAL(out);
+      row_to_col_order<T, double>(temp_vec, static_cast<double *>(out_data),
+                                  dimensions);
+    }
   } else if (r_type == INTSXP) {
     out_data = INTEGER(out);
     row_to_col_order<T, int>(temp_vec, static_cast<int *>(out_data),
@@ -672,7 +683,7 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
   } else if (dtype == "i32") {
     return raw_to_array_impl<int32_t>(raw_data, dimensions, INTSXP);
   } else if (dtype == "i64") {
-    return raw_to_array_impl<int64_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<int64_t>(raw_data, dimensions, REALSXP);
   } else if (dtype == "ui8") {
     return raw_to_array_impl<uint8_t>(raw_data, dimensions, INTSXP);
   } else if (dtype == "ui16") {
@@ -680,7 +691,7 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
   } else if (dtype == "ui32") {
     return raw_to_array_impl<uint32_t>(raw_data, dimensions, INTSXP);
   } else if (dtype == "ui64") {
-    return raw_to_array_impl<uint64_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP);
   } else if (dtype == "pred") {
     return raw_to_array_impl<uint8_t>(raw_data, dimensions, LGLSXP);
   } else {
@@ -828,6 +839,20 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+}
+
+// bit64::integer64 stores int64 values inside a REALSXP (8 bytes per slot),
+// so we can hand the underlying buffer to PJRT zero-copy as int64.
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    SEXP data, std::vector<int64_t> dims) {
+  static_assert(sizeof(double) == sizeof(int64_t),
+                "bit64::integer64 zero-copy requires sizeof(double) == "
+                "sizeof(int64_t)");
+  return create_buffer_from_array_async_zerocopy(
+      client, data, REAL(data), dims, PJRT_Buffer_Type_S64, sizeof(int64_t),
+      false, device->device);
 }
 
 // [[Rcpp::export()]]

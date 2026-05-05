@@ -194,7 +194,9 @@ recycle_data <- function(data, shape) {
     if (!any(shape == 0)) {
       cli_abort("Empty buffers must have at least one dimension equal to 0")
     }
-    array(data, dim = shape)
+    out <- array(data, dim = shape)
+    oldClass(out) <- oldClass(data)
+    out
   } else if (data_len == numel) {
     return(data)
   } else if ((data_len == 1) && (numel != 0)) {
@@ -282,6 +284,28 @@ pjrt_buffer.numeric <- function(
 }
 
 #' @export
+pjrt_buffer.integer64 <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  args <- convert_buffer_args(data, dtype, device, shape, "i64", ...)
+  if (!identical(args$dtype, "i64")) {
+    cli_abort(
+      "{.cls integer64} input only supports {.val i64} dtype, got {.val {args$dtype}}."
+    )
+  }
+  impl_client_buffer_from_integer64(
+    client = args$client,
+    device = args$device,
+    data = args$data,
+    dims = args$dims
+  )
+}
+
+#' @export
 pjrt_buffer.raw <- function(
   data,
   ...,
@@ -363,6 +387,19 @@ pjrt_scalar.numeric <- function(
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
+}
+
+#' @export
+pjrt_scalar.integer64 <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  ...
+) {
+  if (length(data) != 1) {
+    cli_abort("data must have length 1")
+  }
+  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer(), ...)
 }
 
 #' @export
