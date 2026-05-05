@@ -1,12 +1,14 @@
 # pjrt (development version)
 
-* Added support for the [`bit64`](https://cran.r-project.org/package=bit64)
-  package. `pjrt_buffer()` and `pjrt_scalar()` now dispatch on
-  `bit64::integer64` input and create `i64` buffers via zero-copy.
-  **Breaking change:** `as_array()` on an `i64` or `ui64` buffer now
-  unconditionally returns a `bit64::integer64` vector (preserving the full
-  64-bit range), instead of silently truncating to a 32-bit R `integer`.
-  `bit64` is now an Imports dependency.
+## Features
+
+* Added support for the `bit64` package to better support long integers.
+* `pjrt_buffer()`, `pjrt_scalar()`, and `as_array()` gain a `scan_na`
+  argument (default `FALSE`). When `TRUE`, host → device transfers error if
+  the input contains any `NA` values; device → host transfers error if a
+  materialized `i32` buffer surfaces an `NA_integer_` (the `-2147483648`
+  bit-pattern collision). Opt-in safety check for callers that want to fail
+  loudly on missing-value loss.
 
 # pjrt 0.3.0
 

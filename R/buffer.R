@@ -61,6 +61,14 @@ is_buffer <- function(x) {
 #'   case the first device for that platform is used.
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
+#' @param scan_na (`logical(1)`)\cr
+#'   If `TRUE`, scan `data` for `NA` values before transferring to the device and
+#'   raise an error if any are present. R's `NA` markers have no representation
+#'   at the XLA level (e.g. `NA_integer_` is just the bit pattern `-2147483648`,
+#'   and `NA` of `logical` type is silently coerced to `TRUE`), so missing values
+#'   are silently lost on transfer. Defaults to `FALSE` for performance; set to
+#'   `TRUE` to fail loudly instead of silently corrupting data.
+#'   Not applicable to `raw` input.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:
@@ -82,8 +90,27 @@ is_buffer <- function(x) {
 #' buf <- pjrt_buffer(arr)
 #'
 #' @export
-pjrt_buffer <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
+pjrt_buffer <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  scan_na = FALSE,
+  ...
+) {
   UseMethod("pjrt_buffer")
+}
+
+check_scan_na <- function(data, scan_na) {
+  assert_flag(scan_na)
+  if (scan_na && anyNA(data)) {
+    n_na <- sum(is.na(data))
+    cli_abort(c(
+      "Input {.arg data} contains {n_na} {.val NA} value{?s}, which {?has/have} no representation at the XLA level.",
+      i = "Replace or drop missing values before transferring, or set {.code scan_na = FALSE} to skip this check."
+    ))
+  }
+  invisible(NULL)
 }
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
@@ -117,7 +144,7 @@ pjrt_buffer.PJRTBuffer <- buffer_identity
 #' scalar <- pjrt_scalar(42, dtype = "f32")
 #' scalar
 #' @export
-pjrt_scalar <- function(data, dtype = NULL, device = NULL, ...) {
+pjrt_scalar <- function(data, dtype = NULL, device = NULL, scan_na = FALSE, ...) {
   UseMethod("pjrt_scalar")
 }
 
@@ -217,8 +244,10 @@ pjrt_buffer.logical <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  scan_na = FALSE,
   ...
 ) {
+  check_scan_na(data, scan_na)
   args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
@@ -230,8 +259,10 @@ pjrt_buffer.integer <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  scan_na = FALSE,
   ...
 ) {
+  check_scan_na(data, scan_na)
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
@@ -243,8 +274,10 @@ pjrt_buffer.numeric <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  scan_na = FALSE,
   ...
 ) {
+  check_scan_na(data, scan_na)
   args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
@@ -310,11 +343,13 @@ pjrt_scalar.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
+  scan_na = FALSE,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
+  check_scan_na(data, scan_na)
   args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
@@ -325,11 +360,13 @@ pjrt_scalar.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
+  scan_na = FALSE,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
+  check_scan_na(data, scan_na)
   args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
@@ -340,11 +377,13 @@ pjrt_scalar.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
+  scan_na = FALSE,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
+  check_scan_na(data, scan_na)
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
@@ -393,9 +432,30 @@ elt_type <- function(x) {
   impl_buffer_elt_type(x)
 }
 
+#' @rdname as_array.PJRTBuffer
+#' @title Convert a PJRTBuffer to an R Array
+#' @description
+#' Transfer buffer data from device to host and return an R array.
+#'
+#' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
+#'   Buffer to convert.
+#' @param scan_na (`logical(1)`)\cr
+#'   If `TRUE` and the buffer dtype is `"i32"`, scan the materialized R
+#'   integer vector for `NA_integer_` values and raise an error if any are
+#'   present. No-op for non-`i32` dtypes.
+#' @param ... Additional arguments (unused).
+#' @return An R `array` (or `vector` for shape `integer()`).
 #' @export
-as_array.PJRTBuffer <- function(x, ...) {
-  value(as_array_async(x))
+as_array.PJRTBuffer <- function(x, scan_na = FALSE, ...) {
+  result <- value(as_array_async(x))
+  assert_flag(scan_na)
+  if (scan_na && identical(as.character(elt_type(x)), "i32") && anyNA(result)) {
+    cli_abort(c(
+      "Materialized {.cls i32} buffer contains the bit pattern {.val -2147483648}, which R interprets as {.val NA_integer_}.",
+      i = "This collision is irrecoverable: the device value and {.val NA} are indistinguishable in R. Set {.code scan_na = FALSE} to skip this check."
+    ))
+  }
+  result
 }
 
 #' @title Convert buffer to R array asynchronously

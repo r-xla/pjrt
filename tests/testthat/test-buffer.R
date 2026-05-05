@@ -200,6 +200,73 @@ test_that("pjrt_buffer handles edge cases", {
   expect_error(pjrt_buffer(numeric(0), shape = c(1, 4)), "but specified shape is")
 })
 
+test_that("pjrt_buffer scan_na = FALSE silently transfers NA", {
+  # default behaviour: NAs flow through and become dtype-specific bit patterns.
+  expect_no_error(pjrt_buffer(c(1, NA, 3)))
+  expect_no_error(pjrt_buffer(c(1L, NA_integer_, 3L)))
+  expect_no_error(pjrt_buffer(c(TRUE, NA, FALSE)))
+  expect_no_error(pjrt_scalar(NA_integer_))
+})
+
+test_that("pjrt_buffer scan_na = TRUE errors on NA input", {
+  expect_error(
+    pjrt_buffer(c(1, NA, 3), scan_na = TRUE),
+    "no representation at the XLA level"
+  )
+  expect_error(
+    pjrt_buffer(c(1L, NA_integer_, 3L), scan_na = TRUE),
+    "no representation at the XLA level"
+  )
+  expect_error(
+    pjrt_buffer(c(TRUE, NA, FALSE), scan_na = TRUE),
+    "no representation at the XLA level"
+  )
+  expect_error(
+    pjrt_scalar(NA_integer_, scan_na = TRUE),
+    "no representation at the XLA level"
+  )
+  expect_error(
+    pjrt_scalar(NA_real_, scan_na = TRUE),
+    "no representation at the XLA level"
+  )
+  expect_error(
+    pjrt_scalar(NA, scan_na = TRUE),
+    "no representation at the XLA level"
+  )
+
+  # Clean inputs pass through unaffected.
+  expect_no_error(pjrt_buffer(c(1, 2, 3), scan_na = TRUE))
+  expect_no_error(pjrt_buffer(c(1L, 2L, 3L), scan_na = TRUE))
+  expect_no_error(pjrt_buffer(c(TRUE, FALSE), scan_na = TRUE))
+})
+
+test_that("as_array scan_na = TRUE errors on NA_integer_ collision for i32", {
+  # NA_integer_ is the bit pattern -2147483648; i32 round-trip surfaces it as NA.
+  buf <- pjrt_buffer(NA_integer_, dtype = "i32")
+  expect_true(anyNA(as_array(buf)))
+  expect_error(
+    as_array(buf, scan_na = TRUE),
+    "indistinguishable"
+  )
+
+  # No collision -> no error.
+  buf_clean <- pjrt_buffer(1:3, dtype = "i32")
+  expect_no_error(as_array(buf_clean, scan_na = TRUE))
+})
+
+test_that("as_array scan_na is a no-op for non-i32 dtypes", {
+  # Float NaN is not flagged because i32 is the only dtype with the
+  # NA-sentinel collision in R.
+  buf_f32 <- pjrt_buffer(c(1, NaN, 3), dtype = "f32")
+  expect_no_error(as_array(buf_f32, scan_na = TRUE))
+
+  buf_i64 <- pjrt_buffer(1L, dtype = "i64")
+  expect_no_error(as_array(buf_i64, scan_na = TRUE))
+
+  buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
+  expect_no_error(as_array(buf_pred, scan_na = TRUE))
+})
+
 test_that("pjrt_buffer preserves 3d dimensions", {
   # Test 3D array
   arr_3d <- array(1:24, dim = c(2, 3, 4))
