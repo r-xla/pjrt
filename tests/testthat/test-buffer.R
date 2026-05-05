@@ -301,7 +301,7 @@ test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {
   expect_error(pjrt_scalar(bit64::as.integer64(c(1, 2))), "length 1")
 })
 
-test_that("pjrt_buffer.integer64 rejects non-i64 dtype", {
+test_that("pjrt_buffer.integer64 rejects non-i64/ui64 dtype", {
   expect_error(
     pjrt_buffer(bit64::as.integer64(1), dtype = "i32"),
     "only supports.*i64"
@@ -315,6 +315,14 @@ test_that("ui64 buffers also materialize as integer64", {
   back <- as_array(buf)
   expect_s3_class(back, "integer64")
   expect_equal(as.character(back), c("0", "1", "100"))
+})
+
+test_that("pjrt_buffer / as_array round-trip ui64 with full 64-bit range", {
+  x <- bit64::as.integer64(c(0, 1, 2^32, -2^40, 9223372036854775000))
+  dim(x) <- 5L
+  buf <- pjrt_buffer(x, dtype = "ui64")
+  expect_equal(as.character(elt_type(buf)), "ui64")
+  expect_equal(as_array(buf), x)
 })
 
 test_that("raw", {

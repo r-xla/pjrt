@@ -6,6 +6,7 @@
 #' @importFrom safetensors safe_tensor_buffer safe_tensor_meta
 #' @importFrom utils hashtab
 #' @importFrom cli cli_abort
+#' @importFrom bit64 integer64
 ## usethis namespace: end
 NULL
 

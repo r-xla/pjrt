@@ -292,16 +292,17 @@ pjrt_buffer.integer64 <- function(
   ...
 ) {
   args <- convert_buffer_args(data, dtype, device, shape, "i64", ...)
-  if (!identical(args$dtype, "i64")) {
+  if (!args$dtype %in% c("i64", "ui64")) {
     cli_abort(
-      "{.cls integer64} input only supports {.val i64} dtype, got {.val {args$dtype}}."
+      "{.cls integer64} input only supports {.val i64} or {.val ui64} dtype, got {.val {args$dtype}}."
     )
   }
   impl_client_buffer_from_integer64(
     client = args$client,
     device = args$device,
     data = args$data,
-    dims = args$dims
+    dims = args$dims,
+    dtype = args$dtype
   )
 }
 
