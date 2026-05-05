@@ -860,9 +860,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
-  return create_buffer_from_array_async_zerocopy(
-      client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
-      device->device);
+  return create_buffer_from_array_async_zerocopy(client, data, REAL(data), dims,
+                                                 buffer_type, sizeof(int64_t),
+                                                 false, device->device);
 }
 
 // [[Rcpp::export()]]
