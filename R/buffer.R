@@ -400,18 +400,12 @@ elt_type <- function(x) {
 #' @description
 #' Transfer buffer data from device to host and return an R array.
 #'
-#' R's `NA_integer_` is the bit pattern `-2147483648`. PJRT has no notion of
-#' missing values, so any genuine `i32` value of `-2147483648` produced on
-#' device is silently turned into `NA` when materialized as an R integer
-#' vector. Set `scan_na = TRUE` to check for this after materialization and
-#' raise an error if any are present.
 #' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer to convert.
 #' @param scan_na (`logical(1)`)\cr
 #'   If `TRUE` and the buffer dtype is `"i32"`, scan the materialized R
 #'   integer vector for `NA_integer_` values and raise an error if any are
-#'   present. No-op for non-`i32` dtypes (only `i32` maps onto R's integer
-#'   sentinel). Defaults to `FALSE`.
+#'   present. No-op for non-`i32` dtypes.
 #' @param ... Additional arguments (unused).
 #' @return An R `array` (or `vector` for shape `integer()`).
 #' @export

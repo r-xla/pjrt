@@ -13,8 +13,7 @@ Buffer to convert.}
 \item{scan_na}{(\code{logical(1)})\cr
 If \code{TRUE} and the buffer dtype is \code{"i32"}, scan the materialized R
 integer vector for \code{NA_integer_} values and raise an error if any are
-present. No-op for non-\code{i32} dtypes (only \code{i32} maps onto R's integer
-sentinel). Defaults to \code{FALSE}.}
+present. No-op for non-\code{i32} dtypes.}
 
 \item{...}{Additional arguments (unused).}
 }
@@ -23,10 +22,4 @@ An R \code{array} (or \code{vector} for shape \code{integer()}).
 }
 \description{
 Transfer buffer data from device to host and return an R array.
-
-R's \code{NA_integer_} is the bit pattern \code{-2147483648}. PJRT has no notion of
-missing values, so any genuine \code{i32} value of \code{-2147483648} produced on
-device is silently turned into \code{NA} when materialized as an R integer
-vector. Set \code{scan_na = TRUE} to check for this after materialization and
-raise an error if any are present.
 }
