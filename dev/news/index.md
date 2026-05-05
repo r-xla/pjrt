@@ -2,6 +2,9 @@
 
 ## pjrt (development version)
 
+### Features
+
+- Added support for the `bit64` package to better support long integers.
 - [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
   [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
   and

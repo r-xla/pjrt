@@ -47,9 +47,13 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
-<ul><li>
+<div class="section level3">
+<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
+<ul><li>Added support for the <code>bit64</code> package to better support long integers.</li>
+<li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>, <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code>, and <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> gain a <code>scan_na</code> argument (default <code>FALSE</code>). When <code>TRUE</code>, host → device transfers error if the input contains any <code>NA</code> values; device → host transfers error if a materialized <code>i32</code> buffer surfaces an <code>NA_integer_</code> (the <code>-2147483648</code> bit-pattern collision). Opt-in safety check for callers that want to fail loudly on missing-value loss.</li>
 </ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.0" id="pjrt-030">pjrt 0.3.0<a class="anchor" aria-label="anchor" href="#pjrt-030"></a></h2>
 <div class="section level3">
