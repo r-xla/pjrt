@@ -6,7 +6,7 @@
   **Breaking change:** `as_array()` on an `i64` or `ui64` buffer now
   unconditionally returns a `bit64::integer64` vector (preserving the full
   64-bit range), instead of silently truncating to a 32-bit R `integer`.
-  `bit64` is required at materialization time for these dtypes.
+  `bit64` is now an Imports dependency.
 
 # pjrt 0.3.0
 

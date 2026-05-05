@@ -256,10 +256,6 @@ pjrt_buffer.integer64 <- function(
   shape = NULL,
   ...
 ) {
-  rlang::check_installed(
-    "bit64",
-    reason = "to create i64 buffers from {.cls integer64} data."
-  )
   args <- convert_buffer_args(data, dtype, device, shape, "i64", ...)
   if (!identical(args$dtype, "i64")) {
     cli_abort(

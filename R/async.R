@@ -77,10 +77,6 @@ value.PJRTArrayPromise <- function(x, ...) {
   if (is.null(x$materialized)) {
     impl_host_data_await(x$data)
     if (x$dtype %in% c("i64", "ui64")) {
-      rlang::check_installed(
-        "bit64",
-        reason = "to materialize {.val i64} / {.val ui64} buffers as {.cls integer64}."
-      )
       out <- impl_raw_to_integer64_array(x$data, x$shape)
       class(out) <- "integer64"
       x$materialized <- out

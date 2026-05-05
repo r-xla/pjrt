@@ -14,6 +14,7 @@ License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
 BugReports: https://github.com/r-xla/pjrt/issues
 Imports:
+    bit64,
     checkmate,
     cli,
     fs,
@@ -23,7 +24,6 @@ Imports:
     withr,
     tengen (>= 0.2.0)
 Suggests:
-    bit64,
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp
