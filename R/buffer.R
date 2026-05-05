@@ -167,7 +167,9 @@ recycle_data <- function(data, shape) {
     if (!any(shape == 0)) {
       cli_abort("Empty buffers must have at least one dimension equal to 0")
     }
-    array(data, dim = shape)
+    out <- array(data, dim = shape)
+    oldClass(out) <- oldClass(data)
+    out
   } else if (data_len == numel) {
     return(data)
   } else if ((data_len == 1) && (numel != 0)) {
@@ -261,11 +263,6 @@ pjrt_buffer.integer64 <- function(
     cli_abort(
       "{.cls integer64} input only supports {.val i64} dtype, got {.val {args$dtype}}."
     )
-  }
-  # recycle_data() can drop the integer64 class via array() on the empty path;
-  # restore it so the C++ side reads REAL() bytes as int64.
-  if (!inherits(args$data, "integer64")) {
-    class(args$data) <- "integer64"
   }
   impl_client_buffer_from_integer64(
     client = args$client,
