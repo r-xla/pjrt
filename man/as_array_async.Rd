@@ -10,6 +10,12 @@ as_array_async(x, ...)
 \item{x}{A \code{PJRTBuffer} object.}
 
 \item{...}{Additional arguments (unused).}
+
+\item{integer64}{(\code{logical(1)})\cr
+If \code{TRUE} and the buffer dtype is \code{"i64"}, the materialized result will
+be a \code{\link[bit64:bit64-package]{bit64::integer64}} vector (full 64-bit range)
+instead of an R \code{integer} vector with a truncating cast. Requires the
+\code{bit64} package. No-op for other dtypes. Defaults to \code{FALSE}.}
 }
 \value{
 A \code{PJRTArrayPromise} object. Call \code{value()} to get the R array.

@@ -1,5 +1,13 @@
 # pjrt (development version)
 
+* Added support for the [`bit64`](https://cran.r-project.org/package=bit64)
+  package. `pjrt_buffer()` and `pjrt_scalar()` now dispatch on
+  `bit64::integer64` input and create `i64` buffers via zero-copy.
+  `as_array()` and `as_array_async()` gain an `integer64 = FALSE` argument;
+  set to `TRUE` to materialize an `i64` buffer as `bit64::integer64`
+  (preserving the full 64-bit range) instead of casting to R's 32-bit
+  `integer` (the existing default, which silently truncates).
+
 # pjrt 0.3.0
 
 ## Features

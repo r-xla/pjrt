@@ -192,6 +192,57 @@ test_that("pjrt_buffer preserves 3d dimensions", {
   test_pjrt_buffer(arr_3d)
 })
 
+test_that("pjrt_buffer dispatches on integer64 to i64", {
+  skip_if_not_installed("bit64")
+  x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
+  buf <- pjrt_buffer(x)
+  expect_equal(as.character(elt_type(buf)), "i64")
+  expect_equal(shape(buf), 4L)
+
+  # Default as_array() still casts to R integer (lossy) — preserves prior behaviour.
+  expect_type(as_array(buf), "integer")
+})
+
+test_that("pjrt_buffer / as_array round-trip integer64 with full 64-bit range", {
+  skip_if_not_installed("bit64")
+  x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
+  buf <- pjrt_buffer(x)
+  back <- as_array(buf, integer64 = TRUE)
+  expect_s3_class(back, "integer64")
+  expect_equal(as.character(back), as.character(x))
+})
+
+test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {
+  skip_if_not_installed("bit64")
+  x <- bit64::as.integer64(9223372036854775000)
+  buf <- pjrt_scalar(x)
+  expect_equal(shape(buf), integer())
+  expect_equal(as.character(elt_type(buf)), "i64")
+
+  back <- as_array(buf, integer64 = TRUE)
+  expect_s3_class(back, "integer64")
+  expect_equal(as.character(back), as.character(x))
+
+  # Length-1 integer64 must error from pjrt_scalar if length != 1.
+  expect_error(pjrt_scalar(bit64::as.integer64(c(1, 2))), "length 1")
+})
+
+test_that("pjrt_buffer.integer64 rejects non-i64 dtype", {
+  skip_if_not_installed("bit64")
+  expect_error(
+    pjrt_buffer(bit64::as.integer64(1), dtype = "i32"),
+    "only supports.*i64"
+  )
+})
+
+test_that("integer64 = TRUE is a no-op for non-i64 dtypes", {
+  buf_i32 <- pjrt_buffer(1:3, dtype = "i32")
+  expect_type(as_array(buf_i32, integer64 = TRUE), "integer")
+
+  buf_f32 <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+  expect_type(as_array(buf_f32, integer64 = TRUE), "double")
+})
+
 test_that("raw", {
   sample_signed <- function(precision, shape) {
     precision <- as.integer(precision)

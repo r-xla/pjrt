@@ -6,7 +6,7 @@
 \alias{pjrt-package}
 \title{pjrt: R Interface to PJRT}
 \description{
-Provides an R interface to PJRT (Pretty much Just another RunTime), which allows you to run XLA or stableHLO programs on a variety of hardware backends including CPU, GPU, and TPU.
+Provides an R interface to PJRT (Pluggable Jit RunTime), which allows you to run XLA or stableHLO programs on a variety of hardware backends including CPU, GPU, and TPU.
 }
 \section{Environment Variables}{
 

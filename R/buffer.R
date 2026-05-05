@@ -249,6 +249,37 @@ pjrt_buffer.numeric <- function(
 }
 
 #' @export
+pjrt_buffer.integer64 <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  ...
+) {
+  rlang::check_installed(
+    "bit64",
+    reason = "to create i64 buffers from {.cls integer64} data."
+  )
+  args <- convert_buffer_args(data, dtype, device, shape, "i64", ...)
+  if (!identical(args$dtype, "i64")) {
+    cli_abort(
+      "{.cls integer64} input only supports {.val i64} dtype, got {.val {args$dtype}}."
+    )
+  }
+  # recycle_data() can drop the integer64 class via array() on the empty path;
+  # restore it so the C++ side reads REAL() bytes as int64.
+  if (!inherits(args$data, "integer64")) {
+    class(args$data) <- "integer64"
+  }
+  impl_client_buffer_from_integer64(
+    client = args$client,
+    device = args$device,
+    data = args$data,
+    dims = args$dims
+  )
+}
+
+#' @export
 pjrt_buffer.raw <- function(
   data,
   ...,
@@ -327,6 +358,19 @@ pjrt_scalar.numeric <- function(
 }
 
 #' @export
+pjrt_scalar.integer64 <- function(
+  data,
+  dtype = NULL,
+  device = NULL,
+  ...
+) {
+  if (length(data) != 1) {
+    cli_abort("data must have length 1")
+  }
+  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer(), ...)
+}
+
+#' @export
 pjrt_scalar.raw <- function(
   data,
   ...,
@@ -356,9 +400,28 @@ elt_type <- function(x) {
   impl_buffer_elt_type(x)
 }
 
+#' @rdname as_array.PJRTBuffer
+#' @title Convert a PJRTBuffer to an R Array
+#' @description
+#' Transfer buffer data from device to host and return an R array.
+#'
+#' R has no native 64-bit integer type. By default an `i64` buffer is
+#' materialized into an R `integer` (32-bit) vector with a silent truncating
+#' cast. Pass `integer64 = TRUE` to instead return a `bit64::integer64`
+#' vector (a `REALSXP` carrying the int64 bit pattern), which round-trips
+#' the full 64-bit range.
+#' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
+#'   Buffer to convert.
+#' @param integer64 (`logical(1)`)\cr
+#'   If `TRUE` and the buffer dtype is `"i64"`, return a
+#'   [`bit64::integer64`][bit64::integer64] vector instead of casting to R's
+#'   32-bit `integer`. Requires the `bit64` package. No-op for other dtypes.
+#'   Defaults to `FALSE`.
+#' @param ... Additional arguments (unused).
+#' @return An R `array` (or `vector` for shape `integer()`).
 #' @export
-as_array.PJRTBuffer <- function(x, ...) {
-  value(as_array_async(x))
+as_array.PJRTBuffer <- function(x, integer64 = FALSE, ...) {
+  value(as_array_async(x, integer64 = integer64))
 }
 
 #' @title Convert buffer to R array asynchronously
@@ -378,15 +441,32 @@ as_array.PJRTBuffer <- function(x, ...) {
 #' result <- as_array_async(buf)
 #' is_ready(result)
 #' value(result)
+#' @param integer64 (`logical(1)`)\cr
+#'   If `TRUE` and the buffer dtype is `"i64"`, the materialized result will
+#'   be a [`bit64::integer64`][bit64::integer64] vector (full 64-bit range)
+#'   instead of an R `integer` vector with a truncating cast. Requires the
+#'   `bit64` package. No-op for other dtypes. Defaults to `FALSE`.
 #' @export
 as_array_async <- function(x, ...) {
   UseMethod("as_array_async")
 }
 
 #' @export
-as_array_async.PJRTBuffer <- function(x, ...) {
+as_array_async.PJRTBuffer <- function(x, integer64 = FALSE, ...) {
+  assert_flag(integer64)
+  if (integer64) {
+    rlang::check_installed(
+      "bit64",
+      reason = "to materialize {.val i64} buffers as {.cls integer64}."
+    )
+  }
   result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$dtype, result$dims)
+  pjrt_array_promise(
+    result$data,
+    result$dtype,
+    result$dims,
+    as_integer64 = integer64
+  )
 }
 
 

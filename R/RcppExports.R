@@ -157,6 +157,10 @@ impl_raw_to_array <- function(host_data, dtype, dims) {
     .Call(`_pjrt_impl_raw_to_array`, host_data, dtype, dims)
 }
 
+impl_raw_to_integer64_array <- function(host_data, dims) {
+    .Call(`_pjrt_impl_raw_to_integer64_array`, host_data, dims)
+}
+
 impl_buffer_to_host_async <- function(buffer) {
     .Call(`_pjrt_impl_buffer_to_host_async`, buffer)
 }
@@ -167,6 +171,10 @@ impl_loaded_executable_execute <- function(executable, input, execution_options)
 
 impl_client_buffer_from_integer <- function(client, device, data, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype)
+}
+
+impl_client_buffer_from_integer64 <- function(client, device, data, dims) {
+    .Call(`_pjrt_impl_client_buffer_from_integer64`, client, device, data, dims)
 }
 
 impl_client_buffer_from_logical <- function(client, device, data, dims, dtype) {
