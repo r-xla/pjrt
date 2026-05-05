@@ -18,6 +18,7 @@ interface to *create* stableHLO programs, see the
 From GitHub:
 
 ``` r
+
 pak::pak("r-xla/pjrt")
 ```
 
@@ -26,6 +27,7 @@ You can also install from
 below to your `.Rprofile`.
 
 ``` r
+
 options(repos = c(
   rxla = "https://r-xla.r-universe.dev",
   CRAN = "https://cloud.r-project.org/"
@@ -39,6 +41,7 @@ the required CUDA runtime libraries and you only need to have a
 compatible CUDA driver.
 
 ``` r
+
 pak::pak("mlverse/cudatoolkit/cuda12.8")
 ```
 
@@ -46,6 +49,7 @@ Alternatively, install from
 [r-universe](https://mlverse.r-universe.dev/).
 
 ``` r
+
 install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
 ```
 
@@ -61,6 +65,7 @@ To trouble-shoot the CUDA installation, run the following in a new R
 session for maximum debug output.
 
 ``` r
+
 Sys.setenv(PJRT_DEBUG = "1", TF_CPP_MIN_LOG_LEVEL = "0")
 pjrt::pjrt_buffer(1, device = "cuda")
 ```
@@ -75,6 +80,7 @@ Below, we create and run a stableHLO program that adds two `f32` tensors
 of shape `(2, 2)`.
 
 ``` r
+
 library(pjrt)
 src <- r"(
 func.func @main(
@@ -167,6 +173,9 @@ pjrt_execute(executable, x, y)
   :
 
   Convert `PJRTElementType` to string
+
+- [`as_array(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/dev/reference/as_array.PJRTBuffer.md)
+  : Convert a PJRTBuffer to an R Array
 
 - [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
   : Convert buffer to R array asynchronously

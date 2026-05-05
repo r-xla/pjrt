@@ -2,6 +2,16 @@
 
 ## pjrt (development version)
 
+- [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
+  [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
+  and
+  [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
+  gain a `scan_na` argument (default `FALSE`). When `TRUE`, host →
+  device transfers error if the input contains any `NA` values; device →
+  host transfers error if a materialized `i32` buffer surfaces an
+  `NA_integer_` (the `-2147483648` bit-pattern collision). Opt-in safety
+  check for callers that want to fail loudly on missing-value loss.
+
 ## pjrt 0.3.0
 
 ### Features

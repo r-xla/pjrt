@@ -47,6 +47,7 @@ The typical workflow is: create program → compile → create buffers →
 execute → read results.
 
 ``` r
+
 prog <- pjrt_program(src, format = "mlir")       # PJRTProgram
 exec <- pjrt_compile(prog, device = "cpu")        # PJRTLoadedExecutable
 buf  <- pjrt_buffer(data, dtype = "f32")           # PJRTBuffer (host → device)

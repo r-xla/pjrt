@@ -73,9 +73,16 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, shape <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span></span>
+<span>  <span class="va">data</span>,</span>
+<span>  dtype <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  device <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  shape <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  scan_na <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, scan_na <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">pjrt_empty</span><span class="op">(</span><span class="va">dtype</span>, <span class="va">shape</span>, device <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -116,6 +123,17 @@ environment variable.</p></dd>
 The dimensions of the buffer.
 The default (<code>NULL</code>) is to infer them from the data if possible.
 The default (<code>NULL</code>) depends on the method.</p></dd>
+
+
+<dt id="arg-scan-na">scan_na<a class="anchor" aria-label="anchor" href="#arg-scan-na"></a></dt>
+<dd><p>(<code>logical(1)</code>)<br>
+If <code>TRUE</code>, scan <code>data</code> for <code>NA</code> values before transferring to the device and
+raise an error if any are present. R's <code>NA</code> markers have no representation
+at the XLA level (e.g. <code>NA_integer_</code> is just the bit pattern <code>-2147483648</code>,
+and <code>NA</code> of <code>logical</code> type is silently coerced to <code>TRUE</code>), so missing values
+are silently lost on transfer. Defaults to <code>FALSE</code> for performance; set to
+<code>TRUE</code> to fail loudly instead of silently corrupting data.
+Not applicable to <code>raw</code> input.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
