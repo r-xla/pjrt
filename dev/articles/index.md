@@ -2,4 +2,6 @@
 
 ### All vignettes
 
+- [Adding Custom
+  Calls](https://r-xla.github.io/pjrt/dev/articles/ffi.md):
 - [Get Started](https://r-xla.github.io/pjrt/dev/articles/pjrt.md):
