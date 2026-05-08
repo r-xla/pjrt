@@ -1,17 +1,16 @@
 // Shared utilities for XLA FFI handlers backed by LAPACK / cuSOLVER.
 #pragma once
 
-#include "xla/ffi/api/ffi.h"
-
 #include <cstdint>
 #include <limits>
 #include <string>
 
-#define PJRT_RETURN_IF_ERROR(expr)                                             \
-  do {                                                                         \
-    auto _e = (expr);                                                          \
-    if (!_e.success())                                                         \
-      return _e;                                                               \
+#include "xla/ffi/api/ffi.h"
+
+#define PJRT_RETURN_IF_ERROR(expr) \
+  do {                             \
+    auto _e = (expr);              \
+    if (!_e.success()) return _e;  \
   } while (0)
 
 namespace rpjrt {
@@ -27,21 +26,21 @@ inline xla::ffi::Error dim_to_int(std::int64_t v, const char *name, int &out) {
   return xla::ffi::Error::Success();
 }
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // Dispatch on a buffer's element_type for f32/f64 only (the only float
 // precisions our LAPACK / cuSOLVER paths support). Use as:
 //   PJRT_DISPATCH_FLOAT(input.element_type(), op_impl, args...)
 // where op_impl<T> is a template returning xla::ffi::Error.
-#define PJRT_DISPATCH_FLOAT(et, IMPL, ...)                                     \
-  do {                                                                         \
-    switch (et) {                                                              \
-    case xla::ffi::DataType::F32:                                              \
-      return IMPL<float>(__VA_ARGS__);                                         \
-    case xla::ffi::DataType::F64:                                              \
-      return IMPL<double>(__VA_ARGS__);                                        \
-    default:                                                                   \
-      return xla::ffi::Error::InvalidArgument(                                 \
-          "operation only supports f32 and f64");                              \
-    }                                                                          \
+#define PJRT_DISPATCH_FLOAT(et, IMPL, ...)          \
+  do {                                              \
+    switch (et) {                                   \
+      case xla::ffi::DataType::F32:                 \
+        return IMPL<float>(__VA_ARGS__);            \
+      case xla::ffi::DataType::F64:                 \
+        return IMPL<double>(__VA_ARGS__);           \
+      default:                                      \
+        return xla::ffi::Error::InvalidArgument(    \
+            "operation only supports f32 and f64"); \
+    }                                               \
   } while (0)

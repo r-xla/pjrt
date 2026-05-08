@@ -4,9 +4,9 @@
 #include "ffi_common.h"
 
 #ifndef _WIN32
-#include "ffi_cuda.h"
-
 #include <cstddef>
+
+#include "ffi_cuda.h"
 #endif
 
 using namespace xla::ffi;
@@ -60,7 +60,7 @@ static Error lu_cuda_impl(void *stream, ScratchAllocator &scratch,
 
   return Error::Success();
 }
-#endif // _WIN32
+#endif  // _WIN32
 
 static Error do_lu_cuda(void *stream, ScratchAllocator scratch, AnyBuffer input,
                         Result<AnyBuffer> lu_out, Result<AnyBuffer> piv_out) {
@@ -81,7 +81,7 @@ XLA_FFI_DEFINE_HANDLER(lu_handler_cuda, do_lu_cuda,
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_lu_handler_cuda() {

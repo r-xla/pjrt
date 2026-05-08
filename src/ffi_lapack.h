@@ -20,12 +20,12 @@
 //
 #pragma once
 
-#include "ffi_common.h"
-
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <vector>
+
+#include "ffi_common.h"
 
 extern "C" {
 // QR: factorisation + Q materialisation.
@@ -55,7 +55,8 @@ void dgesdd_(const char *jobz, const int *m, const int *n, double *a,
 void dsyevd_(const char *jobz, const char *uplo, const int *n, double *a,
              const int *lda, double *w, double *work, const int *lwork,
              int *iwork, const int *liwork, int *info);
-// On windows we use R's bundeld LAPACK for now, which only has double precision support
+// On windows we use R's bundeld LAPACK for now, which only has double precision
+// support
 #ifndef _WIN32
 void sgeqrf_(const int *m, const int *n, float *a, const int *lda, float *tau,
              float *work, const int *lwork, int *info);
@@ -76,18 +77,18 @@ void ssyevd_(const char *jobz, const char *uplo, const int *n, float *a,
 namespace rpjrt {
 
 inline xla::ffi::Error lapack_check_info(int info, const char *routine) {
-  if (info == 0)
-    return xla::ffi::Error::Success();
-  return xla::ffi::Error::Internal(std::string(routine) +
-                                   " failed with info = " +
-                                   std::to_string(info));
+  if (info == 0) return xla::ffi::Error::Success();
+  return xla::ffi::Error::Internal(
+      std::string(routine) + " failed with info = " + std::to_string(info));
 }
 
 // Per-precision dispatch trait. ::S is the storage type that the LAPACK
 // routines actually see; on Windows this is always double.
-template <typename T> struct Lapack;
+template <typename T>
+struct Lapack;
 
-template <> struct Lapack<double> {
+template <>
+struct Lapack<double> {
   using S = double;
   static void geqrf(const int *m, const int *n, S *a, const int *lda, S *tau,
                     S *work, const int *lwork, int *info) {
@@ -98,8 +99,8 @@ template <> struct Lapack<double> {
                     int *info) {
     dorgqr_(m, n, k, a, lda, tau, work, lwork, info);
   }
-  static void getrf(const int *m, const int *n, S *a, const int *lda,
-                    int *ipiv, int *info) {
+  static void getrf(const int *m, const int *n, S *a, const int *lda, int *ipiv,
+                    int *info) {
     dgetrf_(m, n, a, lda, ipiv, info);
   }
   static void gesdd(const char *jobz, const int *m, const int *n, S *a,
@@ -116,7 +117,8 @@ template <> struct Lapack<double> {
 };
 
 #ifndef _WIN32
-template <> struct Lapack<float> {
+template <>
+struct Lapack<float> {
   using S = float;
   static void geqrf(const int *m, const int *n, S *a, const int *lda, S *tau,
                     S *work, const int *lwork, int *info) {
@@ -127,8 +129,8 @@ template <> struct Lapack<float> {
                     int *info) {
     sorgqr_(m, n, k, a, lda, tau, work, lwork, info);
   }
-  static void getrf(const int *m, const int *n, S *a, const int *lda,
-                    int *ipiv, int *info) {
+  static void getrf(const int *m, const int *n, S *a, const int *lda, int *ipiv,
+                    int *info) {
     sgetrf_(m, n, a, lda, ipiv, info);
   }
   static void gesdd(const char *jobz, const int *m, const int *n, S *a,
@@ -145,7 +147,8 @@ template <> struct Lapack<float> {
 };
 #else
 // Windows: promote f32 -> f64 -> f32 around the LAPACK call.
-template <> struct Lapack<float> {
+template <>
+struct Lapack<float> {
   using S = double;
   static void geqrf(const int *m, const int *n, S *a, const int *lda, S *tau,
                     S *work, const int *lwork, int *info) {
@@ -156,8 +159,8 @@ template <> struct Lapack<float> {
                     int *info) {
     dorgqr_(m, n, k, a, lda, tau, work, lwork, info);
   }
-  static void getrf(const int *m, const int *n, S *a, const int *lda,
-                    int *ipiv, int *info) {
+  static void getrf(const int *m, const int *n, S *a, const int *lda, int *ipiv,
+                    int *info) {
     dgetrf_(m, n, a, lda, ipiv, info);
   }
   static void gesdd(const char *jobz, const int *m, const int *n, S *a,
@@ -207,13 +210,11 @@ template <typename T, typename S = typename Lapack<T>::S>
 inline S *promote_inplace(std::vector<S> &storage, T *target, std::size_t n,
                           const T *src) {
   if constexpr (std::is_same_v<S, T>) {
-    if (src != target)
-      std::memcpy(target, src, n * sizeof(T));
+    if (src != target) std::memcpy(target, src, n * sizeof(T));
     return target;
   } else {
     storage.resize(n);
-    for (std::size_t i = 0; i < n; i++)
-      storage[i] = static_cast<S>(src[i]);
+    for (std::size_t i = 0; i < n; i++) storage[i] = static_cast<S>(src[i]);
     return storage.data();
   }
 }
@@ -235,8 +236,7 @@ inline const S *promote_input(std::vector<S> &storage, std::size_t n,
     return src;
   } else {
     storage.resize(n);
-    for (std::size_t i = 0; i < n; i++)
-      storage[i] = static_cast<S>(src[i]);
+    for (std::size_t i = 0; i < n; i++) storage[i] = static_cast<S>(src[i]);
     return storage.data();
   }
 }
@@ -248,8 +248,7 @@ inline S *promote_workspace(std::vector<S> &storage, std::size_t n,
   if constexpr (std::is_same_v<S, T>) {
     std::memcpy(storage.data(), src, n * sizeof(T));
   } else {
-    for (std::size_t i = 0; i < n; i++)
-      storage[i] = static_cast<S>(src[i]);
+    for (std::size_t i = 0; i < n; i++) storage[i] = static_cast<S>(src[i]);
   }
   return storage.data();
 }
@@ -258,9 +257,8 @@ template <typename T, typename S = typename Lapack<T>::S>
 inline void demote_output(const std::vector<S> &storage, T *target,
                           std::size_t n) {
   if constexpr (!std::is_same_v<S, T>) {
-    for (std::size_t i = 0; i < n; i++)
-      target[i] = static_cast<T>(storage[i]);
+    for (std::size_t i = 0; i < n; i++) target[i] = static_cast<T>(storage[i]);
   }
 }
 
-} // namespace rpjrt
+}  // namespace rpjrt

@@ -15,9 +15,9 @@
 #include "ffi_common.h"
 
 #ifndef _WIN32
-#include "ffi_cuda.h"
-
 #include <cstddef>
+
+#include "ffi_cuda.h"
 #endif
 
 using namespace xla::ffi;
@@ -28,8 +28,7 @@ namespace rpjrt {
 template <typename T>
 static Error svd_cuda_impl(void *stream, ScratchAllocator &scratch,
                            AnyBuffer input, Result<AnyBuffer> u_out,
-                           Result<AnyBuffer> s_out,
-                           Result<AnyBuffer> vt_out) {
+                           Result<AnyBuffer> s_out, Result<AnyBuffer> vt_out) {
   Solver solver(get_cuda_libs());
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
@@ -79,14 +78,14 @@ static Error svd_cuda_impl(void *stream, ScratchAllocator &scratch,
   // signed char; the C++ char literal 'S' (byte 83) is implicitly
   // converted to signed char at the call site, no truncation.
   PJRT_RETURN_IF_GPU_ERROR(
-      CuSolver<T>::gesvd(g)(solver.handle.get(), 'S', 'S', m, n, d_a, m,
-                            s_data, u_data, m, vt_data, n, d_work, lwork,
+      CuSolver<T>::gesvd(g)(solver.handle.get(), 'S', 'S', m, n, d_a, m, s_data,
+                            u_data, m, vt_data, n, d_work, lwork,
                             /*rwork=*/nullptr, solver.info),
       "cusolverDn?gesvd");
 
   return Error::Success();
 }
-#endif // _WIN32
+#endif  // _WIN32
 
 static Error do_svd_cuda(void *stream, ScratchAllocator scratch,
                          AnyBuffer input, Result<AnyBuffer> u_out,
@@ -109,7 +108,7 @@ XLA_FFI_DEFINE_HANDLER(svd_handler_cuda, do_svd_cuda,
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_svd_handler_cuda() {

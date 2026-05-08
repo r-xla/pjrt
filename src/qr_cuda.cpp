@@ -9,10 +9,10 @@
 #include "ffi_common.h"
 
 #ifndef _WIN32
-#include "ffi_cuda.h"
-
 #include <algorithm>
 #include <cstddef>
+
+#include "ffi_cuda.h"
 #endif
 
 using namespace xla::ffi;
@@ -42,9 +42,9 @@ static Error geqrf_cuda_impl(void *stream, ScratchAllocator &scratch,
   std::size_t a_bytes = static_cast<std::size_t>(m) * n * sizeof(T);
 
   if (packed_ptr != input_ptr) {
-    PJRT_RETURN_IF_GPU_ERROR(g.memcpy_dtod(packed_ptr, input_ptr, a_bytes,
-                                           stream),
-                             "cuMemcpyDtoDAsync (input -> packed)");
+    PJRT_RETURN_IF_GPU_ERROR(
+        g.memcpy_dtod(packed_ptr, input_ptr, a_bytes, stream),
+        "cuMemcpyDtoDAsync (input -> packed)");
   }
 
   int lwork = 0;
@@ -58,15 +58,14 @@ static Error geqrf_cuda_impl(void *stream, ScratchAllocator &scratch,
       scratch, static_cast<std::size_t>(lwork), "geqrf workspace", d_work));
 
   PJRT_RETURN_IF_GPU_ERROR(
-      CuSolver<T>::geqrf(g)(solver.handle.get(), m, n,
-                            reinterpret_cast<T *>(packed_ptr), m,
-                            reinterpret_cast<T *>(tau_ptr), d_work, lwork,
-                            solver.info),
+      CuSolver<T>::geqrf(g)(
+          solver.handle.get(), m, n, reinterpret_cast<T *>(packed_ptr), m,
+          reinterpret_cast<T *>(tau_ptr), d_work, lwork, solver.info),
       "cusolverDn?geqrf");
 
   return Error::Success();
 }
-#endif // _WIN32
+#endif  // _WIN32
 
 static Error do_geqrf_cuda(void *stream, ScratchAllocator scratch,
                            AnyBuffer input, Result<AnyBuffer> packed_out,
@@ -86,7 +85,7 @@ XLA_FFI_DEFINE_HANDLER(geqrf_handler_cuda, do_geqrf_cuda,
                            .Ctx<ScratchAllocator>()
                            .Arg<AnyBuffer>()    // input (m, n)
                            .Ret<AnyBuffer>()    // packed (m, n)
-                           .Ret<AnyBuffer>()); // tau (k,)
+                           .Ret<AnyBuffer>());  // tau (k,)
 
 // ---- orgqr -----------------------------------------------------------------
 
@@ -131,15 +130,14 @@ static Error orgqr_cuda_impl(void *stream, ScratchAllocator &scratch,
       scratch, static_cast<std::size_t>(lwork), "orgqr workspace", d_work));
 
   PJRT_RETURN_IF_GPU_ERROR(
-      CuSolver<T>::orgqr(g)(solver.handle.get(), m, k, k,
-                            reinterpret_cast<T *>(q_ptr), m,
-                            reinterpret_cast<const T *>(tau_ptr), d_work,
-                            lwork, solver.info),
+      CuSolver<T>::orgqr(g)(
+          solver.handle.get(), m, k, k, reinterpret_cast<T *>(q_ptr), m,
+          reinterpret_cast<const T *>(tau_ptr), d_work, lwork, solver.info),
       "cusolverDn?orgqr");
 
   return Error::Success();
 }
-#endif // _WIN32
+#endif  // _WIN32
 
 static Error do_orgqr_cuda(void *stream, ScratchAllocator scratch,
                            AnyBuffer packed, AnyBuffer tau_in,
@@ -159,9 +157,9 @@ XLA_FFI_DEFINE_HANDLER(orgqr_handler_cuda, do_orgqr_cuda,
                            .Ctx<ScratchAllocator>()
                            .Arg<AnyBuffer>()    // packed reflectors (m, n)
                            .Arg<AnyBuffer>()    // tau (k,)
-                           .Ret<AnyBuffer>()); // Q (m, k)
+                           .Ret<AnyBuffer>());  // Q (m, k)
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_geqrf_handler_cuda() {

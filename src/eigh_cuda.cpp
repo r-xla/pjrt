@@ -9,9 +9,9 @@
 #include "ffi_common.h"
 
 #ifndef _WIN32
-#include "ffi_cuda.h"
-
 #include <cstddef>
+
+#include "ffi_cuda.h"
 #endif
 
 using namespace xla::ffi;
@@ -31,8 +31,7 @@ static Error eigh_cuda_impl(void *stream, ScratchAllocator &scratch,
   int m, n;
   PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
   PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
-  if (m != n)
-    return Error::InvalidArgument("eigh requires a square matrix");
+  if (m != n) return Error::InvalidArgument("eigh requires a square matrix");
 
   auto input_ptr = reinterpret_cast<CUdeviceptr>(input.untyped_data());
   auto v_ptr = reinterpret_cast<CUdeviceptr>((*v_out).untyped_data());
@@ -48,8 +47,8 @@ static Error eigh_cuda_impl(void *stream, ScratchAllocator &scratch,
                              "cuMemcpyDtoDAsync (input -> V)");
   }
 
-  const int jobz = 1; // CUSOLVER_EIG_MODE_VECTOR
-  const int uplo = 0; // CUBLAS_FILL_MODE_LOWER
+  const int jobz = 1;  // CUSOLVER_EIG_MODE_VECTOR
+  const int uplo = 0;  // CUBLAS_FILL_MODE_LOWER
 
   int lwork = 0;
   PJRT_RETURN_IF_GPU_ERROR(
@@ -63,15 +62,14 @@ static Error eigh_cuda_impl(void *stream, ScratchAllocator &scratch,
       scratch, static_cast<std::size_t>(lwork), "syevd workspace", d_work));
 
   PJRT_RETURN_IF_GPU_ERROR(
-      CuSolver<T>::syevd(g)(solver.handle.get(), jobz, uplo, n,
-                            reinterpret_cast<T *>(v_ptr), n,
-                            reinterpret_cast<T *>(w_ptr), d_work, lwork,
-                            solver.info),
+      CuSolver<T>::syevd(g)(
+          solver.handle.get(), jobz, uplo, n, reinterpret_cast<T *>(v_ptr), n,
+          reinterpret_cast<T *>(w_ptr), d_work, lwork, solver.info),
       "cusolverDn?syevd");
 
   return Error::Success();
 }
-#endif // _WIN32
+#endif  // _WIN32
 
 static Error do_eigh_cuda(void *stream, ScratchAllocator scratch,
                           AnyBuffer input, Result<AnyBuffer> v_out,
@@ -93,7 +91,7 @@ XLA_FFI_DEFINE_HANDLER(eigh_handler_cuda, do_eigh_cuda,
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_eigh_handler_cuda() {

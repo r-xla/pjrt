@@ -1,6 +1,7 @@
 // Singular value decomposition via LAPACK gesdd (divide-and-conquer).
 //
-// Reduced ("economy") SVD: jobz = 'S'. For A of shape (m, n) with k = min(m, n):
+// Reduced ("economy") SVD: jobz = 'S'. For A of shape (m, n) with k = min(m,
+// n):
 //   U  : (m, k)
 //   S  : (k,)     (always non-negative, real)
 //   Vt : (k, n)
@@ -10,14 +11,14 @@
 // real workspace queried via lwork = -1.
 #include <Rcpp.h>
 
-#include "ffi_common.h"
-#include "ffi_lapack.h"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <vector>
+
+#include "ffi_common.h"
+#include "ffi_lapack.h"
 
 using namespace xla::ffi;
 
@@ -60,14 +61,14 @@ static Error svd_impl(AnyBuffer input, Result<AnyBuffer> u_out,
   int lwork = -1;
   S work_size;
   std::vector<int> iwork(8 * k);
-  Lapack<T>::gesdd(&jobz, &m, &n, a, &m, sv, u, &ldu, vt, &ldvt,
-                   &work_size, &lwork, iwork.data(), &info);
+  Lapack<T>::gesdd(&jobz, &m, &n, a, &m, sv, u, &ldu, vt, &ldvt, &work_size,
+                   &lwork, iwork.data(), &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "gesdd workspace query"));
 
   lwork = static_cast<int>(work_size);
   std::vector<S> work(lwork);
-  Lapack<T>::gesdd(&jobz, &m, &n, a, &m, sv, u, &ldu, vt, &ldvt,
-                   work.data(), &lwork, iwork.data(), &info);
+  Lapack<T>::gesdd(&jobz, &m, &n, a, &m, sv, u, &ldu, vt, &ldvt, work.data(),
+                   &lwork, iwork.data(), &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "gesdd"));
 
   demote_output<T>(u_storage, u_data, total_u);
@@ -90,7 +91,7 @@ XLA_FFI_DEFINE_HANDLER(svd_handler, do_svd,
                            .Ret<AnyBuffer>()    // S  (k,)
                            .Ret<AnyBuffer>());  // Vt (k, n)
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_svd_handler() {

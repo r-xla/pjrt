@@ -17,7 +17,8 @@ using namespace xla::ffi;
 
 namespace rpjrt {
 
-template <typename T> static T load_sym(void *lib, const char *name) {
+template <typename T>
+static T load_sym(void *lib, const char *name) {
   return reinterpret_cast<T>(dlsym(lib, name));
 }
 
@@ -33,14 +34,11 @@ CudaLibs &get_cuda_libs() {
     // Probe a couple of candidates: SDK installs ship the unversioned symlink,
     // runtime-only installs (typical in containers) only ship the SONAME.
     void *cusolver = dlopen("libcusolver.so", RTLD_LAZY);
-    if (!cusolver)
-      cusolver = dlopen("libcusolver.so.11", RTLD_LAZY);
-    if (!cusolver)
-      return;
+    if (!cusolver) cusolver = dlopen("libcusolver.so.11", RTLD_LAZY);
+    if (!cusolver) return;
 
     void *cuda = dlopen("libcuda.so.1", RTLD_LAZY);
-    if (!cuda)
-      return;
+    if (!cuda) return;
 
     g.dn_create = load_sym<decltype(g.dn_create)>(cusolver, "cusolverDnCreate");
     g.dn_destroy =
@@ -99,10 +97,10 @@ CudaLibs &get_cuda_libs() {
 //
 // cuSOLVER handles are not safe to share across streams: cusolverDnSetStream
 // rebinds the handle, racing with concurrent launches issued from another
-// stream. We mirror jaxlib's SolverHandlePool (jaxlib/gpu/solver_handle_pool.cc):
-// a mutex-guarded free-list of handles per stream, RAII-returned to the pool
-// when the borrow goes out of scope. Handles are pooled forever, never
-// destroyed (acceptable for a process-wide resource).
+// stream. We mirror jaxlib's SolverHandlePool
+// (jaxlib/gpu/solver_handle_pool.cc): a mutex-guarded free-list of handles per
+// stream, RAII-returned to the pool when the borrow goes out of scope. Handles
+// are pooled forever, never destroyed (acceptable for a process-wide resource).
 namespace {
 // NOTE on the mutex/data relationship.
 // In C++, `mu` and `free_handles` are just two adjacent fields. There is no
@@ -113,14 +111,14 @@ namespace {
 // in this file.
 struct SolverHandlePool {
   std::mutex mu;
-  std::map<void *, std::vector<void *>> free_handles; // access only under mu.
+  std::map<void *, std::vector<void *>> free_handles;  // access only under mu.
 
   static SolverHandlePool &instance() {
     static SolverHandlePool p;
     return p;
   }
 };
-} // namespace
+}  // namespace
 
 HandleGuard::HandleGuard(HandleGuard &&o) noexcept
     : stream_(o.stream_), handle_(o.handle_) {
@@ -140,8 +138,7 @@ HandleGuard &HandleGuard::operator=(HandleGuard &&o) noexcept {
 HandleGuard::~HandleGuard() { release(); }
 
 void HandleGuard::release() {
-  if (!handle_)
-    return;
+  if (!handle_) return;
   auto &pool = SolverHandlePool::instance();
   std::lock_guard<std::mutex> lock(pool.mu);
   pool.free_handles[stream_].push_back(handle_);
@@ -187,6 +184,6 @@ Error Solver::begin(ScratchAllocator &scratch, void *stream) {
   return Error::Success();
 }
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
-#endif // _WIN32
+#endif  // _WIN32

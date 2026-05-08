@@ -10,14 +10,14 @@
 //   pivots  : (k,)   int32
 #include <Rcpp.h>
 
-#include "ffi_common.h"
-#include "ffi_lapack.h"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <vector>
+
+#include "ffi_common.h"
+#include "ffi_lapack.h"
 
 using namespace xla::ffi;
 
@@ -62,7 +62,7 @@ XLA_FFI_DEFINE_HANDLER(lu_handler, do_lu,
                            .Ret<AnyBuffer>()    // LU (same dtype)
                            .Ret<AnyBuffer>());  // pivots (int32)
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_lu_handler() {

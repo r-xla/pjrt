@@ -14,14 +14,14 @@
 //     output buffer and factorise there.
 #include <Rcpp.h>
 
-#include "ffi_common.h"
-#include "ffi_lapack.h"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <vector>
+
+#include "ffi_common.h"
+#include "ffi_lapack.h"
 
 using namespace xla::ffi;
 
@@ -76,7 +76,7 @@ XLA_FFI_DEFINE_HANDLER(geqrf_handler, do_geqrf,
                        Ffi::Bind()
                            .Arg<AnyBuffer>()    // input matrix (m, n)
                            .Ret<AnyBuffer>()    // packed (m, n)
-                           .Ret<AnyBuffer>()); // tau (k,)
+                           .Ret<AnyBuffer>());  // tau (k,)
 
 // ---- orgqr -----------------------------------------------------------------
 
@@ -128,16 +128,18 @@ XLA_FFI_DEFINE_HANDLER(orgqr_handler, do_orgqr,
                        Ffi::Bind()
                            .Arg<AnyBuffer>()    // packed reflectors (m, n)
                            .Arg<AnyBuffer>()    // tau (k,)
-                           .Ret<AnyBuffer>()); // Q (m, k)
+                           .Ret<AnyBuffer>());  // Q (m, k)
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_geqrf_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::geqrf_handler, R_NilValue, R_NilValue);
+  return R_MakeExternalPtr((void *)rpjrt::geqrf_handler, R_NilValue,
+                           R_NilValue);
 }
 
 // [[Rcpp::export]]
 SEXP get_orgqr_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::orgqr_handler, R_NilValue, R_NilValue);
+  return R_MakeExternalPtr((void *)rpjrt::orgqr_handler, R_NilValue,
+                           R_NilValue);
 }

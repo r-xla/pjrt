@@ -12,13 +12,13 @@
 // size liwork) -- both queried with the lwork = -1 idiom.
 #include <Rcpp.h>
 
-#include "ffi_common.h"
-#include "ffi_lapack.h"
-
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <vector>
+
+#include "ffi_common.h"
+#include "ffi_lapack.h"
 
 using namespace xla::ffi;
 
@@ -33,8 +33,7 @@ static Error eigh_impl(AnyBuffer input, Result<AnyBuffer> v_out,
   int m, n;
   PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
   PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
-  if (m != n)
-    return Error::InvalidArgument("eigh requires a square matrix");
+  if (m != n) return Error::InvalidArgument("eigh requires a square matrix");
 
   const T *in = static_cast<const T *>(input.untyped_data());
   T *v_data = static_cast<T *>((*v_out).untyped_data());
@@ -85,7 +84,7 @@ XLA_FFI_DEFINE_HANDLER(eigh_handler, do_eigh,
                            .Ret<AnyBuffer>()    // eigenvectors (n, n)
                            .Ret<AnyBuffer>());  // eigenvalues (n,)
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
 // [[Rcpp::export]]
 SEXP get_eigh_handler() {

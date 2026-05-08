@@ -39,14 +39,14 @@ using CUdeviceptr = std::uintptr_t;
 // Status-check helper for CUDA driver / cuSOLVER calls. Every API call returns
 // an int; we propagate non-zero values as Error::Internal annotated with the
 // site name. Mirrors jaxlib's JAX_FFI_RETURN_IF_GPU_ERROR.
-#define PJRT_RETURN_IF_GPU_ERROR(expr, what)                                   \
-  do {                                                                         \
-    int _status = (expr);                                                      \
-    if (_status != 0) {                                                        \
-      return xla::ffi::Error::Internal(std::string(what) +                     \
-                                       " failed with status = " +              \
-                                       std::to_string(_status));               \
-    }                                                                          \
+#define PJRT_RETURN_IF_GPU_ERROR(expr, what)                   \
+  do {                                                         \
+    int _status = (expr);                                      \
+    if (_status != 0) {                                        \
+      return xla::ffi::Error::Internal(                        \
+          std::string(what) +                                  \
+          " failed with status = " + std::to_string(_status)); \
+    }                                                          \
   } while (0)
 
 // Function pointers for the cuSOLVER + CUDA driver entry points the package
@@ -104,8 +104,8 @@ struct CudaLibs {
                  int, int *);
   int (*d_orgqr_bs)(void *, int, int, int, const double *, int, const double *,
                     int *);
-  int (*d_orgqr)(void *, int, int, int, double *, int, const double *,
-                 double *, int, int *);
+  int (*d_orgqr)(void *, int, int, int, double *, int, const double *, double *,
+                 int, int *);
 
   // LU. ipiv and devInfo are device int32; ipiv is 1-based row indices.
   int (*s_getrf_bs)(void *, int, int, float *, int, int *);
@@ -175,7 +175,7 @@ CudaLibs &get_cuda_libs();
 
 // Borrowed cuSOLVER handle, returned to the per-stream pool on destruction.
 class HandleGuard {
-public:
+ public:
   HandleGuard() = default;
   HandleGuard(void *stream, void *handle) : stream_(stream), handle_(handle) {}
   HandleGuard(HandleGuard &&o) noexcept;
@@ -185,7 +185,7 @@ public:
   HandleGuard &operator=(const HandleGuard &) = delete;
   void *get() const { return handle_; }
 
-private:
+ private:
   void release();
   void *stream_ = nullptr;
   void *handle_ = nullptr;
@@ -239,9 +239,11 @@ xla::ffi::Error allocate_workspace(xla::ffi::ScratchAllocator &scratch,
 
 // Per-precision dispatch trait for cuSOLVER routines. Modelled on jaxlib's
 // `solver::Geqrf<T>` / `solver::Getrf<T>` ... wrappers.
-template <typename T> struct CuSolver;
+template <typename T>
+struct CuSolver;
 
-template <> struct CuSolver<float> {
+template <>
+struct CuSolver<float> {
   static auto geqrf_bs(CudaLibs &g) { return g.s_geqrf_bs; }
   static auto geqrf(CudaLibs &g) { return g.s_geqrf; }
   static auto orgqr_bs(CudaLibs &g) { return g.s_orgqr_bs; }
@@ -254,7 +256,8 @@ template <> struct CuSolver<float> {
   static auto syevd(CudaLibs &g) { return g.s_syevd; }
 };
 
-template <> struct CuSolver<double> {
+template <>
+struct CuSolver<double> {
   static auto geqrf_bs(CudaLibs &g) { return g.d_geqrf_bs; }
   static auto geqrf(CudaLibs &g) { return g.d_geqrf; }
   static auto orgqr_bs(CudaLibs &g) { return g.d_orgqr_bs; }
@@ -267,6 +270,6 @@ template <> struct CuSolver<double> {
   static auto syevd(CudaLibs &g) { return g.d_syevd; }
 };
 
-} // namespace rpjrt
+}  // namespace rpjrt
 
-#endif // _WIN32
+#endif  // _WIN32
