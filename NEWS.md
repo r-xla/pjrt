@@ -2,6 +2,11 @@
 
 ## Features
 
+* Added eigenvalue, SVD and LU support on both CPU on CUDA via the
+  FFI registration mechanism.
+* Added an vignette on how to register custom calls via the FFI
+  registration mechanisms with coverage of both CUDA and CPU-specific
+  aspects.
 * Added support for the `bit64` package to better support long integers.
 * `pjrt_buffer()`, `pjrt_scalar()`, and `as_array()` gain a `scan_na`
   argument (default `FALSE`). When `TRUE`, host → device transfers error if

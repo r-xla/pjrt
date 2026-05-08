@@ -52,6 +52,23 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
     .package = pkgname
   )
 
+  # Register the built-in LAPACK / cuSOLVER linear-algebra handlers. These
+  # are pjrt-owned custom calls that any downstream package (anvl, future
+  # bindings) can invoke via `stablehlo.custom_call @<target>(...)` without
+  # having to ship its own LAPACK linkage.
+  register_linalg_handler <- function(target, host, cuda) {
+    handlers <- list(host = host)
+    if (!is.null(cuda)) {
+      handlers$cuda <- cuda
+    }
+    pjrt_register_custom_call(target, handlers, .package = pkgname)
+  }
+  register_linalg_handler("geqrf", get_geqrf_handler(), get_geqrf_handler_cuda())
+  register_linalg_handler("orgqr", get_orgqr_handler(), get_orgqr_handler_cuda())
+  register_linalg_handler("lu", get_lu_handler(), get_lu_handler_cuda())
+  register_linalg_handler("svd", get_svd_handler(), get_svd_handler_cuda())
+  register_linalg_handler("eigh", get_eigh_handler(), get_eigh_handler_cuda())
+
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(
       "safetensors_frameworks",

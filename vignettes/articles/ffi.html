@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Adding Custom Calls</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Adding Custom Calls</h1>
+
+
+
+<p>The {pjrt} package can compile and run stablehlo programs. However,
+some operations are not directly covered by stablehlo and composing them
+of other stablehlo ops would be inefficient. For this reason, PJRT
+supports custom calls. In a stablehlo program such a custom call can be
+executed via: <code>stablehlo.custom_call @&lt;target&gt;(...)</code>.
+In this vignette we will explain how to use and create custom calls on
+CPU and CUDA and how to make use of LAPACK on CPU and cuSOLVE on
+CUDA.</p>
+<div id="using-custom-calls" class="section level2">
+<h2>Using Custom Calls</h2>
+<p>{pjrt} ships a few built-in custom calls registered automatically
+when the package is loaded. This includes <code>print_tensor</code> and
+the linear-algebra primitives <code>geqrf</code> / <code>orgqr</code>
+(QR factorisation), <code>lu</code>, <code>svd</code>, and
+<code>eigh</code>. The example below uses <code>print_tensor</code>,
+which takes a single tensor operand, prints it, and returns nothing.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(pjrt)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>src <span class="ot">&lt;-</span> r<span class="st">&quot;(</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="st">func.func @main(%x: tensor&lt;2x3xf32&gt;) -&gt; tensor&lt;2x3xf32&gt; {</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="st">  stablehlo.custom_call @print_tensor(%x) {</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="st">    call_target_name = &quot;</span>print_tensor<span class="st">&quot;,</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="st">    backend_config = {</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="st">      print_header = &quot;</span>my matrix<span class="st">&quot;,</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="st">      print_footer = &quot;</span><span class="sc">----</span><span class="st">&quot;</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="st">    },</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="st">    has_side_effect = true,</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="st">    api_version = 4 : i32,</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="st">    operand_layouts = [dense&lt;[1, 0]&gt; : tensor&lt;2xindex&gt;],</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="st">    result_layouts = []</span></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="st">  } : (tensor&lt;2x3xf32&gt;) -&gt; ()</span></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="st">  &quot;</span>func.return<span class="st">&quot;(%x) : (tensor&lt;2x3xf32&gt;) -&gt; ()</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="st">)&quot;</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a>exec <span class="ot">&lt;-</span> <span class="fu">pjrt_compile</span>(<span class="fu">pjrt_program</span>(src))</span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a>buf  <span class="ot">&lt;-</span> <span class="fu">pjrt_buffer</span>(<span class="fu">matrix</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>, <span class="at">nrow =</span> <span class="dv">2</span>, <span class="at">ncol =</span> <span class="dv">3</span>), <span class="at">dtype =</span> <span class="st">&quot;f32&quot;</span>)</span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a>out  <span class="ot">&lt;-</span> <span class="fu">pjrt_execute</span>(exec, buf)</span></code></pre></div>
+<pre><code>## my matrix
+##  1 3 5
+##  2 4 6
+## ----</code></pre>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">as_array</span>(out)</span></code></pre></div>
+<pre><code>##      [,1] [,2] [,3]
+## [1,]    1    3    5
+## [2,]    2    4    6</code></pre>
+<p>A <code>stablehlo.custom_call</code> op carries:</p>
+<ul>
+<li><code>call_target_name</code> – a string that names a handler
+registered with the PJRT runtime (here, the built-in
+<code>&quot;print_tensor&quot;</code>). Note that this name also appears as
+<code>@print_tensor</code> after the op name in the textual form; the
+<code>@&lt;name&gt;</code> is purely a pretty-printer convention that
+mirrors <code>call_target_name</code>, only the attribute string is
+operative at runtime.</li>
+<li><code>api_version = 4 : i32</code> – the calling convention used to
+invoke the handler. Just set this to 4.</li>
+<li><code>has_side_effect = true</code> – required for ops that exist
+only for their side effect (such as printing). If we wouldn’t set this
+to <code>TRUE</code> here, the compiler might drop the operation in one
+of its optimization passes.</li>
+<li><code>backend_config = {...}</code> (optional) – a dictionary of
+attributes the handler can read. <code>print_tensor</code> accepts
+<code>print_header</code> (default <code>&quot;PJRTBuffer&quot;</code>) and
+<code>print_footer</code> (default
+<code>&quot;[ &lt;dtype&gt;{&lt;shape&gt;} ]&quot;</code>); pass <code>&quot;&quot;</code>
+for either to suppress that line.</li>
+<li><code>operand_layouts</code> / <code>result_layouts</code> indicate
+which layout the custom call expects and outputs (e.g., row-major
+vs. col-major). XLA’s documented default for newly-created shapes is
+row-major (the <a href="https://openxla.org/xla/shapes">XLA Shapes</a>,
+but it’s best to always set this for clarity.</li>
+</ul>
+<p>Next, we will discuss how to register a custom call.</p>
+</div>
+<div id="registering-a-custom-call" class="section level2">
+<h2>Registering a Custom Call</h2>
+<p>In order to make a custom call availble in the {stablehlo} program,
+we need to:</p>
+<ol style="list-style-type: decimal">
+<li>Define what it does.</li>
+<li>Register it with (one more more) <code>PJRTPlugin</code>s (CUDA,
+CPU) so it can be used.</li>
+</ol>
+<p>Generally, we need different implementations for different plugins
+(CPU vs. CUDA). We will start with discussing CPU, as it is simpler.</p>
+<div id="cpu" class="section level3">
+<h3>CPU</h3>
+<div id="handler-signature" class="section level4">
+<h4>Handler signature</h4>
+<p>A CPU handler is just a C++ function that takes one parameter per
+operand / result of the <code>stablehlo.custom_call</code> op, plus
+optional runtime-supplied parameters (attributes, contexts, etc.), and
+returns an <code>xla::ffi::Error</code>. The eigh handler from
+<code>src/eigh.cpp</code>, for example, is declared as:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;xla/ffi/api/ffi.h&quot;</span><span class="pp">   </span><span class="co">// ships in pjrt&#39;s inst/include/</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="kw">using</span> <span class="kw">namespace</span> xla<span class="op">::</span>ffi<span class="op">;</span>       <span class="co">// brings Error, AnyBuffer, Result&lt;&gt;, ... into scope</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="at">static</span> Error do_eigh<span class="op">(</span>AnyBuffer input<span class="op">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>                     Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> v_out<span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>                     Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> w_out<span class="op">);</span></span></code></pre></div>
+<p>The first parameter is the input matrix; the two
+<code>Result&lt;AnyBuffer&gt;</code> parameters are the output buffers
+(eigenvectors and eigenvalues) that XLA has already allocated and that
+the handler fills in. The return value is <code>Error::Success()</code>
+on success, or one of the <code>Error::Invalid…</code> /
+<code>Error::Internal</code> factories to surface a runtime failure to
+XLA.</p>
+</div>
+<div id="registering-the-handler-with-xla_ffi_define_handler" class="section level4">
+<h4>Registering the handler with
+<code>XLA_FFI_DEFINE_HANDLER</code></h4>
+<p>A C++ function on its own is not yet usable from MLIR – the runtime
+has no way to know that <code>do_eigh</code> wants three buffers, in
+that order, with no attributes or contexts.
+<code>XLA_FFI_DEFINE_HANDLER</code> is the macro that attaches that
+decoding metadata to the function and emits a symbol PJRT can call:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>XLA_FFI_DEFINE_HANDLER<span class="op">(</span>eigh_handler<span class="op">,</span> do_eigh<span class="op">,</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>                       Ffi<span class="op">::</span>Bind<span class="op">()</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>                           <span class="op">.</span>Arg<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span>    <span class="co">// symmetric matrix</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span>    <span class="co">// eigenvectors (n, n)</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;());</span>  <span class="co">// eigenvalues (n,)</span></span></code></pre></div>
+<p>The pieces:</p>
+<ul>
+<li><code>eigh_handler</code> – the symbol name the macro emits. This
+(wrapped in an R external pointer) is the <code>XLA_FFI_Handler*</code>
+we hand to the <code>pjrt::pjrt_register_custom_call()</code> R
+function.</li>
+<li><code>do_eigh</code> – the C++ function the handler dispatches
+to.</li>
+<li><code>Ffi::Bind().Arg&lt;...&gt;().Ret&lt;...&gt;()...</code> – the
+<strong>binding specification</strong> that defines which arguments are
+passed to <code>do_eigh()</code> during execution.</li>
+</ul>
+<p>The most important builder methods, all of which we already saw
+above:</p>
+<ul>
+<li><code>.Arg&lt;AnyBuffer&gt;()</code> /
+<code>.Ret&lt;AnyBuffer&gt;()</code> – one operand / result of any dtype
+/ rank.</li>
+<li><code>.Attrs&lt;Dictionary&gt;()</code> – the whole
+<code>backend_config</code> as a typed dictionary (used by
+<code>print_tensor</code>).</li>
+</ul>
+<p>Other binding methods exist – statically typed
+<code>Buffer&lt;dtype, rank&gt;</code>, named
+<code>.Attr&lt;T&gt;(&quot;name&quot;)</code> for individual
+<code>backend_config</code> entries, <code>Token</code> for
+pure-ordering ops, <code>RemainingArgs</code> /
+<code>RemainingRets</code> for variadic arity, and additional
+<code>Ctx&lt;T&gt;</code> types including a host <code>ThreadPool</code>
+(XLA’s intra-op pool, useful for parallelising hand-rolled CPU work).
+For the full list see <code>xla/ffi/api/ffi.h</code>.</p>
+</div>
+<div id="calling-into-blas-lapack" class="section level4">
+<h4>Calling into BLAS / LAPACK</h4>
+<p>{pjrt}’s build links against LAPACK and BLAS, so a CPU handler can
+call any LAPACK / BLAS routine directly.</p>
+<p>Most LAPACK factorisation routines need a working buffer whose
+optimal size depends on the input dimensions and on
+implementation-specific blocking parameters. The standard idiom is to
+call the routine <strong>twice</strong>: first with the workspace-size
+argument set to <code>-1</code>, which makes LAPACK skip the actual work
+and write the optimal size into the first element of the workspace
+buffer; then a second time with a buffer of that size to do the real
+factorisation.</p>
+<p>LAPACK signals success or failure through an integer
+<code>info</code> out-parameter (<code>info = 0</code> is success,
+anything else is an error). <strong>This must be checked after every
+call</strong> – both the workspace query and the real call. {pjrt}
+provides a small helper,
+<code>lapack_check_info(info, routine_name)</code> in
+<code>src/ffi_lapack.h</code>, that returns
+<code>Error::Success()</code> on <code>info == 0</code> and
+<code>Error::Internal(&quot;&lt;routine_name&gt; failed with info = &lt;info&gt;&quot;)</code>
+otherwise. Wrap each LAPACK call with
+<code>PJRT_RETURN_IF_ERROR(lapack_check_info(info, &quot;...&quot;))</code> so XLA
+stops execution rather than reading garbage results downstream.</p>
+<p><strong>Windows pitfall: no f32 LAPACK.</strong> R on Windows uses
+its own bundled LAPACK, which only ships the double-precision routines –
+single -precision is not available. A handler that calls into
+single-precision LAPACK will fail to load on Windows. macOS and Linux
+are unaffected (they use the system LAPACK, which has both precisions).
+The workaround is to promote f32 to f64 around the LAPACK call on
+Windows; See the existing linear algebra custom calls how to do this via
+C++ templates.</p>
+</div>
+</div>
+<div id="cuda" class="section level3">
+<h3>CUDA</h3>
+<p>Before getting into CUDA-specific handler details, a note on why the
+CUDA code in pjrt is structured differently from a “natural” CUDA
+backend.</p>
+<p>The library that we based the custom calls on is jaxlib, which ships
+<strong>separate wheels</strong> for CPU and CUDA: <code>jaxlib</code>
+is the base CPU wheel, <code>jax-cuda12-pjrt</code> /
+<code>jax-cuda12-plugin</code> are CUDA-specific wheels built with
+<code>--config=cuda</code> and the CUDA toolkit on the build path. The
+CUDA wheels can include CUDA SDK (Software Development Kit) headers,
+link against the CUDA libraries, and use the real types directly.</p>
+<p>R packages don’t have an equivalent mechanism.
+<code>R CMD INSTALL</code> builds one source tree against one
+<code>Makevars</code>; there is no “platform variant” the way Python
+wheels have CUDA extras. The same <code>pjrt.so</code> binary has to
+load and run on machines without the CUDA toolkit installed (and even
+without an NVIDIA GPU) – otherwise we’d break every CPU-only user. So
+pjrt’s CUDA path:</p>
+<ul>
+<li>never <code>#include</code>s any CUDA SDK header,</li>
+<li>types every CUDA value as opaque (<code>void *</code> for streams
+and handles, <code>uintptr_t</code>-aliased <code>CUdeviceptr</code> for
+device addresses) so we don’t depend on the SDK’s typedefs at compile
+time,</li>
+<li>maintains a hand-rolled function-pointer table
+(<code>CudaLibs</code> in <code>ffi_cuda.h</code>) for the cuSOLVER +
+CUDA driver entry points we use,</li>
+<li>loads those entry points lazily at runtime via <code>dlopen</code> /
+<code>dlsym</code> inside <code>get_cuda_libs()</code>
+(<code>ffi_cuda.cpp</code>), so the package loads cleanly on machines
+where <code>libcusolver.so</code> and <code>libcuda.so.1</code> aren’t
+present (the loader just leaves the table flagged as unloaded, and the
+CUDA handlers return <code>Error::Internal</code> if invoked).</li>
+</ul>
+<p>In effect, <code>CudaLibs</code> + <code>get_cuda_libs()</code> is
+doing the job of the <strong>linker, dynamically and by hand</strong> –
+the symbol lookup that a normal <code>-lcusolver</code> dependency would
+have the system loader perform at process startup, we instead perform
+from our own code at runtime. The trade-off is that every cuSOLVER /
+driver function we want to use has to be transcribed by hand twice: once
+as a typed function-pointer field in <code>CudaLibs</code> (whose
+signature must match NVIDIA’s exactly – the compiler can’t check it for
+us, since we don’t include the SDK headers that would tell it what to
+expect), and once as a string symbol name passed to <code>dlsym</code>
+in the loader.</p>
+<p>In the future, we might move to a more robust mechanism that avoids
+these redefinitions, e.g. by including some CUDA headers (which might
+come with some licensing strings attached) or by e.g. generating the
+declarations from a DSL.</p>
+<div id="cuda-execution-model" class="section level4">
+<h4>CUDA execution model</h4>
+<p>A few CUDA concepts come up in every CUDA handler, so we will briefly
+review them here.</p>
+<p><strong>Host vs. device.</strong> The CPU is the <em>host</em> and
+the GPU is the <em>device</em>. They have separate memory: a host
+pointer can’t be dereferenced on the device, and a device pointer can’t
+be dereferenced on the host. Moving data between them requires an
+explicit memcpy and data can also be directly copied from device to
+device.</p>
+<p><strong>Streams.</strong> A CUDA <em>stream</em> is a FIFO (first in
+first out) queue of operations that the device executes. Operations
+enqueued on the same stream run in the order they were enqueued.
+Operations on <em>different</em> streams can run concurrently when the
+dependency graph allows it (e.g. a memcpy on one stream overlapping a
+kernel on another).</p>
+<p><strong>Asynchronous execution.</strong> Most CUDA driver and
+cuSOLVER calls – including the <code>*Async</code> memcpys, kernel
+launches, and the cuSOLVER factorisations – are <em>non-blocking</em> on
+the host. They enqueue work on the stream and return immediately, before
+the GPU has actually done anything. The host call’s return only signals
+“this is now queued”; the data isn’t real until the device gets to that
+point in the queue. This is the source of most CUDA-handler pitfalls: if
+you read a destination buffer right after issuing an async memcpy into
+it, you’ll see whatever was there before, because the copy is still
+queued.</p>
+<p><strong>Stream synchronisation.</strong>
+<code>cuStreamSynchronize(stream)</code> blocks the host until every
+operation previously enqueued on <code>stream</code> has finished.
+That’s the point at which “queued” turns into “actually done” from the
+host’s perspective. Inside an FFI handler, you <strong>should
+not</strong> call <code>cuStreamSynchronize</code> unless you genuinely
+need a host-visible result – syncing forces the host to wait for the GPU
+and breaks the async pipelining XLA depends on. The only place pjrt
+syncs today is <code>print_tensor</code>’s CUDA path, because it has to
+copy data back to the host before formatting it. The linalg handlers
+never sync: they enqueue their work on the stream and return, and XLA’s
+own scheduling makes sure any downstream op that reads their outputs
+runs after the kernel has actually completed.</p>
+<p><strong>Status codes.</strong> Every CUDA driver and cuSOLVER call
+returns an <code>int</code> status. <code>0</code> is success; anything
+else is an error and must be propagated up as
+<code>Error::Internal</code>. A dropped status doesn’t crash – it leaves
+the output buffer with garbage that surfaces much later as wrong
+numerical answers, with no error message anywhere. The
+<code>PJRT_RETURN_IF_GPU_ERROR(expr, what)</code> macro in
+<code>ffi_cuda.h</code> wraps each call site and propagates non-zero
+statuses uniformly.</p>
+</div>
+<div id="handler-signature-1" class="section level4">
+<h4>Handler signature</h4>
+<p>A CUDA handler has the same shape as the CPU one, but two extra
+context parameters get bound at the front. From
+<code>src/eigh_cuda.cpp</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="at">static</span> Error eigh_cuda_impl<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>stream<span class="op">,</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>                            ScratchAllocator <span class="op">&amp;</span>scratch<span class="op">,</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                            AnyBuffer input<span class="op">,</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>                            Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> v_out<span class="op">,</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>                            Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> w_out<span class="op">);</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>XLA_FFI_DEFINE_HANDLER<span class="op">(</span>eigh_handler_cuda<span class="op">,</span> do_eigh_cuda<span class="op">,</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>                       Ffi<span class="op">::</span>Bind<span class="op">()</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>                           <span class="op">.</span>Ctx<span class="op">&lt;</span>PlatformStream<span class="op">&lt;</span><span class="dt">void</span> <span class="op">*&gt;&gt;()</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>                           <span class="op">.</span>Ctx<span class="op">&lt;</span>ScratchAllocator<span class="op">&gt;()</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>                           <span class="op">.</span>Arg<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;());</span></span></code></pre></div>
+<p>The differences from CPU:</p>
+<ul>
+<li><strong><code>void *stream</code></strong> – bound via
+<code>Ctx&lt;PlatformStream&lt;void *&gt;&gt;()</code>, this is the CUDA
+stream XLA dispatched the op on. The FFI exposes exactly <em>one</em>
+stream per invocation – there is no API to ask for a transfer stream or
+any other – and the handler must enqueue all of its device-side work on
+it: kernel launches, cuSOLVER calls, <code>memcpy_dtod</code> /
+<code>memcpy_dtoh</code> / <code>memset_d8</code>, any
+synchronisation.</li>
+<li><strong><code>ScratchAllocator &amp;scratch</code></strong> – use
+this for any device memory the handler needs that isn’t an FFI input or
+output: workspace for the library call, an input copy,
+<code>devInfo</code>, etc. Allocations go through XLA’s runtime
+allocator (the same one that backs FFI input/output buffers, so the
+bytes are visible to XLA’s memory accounting) and are freed
+automatically when the handler returns – the FFI binding’s destructor
+calls back into the runtime to free every allocation it made.</li>
+<li><strong>Windows.</strong> The handler symbol still has to be defined
+on Windows (so the <code>[[Rcpp::export]]</code> getter resolves), but
+the dispatcher returns
+<code>Error(ErrorCode::kUnimplemented, ...)</code> because pjrt has no
+CUDA support on Windows. See the <code>#ifdef _WIN32</code> guards in
+<code>src/eigh_cuda.cpp</code>.</li>
+</ul>
+</div>
+<div id="using-cusolver" class="section level4">
+<h4>Using cuSOLVER</h4>
+<p>cuSOLVER is loaded lazily via <code>dlopen</code> (see CUDA intro
+above), so a CUDA handler that wants to call cuSOLVER goes through the
+<code>CudaLibs</code> function-pointer table and the <code>Solver</code>
+prologue defined in <code>ffi_cuda.h</code>. The kernel declares
+<code>Solver solver(get_cuda_libs()); solver.begin(scratch, stream);</code>
+and then invokes routines. <code>begin()</code> borrows a stream-bound
+handle from a pool (see stateful-handle paragraph below) and allocates a
+<code>devInfo</code> int on device memory.</p>
+<p>Because cuSOLVER/CUDA handles are expensive to create, they are
+cached in a process-wide singleton pool – a map of stream pointer to
+free-list of handles, protected by a mutex against concurrent host-side
+borrow / return. A kernel borrows a handle from its stream’s free-list
+(creating one the first time), uses it, and returns it on scope exit;
+handles live for the process and are reused across
+<code>pjrt_execute</code> calls. The design is adapted from jaxlib.</p>
+<p>Most cuSOLVER factorisation routines follow the same query / allocate
+/ run idiom as LAPACK (covered in the CPU section), but the workspace
+query is a separate function with a <code>_bufferSize</code> suffix
+(<code>cusolverDnSgeqrf_bufferSize</code>, etc.) rather than a
+<code>lwork = -1</code> like in LAPACK. Note that computing the buffer
+size is a cheap host-side computation.</p>
+<p>cuSOLVER actually has <em>two</em> status mechanisms, for two
+different failure modes:</p>
+<ul>
+<li>The <strong>return value</strong> of every routine is a host-side
+<code>int</code> returned synchronously when the call comes back,
+indicating whether the call was accepted and queued onto the stream. We
+always check this with <code>PJRT_RETURN_IF_GPU_ERROR</code>.</li>
+<li>The <strong><code>devInfo</code> int</strong> is a device-side
+<code>int</code> cuSOLVER’s <em>kernel</em> writes during execution,
+using the same convention as LAPACK’s <code>info</code> (0 = success,
+&lt;0 = illegal argument at position |info|, &gt;0 = routine-specific).
+The split exists because cuSOLVER is async on a stream: the host return
+covers pre-launch failures, but actual runtime / numerical status can
+only be reported after the kernel has run, and the kernel needs
+somewhere device-side to write it.</li>
+</ul>
+<p>We pass <code>devInfo</code> because we have to, but don’t read it,
+as it forces synchronization. Again, we follow jaxlib in this
+decision.</p>
+</div>
+</div>
+</div>
+<div id="additional-things-to-pay-attention-to" class="section level2">
+<h2>Additional things to pay attention to</h2>
+<p>There are a few other things to be aware of when implementing custom
+calls.</p>
+<p><strong>Buffer aliasing.</strong> Stablehlo inherited XLA’s
+input-output aliasing. <code>stablehlo.custom_call</code>’s
+<code>output_operand_aliases</code> attribute lets XLA hand the handler
+the <em>same</em> pointer for an input and an output. Routines that
+overwrite their input in place will then read corrupted data. The fix:
+copy input → destination buffer first, then factor in place there, with
+a pointer-equality check so the copy is skipped when the buffers already
+alias (<code>if (in != target) memcpy(...)</code>). jaxlib uses the same
+pattern in every linalg kernel; pjrt’s
+<code>maybe_promote_inplace</code> helper bakes the guard in for the CPU
+side.</p>
+<p><strong>Dimension type mismatch and byte-size overflow.</strong>
+Buffer dimensions arrive as <code>int64_t</code> from
+<code>input.dimensions()</code>, but LAPACK and cuSOLVER take
+<code>int</code>. A naive cast wraps silently for axes larger than
+<code>INT_MAX</code> – use the <code>dim_to_int(dim, name, out)</code>
+helper in <code>ffi_common.h</code>, which casts and returns
+<code>Error::InvalidArgument</code> on overflow. That covers each
+individual dimension, but not their <em>product</em>: even after
+<code>dim_to_int</code> widens <code>m</code> and <code>n</code> to
+<code>int</code>, an expression like <code>m * n * sizeof(T)</code>
+still evaluates in <code>int</code> arithmetic and overflows for large
+matrices (e.g. 50000 × 50000) before the result gets widened to
+<code>size_t</code>. Cast at least one operand to <code>size_t</code>
+<em>before</em> the multiplication so the whole expression evaluates in
+<code>size_t</code>:
+<code>static_cast&lt;size_t&gt;(m) * n * sizeof(T)</code>.</p>
+<p><strong><code>scratch.Allocate(0)</code>.</strong>
+<code>ScratchAllocator::Allocate(0)</code> returns
+<code>std::nullopt</code>, which
+<code>allocate_workspace&lt;T&gt;</code> propagates as
+<code>Error::Internal</code>. This shows up if a workspace-size query
+reports <code>lwork = 0</code> (rare, but possible for small inputs).
+Either guard zero-sized requests in the kernel or accept the (rare)
+error.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
