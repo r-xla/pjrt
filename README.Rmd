@@ -19,7 +19,6 @@ cuda_pkg <- cuda_r_package()
 ```
 
 <!-- badges: start -->
-[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 ![R-CMD-check](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg)
 [![CRAN status](https://www.r-pkg.org/badges/version/pjrt)](https://CRAN.R-project.org/package=pjrt)
 [![codecov](https://codecov.io/gh/r-xla/pjrt/branch/main/graph/badge.svg)](https://codecov.io/gh/r-xla/pjrt)

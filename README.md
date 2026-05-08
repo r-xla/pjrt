@@ -6,8 +6,6 @@ Package website: [release](https://r-xla.github.io/pjrt/) \|
 
 <!-- badges: start -->
 
-[![Lifecycle:
-experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 ![R-CMD-check](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/pjrt)](https://CRAN.R-project.org/package=pjrt)
