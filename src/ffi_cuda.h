@@ -55,7 +55,7 @@ using CUdeviceptr = std::uintptr_t;
 // Naming: `s_` / `d_` prefixes are float / double precision. The operation
 // stems (`geqrf`, `orgqr`, `getrf`, `gesvd`, `syevd`) follow the same LAPACK
 // naming convention documented at the top of `ffi_lapack.h` -- cuSOLVER
-// mirrors LAPACK's interface, so `s_geqrf` corresponds to `cusolverDnSges thqrf`
+// mirrors LAPACK's interface, so `s_geqrf` corresponds to `cusolverDnSgeqrf`
 // (= LAPACK's `sgeqrf` on the GPU). The `_bs` suffix stands for "bufferSize"
 // -- the cuSOLVER workspace-query companion of each routine (e.g.
 // `cusolverDnSgeqrf_bufferSize`). It returns the optimal `lwork` for the

@@ -2,8 +2,8 @@
 
 ## Features
 
-* Added eigenvalue, SVD and LU support on both CPU on CUDA via the
-  FFI registration mechanism.
+* Added QR, LU, SVD, and symmetric eigendecomposition support on both
+  CPU and CUDA via the FFI registration mechanism.
 * Added an vignette on how to register custom calls via the FFI
   registration mechanisms with coverage of both CUDA and CPU-specific
   aspects.

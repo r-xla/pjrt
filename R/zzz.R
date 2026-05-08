@@ -56,18 +56,31 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
   # are pjrt-owned custom calls that any downstream package (anvl, future
   # bindings) can invoke via `stablehlo.custom_call @<target>(...)` without
   # having to ship its own LAPACK linkage.
-  register_linalg_handler <- function(target, host, cuda) {
-    handlers <- list(host = host)
-    if (!is.null(cuda)) {
-      handlers$cuda <- cuda
-    }
-    pjrt_register_custom_call(target, handlers, .package = pkgname)
-  }
-  register_linalg_handler("geqrf", get_geqrf_handler(), get_geqrf_handler_cuda())
-  register_linalg_handler("orgqr", get_orgqr_handler(), get_orgqr_handler_cuda())
-  register_linalg_handler("lu", get_lu_handler(), get_lu_handler_cuda())
-  register_linalg_handler("svd", get_svd_handler(), get_svd_handler_cuda())
-  register_linalg_handler("eigh", get_eigh_handler(), get_eigh_handler_cuda())
+  pjrt_register_custom_call(
+    "geqrf",
+    list(host = get_geqrf_handler(), cuda = get_geqrf_handler_cuda()),
+    .package = pkgname
+  )
+  pjrt_register_custom_call(
+    "orgqr",
+    list(host = get_orgqr_handler(), cuda = get_orgqr_handler_cuda()),
+    .package = pkgname
+  )
+  pjrt_register_custom_call(
+    "lu",
+    list(host = get_lu_handler(), cuda = get_lu_handler_cuda()),
+    .package = pkgname
+  )
+  pjrt_register_custom_call(
+    "svd",
+    list(host = get_svd_handler(), cuda = get_svd_handler_cuda()),
+    .package = pkgname
+  )
+  pjrt_register_custom_call(
+    "eigh",
+    list(host = get_eigh_handler(), cuda = get_eigh_handler_cuda()),
+    .package = pkgname
+  )
 
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(
