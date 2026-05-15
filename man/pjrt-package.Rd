@@ -49,6 +49,19 @@ via \code{cli::cli_inform()}.
 }
 }
 
+\section{Third-Party Licenses}{
+
+The \code{pjrt} package itself is MIT-licensed. The CUDA backend dynamically
+loads NVIDIA software which is not bundled with \code{pjrt}, but downloaded
+from NVIDIA's official redistributable channels by the CUDA toolkit R
+package (e.g. \code{cuda12.8}) at install time. Its use is governed by the
+\href{https://docs.nvidia.com/cuda/eula/}{NVIDIA CUDA Toolkit EULA}, with the
+exception of cuDNN, which is covered by the
+\href{https://docs.nvidia.com/deeplearning/cudnn/sla/index.html}{NVIDIA cuDNN SLA},
+and NCCL, which is covered by its \href{https://github.com/NVIDIA/nccl/blob/master/LICENSE.txt}{own license}.
+By installing or using the CUDA backend you accept those terms.
+}
+
 \seealso{
 Useful links:
 \itemize{

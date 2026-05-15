@@ -44,4 +44,15 @@ NULL
 #'
 #' * `PJRT_DEBUG`: If set (to any non-empty value), enables verbose debug output
 #'   via `cli::cli_inform()`.
+#'
+#' @section Third-Party Licenses:
+#' The `pjrt` package itself is MIT-licensed. The CUDA backend dynamically
+#' loads NVIDIA software which is not bundled with `pjrt`, but downloaded
+#' from NVIDIA's official redistributable channels by the CUDA toolkit R
+#' package (e.g. `cuda12.8`) at install time. Its use is governed by the
+#' [NVIDIA CUDA Toolkit EULA](https://docs.nvidia.com/cuda/eula/), with the
+#' exception of cuDNN, which is covered by the
+#' [NVIDIA cuDNN SLA](https://docs.nvidia.com/deeplearning/cudnn/sla/index.html),
+#' and NCCL, which is covered by its [own license](https://github.com/NVIDIA/nccl/blob/master/LICENSE.txt).
+#' By installing or using the CUDA backend you accept those terms.
 "_PACKAGE"
