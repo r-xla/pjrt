@@ -441,20 +441,27 @@ elt_type <- function(x) {
 #' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer to convert.
 #' @param scan_na (`logical(1)`)\cr
-#'   If `TRUE` and the buffer dtype is `"i32"`, scan the materialized R
-#'   integer vector for `NA_integer_` values and raise an error if any are
-#'   present. No-op for non-`i32` dtypes.
+#'   If `TRUE` and the buffer dtype is one of the four integer dtypes that
+#'   round-trip through a signed R container (`i32` / `ui32` via `integer`,
+#'   `i64` / `ui64` via `bit64::integer64`), scan the materialized vector
+#'   for the reserved NA bit pattern (`INT_MIN` or `INT64_MIN`) and raise an
+#'   error if any are present. No-op for float, boolean, and small-integer
+#'   dtypes (which have no NA-collision risk).
 #' @param ... Additional arguments (unused).
 #' @return An R `array` (or `vector` for shape `integer()`).
 #' @export
 as_array.PJRTBuffer <- function(x, scan_na = FALSE, ...) {
   result <- value(as_array_async(x))
   assert_flag(scan_na)
-  if (scan_na && identical(as.character(elt_type(x)), "i32") && anyNA(result)) {
-    cli_abort(c(
-      "Materialized {.cls i32} buffer contains the bit pattern {.val -2147483648}, which R interprets as {.val NA_integer_}.",
-      i = "This collision is irrecoverable: the device value and {.val NA} are indistinguishable in R. Set {.code scan_na = FALSE} to skip this check."
-    ))
+  if (scan_na) {
+    dt <- as.character(elt_type(x))
+    if (dt %in% c("i32", "ui32", "i64", "ui64") && anyNA(result)) {
+      cli_abort(c(
+        "Materialized {.cls {dt}} buffer contains a value that R cannot distinguish from {.val NA}.",
+        i = "{.val i32}/{.val ui32} reserve the bit pattern {.val -2147483648} ({.code INT_MIN}); {.val i64}/{.val ui64} reserve {.val -9223372036854775808} ({.code INT64_MIN}).",
+        i = "This collision is irrecoverable: the device value and {.val NA} are indistinguishable in R. Set {.code scan_na = FALSE} to skip this check."
+      ))
+    }
   }
   result
 }

@@ -11,9 +11,12 @@
 Buffer to convert.}
 
 \item{scan_na}{(\code{logical(1)})\cr
-If \code{TRUE} and the buffer dtype is \code{"i32"}, scan the materialized R
-integer vector for \code{NA_integer_} values and raise an error if any are
-present. No-op for non-\code{i32} dtypes.}
+If \code{TRUE} and the buffer dtype is one of the four integer dtypes that
+round-trip through a signed R container (\code{i32} / \code{ui32} via \code{integer},
+\code{i64} / \code{ui64} via \code{bit64::integer64}), scan the materialized vector
+for the reserved NA bit pattern (\code{INT_MIN} or \code{INT64_MIN}) and raise an
+error if any are present. No-op for float, boolean, and small-integer
+dtypes (which have no NA-collision risk).}
 
 \item{...}{Additional arguments (unused).}
 }
