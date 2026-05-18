@@ -19,9 +19,14 @@ as_array(x, scan_na = FALSE, ...)
 - scan_na:
 
   (`logical(1)`)  
-  If `TRUE` and the buffer dtype is `"i32"`, scan the materialized R
-  integer vector for `NA_integer_` values and raise an error if any are
-  present. No-op for non-`i32` dtypes.
+  If `TRUE` and the buffer dtype is one of the four integer dtypes that
+  round-trip through a signed R container (`i32` / `ui32` via `integer`,
+  `i64` / `ui64` via
+  [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)),
+  scan the materialized vector for the reserved NA bit pattern
+  (`INT_MIN` or `INT64_MIN`) and raise an error if any are present.
+  No-op for float, boolean, and small-integer dtypes (which have no
+  NA-collision risk).
 
 - ...:
 
