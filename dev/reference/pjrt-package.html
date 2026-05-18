@@ -88,6 +88,20 @@ versions may not work with the XLA plugin.</p></li>
 via <code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>.</p></li>
 </ul></div>
     <div class="section level2">
+    <h2 id="third-party-licenses">Third-Party Licenses<a class="anchor" aria-label="anchor" href="#third-party-licenses"></a></h2>
+
+
+<p>The <code>pjrt</code> package itself is MIT-licensed. The CUDA backend dynamically
+loads NVIDIA software which is not bundled with <code>pjrt</code>, but downloaded
+from NVIDIA's official redistributable channels by the CUDA toolkit R
+package (e.g. <code>cuda12.8</code>) at install time. Its use is governed by the
+<a href="https://docs.nvidia.com/cuda/eula/" class="external-link">NVIDIA CUDA Toolkit EULA</a>, with the
+exception of cuDNN, which is covered by the
+<a href="https://docs.nvidia.com/deeplearning/cudnn/sla/index.html" class="external-link">NVIDIA cuDNN SLA</a>,
+and NCCL, which is covered by its <a href="https://github.com/NVIDIA/nccl/blob/master/LICENSE.txt" class="external-link">own license</a>.
+By installing or using the CUDA backend you accept those terms.</p>
+    </div>
+    <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p>Useful links:</p><ul><li><p><a href="https://r-xla.github.io/pjrt/">https://r-xla.github.io/pjrt/</a></p></li>
 <li><p><a href="https://github.com/r-xla/pjrt" class="external-link">https://github.com/r-xla/pjrt</a></p></li>
