@@ -21,11 +21,11 @@ pjrt_buffer(
   dtype = NULL,
   device = NULL,
   shape = NULL,
-  scan_na = FALSE,
+  check = FALSE,
   ...
 )
 
-pjrt_scalar(data, dtype = NULL, device = NULL, scan_na = FALSE, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, check = FALSE, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 ```
@@ -73,7 +73,7 @@ pjrt_empty(dtype, shape, device = NULL)
   The dimensions of the buffer. The default (`NULL`) is to infer them
   from the data if possible. The default (`NULL`) depends on the method.
 
-- scan_na:
+- check:
 
   (`logical(1)`)  
   If `TRUE`, scan `data` for `NA` values before transferring to the

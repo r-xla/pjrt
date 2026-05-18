@@ -82,11 +82,11 @@ the selected element type (e.g., to prevent buffer overflow) and that no NA valu
 <span>  dtype <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  device <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  shape <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  scan_na <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  check <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, scan_na <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, check <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">pjrt_empty</span><span class="op">(</span><span class="va">dtype</span>, <span class="va">shape</span>, device <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -129,7 +129,7 @@ The default (<code>NULL</code>) is to infer them from the data if possible.
 The default (<code>NULL</code>) depends on the method.</p></dd>
 
 
-<dt id="arg-scan-na">scan_na<a class="anchor" aria-label="anchor" href="#arg-scan-na"></a></dt>
+<dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>
 <dd><p>(<code>logical(1)</code>)<br>
 If <code>TRUE</code>, scan <code>data</code> for <code>NA</code> values before transferring to the device and
 raise an error if any are present. R's <code>NA</code> markers have no representation
