@@ -315,10 +315,12 @@ SEXP raw_to_array_impl(const uint8_t *raw_data,
   void *out_data;
 
   if (r_type == REALSXP) {
-    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>) {
-      // 64-bit integer -> "pseudo-double": REALSXP slots carry the int64 bit
-      // pattern (the storage layout used by bit64::integer64). The R caller
-      // attaches the integer64 class.
+    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
+                  std::is_same_v<T, uint32_t>) {
+      // Integer dtype that can't fit in R's signed int32 -> "pseudo-double":
+      // REALSXP slots carry the int64 bit pattern (the storage layout used by
+      // bit64::integer64). The R caller attaches the integer64 class. Widening
+      // uint32_t to int64_t is value-preserving (u32 max < 2^53).
       static_assert(sizeof(double) == sizeof(int64_t),
                     "bit64::integer64 layout requires sizeof(double) == "
                     "sizeof(int64_t)");
@@ -689,7 +691,10 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
   } else if (dtype == "ui16") {
     return raw_to_array_impl<uint16_t>(raw_data, dimensions, INTSXP);
   } else if (dtype == "ui32") {
-    return raw_to_array_impl<uint32_t>(raw_data, dimensions, INTSXP);
+    // u32 -> integer64 storage: signed int32 has no headroom for ui32 values
+    // >= 2^31; widen to integer64 (53 bits of headroom) so the R caller gets
+    // the full unsigned magnitude. R-side classes the result as integer64.
+    return raw_to_array_impl<uint32_t>(raw_data, dimensions, REALSXP);
   } else if (dtype == "ui64") {
     return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP);
   } else if (dtype == "pred") {

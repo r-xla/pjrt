@@ -200,7 +200,7 @@ test_that("pjrt_buffer handles edge cases", {
   expect_error(pjrt_buffer(numeric(0), shape = c(1, 4)), "but specified shape is")
 })
 
-test_that("pjrt_buffer scan_na = FALSE silently transfers NA", {
+test_that("pjrt_buffer check = FALSE silently transfers NA", {
   # default behaviour: NAs flow through and become dtype-specific bit patterns.
   expect_no_error(pjrt_buffer(c(1, NA, 3)))
   expect_no_error(pjrt_buffer(c(1L, NA_integer_, 3L)))
@@ -208,78 +208,85 @@ test_that("pjrt_buffer scan_na = FALSE silently transfers NA", {
   expect_no_error(pjrt_scalar(NA_integer_))
 })
 
-test_that("pjrt_buffer scan_na = TRUE errors on NA input", {
+test_that("pjrt_buffer check = TRUE errors on NA input", {
   expect_error(
-    pjrt_buffer(c(1, NA, 3), scan_na = TRUE),
+    pjrt_buffer(c(1, NA, 3), check = TRUE),
     "no representation at the XLA level"
   )
   expect_error(
-    pjrt_buffer(c(1L, NA_integer_, 3L), scan_na = TRUE),
+    pjrt_buffer(c(1L, NA_integer_, 3L), check = TRUE),
     "no representation at the XLA level"
   )
   expect_error(
-    pjrt_buffer(c(TRUE, NA, FALSE), scan_na = TRUE),
+    pjrt_buffer(c(TRUE, NA, FALSE), check = TRUE),
     "no representation at the XLA level"
   )
   expect_error(
-    pjrt_scalar(NA_integer_, scan_na = TRUE),
+    pjrt_scalar(NA_integer_, check = TRUE),
     "no representation at the XLA level"
   )
   expect_error(
-    pjrt_scalar(NA_real_, scan_na = TRUE),
+    pjrt_scalar(NA_real_, check = TRUE),
     "no representation at the XLA level"
   )
   expect_error(
-    pjrt_scalar(NA, scan_na = TRUE),
+    pjrt_scalar(NA, check = TRUE),
     "no representation at the XLA level"
   )
 
   # Clean inputs pass through unaffected.
-  expect_no_error(pjrt_buffer(c(1, 2, 3), scan_na = TRUE))
-  expect_no_error(pjrt_buffer(c(1L, 2L, 3L), scan_na = TRUE))
-  expect_no_error(pjrt_buffer(c(TRUE, FALSE), scan_na = TRUE))
+  expect_no_error(pjrt_buffer(c(1, 2, 3), check = TRUE))
+  expect_no_error(pjrt_buffer(c(1L, 2L, 3L), check = TRUE))
+  expect_no_error(pjrt_buffer(c(TRUE, FALSE), check = TRUE))
 })
 
-test_that("as_array scan_na = TRUE errors on NA collision for i32 / ui32 / i64 / ui64", {
+test_that("as_array check = TRUE catches i32 / i64 NA collisions", {
+  client <- pjrt_client("cpu")
+
   # i32: NA_integer_ bit pattern is INT_MIN (-2147483648).
   buf_i32 <- pjrt_buffer(NA_integer_, dtype = "i32")
   expect_true(anyNA(as_array(buf_i32)))
-  expect_error(as_array(buf_i32, scan_na = TRUE), "indistinguishable")
-
-  # ui32: planting 2^31 (= 0x80000000) wraps to INT_MIN as signed int32.
-  bytes_u32 <- as.raw(c(0x00, 0x00, 0x00, 0x80))
-  client <- pjrt_client("cpu")
-  buf_u32 <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes_u32, 1L, "ui32")
-  expect_true(anyNA(as_array(buf_u32)))
-  expect_error(as_array(buf_u32, scan_na = TRUE), "indistinguishable")
+  expect_error(as_array(buf_i32, check = TRUE), "distinguish from")
 
   # i64: planting INT64_MIN.
   bytes_i64 <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
   buf_i64 <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes_i64, 1L, "i64")
   expect_true(anyNA(as_array(buf_i64)))
-  expect_error(as_array(buf_i64, scan_na = TRUE), "indistinguishable")
+  expect_error(as_array(buf_i64, check = TRUE), "distinguish from")
 
-  # ui64: planting 2^63 wraps to INT64_MIN.
-  buf_u64 <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes_i64, 1L, "ui64")
-  expect_true(anyNA(as_array(buf_u64)))
-  expect_error(as_array(buf_u64, scan_na = TRUE), "indistinguishable")
-
-  # Clean buffers — no collision, no error.
-  expect_no_error(as_array(pjrt_buffer(1:3, dtype = "i32"), scan_na = TRUE))
-  expect_no_error(as_array(pjrt_buffer(1L, dtype = "i64"), scan_na = TRUE))
+  # Clean buffers — no error.
+  expect_no_error(as_array(pjrt_buffer(1:3, dtype = "i32"), check = TRUE))
+  expect_no_error(as_array(pjrt_buffer(1L, dtype = "i64"), check = TRUE))
 })
 
-test_that("as_array scan_na is a no-op for float / bool / small-integer dtypes", {
-  # Float NaN is not flagged — it isnt the R-NA bit pattern in the same way.
+test_that("as_array check = TRUE catches ui64 wrap (>= 2^63)", {
+  client <- pjrt_client("cpu")
+  # 2^63 wraps to INT64_MIN (negative integer64).
+  bytes <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
+  buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui64")
+  expect_error(as_array(buf, check = TRUE), "wrapped through")
+})
+
+test_that("as_array preserves the full ui32 range losslessly (no wrap)", {
+  client <- pjrt_client("cpu")
+  # Bit pattern 0x80000000 used to wrap to INT_MIN / NA_integer_ via signed
+  # int32. ui32 now materializes as integer64 (53 bits of headroom over u32).
+  bytes <- as.raw(c(0x00, 0x00, 0x00, 0x80))
+  buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui32")
+  result <- as_array(buf, check = TRUE)
+  expect_true(bit64::is.integer64(result))
+  expect_equal(as.character(result), "2147483648")
+})
+
+test_that("as_array check is a no-op for float / bool / small-integer dtypes", {
   buf_f32 <- pjrt_buffer(c(1, NaN, 3), dtype = "f32")
-  expect_no_error(as_array(buf_f32, scan_na = TRUE))
+  expect_no_error(as_array(buf_f32, check = TRUE))
 
   buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
-  expect_no_error(as_array(buf_pred, scan_na = TRUE))
+  expect_no_error(as_array(buf_pred, check = TRUE))
 
-  # i8/i16/ui8/ui16 fit fully inside R's int32 with headroom — no collision.
   buf_i8 <- pjrt_buffer(c(-128L, 0L, 127L), dtype = "i8")
-  expect_no_error(as_array(buf_i8, scan_na = TRUE))
+  expect_no_error(as_array(buf_i8, check = TRUE))
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {

@@ -8,14 +8,15 @@
   registration mechanisms with coverage of both CUDA and CPU-specific
   aspects.
 * Added support for the `bit64` package to better support long integers.
-* `pjrt_buffer()`, `pjrt_scalar()`, and `as_array()` gain a `scan_na`
-  argument (default `FALSE`). When `TRUE`, host → device transfers error if
-  the input contains any `NA` values; device → host transfers error if a
-  materialized `i32`, `ui32`, `i64`, or `ui64` buffer surfaces a value that
-  R cannot distinguish from `NA` (`INT_MIN` for the 32-bit dtypes,
-  `INT64_MIN` for the 64-bit dtypes — the latter via `bit64::integer64`).
-  Opt-in safety check for callers that want to fail loudly on
-  silent NA collisions.
+* `pjrt_buffer()`, `pjrt_scalar()`, and `as_array()` gain a `check`
+  argument (default `FALSE`). When `TRUE`, the call errors instead of
+  silently losing information: on input if `data` contains `NA`s, on
+  output if the materialized R vector contains a value that's
+  indistinguishable from `NA` or that has wrapped through the integer
+  container.
+* `as_array()` on a `ui32` buffer now returns a `bit64::integer64`
+  instead of a base `integer`, so values `>= 2^31` round-trip losslessly
+  rather than wrapping to negative.
 
 # pjrt 0.3.0
 
