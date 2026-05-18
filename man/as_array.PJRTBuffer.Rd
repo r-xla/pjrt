@@ -19,16 +19,15 @@ problematic value is detected:
 the bit pattern \code{INT_MIN}; \code{bit64}'s \code{NA_integer64_} shares
 \code{INT64_MIN}. A legitimate device value at those bit patterns is
 indistinguishable from \code{NA} once materialized in R.
-\item \strong{\code{ui32} / \code{ui64}}: any negative value in the result. Both unsigned
-dtypes are stored as \code{bit64::integer64} (signed 64-bit), which has
-full headroom for \code{ui32} but wraps \code{ui64} values \verb{>= 2^63} to
-negative — any negative value therefore signals either an NA
-collision (\code{INT64_MIN}) or a u64 wrap.
+\item \strong{\code{ui64}}: any negative value in the result. \code{ui64} is stored as
+\code{bit64::integer64} (signed 64-bit), which wraps values \verb{>= 2^63}
+to negative — exactly \code{2^63} becomes \code{NA_integer64_}, anything
+above becomes a non-NA negative integer64.
 }
 
-No-op for float, boolean, and small-integer (\code{i8} / \code{i16} / \code{ui8} /
-\code{ui16}) dtypes — none of those have a representable-value collision
-with R's NA scheme.}
+No-op for float, boolean, and small/unsigned-32 integer dtypes —
+\code{ui32} is now stored as \code{integer64} and has full headroom, so it
+cannot produce a wrapped or NA value.}
 
 \item{...}{Additional arguments (unused).}
 }

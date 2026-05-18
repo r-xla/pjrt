@@ -264,7 +264,7 @@ test_that("as_array check = TRUE catches ui64 wrap (>= 2^63)", {
   # 2^63 wraps to INT64_MIN (negative integer64).
   bytes <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
   buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui64")
-  expect_error(as_array(buf, check = TRUE), "outside the positive range")
+  expect_error(as_array(buf, check = TRUE), "wrapped through")
 })
 
 test_that("as_array preserves the full ui32 range losslessly (no wrap)", {

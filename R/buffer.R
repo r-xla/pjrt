@@ -448,15 +448,14 @@ elt_type <- function(x) {
 #'     the bit pattern `INT_MIN`; `bit64`'s `NA_integer64_` shares
 #'     `INT64_MIN`. A legitimate device value at those bit patterns is
 #'     indistinguishable from `NA` once materialized in R.
-#'   * **`ui32` / `ui64`**: any negative value in the result. Both unsigned
-#'     dtypes are stored as `bit64::integer64` (signed 64-bit), which has
-#'     full headroom for `ui32` but wraps `ui64` values `>= 2^63` to
-#'     negative — any negative value therefore signals either an NA
-#'     collision (`INT64_MIN`) or a u64 wrap.
+#'   * **`ui64`**: any negative value in the result. `ui64` is stored as
+#'     `bit64::integer64` (signed 64-bit), which wraps values `>= 2^63`
+#'     to negative — exactly `2^63` becomes `NA_integer64_`, anything
+#'     above becomes a non-NA negative integer64.
 #'
-#'   No-op for float, boolean, and small-integer (`i8` / `i16` / `ui8` /
-#'   `ui16`) dtypes — none of those have a representable-value collision
-#'   with R's NA scheme.
+#'   No-op for float, boolean, and small/unsigned-32 integer dtypes —
+#'   `ui32` is now stored as `integer64` and has full headroom, so it
+#'   cannot produce a wrapped or NA value.
 #' @param ... Additional arguments (unused).
 #' @return An R `array` (or `vector` for shape `integer()`).
 #' @export
@@ -471,14 +470,15 @@ as_array.PJRTBuffer <- function(x, check = FALSE, ...) {
         i = "{.val i32} reserves the bit pattern {.val -2147483648} ({.code INT_MIN}); {.val i64} reserves {.val -9223372036854775808} ({.code INT64_MIN}).",
         i = "Set {.code check = FALSE} to skip this check."
       ))
-    } else if (dt %in% c("ui32", "ui64") && (anyNA(result) || any(result < 0, na.rm = TRUE))) {
-      # A negative or NA value in an unsigned dtype's integer64 storage means
-      # the source value wrapped (ui64 >= 2^63) — exactly 2^63 becomes
-      # NA_integer64_ (INT64_MIN); 2^63 + k becomes a non-NA negative int64.
-      # Either way, the unsigned magnitude was lost.
+    } else if (identical(dt, "ui64") && (anyNA(result) || any(result < 0, na.rm = TRUE))) {
+      # ui64 values >= 2^63 wrap when stored as signed int64 — exactly 2^63
+      # becomes NA_integer64_ (INT64_MIN); 2^63 + k becomes a non-NA negative
+      # int64. Either way, the unsigned magnitude was lost.
+      # (ui32 is now materialized as integer64 and has full headroom, so it
+      # cannot produce a negative value; no check needed.)
       cli_abort(c(
-        "Materialized {.cls {dt}} buffer contains a value that fell outside the positive range of R's {.cls integer64}.",
-        i = "{.val ui64} values {.code >= 2^63} wrap (exactly {.code 2^63} becomes {.code NA_integer64_}; values above it become negative {.cls integer64}).",
+        "Materialized {.cls ui64} buffer contains a value `>= 2^63` that wrapped through R's signed {.cls integer64}.",
+        i = "Exactly {.code 2^63} becomes {.code NA_integer64_}; larger values become negative {.cls integer64}.",
         i = "Set {.code check = FALSE} to skip this check."
       ))
     }
