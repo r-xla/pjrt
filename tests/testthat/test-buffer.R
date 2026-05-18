@@ -240,31 +240,46 @@ test_that("pjrt_buffer scan_na = TRUE errors on NA input", {
   expect_no_error(pjrt_buffer(c(TRUE, FALSE), scan_na = TRUE))
 })
 
-test_that("as_array scan_na = TRUE errors on NA_integer_ collision for i32", {
-  # NA_integer_ is the bit pattern -2147483648; i32 round-trip surfaces it as NA.
-  buf <- pjrt_buffer(NA_integer_, dtype = "i32")
-  expect_true(anyNA(as_array(buf)))
-  expect_error(
-    as_array(buf, scan_na = TRUE),
-    "indistinguishable"
-  )
+test_that("as_array scan_na = TRUE errors on NA collision for i32 / ui32 / i64 / ui64", {
+  # i32: NA_integer_ bit pattern is INT_MIN (-2147483648).
+  buf_i32 <- pjrt_buffer(NA_integer_, dtype = "i32")
+  expect_true(anyNA(as_array(buf_i32)))
+  expect_error(as_array(buf_i32, scan_na = TRUE), "indistinguishable")
 
-  # No collision -> no error.
-  buf_clean <- pjrt_buffer(1:3, dtype = "i32")
-  expect_no_error(as_array(buf_clean, scan_na = TRUE))
+  # ui32: planting 2^31 (= 0x80000000) wraps to INT_MIN as signed int32.
+  bytes_u32 <- as.raw(c(0x00, 0x00, 0x00, 0x80))
+  client <- pjrt_client("cpu")
+  buf_u32 <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes_u32, 1L, "ui32")
+  expect_true(anyNA(as_array(buf_u32)))
+  expect_error(as_array(buf_u32, scan_na = TRUE), "indistinguishable")
+
+  # i64: planting INT64_MIN.
+  bytes_i64 <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
+  buf_i64 <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes_i64, 1L, "i64")
+  expect_true(anyNA(as_array(buf_i64)))
+  expect_error(as_array(buf_i64, scan_na = TRUE), "indistinguishable")
+
+  # ui64: planting 2^63 wraps to INT64_MIN.
+  buf_u64 <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes_i64, 1L, "ui64")
+  expect_true(anyNA(as_array(buf_u64)))
+  expect_error(as_array(buf_u64, scan_na = TRUE), "indistinguishable")
+
+  # Clean buffers — no collision, no error.
+  expect_no_error(as_array(pjrt_buffer(1:3, dtype = "i32"), scan_na = TRUE))
+  expect_no_error(as_array(pjrt_buffer(1L, dtype = "i64"), scan_na = TRUE))
 })
 
-test_that("as_array scan_na is a no-op for non-i32 dtypes", {
-  # Float NaN is not flagged because i32 is the only dtype with the
-  # NA-sentinel collision in R.
+test_that("as_array scan_na is a no-op for float / bool / small-integer dtypes", {
+  # Float NaN is not flagged — it isnt the R-NA bit pattern in the same way.
   buf_f32 <- pjrt_buffer(c(1, NaN, 3), dtype = "f32")
   expect_no_error(as_array(buf_f32, scan_na = TRUE))
 
-  buf_i64 <- pjrt_buffer(1L, dtype = "i64")
-  expect_no_error(as_array(buf_i64, scan_na = TRUE))
-
   buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
   expect_no_error(as_array(buf_pred, scan_na = TRUE))
+
+  # i8/i16/ui8/ui16 fit fully inside R's int32 with headroom — no collision.
+  buf_i8 <- pjrt_buffer(c(-128L, 0L, 127L), dtype = "i8")
+  expect_no_error(as_array(buf_i8, scan_na = TRUE))
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {
