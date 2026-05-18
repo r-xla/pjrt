@@ -4,19 +4,31 @@
 \alias{as_array.PJRTBuffer}
 \title{Convert a PJRTBuffer to an R Array}
 \usage{
-\method{as_array}{PJRTBuffer}(x, scan_na = FALSE, ...)
+\method{as_array}{PJRTBuffer}(x, check = FALSE, ...)
 }
 \arguments{
 \item{x}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
 Buffer to convert.}
 
-\item{scan_na}{(\code{logical(1)})\cr
-If \code{TRUE} and the buffer dtype is one of the four integer dtypes that
-round-trip through a signed R container (\code{i32} / \code{ui32} via \code{integer},
-\code{i64} / \code{ui64} via \code{bit64::integer64}), scan the materialized vector
-for the reserved NA bit pattern (\code{INT_MIN} or \code{INT64_MIN}) and raise an
-error if any are present. No-op for float, boolean, and small-integer
-dtypes (which have no NA-collision risk).}
+\item{check}{(\code{logical(1)})\cr
+If \code{TRUE}, sanity-check the materialized R vector against losing
+information across the device-to-host boundary, and abort if any
+problematic value is detected:
+\itemize{
+\item \strong{\code{i32} / \code{i64}}: any \code{NA} in the result. R's \code{NA_integer_} shares
+the bit pattern \code{INT_MIN}; \code{bit64}'s \code{NA_integer64_} shares
+\code{INT64_MIN}. A legitimate device value at those bit patterns is
+indistinguishable from \code{NA} once materialized in R.
+\item \strong{\code{ui32} / \code{ui64}}: any negative value in the result. Both unsigned
+dtypes are stored as \code{bit64::integer64} (signed 64-bit), which has
+full headroom for \code{ui32} but wraps \code{ui64} values \verb{>= 2^63} to
+negative — any negative value therefore signals either an NA
+collision (\code{INT64_MIN}) or a u64 wrap.
+}
+
+No-op for float, boolean, and small-integer (\code{i8} / \code{i16} / \code{ui8} /
+\code{ui16}) dtypes — none of those have a representable-value collision
+with R's NA scheme.}
 
 \item{...}{Additional arguments (unused).}
 }
