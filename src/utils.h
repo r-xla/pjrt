@@ -1,11 +1,34 @@
 #pragma once
 #include <numeric>
 #include <optional>
+#include <utility>
 #include <vector>
 
+#include "gc.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 void check_err(const PJRT_Api *api, PJRT_Error *err);
+
+PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err);
+
+void destroy_error(const PJRT_Api *api, PJRT_Error *err);
+
+// Run a PJRT allocation call. If it returns RESOURCE_EXHAUSTED, call R's gc()
+// (via rpjrt::call_r_gc) and retry the call once. Any other error, or a
+// still-failing retry, is surfaced via check_err. `alloc_fn` must be callable
+// twice and return a PJRT_Error*; the underlying *_Args struct is filled in
+// each call so it is safe to reuse.
+template <typename F>
+void try_alloc(const PJRT_Api *api, F &&alloc_fn) {
+  PJRT_Error *err = alloc_fn();
+  if (err != nullptr &&
+      get_error_code(api, err) == PJRT_Error_Code_RESOURCE_EXHAUSTED) {
+    destroy_error(api, err);
+    rpjrt::call_r_gc();
+    err = std::forward<F>(alloc_fn)();
+  }
+  check_err(api, err);
+}
 
 std::vector<int64_t> dims2strides(std::vector<int64_t> dims, bool row_major);
 

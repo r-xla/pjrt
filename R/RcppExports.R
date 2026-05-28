@@ -29,6 +29,14 @@ format_raw_buffer_cpp <- function(data, dtype, shape) {
     .Call(`_pjrt_format_raw_buffer_cpp`, data, dtype, shape)
 }
 
+impl_gc_call_count <- function() {
+    .Call(`_pjrt_impl_gc_call_count`)
+}
+
+impl_call_r_gc <- function() {
+    invisible(.Call(`_pjrt_impl_call_r_gc`))
+}
+
 get_lu_handler <- function() {
     .Call(`_pjrt_get_lu_handler`)
 }

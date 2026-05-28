@@ -2,17 +2,42 @@
 
 #include <optional>
 #include <stdexcept>
+#include <string>
 
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 void check_err(const PJRT_Api *api, PJRT_Error *err) {
   if (err) {
-    PJRT_Error_Message_Args args;
-    args.error = err;
+    PJRT_Error_Message_Args args{};
     args.struct_size = sizeof(PJRT_Error_Message_Args);
+    args.error = err;
     api->PJRT_Error_Message_(&args);
-    throw std::runtime_error(args.message);
+    std::string message(args.message, args.message_size);
+    destroy_error(api, err);
+    throw std::runtime_error(message);
   }
+}
+
+PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err) {
+  PJRT_Error_GetCode_Args args{};
+  args.struct_size = sizeof(PJRT_Error_GetCode_Args);
+  args.error = err;
+  PJRT_Error *inner = api->PJRT_Error_GetCode_(&args);
+  if (inner != nullptr) {
+    // GetCode itself failed; drop the inner error and report UNKNOWN so the
+    // caller surfaces the original error via check_err.
+    destroy_error(api, inner);
+    return PJRT_Error_Code_UNKNOWN;
+  }
+  return args.code;
+}
+
+void destroy_error(const PJRT_Api *api, PJRT_Error *err) {
+  if (err == nullptr) return;
+  PJRT_Error_Destroy_Args args{};
+  args.struct_size = sizeof(PJRT_Error_Destroy_Args);
+  args.error = err;
+  api->PJRT_Error_Destroy_(&args);
 }
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {

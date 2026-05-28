@@ -2,6 +2,12 @@
 
 ## Features
 
+* `pjrt_buffer()`, `pjrt_scalar()`, and `pjrt_execute()` now call R's
+  garbage collector and retry once when the plugin reports
+  `RESOURCE_EXHAUSTED`. Unreferenced `PJRTBuffer` external pointers are
+  finalized between attempts so their device memory is released before
+  the retry, matching the design used by the R `torch` package
+  (#60).
 * Added QR, LU, SVD, and symmetric eigendecomposition support on both
   CPU and CUDA via the FFI registration mechanism.
 * Added an vignette on how to register custom calls via the FFI
@@ -17,6 +23,11 @@
 * `as_array()` on a `ui32` buffer now returns a `bit64::integer64`
   instead of a base `integer`, so values `>= 2^31` round-trip losslessly
   rather than wrapping to negative.
+
+## Bug fixes
+
+* `check_err()` no longer leaks the underlying `PJRT_Error` when
+  converting a plugin error into an R exception.
 
 # pjrt 0.3.0
 

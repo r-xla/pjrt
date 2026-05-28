@@ -89,6 +89,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_gc_call_count
+std::size_t impl_gc_call_count();
+RcppExport SEXP _pjrt_impl_gc_call_count() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(impl_gc_call_count());
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_call_r_gc
+void impl_call_r_gc();
+RcppExport SEXP _pjrt_impl_call_r_gc() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    impl_call_r_gc();
+    return R_NilValue;
+END_RCPP
+}
 // get_lu_handler
 SEXP get_lu_handler();
 RcppExport SEXP _pjrt_get_lu_handler() {
@@ -655,6 +674,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_get_print_handler_cuda", (DL_FUNC) &_pjrt_get_print_handler_cuda, 0},
     {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 2},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
+    {"_pjrt_impl_gc_call_count", (DL_FUNC) &_pjrt_impl_gc_call_count, 0},
+    {"_pjrt_impl_call_r_gc", (DL_FUNC) &_pjrt_impl_call_r_gc, 0},
     {"_pjrt_get_lu_handler", (DL_FUNC) &_pjrt_get_lu_handler, 0},
     {"_pjrt_get_lu_handler_cuda", (DL_FUNC) &_pjrt_get_lu_handler_cuda, 0},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},

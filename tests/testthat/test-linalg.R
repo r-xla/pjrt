@@ -231,8 +231,13 @@ describe("lu", {
 
 describe("svd", {
   # Exercises the `svd` (gesdd / cusolverDnXgesvd) custom call: thin SVD on
-  # tall and wide matrices in f32 / f64, input donation, and the CUDA
-  # m >= n shape constraint enforced by cuSOLVER.
+  # tall and wide matrices in f32 / f64, plus input donation. cuSOLVER's
+  # `gesvd` requires m >= n; the CUDA handler reads a `transposed` attribute
+  # and, when set, swaps m / n and the U / Vt output buffers so the same
+  # bytes serve a row-major (m, n) view of A as a col-major (n, m) view of
+  # A^T (mirroring JAX's `_svd_gpu_sub_lowering`). Anvl's lowering sets
+  # `transposed = TRUE` on CUDA when m < n; these tests exercise both
+  # branches of the FFI directly.
   #
   # Correctness: thin SVD returns U (m x k), S (k), Vt (k x n) with U and V
   # having orthonormal columns and S non-negative. The factorisation is not
@@ -252,6 +257,28 @@ describe("svd", {
     U %*% Sd %*% Vt
   }
 
+  # CUDA-only `transposed` attribute: when m < n, the lowering passes
+  # transposed = true and switches operand / U / Vt to row-major layouts.
+  # The CPU handler is shape-agnostic and doesn't read the attribute, so
+  # tests on CPU don't pass anything.
+  svd_attrs <- function(m, n) {
+    if (!is_cuda()) {
+      return(list())
+    }
+    transposed <- if (m < n) "true" else "false"
+    list(backend_config = sprintf("{transposed = %s}", transposed))
+  }
+
+  svd_layouts <- function(m, n) {
+    if (!is_cuda() || m >= n) {
+      return(list(in_layouts = NULL, out_layouts = NULL))
+    }
+    list(
+      in_layouts = row_major_layout(2L),
+      out_layouts = c(row_major_layout(2L), col_major_layout(1L), row_major_layout(2L))
+    )
+  }
+
   run_svd <- function(a, dtype, donate = FALSE) {
     m <- nrow(a)
     n <- ncol(a)
@@ -263,6 +290,7 @@ describe("svd", {
     if (donate) {
       in_spec$aliases <- 1L
     }
+    layouts <- svd_layouts(m, n)
     run_linalg(
       "svd",
       inputs = list(a),
@@ -271,7 +299,10 @@ describe("svd", {
         list(dims = c(m, k), dtype = dtype),
         list(dims = k, dtype = dtype),
         list(dims = c(k, n), dtype = dtype)
-      )
+      ),
+      attrs = svd_attrs(m, n),
+      in_layouts = layouts$in_layouts,
+      out_layouts = layouts$out_layouts
     )
   }
 
@@ -309,17 +340,10 @@ describe("svd", {
   })
 
   it("factorises a wide matrix (m < n) in f64 and f32", {
-    # CUDA's cusolverDnXgesvd requires m >= n; tested separately below.
-    skip_if(is_cuda())
     withr::local_seed(22)
     a <- matrix(rnorm(20), 4, 5)
     expect_matches_r_svd(a, "f64")
     expect_matches_r_svd(a, "f32")
-  })
-
-  it("rejects m < n on CUDA", {
-    skip_if(!is_cuda())
-    expect_error(run_svd(matrix(rnorm(6), 2, 3), "f64"), "m >= n")
   })
 
   it("works with a donated input buffer", {
@@ -343,7 +367,8 @@ describe("svd", {
         list(dims = c(5, 4), dtype = "f64"),
         list(dims = 4, dtype = "f64"),
         list(dims = c(4, 4), dtype = "f64")
-      )
+      ),
+      attrs = svd_attrs(5, 4)
     )
   })
 })
