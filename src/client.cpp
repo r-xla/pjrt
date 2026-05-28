@@ -100,8 +100,9 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
   args.device = device;
   args.memory = nullptr;
 
-  check_err(this->api.get(),
-            this->api->PJRT_Client_BufferFromHostBuffer_(&args));
+  try_alloc(this->api.get(), [&] {
+    return this->api->PJRT_Client_BufferFromHostBuffer_(&args);
+  });
 
   AsyncBufferFromHostResult result;
   result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
@@ -243,8 +244,9 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   // need device completion events.
   exec_args.device_complete_events = nullptr;
 
-  check_err(this->api.get(),
-            this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
+  try_alloc(this->api.get(), [&] {
+    return this->api->PJRT_LoadedExecutable_Execute_(&exec_args);
+  });
 
   // Build result
   AsyncExecuteResult result;
