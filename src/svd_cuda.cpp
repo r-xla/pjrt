@@ -1,13 +1,10 @@
 // CUDA SVD via cuSOLVER gesvd.
 //
-// cuSOLVER's gesvd requires m >= n. For wide inputs (m < n) the lowering
-// in anvl sets a `transposed = true` attribute and declares operand / U / Vt
-// as row-major instead of column-major. The col-major (m, n) buffer is
-// bit-identical to a row-major (n, m) view of A^T, so by swapping m and n
-// here and pointing gesvd's U / Vt output buffers at the original Vt / U
-// slots, cuSOLVER's outputs land in the right places under the same
-// reinterpretation — no explicit transpose required. This mirrors JAX's
-// `_svd_gpu_sub_lowering` strategy.
+// gesvd requires m >= n. For m < n we use A = U D V^t  <=>  A^t = V D^t U^t:
+// the lowering transposes A (by declaring operand / U / Vt as row-major,
+// which reinterprets the buffer as A^t), we run gesvd on A^t, then transpose
+// back implicitly via the same layout trick on the outputs — which on this
+// side just means swapping the U / Vt output slots.
 //
 // jobu / jobvt are passed as 'S' (reduced); for m >= n that gives:
 //   U  : (m, n)    -- ldu = m
@@ -42,12 +39,6 @@ static Error svd_cuda_impl(void *stream, ScratchAllocator &scratch,
   int m_orig, n_orig;
   PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m_orig));
   PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n_orig));
-  // When the lowering set transposed = true, the operand / U / Vt buffers
-  // have row-major layout, which is bit-identical to col-major with rows
-  // and cols swapped. cuSOLVER reads col-major, so we swap m / n here and
-  // it sees A^T (shape n_orig x m_orig). A^T = V S U^T, so cuSOLVER's U
-  // output corresponds to original Vt and vice versa — we point its U
-  // output buffer at vt_data and its Vt output buffer at u_data.
   int m = transposed ? n_orig : m_orig;
   int n = transposed ? m_orig : n_orig;
 

@@ -232,12 +232,9 @@ describe("lu", {
 describe("svd", {
   # Exercises the `svd` (gesdd / cusolverDnXgesvd) custom call: thin SVD on
   # tall and wide matrices in f32 / f64, plus input donation. cuSOLVER's
-  # `gesvd` requires m >= n; the CUDA handler reads a `transposed` attribute
-  # and, when set, swaps m / n and the U / Vt output buffers so the same
-  # bytes serve a row-major (m, n) view of A as a col-major (n, m) view of
-  # A^T (mirroring JAX's `_svd_gpu_sub_lowering`). Anvl's lowering sets
-  # `transposed = TRUE` on CUDA when m < n; these tests exercise both
-  # branches of the FFI directly.
+  # `gesvd` requires m >= n, so for m < n the CUDA handler reads a
+  # `transposed` attribute and runs gesvd on A^t via a layout trick; these
+  # tests exercise both branches of the FFI directly.
   #
   # Correctness: thin SVD returns U (m x k), S (k), Vt (k x n) with U and V
   # having orthonormal columns and S non-negative. The factorisation is not
@@ -257,10 +254,8 @@ describe("svd", {
     U %*% Sd %*% Vt
   }
 
-  # CUDA-only `transposed` attribute: when m < n, the lowering passes
-  # transposed = true and switches operand / U / Vt to row-major layouts.
-  # The CPU handler is shape-agnostic and doesn't read the attribute, so
-  # tests on CPU don't pass anything.
+  # CUDA-only: when m < n, pass transposed = true and switch operand / U / Vt
+  # to row-major layouts. The CPU handler ignores both.
   svd_attrs <- function(m, n) {
     if (!is_cuda()) {
       return(list())
