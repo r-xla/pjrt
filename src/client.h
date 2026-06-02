@@ -73,8 +73,14 @@ class PJRTClient {
   AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
-      PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);
+      PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr,
+      PJRT_HostBufferSemantics semantics =
+          PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes);
   std::string platform();
+  bool is_cpu();
+
+ private:
+  std::optional<bool> is_cpu_;
 };
 
 }  // namespace rpjrt

@@ -114,19 +114,16 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
   return xptr;
 }
 
-// Helper to copy R data to a heap-allocated vector with type conversion
-// The generic type T indicates the target type for PJRT
+// Copy R data into a pre-allocated typed destination buffer, performing
+// type conversion as needed. T is the PJRT-side element type.
 template <typename T>
-std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
-  int len = Rf_length(data);
-  auto vec = std::make_unique<std::vector<T>>(len);
-
+void convert_r_data_to_typed(SEXP data, T *dst, int len) {
   if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     if (TYPEOF(data) == REALSXP) {
-      std::copy(REAL(data), REAL(data) + len, vec->data());
+      std::copy(REAL(data), REAL(data) + len, dst);
     } else if (TYPEOF(data) == INTSXP) {
       for (int i = 0; i < len; ++i) {
-        (*vec)[i] = static_cast<T>(INTEGER(data)[i]);
+        dst[i] = static_cast<T>(INTEGER(data)[i]);
       }
     } else {
       Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
@@ -138,23 +135,30 @@ std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
                        std::is_same_v<T, uint16_t> ||
                        std::is_same_v<T, uint32_t> ||
                        std::is_same_v<T, uint64_t>) {
-    std::copy(INTEGER(data), INTEGER(data) + len, vec->data());
+    std::copy(INTEGER(data), INTEGER(data) + len, dst);
   } else if constexpr (std::is_same_v<T, bool>) {
-    std::copy(LOGICAL(data), LOGICAL(data) + len, vec->data());
+    std::copy(LOGICAL(data), LOGICAL(data) + len, dst);
   } else if constexpr (std::is_same_v<T, uint8_t>) {
     if (TYPEOF(data) == LGLSXP) {
       for (int i = 0; i < len; ++i) {
-        (*vec)[i] = LOGICAL(data)[i] ? 1 : 0;
+        dst[i] = LOGICAL(data)[i] ? 1 : 0;
       }
     } else if (TYPEOF(data) == INTSXP) {
-      std::copy(INTEGER(data), INTEGER(data) + len, vec->data());
+      std::copy(INTEGER(data), INTEGER(data) + len, dst);
     } else {
       Rcpp::stop("Unsupported R type: %d", TYPEOF(data));
     }
   } else {
     Rcpp::stop("Unsupported R type: %d", TYPEOF(data));
   }
+}
 
+// Helper to copy R data to a heap-allocated vector with type conversion
+template <typename T>
+std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
+  int len = Rf_length(data);
+  auto vec = std::make_unique<std::vector<T>>(len);
+  convert_r_data_to_typed<T>(data, vec->data(), len);
   return vec;
 }
 
@@ -173,20 +177,45 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
     }
   }
 
-  // Copy data to heap-allocated vector (stays alive until event completes)
-  auto data_vec = copy_r_data_to_vec<T>(data);
   auto byte_strides_opt = get_byte_strides(dims, row_major, sizeof(T));
 
-  // Start async transfer
+  if (client->is_cpu()) {
+    // On CPU, back the host buffer with a RAWSXP so R's GC accounts for
+    // its memory, and request kImmutableZeroCopy so PJRT aliases our
+    // memory throughout the buffer's lifetime instead of allocating its
+    // own. done_with_host_buffer fires when the PJRTBuffer is destroyed.
+    size_t total_bytes = static_cast<size_t>(len) * sizeof(T);
+    SEXP raw_sexp = PROTECT(Rf_allocVector(RAWSXP, total_bytes));
+    T *raw_ptr = reinterpret_cast<T *>(RAW(raw_sexp));
+    convert_r_data_to_typed<T>(data, raw_ptr, len);
+    R_PreserveObject(raw_sexp);
+    UNPROTECT(1);
+
+    auto result = client->buffer_from_host_async(
+        raw_ptr, dims, byte_strides_opt, dtype, device,
+        PJRT_HostBufferSemantics_kImmutableZeroCopy);
+    if (result.event) {
+      result.event->on_ready(
+          [raw_sexp](PJRT_Error *error) { rpjrt::queue_release(raw_sexp); });
+    } else {
+      rpjrt::queue_release(raw_sexp);
+    }
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
+    buffer_xptr.attr("class") = "PJRTBuffer";
+    return buffer_xptr;
+  }
+
+  // Non-CPU: copy into a std::vector that stays alive until the transfer
+  // event completes.
+  auto data_vec = copy_r_data_to_vec<T>(data);
+
   auto result = client->buffer_from_host_async(data_vec->data(), dims,
                                                byte_strides_opt, dtype, device);
 
-  // Keep data alive until transfer completes
   if (result.event) {
     auto *raw_ptr = data_vec.release();
     result.event->on_ready([raw_ptr](PJRT_Error *error) { delete raw_ptr; });
   }
-  // If no event, data_vec is freed here (transfer already complete)
 
   Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
   buffer_xptr.attr("class") = "PJRTBuffer";

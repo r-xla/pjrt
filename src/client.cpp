@@ -79,7 +79,7 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
 AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
     void *data, const std::optional<std::vector<int64_t>> &dims,
     const std::optional<std::vector<int64_t>> &strides, PJRT_Buffer_Type dtype,
-    PJRT_Device *device) {
+    PJRT_Device *device, PJRT_HostBufferSemantics semantics) {
   // If no device is specified, use the first device
   if (device == nullptr) {
     const auto devices = this->devices();
@@ -95,8 +95,7 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
   args.num_dims = dims.has_value() ? dims->size() : 0;
   args.byte_strides = strides.has_value() ? strides->data() : nullptr;
   args.num_byte_strides = strides.has_value() ? strides->size() : 0;
-  args.host_buffer_semantics =
-      PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
+  args.host_buffer_semantics = semantics;
   args.device = device;
   args.memory = nullptr;
 
@@ -271,6 +270,13 @@ std::string PJRTClient::platform() {
   args.client = this->client;
   check_err(this->api.get(), this->api->PJRT_Client_PlatformName_(&args));
   return std::string(args.platform_name, args.platform_name_size);
+}
+
+bool PJRTClient::is_cpu() {
+  if (!is_cpu_.has_value()) {
+    is_cpu_ = (platform() == "cpu");
+  }
+  return *is_cpu_;
 }
 
 }  // namespace rpjrt
