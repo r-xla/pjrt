@@ -27,5 +27,14 @@ pjrt_device <- function(device) {
 #' @include client.R
 #' @export
 platform.PJRTDevice <- function(x, ...) {
-  impl_device_platform(x)
+  platform_from_device_string(as.character(x))
+}
+
+# Extract the platform name (e.g. "cuda", "cpu") from a PJRT device's
+# `to_string` representation (e.g. "CudaDevice(id=0)", "CpuDevice(id=0)"):
+# strip the leading [A-Za-z]+ run, drop a trailing "Device", and lowercase.
+# Used for both PJRTDevice and PJRTBuffer so they agree with platform.PJRTClient.
+platform_from_device_string <- function(desc) {
+  letters_only <- regmatches(desc, regexpr("^[A-Za-z]+", desc, perl = TRUE))
+  tolower(sub("Device$", "", letters_only))
 }
