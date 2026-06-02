@@ -608,25 +608,6 @@ std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
 }
 
 // [[Rcpp::export()]]
-std::string impl_device_platform(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
-  auto api = device->api;
-  PJRT_Device_GetDescription_Args desc_args{};
-  desc_args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
-  desc_args.device = device->device;
-  check_err(api.get(), api->PJRT_Device_GetDescription_(&desc_args));
-
-  PJRT_DeviceDescription_Kind_Args kind_args{};
-  kind_args.struct_size = sizeof(PJRT_DeviceDescription_Kind_Args);
-  kind_args.device_description = desc_args.device_description;
-  check_err(api.get(), api->PJRT_DeviceDescription_Kind_(&kind_args));
-
-  std::string kind(kind_args.device_kind, kind_args.device_kind_size);
-  // Convert to lowercase for consistency
-  std::transform(kind.begin(), kind.end(), kind.begin(), ::tolower);
-  return kind;
-}
-
-// [[Rcpp::export()]]
 void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
                        int max_width, int max_rows_slice) {
   buffer_print(buffer, max_rows, max_width, max_rows_slice);

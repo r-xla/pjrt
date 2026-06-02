@@ -141,10 +141,6 @@ impl_device_to_string <- function(device) {
     .Call(`_pjrt_impl_device_to_string`, device)
 }
 
-impl_device_platform <- function(device) {
-    .Call(`_pjrt_impl_device_platform`, device)
-}
-
 impl_buffer_print <- function(buffer, max_rows, max_width, max_rows_slice) {
     invisible(.Call(`_pjrt_impl_buffer_print`, buffer, max_rows, max_width, max_rows_slice))
 }
