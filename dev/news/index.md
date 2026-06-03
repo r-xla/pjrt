@@ -2,6 +2,8 @@
 
 ## pjrt (development version)
 
+## pjrt 0.4.0
+
 ### Features
 
 - Added QR, LU, SVD, and symmetric eigendecomposition support on both
