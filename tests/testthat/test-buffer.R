@@ -749,8 +749,14 @@ test_that("create 0-dim array from integer", {
   )
 })
 
-test_that("empty buffer assertion", {
-  expect_error(pjrt_empty("f32", c(1, 2, 3)), "Empty buffers must have at least one dimension equal to 0")
+test_that("pjrt_empty allocates buffers of arbitrary shape", {
+  buf <- pjrt_empty("f32", c(2, 3))
+  expect_equal(shape(buf), c(2L, 3L))
+  expect_equal(as.character(elt_type(buf)), "f32")
+
+  buf_i64 <- pjrt_empty("i64", c(4L))
+  expect_equal(shape(buf_i64), 4L)
+  expect_equal(as.character(elt_type(buf_i64)), "i64")
 })
 
 test_that("identity of buffer", {

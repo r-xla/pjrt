@@ -72,6 +72,11 @@ class PJRTBuffer {
  private:
   std::shared_ptr<PJRT_Api> api;
   PJRTEvent ready_event();
+  // Returns this->buffer, raising an R-level error if the underlying
+  // PJRT handle has been invalidated by donation. Used by every method
+  // that hands `this->buffer` to a PJRT C API call, so that operating on
+  // a donated buffer surfaces a clean error rather than a crash.
+  PJRT_Buffer* checked_buffer() const;
 };
 
 // Holds result of an async device-to-host transfer.

@@ -15,6 +15,15 @@ struct AsyncExecuteResult {
   std::vector<std::unique_ptr<PJRTBuffer>> buffers;
 };
 
+// An input->output aliasing entry baked into a compiled executable.
+// On execute the input buffer at `input_index` is donated to the output
+// at `output_index`; PJRT invalidates the input handle and reuses its
+// memory for the output.
+struct PJRTInputOutputAlias {
+  int input_index;
+  int output_index;
+};
+
 // Result of async buffer-from-host transfer
 struct AsyncBufferFromHostResult {
   std::unique_ptr<PJRTBuffer> buffer;
@@ -57,7 +66,19 @@ class PJRTLoadedExecutable {
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   std::vector<PJRT_Device *> addressable_devices();
+  // Input->output aliases baked into the compiled executable (parsed from
+  // the optimized HLO at construction). Used by the Execute wrapper to
+  // transfer the RAWSXP keepalive from each donated input XPtr to its
+  // aliased output XPtr so the underlying host bytes stay alive for the
+  // output's lifetime.
+  const std::vector<PJRTInputOutputAlias> &input_output_aliases() const {
+    return aliases_;
+  }
   ~PJRTLoadedExecutable();
+
+ private:
+  std::vector<PJRTInputOutputAlias> aliases_;
+  void load_input_output_aliases_();
 };
 
 class PJRTClient {

@@ -1,10 +1,62 @@
 #include "utils.h"
 
+#include <unistd.h>
+
+#include <cstdio>
 #include <optional>
 #include <stdexcept>
 #include <string>
 
 #include "xla/pjrt/c/pjrt_c_api.h"
+
+namespace rpjrt {
+
+StderrCapture begin_stderr_capture() {
+  StderrCapture cap;
+  std::fflush(stderr);
+  FILE *tmp = std::tmpfile();
+  if (tmp == nullptr) {
+    return cap;  // capture disabled
+  }
+  int saved = dup(STDERR_FILENO);
+  if (saved == -1) {
+    std::fclose(tmp);
+    return cap;
+  }
+  if (dup2(fileno(tmp), STDERR_FILENO) == -1) {
+    close(saved);
+    std::fclose(tmp);
+    return cap;
+  }
+  cap.saved_fd = saved;
+  cap.tmp = tmp;
+  return cap;
+}
+
+void end_stderr_capture(StderrCapture &cap, bool replay) {
+  if (cap.saved_fd == -1) {
+    return;  // capture was disabled; nothing to restore
+  }
+  FILE *tmp = static_cast<FILE *>(cap.tmp);
+  std::fflush(stderr);  // push any buffered XLA output into the temp sink
+  dup2(cap.saved_fd, STDERR_FILENO);
+  close(cap.saved_fd);
+  cap.saved_fd = -1;
+
+  if (replay) {
+    std::fseek(tmp, 0, SEEK_SET);
+    char buf[4096];
+    size_t n;
+    while ((n = std::fread(buf, 1, sizeof(buf), tmp)) > 0) {
+      std::fwrite(buf, 1, n, stderr);
+    }
+    std::fflush(stderr);
+  }
+  std::fclose(tmp);  // closes the fd and deletes the temp file
+  cap.tmp = nullptr;
+}
+
+}  // namespace rpjrt
 
 void check_err(const PJRT_Api *api, PJRT_Error *err) {
   if (err) {
@@ -38,6 +90,21 @@ void destroy_error(const PJRT_Api *api, PJRT_Error *err) {
   args.struct_size = sizeof(PJRT_Error_Destroy_Args);
   args.error = err;
   api->PJRT_Error_Destroy_(&args);
+}
+
+PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
+  if (dtype == "f32") return PJRT_Buffer_Type_F32;
+  if (dtype == "f64") return PJRT_Buffer_Type_F64;
+  if (dtype == "i8") return PJRT_Buffer_Type_S8;
+  if (dtype == "i16") return PJRT_Buffer_Type_S16;
+  if (dtype == "i32") return PJRT_Buffer_Type_S32;
+  if (dtype == "i64") return PJRT_Buffer_Type_S64;
+  if (dtype == "ui8") return PJRT_Buffer_Type_U8;
+  if (dtype == "ui16") return PJRT_Buffer_Type_U16;
+  if (dtype == "ui32") return PJRT_Buffer_Type_U32;
+  if (dtype == "ui64") return PJRT_Buffer_Type_U64;
+  if (dtype == "pred") return PJRT_Buffer_Type_PRED;
+  throw std::runtime_error("Unsupported type: " + dtype);
 }
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {

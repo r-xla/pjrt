@@ -1,10 +1,14 @@
 #include "client.h"
 
+#include <Rcpp.h>
+
 #include <memory>
 
 #include "buffer.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
+#include "xla/service/hlo.pb.h"
+#include "xla/xla.pb.h"
 
 namespace rpjrt {
 
@@ -162,7 +166,97 @@ PJRTExecuteOptions::PJRTExecuteOptions(
 
 PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                                            std::shared_ptr<PJRT_Api> api)
-    : executable(executable), api(api) {}
+    : executable(executable), api(api) {
+  load_input_output_aliases_();
+}
+
+// Pull the optimized HLO out of the compiled executable, parse it, and
+// cache the input->output alias entries. This is the runtime equivalent
+// of XLA's HloInputOutputAliasConfig: it tells us which input parameter
+// each output is donated from, which we then use to migrate the RAWSXP
+// keepalive from the donated input XPtr to its aliased output XPtr.
+// Robust to plugins that don't implement OptimizedProgram or return a
+// non-HLO format: the cache simply stays empty.
+void PJRTLoadedExecutable::load_input_output_aliases_() {
+  // Wrap the loaded executable to get the underlying Executable handle.
+  PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
+  get_exec_args.struct_size =
+      sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
+  get_exec_args.loaded_executable = this->executable;
+  if (this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args) !=
+      nullptr) {
+    return;
+  }
+
+  // OptimizedProgram is a two-call protocol: first call (code==nullptr)
+  // returns the required buffer size, second call fills it.
+  PJRT_Program program{};
+  program.struct_size = sizeof(PJRT_Program);
+
+  PJRT_Executable_OptimizedProgram_Args opt_args{};
+  opt_args.struct_size = sizeof(PJRT_Executable_OptimizedProgram_Args);
+  opt_args.executable = get_exec_args.executable;
+  opt_args.program = &program;
+
+  if (this->api->PJRT_Executable_OptimizedProgram_(&opt_args) != nullptr) {
+    goto cleanup;
+  }
+  {
+    std::vector<char> hlo_bytes(program.code_size);
+    program.code = hlo_bytes.data();
+    if (this->api->PJRT_Executable_OptimizedProgram_(&opt_args) != nullptr) {
+      goto cleanup;
+    }
+
+    // OptimizedProgram returns one of two formats depending on the
+    // plugin: "hlo" (raw HloModuleProto) or "hlo_with_config"
+    // (HloModuleProtoWithConfig wrapping the HloModuleProto plus
+    // compiler config). The CPU plugin returns "hlo_with_config".
+    const std::string fmt =
+        program.format == nullptr
+            ? std::string()
+            : std::string(program.format, program.format_size);
+    xla::HloModuleProto module;
+    if (fmt == "hlo") {
+      if (!module.ParseFromArray(hlo_bytes.data(), hlo_bytes.size())) {
+        goto cleanup;
+      }
+    } else if (fmt == "hlo_with_config") {
+      xla::HloModuleProtoWithConfig wrapper;
+      if (!wrapper.ParseFromArray(hlo_bytes.data(), hlo_bytes.size())) {
+        goto cleanup;
+      }
+      if (!wrapper.has_hlo_module()) goto cleanup;
+      module = wrapper.hlo_module();
+    } else {
+      // Unknown format — aliases stay empty; the keepalive transfer
+      // becomes a no-op for this executable.
+      goto cleanup;
+    }
+
+    if (module.has_input_output_alias()) {
+      for (const auto &entry : module.input_output_alias().entries()) {
+        // For non-tuple outputs, output_shape_index is empty and refers
+        // to output 0. For tuple outputs, the first entry is the index
+        // into the top-level tuple — which is what we want since PJRT
+        // returns each tuple element as a separate output buffer.
+        const int output_index = entry.output_shape_index_size() == 0
+                                     ? 0
+                                     : entry.output_shape_index(0);
+        aliases_.push_back(
+            {static_cast<int>(entry.parameter_number()), output_index});
+      }
+    }
+  }
+
+cleanup:
+  PJRT_Executable_Destroy_Args destroy_args{};
+  destroy_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
+  destroy_args.executable = get_exec_args.executable;
+  // Ignore errors during cleanup; we're best-effort here.
+  PJRT_Error *err = this->api->PJRT_Executable_Destroy_(&destroy_args);
+  if (err != nullptr) destroy_error(this->api.get(), err);
+}
 
 PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   PJRT_LoadedExecutable_Destroy_Args args{};

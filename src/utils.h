@@ -1,6 +1,7 @@
 #pragma once
 #include <numeric>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -13,16 +14,48 @@ PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err);
 
 void destroy_error(const PJRT_Api *api, PJRT_Error *err);
 
+namespace rpjrt {
+
+// Temporarily redirects stderr (fd 2) into a temp sink so that XLA's native
+// logging emitted during a single allocation/execution attempt can be dropped
+// when we recover from it. Process-global and not thread-safe; intended only
+// for the main-thread allocation calls wrapped by try_alloc().
+struct StderrCapture {
+  int saved_fd = -1;    // dup of the original stderr; -1 means capture disabled
+  void *tmp = nullptr;  // FILE* of the temp sink (void* to keep this header clean)
+};
+
+// Begin capturing stderr. On any failure capture is silently disabled
+// (saved_fd == -1) and the real stderr is left untouched.
+StderrCapture begin_stderr_capture();
+
+// Restore stderr. If `replay` is true the captured bytes are written back to
+// the real stderr first (so non-OOM diagnostics are never hidden); otherwise
+// they are discarded.
+void end_stderr_capture(StderrCapture &cap, bool replay);
+
+}  // namespace rpjrt
+
 // Run a PJRT allocation call. If it returns RESOURCE_EXHAUSTED, call R's gc()
 // (via rpjrt::call_r_gc) and retry the call once. Any other error, or a
 // still-failing retry, is surfaced via check_err. `alloc_fn` must be callable
 // twice and return a PJRT_Error*; the underlying *_Args struct is filled in
 // each call so it is safe to reuse.
+//
+// XLA logs the out-of-memory condition (BFC allocator notice + "Execution of
+// replica 0 failed") at WARNING/ERROR level on the failing attempt. Since we
+// immediately recover via gc-and-retry, that first attempt's stderr is captured
+// and discarded; the retry runs un-captured, so an OOM that persists *after*
+// gc still surfaces its logs.
 template <typename F>
 void try_alloc(const PJRT_Api *api, F &&alloc_fn) {
+  auto cap = rpjrt::begin_stderr_capture();
   PJRT_Error *err = alloc_fn();
-  if (err != nullptr &&
-      get_error_code(api, err) == PJRT_Error_Code_RESOURCE_EXHAUSTED) {
+  bool is_oom = err != nullptr &&
+                get_error_code(api, err) == PJRT_Error_Code_RESOURCE_EXHAUSTED;
+  rpjrt::end_stderr_capture(cap, /*replay=*/!is_oom);
+
+  if (is_oom) {
     destroy_error(api, err);
     rpjrt::call_r_gc();
     err = std::forward<F>(alloc_fn)();
@@ -64,6 +97,8 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
     dst[idx_col] = static_cast<dst_type>(src[idx_row]);
   }
 }
+
+PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype);
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type);
 

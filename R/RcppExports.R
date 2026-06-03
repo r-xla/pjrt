@@ -81,6 +81,10 @@ impl_client_buffer_from_raw <- function(client, device, data, dims, dtype, row_m
     .Call(`_pjrt_impl_client_buffer_from_raw`, client, device, data, dims, dtype, row_major)
 }
 
+impl_client_buffer_empty <- function(client, device, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_empty`, client, device, dims, dtype)
+}
+
 impl_buffer_to_raw <- function(client, buffer, row_major = FALSE) {
     .Call(`_pjrt_impl_buffer_to_raw`, client, buffer, row_major)
 }
@@ -183,6 +187,10 @@ impl_raw_to_array <- function(host_data, dtype, dims) {
 
 impl_buffer_to_host_async <- function(buffer) {
     .Call(`_pjrt_impl_buffer_to_host_async`, buffer)
+}
+
+impl_loaded_executable_aliases <- function(executable) {
+    .Call(`_pjrt_impl_loaded_executable_aliases`, executable)
 }
 
 impl_loaded_executable_execute <- function(executable, input, execution_options) {

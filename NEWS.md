@@ -1,5 +1,17 @@
 # pjrt (development version)
 
+## Breaking Changes
+
+* `pjrt_empty()` accepts arbitrary shapes and returns a buffer with
+  unspecified contents.
+* CPU-backed `pjrt_buffer()` and `pjrt_empty()` now use the
+  `kMutableZeroCopy` host-buffer semantic so the buffer can be donated
+  to `pjrt_execute()`. `pjrt_execute()` migrates the underlying RAWSXP
+  from each donated input XPtr to its aliased output XPtr, so
+  donation-produced output bytes are managed by R's GC. Operating on
+  a donated buffer now raises `"called on deleted or donated buffer"`
+  at the R level instead of relying on the plugin.
+
 ## Features
 
 * `pjrt_buffer()`, `pjrt_scalar()`, and `pjrt_execute()` now call R's

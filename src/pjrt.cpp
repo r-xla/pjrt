@@ -180,28 +180,42 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
   auto byte_strides_opt = get_byte_strides(dims, row_major, sizeof(T));
 
   if (client->is_cpu()) {
-    // On CPU, back the host buffer with a RAWSXP so R's GC accounts for
-    // its memory, and request kImmutableZeroCopy so PJRT aliases our
-    // memory throughout the buffer's lifetime instead of allocating its
-    // own. done_with_host_buffer fires when the PJRTBuffer is destroyed.
+    // On CPU, back the host buffer with a RAWSXP and request
+    // kMutableZeroCopy so PJRT aliases our memory for the buffer's
+    // lifetime. The RAWSXP is stashed in the XPtr's protected slot, so
+    // R's GC keeps it alive exactly as long as the PJRTBuffer XPtr is
+    // reachable. When the XPtr is reclaimed, the finalizer runs
+    // PJRT_Buffer_Destroy first (releasing PJRT's alias), then the
+    // RAWSXP becomes collectable.
+    //
+    // We use kMutableZeroCopy rather than kImmutableZeroCopy because
+    // the buffer may later be donated to pjrt_execute() as an aliased
+    // output, which the immutable variant explicitly forbids. The
+    // caller-side contract is identical (don't mutate the bytes while
+    // PJRT holds the alias, keep them alive until done_with_host_buffer
+    // fires on PJRT_Buffer_Destroy). On non-CPU platforms it falls back
+    // to kImmutableUntilTransferCompletes per the spec.
+    //
+    // (The `k` prefix on the enum values is the Google C++ style
+    // convention for constants — read as "constant MutableZeroCopy".)
+    //
+    // No double-free: per the PJRT C API spec for kMutableZeroCopy
+    // (xla/pjrt/c/pjrt_c_api.h, PJRT_HostBufferSemantics enum), the
+    // caller owns `data` and PJRT only aliases it — PJRT_Buffer_Destroy
+    // releases PJRT's handle but does not free the host bytes. R later
+    // reclaims the RAWSXP from its own vector heap.
     size_t total_bytes = static_cast<size_t>(len) * sizeof(T);
     SEXP raw_sexp = PROTECT(Rf_allocVector(RAWSXP, total_bytes));
     T *raw_ptr = reinterpret_cast<T *>(RAW(raw_sexp));
     convert_r_data_to_typed<T>(data, raw_ptr, len);
-    R_PreserveObject(raw_sexp);
-    UNPROTECT(1);
 
     auto result = client->buffer_from_host_async(
         raw_ptr, dims, byte_strides_opt, dtype, device,
-        PJRT_HostBufferSemantics_kImmutableZeroCopy);
-    if (result.event) {
-      result.event->on_ready(
-          [raw_sexp](PJRT_Error *error) { rpjrt::queue_release(raw_sexp); });
-    } else {
-      rpjrt::queue_release(raw_sexp);
-    }
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
+        PJRT_HostBufferSemantics_kMutableZeroCopy);
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true,
+                                              R_NilValue, raw_sexp);
     buffer_xptr.attr("class") = "PJRTBuffer";
+    UNPROTECT(1);
     return buffer_xptr;
   }
 
@@ -317,6 +331,51 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+}
+
+// Allocate a buffer with unspecified contents. On CPU, backs the buffer with
+// a RAWSXP stashed in the XPtr's protected slot so that R's GC keeps the host
+// bytes alive for the buffer's lifetime. Uses kMutableZeroCopy (same as
+// create_buffer_from_array_async; see that function's comment for the
+// lifetime/double-free reasoning). On other platforms, allocates a host
+// vector, transfers, and releases it when the transfer completes — the
+// bytes happen to be zero from the heap allocation, but callers must not
+// rely on that.
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    std::vector<int64_t> dims, std::string dtype) {
+  const PJRT_Buffer_Type pjrt_dtype = string_to_pjrt_buffer_type(dtype);
+  const size_t element_size = sizeof_pjrt_buffer_type(pjrt_dtype);
+  const int64_t numel = number_of_elements(dims);
+  const size_t total_bytes = static_cast<size_t>(numel) * element_size;
+  // R uses column-major storage; PJRT expects byte strides for non-row-major
+  // layouts.
+  auto byte_strides_opt =
+      get_byte_strides(dims, /*row_major=*/false, element_size);
+
+  if (client->is_cpu()) {
+    SEXP raw_sexp = PROTECT(Rf_allocVector(RAWSXP, total_bytes));
+    auto result = client->buffer_from_host_async(
+        RAW(raw_sexp), dims, byte_strides_opt, pjrt_dtype, device->device,
+        PJRT_HostBufferSemantics_kMutableZeroCopy);
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true,
+                                              R_NilValue, raw_sexp);
+    buffer_xptr.attr("class") = "PJRTBuffer";
+    UNPROTECT(1);
+    return buffer_xptr;
+  }
+
+  auto data_vec = std::make_unique<std::vector<uint8_t>>(total_bytes);
+  auto result = client->buffer_from_host_async(
+      data_vec->data(), dims, byte_strides_opt, pjrt_dtype, device->device);
+  if (result.event) {
+    auto *raw_ptr = data_vec.release();
+    result.event->on_ready([raw_ptr](PJRT_Error *error) { delete raw_ptr; });
+  }
+  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
+  buffer_xptr.attr("class") = "PJRTBuffer";
+  return buffer_xptr;
 }
 
 // Core conversion: raw bytes (row-major) -> R array (column-major) with type
@@ -789,6 +848,20 @@ static std::string device_to_string(PJRT_Device *device, PJRT_Api *api) {
 }
 
 // [[Rcpp::export()]]
+Rcpp::List impl_loaded_executable_aliases(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable) {
+  const auto &aliases = executable->input_output_aliases();
+  Rcpp::IntegerVector inputs(aliases.size());
+  Rcpp::IntegerVector outputs(aliases.size());
+  for (size_t i = 0; i < aliases.size(); ++i) {
+    inputs[i] = aliases[i].input_index;
+    outputs[i] = aliases[i].output_index;
+  }
+  return Rcpp::List::create(Rcpp::Named("input") = inputs,
+                            Rcpp::Named("output") = outputs);
+}
+
+// [[Rcpp::export()]]
 Rcpp::List impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
@@ -827,6 +900,33 @@ Rcpp::List impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffers[i].release(), true);
     xptr.attr("class") = "PJRTBuffer";
     buffers[i] = xptr;
+  }
+
+  // For each input->output alias baked into the executable, migrate the
+  // RAWSXP keepalive from the donated input XPtr to the aliased output
+  // XPtr, and null the donated input's PJRT_Buffer* so its finalizer is
+  // a no-op (PJRT already invalidated the handle during Execute). This
+  // preserves the package-wide invariant that an output buffer's host
+  // bytes — including bytes inherited from donation — stay alive for
+  // exactly as long as the output XPtr is reachable.
+  const auto &aliases = executable->input_output_aliases();
+  for (const auto &alias : aliases) {
+    if (alias.input_index < 0 ||
+        static_cast<size_t>(alias.input_index) >= static_cast<size_t>(input.size()) ||
+        alias.output_index < 0 ||
+        static_cast<size_t>(alias.output_index) >= static_cast<size_t>(buffers.size())) {
+      continue;
+    }
+    SEXP in_xptr_sexp = VECTOR_ELT(input, alias.input_index);
+    SEXP out_xptr_sexp = VECTOR_ELT(buffers, alias.output_index);
+
+    SEXP keepalive = R_ExternalPtrProtected(in_xptr_sexp);
+    R_SetExternalPtrProtected(out_xptr_sexp, keepalive);
+    R_SetExternalPtrProtected(in_xptr_sexp, R_NilValue);
+
+    auto *in_buf =
+        static_cast<rpjrt::PJRTBuffer *>(R_ExternalPtrAddr(in_xptr_sexp));
+    if (in_buf != nullptr) in_buf->buffer = nullptr;
   }
 
   return buffers;
