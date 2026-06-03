@@ -16,9 +16,16 @@ prevent buffer overflow) and that no NA values are present.
 ## Usage
 
 ``` r
-pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
+pjrt_buffer(
+  data,
+  dtype = NULL,
+  device = NULL,
+  shape = NULL,
+  check = FALSE,
+  ...
+)
 
-pjrt_scalar(data, dtype = NULL, device = NULL, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, check = FALSE, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 ```
@@ -65,6 +72,17 @@ pjrt_empty(dtype, shape, device = NULL)
   (`NULL` \| [`integer()`](https://rdrr.io/r/base/integer.html))  
   The dimensions of the buffer. The default (`NULL`) is to infer them
   from the data if possible. The default (`NULL`) depends on the method.
+
+- check:
+
+  (`logical(1)`)  
+  If `TRUE`, scan `data` for `NA` values before transferring to the
+  device and raise an error if any are present. R's `NA` markers have no
+  representation at the XLA level (e.g. `NA_integer_` is just the bit
+  pattern `-2147483648`, and `NA` of `logical` type is silently coerced
+  to `TRUE`), so missing values are silently lost on transfer. Defaults
+  to `FALSE` for performance; set to `TRUE` to fail loudly instead of
+  silently corrupting data. Not applicable to `raw` input.
 
 - ...:
 

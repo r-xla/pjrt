@@ -4,12 +4,14 @@
 <url><loc>https://r-xla.github.io/pjrt/CLAUDE.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/LICENSE-text.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/LICENSE.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/articles/ffi.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/articles/index.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/articles/pjrt.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/authors.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/index.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/news/index.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as.character.PJRTElementType.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/reference/as_array.PJRTBuffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_array_async.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_device.html</loc></url>

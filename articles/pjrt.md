@@ -23,6 +23,7 @@ When creating a plugin upon first use, the shared library is downloaded
 and cached.
 
 ``` r
+
 library(pjrt)
 plugin <- pjrt_plugin("cpu")
 plugin
@@ -32,6 +33,7 @@ plugin
 Such a plugin can be used to create a client for a specific platform.
 
 ``` r
+
 client <- plugin_client_create(plugin, "cpu")
 client
 #> <PJRTClient:cpu>
@@ -41,6 +43,7 @@ Currently, there will be exactly one client per platform and they are
 stored in a global cache.
 
 ``` r
+
 the <- getFromNamespace("the", "pjrt")
 the[["clients"]][["cpu"]]
 #> <PJRTClient:cpu>
@@ -53,6 +56,7 @@ clients, but is in principle useful for GPUs, although this is not fully
 supported yet.
 
 ``` r
+
 cpu_devices <- devices(client)
 cpu_device <- cpu_devices[[1L]]
 ```
@@ -70,6 +74,7 @@ returns a `PJRTBuffer` immediately — the buffer may not be ready yet
 block.
 
 ``` r
+
 host_data <- 1:4
 buf <- pjrt_buffer(host_data, device = cpu_device, shape = c(2L, 2L), dtype = "f32")
 buf
@@ -84,6 +89,7 @@ these operations are non-blocking because the metadata is available
 immediately:
 
 ``` r
+
 shape(buf)
 #> [1] 2 2
 elt_type(buf)
@@ -97,6 +103,7 @@ To move data back to the host, use
 This blocks until the data is available:
 
 ``` r
+
 as_array(buf)
 #>      [,1] [,2]
 #> [1,]    1    3
@@ -112,6 +119,7 @@ easily create StableHLO programs in R. Below, we define a simple program
 that adds two `f32` tensors of shape `2x2`.
 
 ``` r
+
 src <- r"(
 func.func @main(
   %x: tensor<2x2xf32>,
@@ -127,6 +135,7 @@ First create a program object, then compile it into an executable. Note
 that compilation depends on the specific device.
 
 ``` r
+
 program <- pjrt_program(src, format = "mlir")
 executable <- pjrt_compile(program, device = cpu_device)
 executable
@@ -141,6 +150,7 @@ also returns a `PJRTBuffer` immediately — R gets control back while the
 device computes in the background.
 
 ``` r
+
 x <- pjrt_buffer(c(1, 2, 3, 4), shape = c(2L, 2L), dtype = "f32")
 y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2L, 2L), dtype = "f32")
 result <- pjrt_execute(executable, x, y)
@@ -158,6 +168,7 @@ To retrieve the result as an R array, call
 [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html):
 
 ``` r
+
 as_array(result)
 #>      [,1] [,2]
 #> [1,]    6   10
@@ -192,10 +203,10 @@ host-side result (e.g. calling
 
 ### Async types
 
-| Operation                                                                      | Returns            | Description             |
-|--------------------------------------------------------------------------------|--------------------|-------------------------|
-| [`pjrt_buffer()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md)       | `PJRTBuffer`       | Host-to-device transfer |
-| [`pjrt_execute()`](https://r-xla.github.io/pjrt/reference/pjrt_execute.md)     | `PJRTBuffer`       | Program execution       |
+| Operation | Returns | Description |
+|----|----|----|
+| [`pjrt_buffer()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md) | `PJRTBuffer` | Host-to-device transfer |
+| [`pjrt_execute()`](https://r-xla.github.io/pjrt/reference/pjrt_execute.md) | `PJRTBuffer` | Program execution |
 | [`as_array_async()`](https://r-xla.github.io/pjrt/reference/as_array_async.md) | `PJRTArrayPromise` | Device-to-host transfer |
 
 `PJRTBuffer` is a transparent async type — it can be used directly in
@@ -224,6 +235,7 @@ Buffers can be passed directly to other operations without waiting —
 PJRT handles the dependencies internally:
 
 ``` r
+
 # Both transfers start immediately
 buf1 <- pjrt_buffer(matrix(1:4, 2, 2), dtype = "f32")
 buf2 <- pjrt_buffer(matrix(5:8, 2, 2), dtype = "f32")
@@ -241,6 +253,7 @@ as_array(result)
 You can also chain execution with async device-to-host transfer:
 
 ``` r
+
 src2 <- r"(
 func.func @main(%x: tensor<1000x1000xf32>) -> tensor<1000x1000xf32> {
   %0 = "stablehlo.add"(%x, %x) : (tensor<1000x1000xf32>, tensor<1000x1000xf32>) -> tensor<1000x1000xf32>
@@ -286,6 +299,7 @@ Operations like
 **Bad** — blocking every iteration:
 
 ``` r
+
 for (i in seq_len(n_iterations)) {
   result <- pjrt_execute(executable, input)
   metrics <- as_array(result)  # blocks! device idles during transfer
@@ -298,6 +312,7 @@ for (i in seq_len(n_iterations)) {
 next:
 
 ``` r
+
 prev_result <- NULL
 for (i in seq_len(n_iterations)) {
   result <- pjrt_execute(executable, input)
@@ -315,6 +330,7 @@ for (i in seq_len(n_iterations)) {
 ### Full pipeline example
 
 ``` r
+
 # Multiply-add program
 src3 <- r"(
 func.func @main(%x: tensor<100x100xf32>, %y: tensor<100x100xf32>) -> tensor<100x100xf32> {
@@ -352,6 +368,7 @@ We support reading and writing buffers using the
 allows storing named lists of buffers.
 
 ``` r
+
 tmp <- tempfile(fileext = ".safetensors")
 safetensors::safe_save_file(list(x = result), tmp, framework = "pjrt")
 reloaded <- safetensors::safe_load_file(tmp, framework = "pjrt")

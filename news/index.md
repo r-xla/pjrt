@@ -1,5 +1,30 @@
 # Changelog
 
+## pjrt 0.4.0
+
+### Features
+
+- Added QR, LU, SVD, and symmetric eigendecomposition support on both
+  CPU and CUDA via the FFI registration mechanism.
+- Added an vignette on how to register custom calls via the FFI
+  registration mechanisms with coverage of both CUDA and CPU-specific
+  aspects.
+- Added support for the `bit64` package to better support long integers.
+- [`pjrt_buffer()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md),
+  [`pjrt_scalar()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md),
+  and
+  [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
+  gain a `check` argument (default `FALSE`). When `TRUE`, the call
+  errors instead of silently losing information: on input if `data`
+  contains `NA`s, on output if the materialized R vector contains a
+  value that’s indistinguishable from `NA` or that has wrapped through
+  the integer container.
+- [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
+  on a `ui32` buffer now returns a
+  [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
+  instead of a base `integer`, so values `>= 2^31` round-trip losslessly
+  rather than wrapping to negative.
+
 ## pjrt 0.3.0
 
 ### Features
@@ -80,7 +105,7 @@ considerable performance benefits, especially on GPU. Specifically:
 ### Miscellaneous
 
 - The printer for `PJRTBuffer` now uses `"bool"` instead of `"pred"` to
-  avoid discrepancies with {anvil}.
+  avoid discrepancies with {anvl}.
 
 ## pjrt 0.1.1
 
