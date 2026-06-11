@@ -10,8 +10,14 @@
 
 void check_err(const PJRT_Api *api, PJRT_Error *err);
 
+// Return the error code of a PJRT_Error. If querying the code itself fails, the
+// inner error is destroyed and UNKNOWN is returned so the caller still surfaces
+// the original error via check_err.
 PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err);
 
+// Destroy a PJRT_Error. The error object is owned by the caller of the PJRT C
+// API and must be freed once its message/code has been read; a null error is a
+// no-op.
 void destroy_error(const PJRT_Api *api, PJRT_Error *err);
 
 namespace rpjrt {
@@ -35,6 +41,11 @@ StderrCapture begin_stderr_capture();
 // they are discarded.
 void end_stderr_capture(StderrCapture &cap, bool replay);
 
+// Write `msg` (followed by a newline) to R's stderr, but only when the
+// PJRT_DEBUG environment variable is set to a non-empty value. Used to make
+// the otherwise-silent gc-on-OOM retry observable.
+void debug_inform(const char *msg);
+
 }  // namespace rpjrt
 
 // Run a PJRT allocation call. If it returns RESOURCE_EXHAUSTED, call R's gc()
@@ -43,19 +54,13 @@ void end_stderr_capture(StderrCapture &cap, bool replay);
 // twice and return a PJRT_Error*; the underlying *_Args struct is filled in
 // each call so it is safe to reuse.
 //
-// XLA logs the out-of-memory condition (BFC allocator notice + "Execution of
-// replica 0 failed") at WARNING/ERROR level on the failing attempt. Since we
-// immediately recover via gc-and-retry, that first attempt's stderr is captured
-// and discarded; the retry runs un-captured, so an OOM that persists *after*
-// gc still surfaces its logs.
-//
 // `suppress_logs` gates the stderr capture, which must wrap *every* call (XLA
-// writes the diagnostic during alloc_fn, before returning, so it can't be
-// suppressed after the fact) and costs a temp-file create/redirect per call.
-// Callers pass false on CPU, where allocation failure is rare and the
-// gc-and-retry is largely moot, so the hot path (buffer upload, execute) pays
-// nothing. It is left on for the backends where OOM-and-recover actually
-// happens (CUDA), so the recovered first attempt stays quiet there.
+// writes the OOM diagnostic during alloc_fn, before returning, so it can't be
+// suppressed after the fact). Callers pass false on CPU, where allocation
+// failure is rare and the gc-and-retry is largely moot, so the hot path (buffer
+// upload, execute) pays nothing. It is left on for the backends where
+// OOM-and-recover actually happens (CUDA), so the recovered first attempt stays
+// quiet there.
 template <typename F>
 void try_alloc(const PJRT_Api *api, F &&alloc_fn, bool suppress_logs = true) {
   rpjrt::StderrCapture cap;
@@ -68,6 +73,7 @@ void try_alloc(const PJRT_Api *api, F &&alloc_fn, bool suppress_logs = true) {
   if (is_oom) {
     destroy_error(api, err);
     rpjrt::call_r_gc();
+    rpjrt::debug_inform("pjrt: RESOURCE_EXHAUSTED — ran R gc, retrying");
     err = std::forward<F>(alloc_fn)();
   }
   check_err(api, err);

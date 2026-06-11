@@ -1,8 +1,10 @@
 #include "utils.h"
 
+#include <R_ext/Print.h>  // REprintf
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstdlib>  // getenv
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -22,9 +24,23 @@ namespace {
 // cost — see the benchmark in the memory-management design doc). On Linux it is
 // an anonymous RAM-backed file (`memfd_create`), which matters because the
 // capture is only ever armed on non-CPU backends and CUDA is Linux-only; on
-// other platforms it falls back to an unlinked `tmpfile()`. try_alloc runs only
-// on the main R thread, so this shared sink never has concurrent users.
+// other platforms it falls back to an unlinked `tmpfile()`.
+//
+// Both are process-global because the sink must outlive any single call and is
+// shared by every try_alloc caller (there is one stderr for the process). Plain
+// globals are safe here only because try_alloc runs solely on the main R
+// thread, so the sink never has concurrent users.
+
+// The reusable sink's file descriptor, or -1 if we don't have one (capture then
+// no-ops). Created lazily on first use and never closed — it lives for the
+// process and is just reset (ftruncate to 0) between captures.
 int g_sink_fd = -1;
+
+// Whether we have already attempted to create the sink. Needed because
+// `g_sink_fd == -1` alone is ambiguous — it could mean "not created yet" or
+// "tried and failed". This flag records that the one-time attempt happened, so
+// a permanent failure is decided once instead of re-running open_sink_fd() (and
+// its failing syscalls) on every allocation.
 bool g_sink_tried = false;
 
 // Open the reusable sink fd, or -1 if unavailable (capture then no-ops).
@@ -36,8 +52,23 @@ int open_sink_fd() {
     // fall through to the portable path if memfd is unavailable at runtime
   }
 #endif
-  // tmpfile() gives an already-unlinked temp file; dup a raw fd we own and
-  // close the FILE* (the inode stays alive via our fd until we close it).
+  // Portable fallback (e.g. macOS, where memfd_create does not exist).
+  //
+  // We want a bare file descriptor — a raw OS handle (an int) used with
+  // read/lseek/ftruncate/dup2 — to match the memfd path, so the rest of the
+  // capture code never special-cases this branch. But std::tmpfile() returns a
+  // FILE*: the C stdio wrapper that adds userspace buffering and the f* API
+  // (fread/fwrite/...) on top of an underlying fd. So we convert FILE* -> fd:
+  //
+  //   1. tmpfile() creates an already-unlinked temp file (no name; auto-freed
+  //      once the last fd to it closes — same self-cleaning as memfd).
+  //   2. dup(fileno(f)) makes a second, independent fd referring to the *same*
+  //      open file as the FILE*'s own fd.
+  //   3. fclose(f) drops the FILE* wrapper and closes its fd, but the file
+  //      survives: the kernel reference-counts the open file, and our dup'd fd
+  //      still references it.
+  //
+  // The result is a raw fd we solely own, with no lingering FILE* to manage.
   FILE *f = std::tmpfile();
   if (f == nullptr) return -1;
   int fd = dup(fileno(f));
@@ -102,7 +133,22 @@ void end_stderr_capture(StderrCapture &cap, bool replay) {
   // The sink is left open for reuse; it is reset on the next begin.
 }
 
+void debug_inform(const char *msg) {
+  const char *dbg = std::getenv("PJRT_DEBUG");
+  if (dbg != nullptr && dbg[0] != '\0') {
+    REprintf("%s\n", msg);
+  }
+}
+
 }  // namespace rpjrt
+
+void destroy_error(const PJRT_Api *api, PJRT_Error *err) {
+  if (err == nullptr) return;
+  PJRT_Error_Destroy_Args args{};
+  args.struct_size = sizeof(PJRT_Error_Destroy_Args);
+  args.error = err;
+  api->PJRT_Error_Destroy_(&args);
+}
 
 void check_err(const PJRT_Api *api, PJRT_Error *err) {
   if (err) {
@@ -111,6 +157,8 @@ void check_err(const PJRT_Api *api, PJRT_Error *err) {
     args.error = err;
     api->PJRT_Error_Message_(&args);
     std::string message(args.message, args.message_size);
+    // The PJRT_Error is owned by the caller and must be destroyed even on the
+    // failure path, before we unwind via the exception.
     destroy_error(api, err);
     throw std::runtime_error(message);
   }
@@ -128,14 +176,6 @@ PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err) {
     return PJRT_Error_Code_UNKNOWN;
   }
   return args.code;
-}
-
-void destroy_error(const PJRT_Api *api, PJRT_Error *err) {
-  if (err == nullptr) return;
-  PJRT_Error_Destroy_Args args{};
-  args.struct_size = sizeof(PJRT_Error_Destroy_Args);
-  args.error = err;
-  api->PJRT_Error_Destroy_(&args);
 }
 
 PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {

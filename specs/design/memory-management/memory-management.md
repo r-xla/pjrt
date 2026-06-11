@@ -116,6 +116,34 @@ while plenty of it is actually reclaimable, producing a spurious
 The fix mirrors the R `torch` package: when a device allocation fails with
 `RESOURCE_EXHAUSTED`, force a GC and retry once.
 
+### How far the host can run ahead (bounded async dispatch)
+
+PJRT execution is asynchronous: `pjrt_execute()` enqueues work and returns
+immediately with output buffers that may not be ready, and a buffer's output
+VRAM is allocated when the execution is **enqueued**, not when the GPU finishes
+it. So a host loop can dispatch several iterations before any complete, and each
+in-flight execution's outputs occupy VRAM simultaneously. This is a real source
+of pressure independent of whether a single iteration fits.
+
+It is **not unbounded**, though. XLA's StreamExecutor GPU client throttles
+dispatch with a semaphore: `LocalDeviceState` holds a `compute_semaphore_` whose
+capacity is `max_inflight_computations`, constructed as **32** for the GPU client
+(`xla/pjrt/local_device_state.{h,cc}`, `xla/pjrt/gpu/se_gpu_pjrt_client.cc`).
+Once 32 computations are enqueued but not yet finished, the next dispatch
+**blocks on the host** until one drains. So the host cannot run arbitrarily far
+ahead; worst-case run-ahead memory is bounded by roughly
+`32 × (per-iteration allocation)`. For a 1M-float buffer (~4 MB) that is a few
+hundred MB at most — usually far less, since iterations typically complete before
+the limit is reached.
+
+So the semaphore caps the *number of in-flight iterations*, and input/output
+donation caps the *per-iteration footprint* by reusing storage in place. What
+neither addresses is the **garbage** that a loop leaves behind: unreferenced
+output buffers from completed iterations. In a language with eager reference
+counting (e.g. Python/JAX) those are freed the instant they are dropped. R's
+mark-sweep GC frees them only on the next collection, and it is blind to VRAM —
+so they pile up. That is the gap the OOM retry fills.
+
 ### `try_alloc` (`src/utils.h`)
 
 PJRT allocation calls are wrapped in `try_alloc(api, alloc_fn)`:
@@ -177,11 +205,21 @@ Runs, in order, on the main R thread:
 It also bumps a counter exposed via `impl_gc_call_count()` so tooling and tests
 can confirm the retry path actually fired. See `tools/stress-gc-retry.R` for a
 CUDA stress harness that allocates large unreferenced buffers until the retry
-triggers.
+triggers. The retry is otherwise silent; setting the `PJRT_DEBUG` environment
+variable makes `try_alloc` print `"RESOURCE_EXHAUSTED — ran R gc, retrying"`
+when it fires (`rpjrt::debug_inform`).
 
 This mechanism is not CUDA-specific in principle — CPU allocations go through
 the same `try_alloc` wrapper — but it matters in practice on CUDA, where VRAM
 is the scarce, invisible-to-R resource.
+
+Note that we do **not** track device memory ourselves. A framework like PyTorch
+uses a *caching allocator* that records every device allocation and, under
+pressure, frees its cached blocks. We have no such bookkeeping: PJRT owns the
+allocator, and our only lever is to force R's GC so that the finalizers of
+unreachable `PJRTBuffer`s run and hand their memory back to PJRT, then retry.
+This is intentionally minimal — it makes the lazily-finalized R buffers visible
+to the allocator at the moment of pressure, nothing more.
 
 ### Error handling note
 
