@@ -24,9 +24,23 @@ namespace {
 // cost — see the benchmark in the memory-management design doc). On Linux it is
 // an anonymous RAM-backed file (`memfd_create`), which matters because the
 // capture is only ever armed on non-CPU backends and CUDA is Linux-only; on
-// other platforms it falls back to an unlinked `tmpfile()`. try_alloc runs only
-// on the main R thread, so this shared sink never has concurrent users.
+// other platforms it falls back to an unlinked `tmpfile()`.
+//
+// Both are process-global because the sink must outlive any single call and is
+// shared by every try_alloc caller (there is one stderr for the process). Plain
+// globals are safe here only because try_alloc runs solely on the main R
+// thread, so the sink never has concurrent users.
+
+// The reusable sink's file descriptor, or -1 if we don't have one (capture then
+// no-ops). Created lazily on first use and never closed — it lives for the
+// process and is just reset (ftruncate to 0) between captures.
 int g_sink_fd = -1;
+
+// Whether we have already attempted to create the sink. Needed because
+// `g_sink_fd == -1` alone is ambiguous — it could mean "not created yet" or
+// "tried and failed". This flag records that the one-time attempt happened, so
+// a permanent failure is decided once instead of re-running open_sink_fd() (and
+// its failing syscalls) on every allocation.
 bool g_sink_tried = false;
 
 // Open the reusable sink fd, or -1 if unavailable (capture then no-ops).
