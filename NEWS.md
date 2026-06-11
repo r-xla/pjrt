@@ -3,7 +3,8 @@
 ## Features
 
 * The first time a PJRT plugin needs to be downloaded, interactive sessions
-  now ask for confirmation before downloading (similar to `torch`). The
+  now ask for confirmation before downloading (similar to `torch`).
+  Non-interactive sessions no longer download automatically. The
   `PJRT_INSTALL` environment variable overrides this: set it to `"1"` to
   always download without asking, or `"0"` to never download.
 

@@ -37,11 +37,11 @@ of downloading the plugin.
 platform (e.g., \code{PJRT_PLUGIN_URL_CPU}, \code{PJRT_PLUGIN_URL_CUDA},
 \code{PJRT_PLUGIN_URL_METAL}). If set, overrides the default plugin download URL.
 \item \code{PJRT_INSTALL}: Controls whether plugins may be downloaded automatically.
-In an interactive session the package asks before downloading a plugin.
 Set this to \code{"1"} to always download without asking (e.g. in CI, scripts,
 or Docker builds), or to \code{"0"} to never download (the call errors with
-instructions instead). When unset in a non-interactive session, the
-download proceeds without prompting.
+instructions instead). When unset, the package asks for confirmation in an
+interactive session and errors in a non-interactive one, so a script never
+triggers a surprise download.
 \item \code{PJRT_ZML_ARTIFACT_VERSION}: Version of ZML artifacts to download.
 Only used when downloading plugins from zml/pjrt-artifacts.
 \item \code{PJRT_CPU_DEVICE_COUNT}: The number of CPU devices to use. Defaults to 1.

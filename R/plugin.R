@@ -171,24 +171,33 @@ plugin_path <- function(platform) {
 # variable overrides the prompt:
 #   - PJRT_INSTALL=1  download without asking (e.g. CI, scripts, Docker builds)
 #   - PJRT_INSTALL=0  never download; abort with instructions instead
-# In a non-interactive session with `PJRT_INSTALL` unset we proceed without
-# prompting: the user has explicitly requested the client/plugin and there is
-# no terminal to ask on. This is never reached during `R CMD check` because
-# examples are guarded behind `plugins_downloaded()` and the test suite only
-# runs when `PJRT_TEST=1` (see tests/testthat.R).
+# When `PJRT_INSTALL` is unset we ask in an interactive session and abort in a
+# non-interactive one (where there is no terminal to ask on), so a batch job or
+# script never triggers a surprise download. This is never reached during
+# `R CMD check` because examples are guarded behind `plugins_downloaded()` and
+# the test suite only runs when `PJRT_TEST=1` (see tests/testthat.R).
 confirm_plugin_install <- function(platform, url) {
   install <- Sys.getenv("PJRT_INSTALL", unset = "")
 
+  if (install == "1") {
+    return(invisible(TRUE))
+  }
+
   if (install == "0") {
     cli_abort(c(
-      "Download of the {.val {platform}} PJRT plugin is required but was declined.",
-      i = "{.envvar PJRT_INSTALL} is set to {.val 0}, which disables automatic downloads.",
+      "The {.val {platform}} PJRT plugin needs to be downloaded but automatic downloads are disabled.",
+      i = "{.envvar PJRT_INSTALL} is set to {.val 0}.",
       i = "Set {.envvar PJRT_INSTALL} to {.val 1} to allow the download, or set {.envvar PJRT_PLUGIN_PATH_{toupper(platform)}} to a local plugin file."
     ))
   }
 
-  if (install == "1" || !interactive()) {
-    return(invisible(TRUE))
+  # PJRT_INSTALL unset: only download if we can ask and the user agrees.
+  if (!interactive()) {
+    cli_abort(c(
+      "The {.val {platform}} PJRT plugin needs to be downloaded for {.pkg pjrt} to work.",
+      i = "Automatic downloads are not performed in non-interactive sessions.",
+      i = "Set {.envvar PJRT_INSTALL} to {.val 1} to allow the download, or set {.envvar PJRT_PLUGIN_PATH_{toupper(platform)}} to a local plugin file."
+    ))
   }
 
   cli::cli_inform(c(
