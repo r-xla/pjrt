@@ -166,10 +166,58 @@ plugin_path <- function(platform) {
   list.files(platform_cache_dir, pattern = "pjrt", full.names = TRUE)
 }
 
+# Ask the user for permission before downloading a PJRT plugin, mirroring the
+# behaviour of torch's auto-install prompt. The `PJRT_INSTALL` environment
+# variable overrides the prompt:
+#   - PJRT_INSTALL=1  download without asking (e.g. CI, scripts, Docker builds)
+#   - PJRT_INSTALL=0  never download; abort with instructions instead
+# When `PJRT_INSTALL` is unset we ask in an interactive session and abort in a
+# non-interactive one (where there is no terminal to ask on), so a batch job or
+# script never triggers a surprise download. This is never reached during
+# `R CMD check` because examples are guarded behind `plugins_downloaded()` and
+# the test suite only runs when `PJRT_TEST=1` (see tests/testthat.R).
+confirm_plugin_install <- function(platform, url) {
+  install <- Sys.getenv("PJRT_INSTALL", unset = "")
+
+  if (install == "1") {
+    return(invisible(TRUE))
+  }
+
+  if (install == "0") {
+    cli_abort(c(
+      "The {.val {platform}} PJRT plugin needs to be downloaded but automatic downloads are disabled.",
+      i = "{.envvar PJRT_INSTALL} is set to {.val 0}.",
+      i = "Set {.envvar PJRT_INSTALL} to {.val 1} to allow the download, or set {.envvar PJRT_PLUGIN_PATH_{toupper(platform)}} to a local plugin file."
+    ))
+  }
+
+  # PJRT_INSTALL unset: only download if we can ask and the user agrees.
+  if (!interactive()) {
+    cli_abort(c(
+      "The {.val {platform}} PJRT plugin needs to be downloaded for {.pkg pjrt} to work.",
+      i = "Automatic downloads are not performed in non-interactive sessions.",
+      i = "Set {.envvar PJRT_INSTALL} to {.val 1} to allow the download, or set {.envvar PJRT_PLUGIN_PATH_{toupper(platform)}} to a local plugin file."
+    ))
+  }
+
+  cli::cli_inform(c(
+    "The {.val {platform}} PJRT plugin needs to be {.strong downloaded} for {.pkg pjrt} to work.",
+    i = "It will be downloaded from {.url {url}} and cached in {.path {platform_cache_dir(platform)}}.",
+    i = "Set {.envvar PJRT_INSTALL} to {.val 1} to skip this prompt in the future."
+  ))
+  response <- utils::askYesNo("Do you want to download it now?")
+  if (is.na(response) || !response) {
+    cli_abort("Download of the {.val {platform}} PJRT plugin was declined.")
+  }
+
+  invisible(TRUE)
+}
+
 plugin_download <- function(cache_dir, platform = NULL) {
   plugin_hash_path <- file.path(cache_dir, "hash")
 
   url <- plugin_url(platform)
+  confirm_plugin_install(platform, url)
   tempfile <- tempfile(fileext = ".tar.gz")
   cli::cli_inform("Downloading PJRT plugin from {.url {url}}")
   withr::local_options(timeout = max(getOption("timeout"), 600L))

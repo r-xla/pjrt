@@ -54,6 +54,10 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
       PJRT_PLATFORM: ${{ matrix.config.platform }}
+      # Opt in to the test suite (skipped by default, e.g. on CRAN).
+      PJRT_TEST: "1"
+      # Don't prompt for the plugin download in non-interactive CI.
+      PJRT_INSTALL: "1"
 
     steps:
       - name: Setup
