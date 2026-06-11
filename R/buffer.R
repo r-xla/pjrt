@@ -597,9 +597,7 @@ device.PJRTBuffer <- function(x, ...) {
 #' @include client.R
 #' @export
 platform.PJRTBuffer <- function(x, ...) {
-  desc <- as.character(device(x))
-  letters_only <- regmatches(desc, regexpr("^[A-Za-z]+", desc, perl = TRUE))
-  tolower(sub("Device$", "", letters_only))
+  platform_from_device_string(as.character(device(x)))
 }
 
 

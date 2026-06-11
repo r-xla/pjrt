@@ -1,4 +1,4 @@
-# pjrt (development version)
+# pjrt 0.4.0
 
 ## Breaking Changes
 
