@@ -52,8 +52,23 @@ int open_sink_fd() {
     // fall through to the portable path if memfd is unavailable at runtime
   }
 #endif
-  // tmpfile() gives an already-unlinked temp file; dup a raw fd we own and
-  // close the FILE* (the inode stays alive via our fd until we close it).
+  // Portable fallback (e.g. macOS, where memfd_create does not exist).
+  //
+  // We want a bare file descriptor — a raw OS handle (an int) used with
+  // read/lseek/ftruncate/dup2 — to match the memfd path, so the rest of the
+  // capture code never special-cases this branch. But std::tmpfile() returns a
+  // FILE*: the C stdio wrapper that adds userspace buffering and the f* API
+  // (fread/fwrite/...) on top of an underlying fd. So we convert FILE* -> fd:
+  //
+  //   1. tmpfile() creates an already-unlinked temp file (no name; auto-freed
+  //      once the last fd to it closes — same self-cleaning as memfd).
+  //   2. dup(fileno(f)) makes a second, independent fd referring to the *same*
+  //      open file as the FILE*'s own fd.
+  //   3. fclose(f) drops the FILE* wrapper and closes its fd, but the file
+  //      survives: the kernel reference-counts the open file, and our dup'd fd
+  //      still references it.
+  //
+  // The result is a raw fd we solely own, with no lingering FILE* to manage.
   FILE *f = std::tmpfile();
   if (f == nullptr) return -1;
   int fd = dup(fileno(f));
