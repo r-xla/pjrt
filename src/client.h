@@ -52,12 +52,18 @@ class PJRTLoadedExecutable {
   PJRT_LoadedExecutable *executable;
   std::shared_ptr<PJRT_Api> api;
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                       std::shared_ptr<PJRT_Api> api);
+                       std::shared_ptr<PJRT_Api> api, bool is_cpu);
   AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   std::vector<PJRT_Device *> addressable_devices();
   ~PJRTLoadedExecutable();
+
+ private:
+  // True if compiled for the CPU platform. Used to skip the stderr capture in
+  // execute_async's try_alloc, which is only worthwhile on backends where
+  // OOM-and-retry actually happens (CUDA).
+  bool is_cpu_;
 };
 
 class PJRTClient {
@@ -75,6 +81,10 @@ class PJRTClient {
       const std::optional<std::vector<int64_t>> &strides,
       PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);
   std::string platform();
+  bool is_cpu();
+
+ private:
+  std::optional<bool> is_cpu_;
 };
 
 }  // namespace rpjrt

@@ -1,16 +1,76 @@
 #pragma once
 #include <numeric>
 #include <optional>
+#include <utility>
 #include <vector>
 
+#include "gc.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 void check_err(const PJRT_Api *api, PJRT_Error *err);
+
+// Return the error code of a PJRT_Error. If querying the code itself fails, the
+// inner error is destroyed and UNKNOWN is returned so the caller still surfaces
+// the original error via check_err.
+PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err);
 
 // Destroy a PJRT_Error. The error object is owned by the caller of the PJRT C
 // API and must be freed once its message/code has been read; a null error is a
 // no-op.
 void destroy_error(const PJRT_Api *api, PJRT_Error *err);
+
+namespace rpjrt {
+
+// Temporarily redirects stderr (fd 2) into a reusable sink so that XLA's native
+// logging emitted during a single allocation/execution attempt can be dropped
+// when we recover from it. Process-global and not thread-safe; intended only
+// for the main-thread allocation calls wrapped by try_alloc(). The sink itself
+// is a process-wide singleton (see utils.cpp); this handle only carries the
+// per-call dup of the original stderr.
+struct StderrCapture {
+  int saved_fd = -1;  // dup of the original stderr; -1 means capture disabled
+};
+
+// Begin capturing stderr. On any failure capture is silently disabled
+// (saved_fd == -1) and the real stderr is left untouched.
+StderrCapture begin_stderr_capture();
+
+// Restore stderr. If `replay` is true the captured bytes are written back to
+// the real stderr first (so non-OOM diagnostics are never hidden); otherwise
+// they are discarded.
+void end_stderr_capture(StderrCapture &cap, bool replay);
+
+}  // namespace rpjrt
+
+// Run a PJRT allocation call. If it returns RESOURCE_EXHAUSTED, call R's gc()
+// (via rpjrt::call_r_gc) and retry the call once. Any other error, or a
+// still-failing retry, is surfaced via check_err. `alloc_fn` must be callable
+// twice and return a PJRT_Error*; the underlying *_Args struct is filled in
+// each call so it is safe to reuse.
+//
+// `suppress_logs` gates the stderr capture, which must wrap *every* call (XLA
+// writes the OOM diagnostic during alloc_fn, before returning, so it can't be
+// suppressed after the fact). Callers pass false on CPU, where allocation
+// failure is rare and the gc-and-retry is largely moot, so the hot path (buffer
+// upload, execute) pays nothing. It is left on for the backends where
+// OOM-and-recover actually happens (CUDA), so the recovered first attempt stays
+// quiet there.
+template <typename F>
+void try_alloc(const PJRT_Api *api, F &&alloc_fn, bool suppress_logs = true) {
+  rpjrt::StderrCapture cap;
+  if (suppress_logs) cap = rpjrt::begin_stderr_capture();
+  PJRT_Error *err = alloc_fn();
+  bool is_oom = err != nullptr &&
+                get_error_code(api, err) == PJRT_Error_Code_RESOURCE_EXHAUSTED;
+  if (suppress_logs) rpjrt::end_stderr_capture(cap, /*replay=*/!is_oom);
+
+  if (is_oom) {
+    destroy_error(api, err);
+    rpjrt::call_r_gc();
+    err = std::forward<F>(alloc_fn)();
+  }
+  check_err(api, err);
+}
 
 std::vector<int64_t> dims2strides(std::vector<int64_t> dims, bool row_major);
 
