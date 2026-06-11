@@ -9,7 +9,7 @@
 # RESOURCE_EXHAUSTED, the new try_alloc wrapper should call R's gc() (via
 # rpjrt::call_r_gc), free the unreferenced buffers, and retry the
 # allocation. Success criterion: at least one such retry actually fires,
-# observed via pjrt:::impl_gc_call_count().
+# observed via impl_gc_call_count().
 
 args <- commandArgs(trailingOnly = TRUE)
 platform <- if (length(args) >= 1L) args[[1L]] else "cuda"
@@ -17,6 +17,11 @@ chunk_mb <- if (length(args) >= 2L) as.numeric(args[[2L]]) else 256
 n_chunks <- if (length(args) >= 3L) as.integer(args[[3L]]) else 200L
 
 library(pjrt)
+
+# Internal counter exposing how many times the gc-on-OOM retry fired. Pulled
+# from the namespace here (rather than `pjrt:::`) since this is a standalone
+# script and the counter is not exported.
+impl_gc_call_count <- getFromNamespace("impl_gc_call_count", "pjrt")
 
 cat(sprintf("Platform:        %s\n", platform))
 cat(sprintf("Chunk size:      %.0f MB (f32)\n", chunk_mb))
@@ -30,7 +35,7 @@ cat(sprintf("Device:          %s\n", format(device)))
 # Number of f32 elements per chunk.
 n_elt <- as.integer((chunk_mb * 1024 * 1024) / 4)
 
-baseline <- pjrt:::impl_gc_call_count()
+baseline <- impl_gc_call_count()
 cat(sprintf("\nStarting gc_call_count: %d\n\n", baseline))
 
 # Disable R's automatic GC so unreachable buffers accumulate. This is the
@@ -61,12 +66,12 @@ for (i in seq_len(n_chunks)) {
     cat(sprintf(
       "  iter %3d  gc_call_count=%d\n",
       i,
-      pjrt:::impl_gc_call_count() - baseline
+      impl_gc_call_count() - baseline
     ))
   }
 }
 
-retries <- pjrt:::impl_gc_call_count() - baseline
+retries <- impl_gc_call_count() - baseline
 cat(sprintf("\nTotal gc-on-OOM retries triggered: %d\n", retries))
 
 if (!ok && retries == 0L) {
