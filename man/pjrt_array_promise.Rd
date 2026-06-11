@@ -4,7 +4,7 @@
 \alias{pjrt_array_promise}
 \title{Create a PJRT Array Promise (internal)}
 \usage{
-pjrt_array_promise(data, dtype, shape)
+pjrt_array_promise(data, dtype, shape, minor_to_major)
 }
 \arguments{
 \item{data}{XPtr to PJRTHostData holding raw bytes and completion event.}
@@ -12,6 +12,9 @@ pjrt_array_promise(data, dtype, shape)
 \item{dtype}{Element type string (e.g., "f32", "i32").}
 
 \item{shape}{Integer vector of dimensions.}
+
+\item{minor_to_major}{Integer vector giving the device buffer's layout
+(minor-to-major dimension order), used to reorder the bytes on readback.}
 }
 \value{
 A \code{PJRTArrayPromise} object.

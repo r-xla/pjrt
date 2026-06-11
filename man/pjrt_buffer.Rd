@@ -74,11 +74,18 @@ Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars
 \code{\link{pjrt_buffer}} will create a array with dimensions \code{(1)} for a vector of length 1, while
 \code{\link{pjrt_scalar}} will create a 0-dimensional array for an R vector of length 1.
 
-To create an empty buffer (at least one dimension must be 0), use \code{\link{pjrt_empty}}.
+To allocate a buffer of a given shape with unspecified contents,
+use \code{\link{pjrt_empty}}.
 
 \strong{Important}:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
 the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+
+\code{pjrt_empty()} allocates a buffer of the given \code{shape} and \code{dtype} with
+\strong{unspecified contents}. The bytes should be treated as uninitialized —
+read them only after they have been written to (e.g. as a donated output
+of \code{\link[=pjrt_execute]{pjrt_execute()}}). Shapes with at least one zero-sized dimension
+are supported as a degenerate case (the buffer holds zero elements).
 }
 \section{Extractors}{
 
@@ -133,8 +140,8 @@ scalar <- pjrt_scalar(42, dtype = "f32")
 scalar
 \dontshow{\}) # examplesIf}
 \dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
-# Create an empty buffer
-empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
+# Allocate an uninitialized 2x3 f32 buffer (contents are unspecified)
+empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 \dontshow{\}) # examplesIf}
 }
