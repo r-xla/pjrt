@@ -81,6 +81,19 @@
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"pjrt"</span>, repos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"https://r-xla.r-universe.dev"</span>, <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"repos"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
+<h3 id="plugin-download">Plugin download<a class="anchor" aria-label="anchor" href="#plugin-download"></a>
+</h3>
+<p><code>pjrt</code> relies on a backend-specific PJRT <em>plugin</em> (a shared library) that is not bundled with the package. The first time you create a client or compile a program for a platform, the matching plugin is downloaded and cached in <code>tools::R_user_dir("pjrt", "cache")</code>.</p>
+<p>In an interactive session you are asked for confirmation before the download. The <code>PJRT_INSTALL</code> environment variable controls this:</p>
+<ul>
+<li>
+<code>PJRT_INSTALL=1</code>: always download without asking (e.g. in CI, scripts, or Docker builds).</li>
+<li>
+<code>PJRT_INSTALL=0</code>: never download; an error with instructions is raised instead.</li>
+</ul>
+<p>In a non-interactive session the plugin is <strong>not</strong> downloaded automatically unless <code>PJRT_INSTALL=1</code> is set. Alternatively, set <code>PJRT_PLUGIN_PATH_&lt;PLATFORM&gt;</code> (e.g. <code>PJRT_PLUGIN_PATH_CPU</code>) to a local plugin file to skip the download entirely. See <code><a href="reference/pjrt-package.html">?pjrt</a></code> for the full list of environment variables.</p>
+</div>
+<div class="section level3">
 <h3 id="cuda">CUDA<a class="anchor" aria-label="anchor" href="#cuda"></a>
 </h3>
 <p>To use the CUDA backend, install the {cuda12.8} R package which provides the required CUDA runtime libraries and you only need to have a compatible CUDA driver.</p>

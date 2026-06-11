@@ -38,6 +38,13 @@ scattered across various websites. The options include:
   `PJRT_PLUGIN_URL_CUDA`, `PJRT_PLUGIN_URL_METAL`). If set, overrides
   the default plugin download URL.
 
+- `PJRT_INSTALL`: Controls whether plugins may be downloaded
+  automatically. Set this to `"1"` to always download without asking
+  (e.g. in CI, scripts, or Docker builds), or to `"0"` to never download
+  (the call errors with instructions instead). When unset, the package
+  asks for confirmation in an interactive session and errors in a
+  non-interactive one, so a script never triggers a surprise download.
+
 - `PJRT_ZML_ARTIFACT_VERSION`: Version of ZML artifacts to download.
   Only used when downloading plugins from zml/pjrt-artifacts.
 

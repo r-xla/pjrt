@@ -22,6 +22,28 @@ From r-universe:
 install.packages("pjrt", repos = c("https://r-xla.r-universe.dev", getOption("repos")))
 ```
 
+### Plugin download
+
+`pjrt` relies on a backend-specific PJRT *plugin* (a shared library)
+that is not bundled with the package. The first time you create a client
+or compile a program for a platform, the matching plugin is downloaded
+and cached in `tools::R_user_dir("pjrt", "cache")`.
+
+In an interactive session you are asked for confirmation before the
+download. The `PJRT_INSTALL` environment variable controls this:
+
+- `PJRT_INSTALL=1`: always download without asking (e.g. in CI, scripts,
+  or Docker builds).
+- `PJRT_INSTALL=0`: never download; an error with instructions is raised
+  instead.
+
+In a non-interactive session the plugin is **not** downloaded
+automatically unless `PJRT_INSTALL=1` is set. Alternatively, set
+`PJRT_PLUGIN_PATH_<PLATFORM>` (e.g. `PJRT_PLUGIN_PATH_CPU`) to a local
+plugin file to skip the download entirely. See
+[`?pjrt`](https://r-xla.github.io/pjrt/reference/pjrt-package.md) for
+the full list of environment variables.
+
 ### CUDA
 
 To use the CUDA backend, install the {cuda12.8} R package which provides
