@@ -7,6 +7,11 @@
 
 void check_err(const PJRT_Api *api, PJRT_Error *err);
 
+// Destroy a PJRT_Error. The error object is owned by the caller of the PJRT C
+// API and must be freed once its message/code has been read; a null error is a
+// no-op.
+void destroy_error(const PJRT_Api *api, PJRT_Error *err);
+
 std::vector<int64_t> dims2strides(std::vector<int64_t> dims, bool row_major);
 
 template <typename src_type, typename dst_type>

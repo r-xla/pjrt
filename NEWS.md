@@ -1,3 +1,10 @@
+# pjrt (development version)
+
+## Bug fixes
+
+* `check_err()` no longer leaks the underlying `PJRT_Error` when
+  converting a plugin error into an R exception.
+
 # pjrt 0.4.0
 
 ## Features
