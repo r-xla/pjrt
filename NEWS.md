@@ -11,7 +11,7 @@
   garbage collector and retry once when the plugin reports
   `RESOURCE_EXHAUSTED`. Unreferenced `PJRTBuffer` external pointers are
   finalized between attempts so their device memory is released before the
-  retry, matching the design used by the R `torch` package.
+  retry.
 * The first time a PJRT plugin needs to be downloaded, interactive sessions
   now ask for confirmation before downloading (similar to `torch`).
   Non-interactive sessions no longer download automatically. The

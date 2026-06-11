@@ -6,10 +6,6 @@ on CUDA they live in VRAM. In all cases a buffer is an R external pointer
 XPtr becomes unreachable and R's GC finalizes it — buffer lifetime is ultimately
 driven by ordinary R garbage collection.
 
-> This document currently covers **CUDA device memory and the out-of-memory
-> retry**. The CPU zero-copy story, input/output donation, and layout-aware
-> readback are added by later changes.
-
 ---
 
 ## CUDA: device memory, freed via GC, with an OOM retry
@@ -57,9 +53,9 @@ blind to VRAM — so they pile up. That is the gap the OOM retry fills.
 
 ### `try_alloc` (`src/utils.h`)
 
-The fix mirrors the R `torch` package: when a device allocation fails with
-`RESOURCE_EXHAUSTED`, force a GC and retry once. PJRT allocation calls are
-wrapped in `try_alloc(api, alloc_fn, suppress_logs)`:
+When a device allocation fails with `RESOURCE_EXHAUSTED`, force a GC and retry
+once. PJRT allocation calls are wrapped in
+`try_alloc(api, alloc_fn, suppress_logs)`:
 
 1. Run `alloc_fn()`.
 2. If it returns an error whose code is `PJRT_Error_Code_RESOURCE_EXHAUSTED`,
@@ -96,6 +92,14 @@ same wrapper — but it only matters in practice on CUDA, where VRAM is the scar
 invisible-to-R resource. On CPU allocation failure is rare and the retry is
 largely moot.
 
+Note that we do **not** track device memory ourselves. A framework like PyTorch
+uses a *caching allocator* that records every device allocation and, under
+pressure, frees its cached blocks. We have no such bookkeeping: PJRT owns the
+allocator, and our only lever is to force R's GC so that the finalizers of
+unreachable `PJRTBuffer`s run and hand their memory back to PJRT, then retry.
+This is intentionally minimal — it makes the lazily-finalized R buffers visible
+to the allocator at the moment of pressure, nothing more.
+
 ### Suppressing the recovered OOM's logs
 
 XLA's BFC allocator prints a multi-line OOM report (the "ran out of memory trying
@@ -118,11 +122,3 @@ The capture is gated by `suppress_logs`, passed `false` on CPU (where OOM
 recovery does not happen, so the hot path pays nothing) and `true` on other
 backends — sourced from `PJRTClient::is_cpu()` for uploads and a cached `is_cpu_`
 on the executable for execute.
-
-### Error handling note
-
-`check_err` (`src/utils.cpp`) extracts the message from a `PJRT_Error`, then
-calls `destroy_error` to free it before throwing — the error object is owned by
-the caller and must be destroyed even on the failure path. `get_error_code`
-likewise destroys any inner error raised by `PJRT_Error_GetCode` itself, falling
-back to `UNKNOWN` so the original error still surfaces.
