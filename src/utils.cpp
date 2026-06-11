@@ -178,6 +178,21 @@ PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err) {
   return args.code;
 }
 
+PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
+  if (dtype == "f32") return PJRT_Buffer_Type_F32;
+  if (dtype == "f64") return PJRT_Buffer_Type_F64;
+  if (dtype == "i8") return PJRT_Buffer_Type_S8;
+  if (dtype == "i16") return PJRT_Buffer_Type_S16;
+  if (dtype == "i32") return PJRT_Buffer_Type_S32;
+  if (dtype == "i64") return PJRT_Buffer_Type_S64;
+  if (dtype == "ui8") return PJRT_Buffer_Type_U8;
+  if (dtype == "ui16") return PJRT_Buffer_Type_U16;
+  if (dtype == "ui32") return PJRT_Buffer_Type_U32;
+  if (dtype == "ui64") return PJRT_Buffer_Type_U64;
+  if (dtype == "pred") return PJRT_Buffer_Type_PRED;
+  throw std::runtime_error("Unsupported type: " + dtype);
+}
+
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {
   switch (type) {
     case PJRT_Buffer_Type_F32:

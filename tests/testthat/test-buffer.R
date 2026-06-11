@@ -570,6 +570,28 @@ test_that("R layout and PJRT layout (3D)", {
   expect_equal(array(x[, i1 + 1], dim = 3L), result)
 })
 
+test_that("as_array respects a non-row-major executable output layout", {
+  skip_if(!is_cpu())
+  # Pin a column-major output layout via `mhlo.layout_mode = "{0,1}"` on the
+  # function result (default is row-major, `{1,0}`). The device buffer is then
+  # NOT row-major; readback must still return the correct logical matrix rather
+  # than a transposed/garbled one.
+  mlir <- '
+module {
+  func.func @main(%arg0: tensor<2x3xf32>) -> (tensor<2x3xf32> {mhlo.layout_mode = "{0,1}"}) {
+    return %arg0 : tensor<2x3xf32>
+  }
+}
+'
+  prog <- pjrt_program(src = mlir, format = "mlir")
+  exec <- pjrt_compile(prog, device = "cpu")
+  m <- matrix(as.double(1:6), nrow = 2, ncol = 3)
+  out <- pjrt_execute(exec, pjrt_buffer(m, dtype = "f32"))
+  expect_equal(as_array(out), m, tolerance = 1e-6)
+  # as_raw goes through the same device→host path, so it must agree too.
+  expect_equal(as_raw(out, row_major = FALSE), as_raw(pjrt_buffer(m, dtype = "f32"), row_major = FALSE))
+})
+
 test_that("buffer <-> raw: row_major parameter", {
   types <- list(
     list(pjrt_type = "ui8", rtype = "integer"),
@@ -749,8 +771,14 @@ test_that("create 0-dim array from integer", {
   )
 })
 
-test_that("empty buffer assertion", {
-  expect_error(pjrt_empty("f32", c(1, 2, 3)), "Empty buffers must have at least one dimension equal to 0")
+test_that("pjrt_empty allocates buffers of arbitrary shape", {
+  buf <- pjrt_empty("f32", c(2, 3))
+  expect_equal(shape(buf), c(2L, 3L))
+  expect_equal(as.character(elt_type(buf)), "f32")
+
+  buf_i64 <- pjrt_empty("i64", c(4L))
+  expect_equal(shape(buf_i64), 4L)
+  expect_equal(as.character(elt_type(buf_i64)), "i64")
 })
 
 test_that("identity of buffer", {
@@ -1052,5 +1080,330 @@ describe("copy_buffer", {
     expect_equal(as_array(buf2), as_array(buf))
     expect_equal(shape(buf2), shape(buf))
     expect_equal(dtype(buf2), dtype(buf))
+  })
+})
+
+# Invariants for the CPU zero-copy buffer + donation keepalive model.
+#
+# Every CPU buffer is backed by a RAWSXP held in the XPtr's protected
+# slot. When an executable's input is donated to an output, pjrt_execute
+# must migrate that RAWSXP from the donated input XPtr to the aliased
+# output XPtr so the underlying bytes stay alive for the output's
+# lifetime. These tests pin down both invariants.
+describe("CPU zero-copy keepalive", {
+  # Read the protected SEXP off an external pointer. Defined here rather
+  # than exporting from the package, since it's only useful for poking at
+  # the keepalive invariant in tests.
+  xptr_prot <- local({
+    fn <- NULL
+    function(x) {
+      if (is.null(fn)) {
+        fn <<- Rcpp::cppFunction(
+          'SEXP xptr_prot_impl(SEXP x) { return R_ExternalPtrProtected(x); }'
+        )
+      }
+      fn(x)
+    }
+  })
+
+  vcells_mb <- function() {
+    g <- gc(full = TRUE, verbose = FALSE)
+    g["Vcells", "(Mb)"]
+  }
+
+  it("keeps pjrt_buffer's backing RAWSXP in the XPtr's prot slot", {
+    skip_if(!is_cpu())
+    nfloats <- 1024L * 256L
+    b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
+    p <- xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), nfloats * 4L)
+  })
+
+  it("keeps pjrt_empty's backing RAWSXP in the XPtr's prot slot", {
+    skip_if(!is_cpu())
+    e <- pjrt_empty("f32", c(256L, 256L))
+    p <- xptr_prot(e)
+    expect_true(is.raw(p))
+    expect_equal(length(p), 256L * 256L * 4L)
+  })
+
+  # Every CPU buffer must be backed by a prot-slot RAWSXP, including the
+  # paths where R's in-memory layout already matches the dtype byte-for-byte
+  # (so no per-element conversion happens) and the raw path. Otherwise that
+  # buffer's host memory would be invisible to R's garbage collector.
+  it("keeps the backing RAWSXP for a no-conversion f64 buffer", {
+    skip_if(!is_cpu())
+    n <- 4096L
+    b <- pjrt_buffer(as.double(seq_len(n)), dtype = "f64")
+    p <- xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), n * 8L)
+  })
+
+  it("keeps the backing RAWSXP for a no-conversion i32 buffer", {
+    skip_if(!is_cpu())
+    n <- 4096L
+    b <- pjrt_buffer(seq_len(n), dtype = "i32")
+    p <- xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), n * 4L)
+  })
+
+  it("keeps the backing RAWSXP for an integer64 buffer", {
+    skip_if(!is_cpu())
+    n <- 4096L
+    b <- pjrt_buffer(bit64::as.integer64(seq_len(n)), dtype = "i64")
+    p <- xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), n * 8L)
+  })
+
+  it("keeps the backing RAWSXP for a raw buffer", {
+    skip_if(!is_cpu())
+    b <- pjrt_buffer(raw(4096L * 4L), dtype = "f32", shape = 4096L, row_major = FALSE)
+    p <- xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), 4096L * 4L)
+  })
+
+  it("reports the backing RAWSXP size via object.size, not just the pointer", {
+    skip_if(!is_cpu())
+    nfloats <- 1024L * 256L
+    expected_bytes <- nfloats * 4L
+    b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
+    size <- as.numeric(object.size(b))
+    # The RAWSXP backing the buffer lives in the XPtr's prot slot, so
+    # object.size traverses it and reports (at least) the data's bytes,
+    # rather than the handful of bytes an external pointer alone occupies.
+    expect_gte(size, expected_bytes)
+    # And it's the data dominating the size, not some unrelated allocation.
+    expect_lt(size - expected_bytes, 1024L)
+  })
+
+  it("keeps RAWSXPs alive under GC pressure while the XPtr is reachable", {
+    skip_if(!is_cpu())
+    bufs <- lapply(1:8, function(i) {
+      pjrt_buffer(matrix(0.5, 1024L * 1024L, 1), dtype = "f32")
+    })
+    for (i in 1:5) {
+      invisible(rnorm(1e5))
+      gc(full = TRUE)
+    }
+    expect_true(all(as.numeric(as_array(bufs[[1]])) == 0.5))
+  })
+
+  it("reclaims RAWSXPs when XPtrs go out of scope", {
+    skip_if(!is_cpu())
+    gc(full = TRUE); gc(full = TRUE)
+    before <- vcells_mb()
+
+    bufs <- lapply(1:20, function(i) {
+      pjrt_buffer(matrix(0.5, 1024L * 1024L, 1), dtype = "f32")
+    })
+    during <- vcells_mb()
+    # 20 buffers x 4 MB f32 = ~80 MB. Allow some slack for accounting noise.
+    expect_gt(during - before, 70)
+
+    rm(bufs)
+    gc(full = TRUE); gc(full = TRUE)
+    after <- vcells_mb()
+    expect_lt(abs(after - before), 5)
+  })
+
+  it("exposes input_output_alias entries on the compiled executable", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    aliases <- impl_loaded_executable_aliases(exec)
+    expect_equal(aliases$input, 0L)
+    expect_equal(aliases$output, 0L)
+  })
+
+  it("transfers keepalive from donated input to aliased output", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
+    x_prot <- xptr_prot(x)
+    expect_true(is.raw(x_prot))
+
+    out <- pjrt_execute(exec, x)
+
+    # Output's prot slot now holds the input's RAWSXP; input's is cleared.
+    expect_identical(xptr_prot(out), x_prot)
+    expect_null(xptr_prot(x))
+
+    # Drop the input and stress the GC. The output's bytes must remain
+    # readable — they live in the RAWSXP that the output's prot now pins.
+    rm(x)
+    for (i in 1:5) {
+      invisible(rnorm(1e5))
+      gc(full = TRUE)
+    }
+    expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
+  })
+
+  it("raises a clean R-level error on operations on a donated input", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(1, 2, 3, 4), dtype = "f32")
+    pjrt_execute(exec, x)
+    expect_error(as_array(x), "called on deleted or donated buffer")
+  })
+
+  # tf.aliasing_output is a *may*-alias: PJRT donates the input only if it is
+  # donatable at runtime, otherwise it copies and leaves the input valid. When
+  # we forbid donation via non_donatable_input_indices, the keepalive must NOT
+  # migrate and the input must stay live (we gate migration on is_deleted()).
+  it("leaves the input untouched when a may-alias is not donated", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
+    x_prot <- xptr_prot(x)
+
+    opts <- pjrt_execution_options(non_donatable_input_indices = 0L)
+    out <- pjrt_execute(exec, x, execution_options = opts)
+
+    # Input was copied, not donated: its keepalive stays put, the output gets
+    # its own (PJRT-owned) storage, and the input remains readable.
+    expect_identical(xptr_prot(x), x_prot)
+    expect_equal(as.numeric(as_array(x)), c(10, 20, 30, 40), tolerance = 1e-6)
+
+    # Stress GC with both alive: no use-after-free on the (not-migrated) input.
+    rm(x_prot)
+    for (i in 1:5) {
+      invisible(rnorm(1e5))
+      gc(full = TRUE)
+    }
+    expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
+    expect_equal(as.numeric(as_array(x)), c(10, 20, 30, 40), tolerance = 1e-6)
+  })
+
+  # Donating the same buffer to two parameters is rejected by PJRT
+  # (TestBufferDonationClashes) before any donation happens, so the ambiguity
+  # of "which output reused the shared buffer" never arises. We must surface a
+  # clean R error and leave the input valid.
+  it("rejects donating the same buffer twice and leaves it valid", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @two_donations {
+  func.func @main(%arg0: tensor<3xf32> {tf.aliasing_output = 0 : i32},
+                  %arg1: tensor<3xf32> {tf.aliasing_output = 1 : i32})
+      -> (tensor<3xf32>, tensor<3xf32>) {
+    %a = stablehlo.add %arg0, %arg0 : tensor<3xf32>
+    %b = stablehlo.multiply %arg1, %arg1 : tensor<3xf32>
+    return %a, %b : tensor<3xf32>, tensor<3xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+    expect_error(pjrt_execute(exec, x, x, simplify = FALSE), "donate the same buffer twice")
+    # Execute failed before any donation: x is untouched.
+    expect_equal(as.numeric(as_array(x)), c(1, 2, 3), tolerance = 1e-6)
+  })
+
+  # With distinct inputs, the alias config is a fixed 1:1 output<-parameter
+  # binding, so each donated input migrates to *its* declared output.
+  it("migrates each donated input to its own aliased output", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @two_donations {
+  func.func @main(%arg0: tensor<3xf32> {tf.aliasing_output = 0 : i32},
+                  %arg1: tensor<3xf32> {tf.aliasing_output = 1 : i32})
+      -> (tensor<3xf32>, tensor<3xf32>) {
+    %a = stablehlo.add %arg0, %arg0 : tensor<3xf32>
+    %b = stablehlo.multiply %arg1, %arg1 : tensor<3xf32>
+    return %a, %b : tensor<3xf32>, tensor<3xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    a <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+    b <- pjrt_buffer(c(4, 5, 6), dtype = "f32")
+    a_prot <- xptr_prot(a)
+    b_prot <- xptr_prot(b)
+
+    outs <- pjrt_execute(exec, a, b, simplify = FALSE)
+
+    # a's RAWSXP went to output 0, b's to output 1 (the declared mapping).
+    expect_identical(xptr_prot(outs[[1]]), a_prot)
+    expect_identical(xptr_prot(outs[[2]]), b_prot)
+    expect_null(xptr_prot(a))
+    expect_null(xptr_prot(b))
+
+    rm(a, b)
+    for (i in 1:5) {
+      invisible(rnorm(1e5))
+      gc(full = TRUE)
+    }
+    expect_equal(as.numeric(as_array(outs[[1]])), c(2, 4, 6), tolerance = 1e-6)
+    expect_equal(as.numeric(as_array(outs[[2]])), c(16, 25, 36), tolerance = 1e-6)
+  })
+
+  it("pjrt_execute drains the deferred-release queue", {
+    skip_if(!is_cpu())
+    # The queue is only fed by completed non-CPU zero-copy uploads, so on CPU
+    # we enqueue a sentinel directly (modelling such a completed upload) and
+    # check that pjrt_execute() empties it.
+    impl_process_pending_releases() # start from a clean queue
+    impl_test_enqueue_release(raw(8L))
+    expect_gte(impl_pending_release_count(), 1L)
+
+    mlir <- '
+module {
+  func.func @main(%arg0: tensor<4xf32>) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    pjrt_execute(exec, pjrt_buffer(c(1, 2, 3, 4), dtype = "f32"))
+
+    expect_equal(impl_pending_release_count(), 0L)
   })
 })

@@ -15,7 +15,8 @@ is_buffer <- function(x) {
 #' [`pjrt_buffer`] will create a array with dimensions `(1)` for a vector of length 1, while
 #' [`pjrt_scalar`] will create a 0-dimensional array for an R vector of length 1.
 #'
-#' To create an empty buffer (at least one dimension must be 0), use [`pjrt_empty`].
+#' To allocate a buffer of a given shape with unspecified contents,
+#' use [`pjrt_empty`].
 #'
 #' **Important**:
 #' No checks are performed when creating the buffer, so you need to ensure that the data fits
@@ -155,23 +156,22 @@ pjrt_scalar.PJRTBuffer <- function(data, dtype = NULL, device = NULL, ...) {
 
 
 #' @rdname pjrt_buffer
+#' @description
+#' `pjrt_empty()` allocates a buffer of the given `shape` and `dtype` with
+#' **unspecified contents**. The bytes should be treated as uninitialized —
+#' read them only after they have been written to (e.g. as a donated output
+#' of [`pjrt_execute()`]). Shapes with at least one zero-sized dimension
+#' are supported as a degenerate case (the buffer holds zero elements).
 #' @examplesIf plugins_downloaded()
-#' # Create an empty buffer
-#' empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
+#' # Allocate an uninitialized 2x3 f32 buffer (contents are unspecified)
+#' empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 #' empty
 #' @export
 pjrt_empty <- function(dtype, shape, device = NULL) {
-  if (!any(shape == 0)) {
-    cli_abort("Empty buffers must have at least one dimension equal to 0")
-  }
   dtype <- as_dtype_string(dtype)
   device <- as_pjrt_device(device)
-  data <- if (identical(dtype, "pred")) {
-    logical()
-  } else {
-    integer()
-  }
-  pjrt_buffer(array(data, dim = shape), dtype, device)
+  client <- client_from_device(device)
+  impl_client_buffer_empty(client, device, as.integer(shape), dtype)
 }
 
 check_raw_buffer_size <- function(data, dtype, shape) {
@@ -511,7 +511,7 @@ as_array_async <- function(x, ...) {
 #' @export
 as_array_async.PJRTBuffer <- function(x, ...) {
   result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$dtype, result$dims)
+  pjrt_array_promise(result$data, result$dtype, result$dims, result$minor_to_major)
 }
 
 

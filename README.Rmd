@@ -83,7 +83,7 @@ Note that if another package is using a different cudatoolkit package (e.g. when
 
 ## Quick Start
 
-Below, we create and run a stableHLO program that adds two `f32` tensors of shape `(2, 2)`.
+Below, we create and run a stableHLO program that adds two `f32` tensors of shape `2x2`.
 
 ```{r example}
 library(pjrt)

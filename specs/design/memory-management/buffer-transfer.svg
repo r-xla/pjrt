@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 1380" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#455a64"/>
+    </marker>
+    <style>
+      .panel    { fill:#fafafa; stroke:#cfd8dc; stroke-width:1.5; rx:10; }
+      .ptitle   { font-size:18px; font-weight:700; fill:#263238; }
+      .col      { font-size:12px; font-weight:700; fill:#90a4ae; letter-spacing:1px; }
+      .banner   { fill:#eceff1; stroke:#b0bec5; stroke-width:1; rx:6; }
+      .btext    { font-size:12.5px; fill:#37474f; }
+      .rbox     { fill:#e3f2fd; stroke:#1976d2; stroke-width:1.5; rx:8; }
+      .pbox     { fill:#fff3e0; stroke:#f57c00; stroke-width:1.5; rx:8; }
+      .dbox     { fill:#e8f5e9; stroke:#388e3c; stroke-width:1.5; rx:8; }
+      .transient{ stroke-dasharray:6 4; }
+      .h        { font-size:12.5px; font-weight:700; }
+      .t        { font-size:11.5px; fill:#37474f; }
+      .mono     { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11px; }
+      .tag      { font-size:11px; font-weight:700; fill:#fff; }
+      .note     { fill:#fffde7; stroke:#fbc02d; stroke-width:1; rx:6; }
+      .ntext    { font-size:11px; fill:#5d4037; }
+      .edge     { stroke:#455a64; stroke-width:1.6; fill:none; }
+    </style>
+  </defs>
+
+  <!-- ===================== HEADER ===================== -->
+  <text x="40" y="38" font-size="22" font-weight="700" fill="#263238">PJRT buffer memory management: where the bytes live and who frees them</text>
+  <text x="40" y="60" class="t" fill="#607d8b">The dominant axis is the platform. On CPU a buffer always owns a private, GC-visible RAWSXP; on CUDA/Metal the host bytes are only transient staging for the upload. Conversion vs. no-conversion is a sub-distinction.</text>
+
+  <!-- ===================== PANEL 1: HOST -> DEVICE ===================== -->
+  <rect class="panel" x="30" y="80" width="1120" height="704"/>
+  <text class="ptitle" x="50" y="110">1 · Host → Device — <tspan class="mono" font-size="15">pjrt_buffer() / pjrt_scalar() / pjrt_empty()</tspan></text>
+  <text class="col" x="160" y="132">R HEAP</text>
+  <text class="col" x="520" y="132">pjrt (C++ LAYER)</text>
+  <text class="col" x="930" y="132">DEVICE</text>
+
+  <rect class="banner" x="50" y="142" width="1080" height="30"/>
+  <text class="btext" x="64" y="161"><tspan font-weight="700">Layout (all platforms):</tspan> R is column-major; get_byte_strides() passes column-major byte strides, so PJRT reads the bytes in place — no host-side transpose on the way in.</text>
+
+  <!-- CPU branch -->
+  <rect x="50" y="190" width="380" height="22" rx="4" fill="#00695c"/>
+  <text class="tag" x="60" y="205">CPU — always a private, GC-visible RAWSXP</text>
+
+  <rect class="rbox" x="50" y="220" width="250" height="96"/>
+  <text class="h" x="64" y="242" fill="#0d47a1">R input</text>
+  <text class="t" x="64" y="261">vector / scalar / empty,</text>
+  <text class="t" x="64" y="278">any supported dtype.</text>
+  <text class="t" x="64" y="301">Used only to fill the copy →</text>
+
+  <rect class="pbox" x="360" y="220" width="370" height="158"/>
+  <text class="h" x="374" y="242" fill="#e65100">make_cpu_buffer()</text>
+  <text class="t" x="374" y="261">1 · allocate a fresh RAWSXP</text>
+  <text class="t" x="374" y="278">2 · fill it:</text>
+  <text class="t" x="386" y="295">• convert — dtype differs (double→f32, logical→pred)</text>
+  <text class="t" x="386" y="312">• memcpy — layout matches (f64, i32, integer64, raw)</text>
+  <text class="t" x="386" y="329">• nothing — pjrt_empty (uninitialized)</text>
+  <text class="t" x="374" y="349">3 · PJRT aliases it (<tspan class="mono">kMutableZeroCopy</tspan>)</text>
+  <text class="t" x="386" y="366">needed so the buffer can be donated (aliased output)</text>
+
+  <rect class="dbox" x="780" y="220" width="340" height="96"/>
+  <text class="h" x="794" y="242" fill="#1b5e20">Device buffer = the RAWSXP</text>
+  <text class="t" x="794" y="261">host == device RAM, so PJRT</text>
+  <text class="t" x="794" y="278">aliases it — no separate</text>
+  <text class="t" x="794" y="295">device copy is made.</text>
+
+  <path class="edge" d="M300,268 L356,268" marker-end="url(#arrow)"/>
+  <path class="edge" d="M730,268 L776,268" marker-end="url(#arrow)"/>
+
+  <rect class="note" x="360" y="388" width="760" height="66"/>
+  <text class="ntext" x="374" y="406"><tspan font-weight="700">Lifetime &amp; GC:</tspan> the RAWSXP is parked in the buffer XPtr's protected slot, so it backs the buffer for its whole lifetime and is counted on R's heap (Vcells) — R's GC sees the</text>
+  <text class="ntext" x="374" y="422">memory and reclaims it (after PJRT_Buffer_Destroy) when the buffer XPtr is collected. No double-free: PJRT only aliases, never owns, the host bytes.</text>
+  <text class="ntext" x="374" y="444"><tspan font-weight="700">Always a private copy</tspan> — never aliases the user's R vector — so a donating pjrt_execute() may overwrite it in place without corrupting the user's object.</text>
+
+  <!-- non-CPU branch -->
+  <rect x="50" y="476" width="430" height="22" rx="4" fill="#6a1b9a"/>
+  <text class="tag" x="60" y="491">CUDA / Metal — host bytes are transient upload staging</text>
+
+  <text class="t" x="50" y="520" font-weight="700" fill="#6a1b9a">a) layout matches (f64 / i32 / integer64) or raw</text>
+  <rect class="rbox" x="50" y="528" width="250" height="70"/>
+  <text class="t" x="64" y="550">R vector, type already</text>
+  <text class="t" x="64" y="567">matches the dtype.</text>
+  <text class="t" x="64" y="588">Bytes read in place ↓</text>
+
+  <rect class="pbox transient" x="360" y="528" width="370" height="70"/>
+  <text class="h" x="374" y="550" fill="#e65100">Hand R's OWN pointer to PJRT</text>
+  <text class="t" x="374" y="567">Genuine zero-copy — no host copy at all.</text>
+  <text class="t" x="374" y="584">R_PreserveObject pins it until upload done.</text>
+
+  <rect class="dbox" x="780" y="528" width="340" height="70"/>
+  <text class="h" x="794" y="550" fill="#1b5e20">VRAM buffer</text>
+  <text class="t" x="794" y="567">PJRT copies host → device,</text>
+  <text class="t" x="794" y="584">then releases the host bytes.</text>
+
+  <path class="edge" d="M300,563 L356,563" marker-end="url(#arrow)"/>
+  <path class="edge" d="M730,563 L776,563" marker-end="url(#arrow)"/>
+
+  <text class="t" x="50" y="624" font-weight="700" fill="#6a1b9a">b) dtype differs, or pjrt_empty</text>
+  <rect class="rbox" x="50" y="632" width="250" height="66"/>
+  <text class="t" x="64" y="654">R vector of a different</text>
+  <text class="t" x="64" y="671">type (or empty — no input).</text>
+
+  <rect class="pbox transient" x="360" y="632" width="370" height="66"/>
+  <text class="h" x="374" y="654" fill="#e65100">Copy into a std::vector&lt;T&gt;</text>
+  <text class="t" x="374" y="671">(converted bytes, or a zeroed vector for empty).</text>
+  <text class="t" x="374" y="688">Freed on the done_with_host_buffer event.</text>
+
+  <rect class="dbox" x="780" y="632" width="340" height="66"/>
+  <text class="h" x="794" y="654" fill="#1b5e20">VRAM buffer</text>
+  <text class="t" x="794" y="671">independent of host bytes</text>
+  <text class="t" x="794" y="688">once the upload completes.</text>
+
+  <path class="edge" d="M300,665 L356,665" marker-end="url(#arrow)"/>
+  <path class="edge" d="M730,665 L776,665" marker-end="url(#arrow)"/>
+
+  <rect class="note" x="50" y="710" width="1070" height="64"/>
+  <text class="ntext" x="64" y="728"><tspan font-weight="700">Transient keepalive:</tspan> the host bytes must outlive the async upload. When PJRT fires the done_with_host_buffer event (on a PJRT callback thread, which must not</text>
+  <text class="ntext" x="64" y="744">touch R), the callback only <tspan font-weight="700">enqueues</tspan> the release via queue_release(). The actual R_ReleaseObject runs <tspan font-weight="700">later, on the main R thread</tspan>, when process_pending_releases()</text>
+  <text class="ntext" x="64" y="760">is drained — at pjrt_execute(), buffer finalization, await() / is_ready(), or a GC-OOM retry — so it self-clears during normal use. (VRAM itself is invisible to R's GC; see the design doc.)</text>
+
+  <!-- ===================== PANEL 2: DEVICE -> HOST ===================== -->
+  <rect class="panel" x="30" y="800" width="1120" height="488"/>
+  <text class="ptitle" x="50" y="830">2 · Device → Host — <tspan class="mono" font-size="15">as_array(x) = value(as_array_async(x))</tspan></text>
+  <text class="col" x="160" y="852">DEVICE</text>
+  <text class="col" x="520" y="852">pjrt (C++ LAYER)</text>
+  <text class="col" x="930" y="852">R HEAP</text>
+
+  <rect class="banner" x="50" y="862" width="1080" height="30"/>
+  <text class="btext" x="64" y="881"><tspan font-weight="700">Step 1 — as_array_async() → impl_buffer_to_host_async:</tspan>  a host byte buffer is ALWAYS allocated (the DMA target must be contiguous host memory). No platform shortcut here.</text>
+
+  <rect class="dbox" x="50" y="906" width="250" height="70"/>
+  <text class="h" x="64" y="928" fill="#1b5e20">Device buffer</text>
+  <text class="t" x="64" y="947">f32 / f64 / i* / ui* / pred, in its</text>
+  <text class="t" x="64" y="964">device layout (minor_to_major).</text>
+
+  <rect class="pbox transient" x="360" y="906" width="370" height="70"/>
+  <text class="h" x="374" y="928" fill="#e65100">std::vector&lt;uint8_t&gt; — raw device-layout bytes</text>
+  <text class="t" x="374" y="947">Owned by a PJRTHostData (held by the promise);</text>
+  <text class="t" x="374" y="964">layout recorded too. Async DMA device → host.</text>
+
+  <path class="edge" d="M300,941 L356,941" marker-end="url(#arrow)"/>
+
+  <rect class="banner" x="50" y="996" width="1080" height="30"/>
+  <text class="btext" x="64" y="1015"><tspan font-weight="700">Step 2 — value() → raw_to_array_impl&lt;T&gt;:</tspan>  reorder device→row-major (device_to_row_major, using minor_to_major), then transpose to a fresh column-major R array.</text>
+
+  <rect x="360" y="1040" width="150" height="22" rx="4" fill="#2e7d32"/>
+  <text class="tag" x="370" y="1055">NO TYPE CAST</text>
+  <rect class="pbox" x="360" y="1066" width="370" height="52"/>
+  <text class="t" x="374" y="1087">f64 → double, i32 → int, pred → logical</text>
+  <text class="t" x="374" y="1104">device layout → column-major (<tspan font-weight="700">reorder + transpose</tspan>)</text>
+
+  <rect x="360" y="1132" width="120" height="22" rx="4" fill="#c62828"/>
+  <text class="tag" x="370" y="1147">TYPE CAST</text>
+  <rect class="pbox" x="360" y="1158" width="370" height="52"/>
+  <text class="t" x="374" y="1179">f32 → double, i8 → int, ui32 / ui64 → integer64</text>
+  <text class="t" x="374" y="1196"><tspan font-weight="700">cast + reorder + transpose</tspan> into the R array</text>
+
+  <rect class="rbox" x="780" y="1072" width="340" height="116"/>
+  <text class="h" x="794" y="1094" fill="#0d47a1">New R array (column-major)</text>
+  <text class="t" x="794" y="1113">freshly allocated — owns its own bytes,</text>
+  <text class="t" x="794" y="1130">independent of the device buffer.</text>
+  <text class="t" x="794" y="1153">The PJRTHostData staging buffer is freed</text>
+  <text class="t" x="794" y="1170">when the promise is GC'd.</text>
+
+  <path class="edge" d="M545,976 L545,986 L340,986"/>
+  <path class="edge" d="M340,986 L340,1092 L356,1092" marker-end="url(#arrow)"/>
+  <path class="edge" d="M340,986 L340,1184 L356,1184" marker-end="url(#arrow)"/>
+  <path class="edge" d="M730,1092 L760,1092 L760,1110 L776,1110" marker-end="url(#arrow)"/>
+  <path class="edge" d="M730,1184 L760,1184 L760,1150 L776,1150" marker-end="url(#arrow)"/>
+
+  <rect class="note" x="50" y="1224" width="1070" height="48"/>
+  <text class="ntext" x="64" y="1243"><tspan font-weight="700">Shortcut:</tspan> as_raw(x, row_major = TRUE) skips the reorder + transpose only when the device buffer is already row-major (and as_raw skips the cast entirely</text>
+  <text class="ntext" x="64" y="1259">— it returns raw bytes). Otherwise it reorders like as_array. The device layout is read via PJRT_Buffer_GetMemoryLayout (PJRTBuffer::minor_to_major).</text>
+
+  <!-- ===================== LEGEND ===================== -->
+  <text class="col" x="40" y="1316">LEGEND</text>
+  <rect class="rbox" x="40" y="1326" width="22" height="16"/>
+  <text class="t" x="70" y="1339">R heap object</text>
+  <rect class="pbox" x="200" y="1326" width="22" height="16"/>
+  <text class="t" x="230" y="1339">pjrt / C++ buffer</text>
+  <rect class="dbox" x="380" y="1326" width="22" height="16"/>
+  <text class="t" x="410" y="1339">device buffer</text>
+  <rect class="pbox transient" x="540" y="1326" width="22" height="16"/>
+  <text class="t" x="570" y="1339">dashed = transient (freed after the transfer)</text>
+  <text class="t" x="900" y="1339" fill="#607d8b">solid = lives for the buffer's lifetime</text>
+</svg>

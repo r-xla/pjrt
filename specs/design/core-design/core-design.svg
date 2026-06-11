@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 760" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#455a64"/>
+    </marker>
+    <style>
+      .panel  { fill:#fafafa; stroke:#cfd8dc; stroke-width:1.5; rx:10; }
+      .ptitle { font-size:17px; font-weight:700; fill:#263238; }
+      .box    { stroke-width:1.5; rx:8; }
+      .obj    { fill:#ede7f6; stroke:#5e35b1; }
+      .prog   { fill:#e1f5fe; stroke:#0277bd; }
+      .data   { fill:#e8f5e9; stroke:#388e3c; }
+      .step   { fill:#fff3e0; stroke:#f57c00; }
+      .name   { font-size:13px; font-weight:700; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .t      { font-size:11px; fill:#37474f; }
+      .mono   { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11px; }
+      .edge   { stroke:#455a64; stroke-width:1.6; fill:none; }
+      .elabel { font-size:10.5px; fill:#607d8b; }
+      .note   { fill:#fffde7; stroke:#fbc02d; stroke-width:1; rx:6; }
+      .ntext  { font-size:11px; fill:#5d4037; }
+    </style>
+  </defs>
+
+  <text x="40" y="36" font-size="21" font-weight="700" fill="#263238">pjrt core design: object hierarchy &amp; execution pipeline</text>
+  <text x="40" y="57" class="t" fill="#607d8b">All core objects are S3 classes backed by C++ external pointers (Rcpp). Runtime layer of r-xla: compiles StableHLO/MLIR and runs it on CPU / CUDA / Metal plugins.</text>
+
+  <!-- Panel 1: object hierarchy -->
+  <rect class="panel" x="30" y="76" width="1060" height="330"/>
+  <text class="ptitle" x="50" y="104">Object hierarchy</text>
+
+  <!-- chain A: plugin -> client -> device -->
+  <text class="elabel" x="60" y="128" font-weight="700" fill="#5e35b1">loading &amp; ownership (singletons, cached in `the`)</text>
+  <rect class="box obj" x="60" y="138" width="250" height="58"/>
+  <text class="name" x="74" y="160" fill="#4527a0">PJRTPlugin</text>
+  <text class="t" x="74" y="178">loaded shared library (.so/.dylib)</text>
+  <text class="t" x="74" y="190">providing the PJRT C API</text>
+
+  <rect class="box obj" x="60" y="232" width="250" height="58"/>
+  <text class="name" x="74" y="254" fill="#4527a0">PJRTClient</text>
+  <text class="t" x="74" y="272">owns devices, creates buffers,</text>
+  <text class="t" x="74" y="284">compiles programs</text>
+
+  <rect class="box obj" x="60" y="326" width="250" height="54"/>
+  <text class="name" x="74" y="348" fill="#4527a0">PJRTDevice</text>
+  <text class="t" x="74" y="366">a single device (e.g. "cpu:0", "cuda:1")</text>
+
+  <path class="edge" d="M185,196 L185,232" marker-end="url(#arrow)"/>
+  <text class="elabel" x="193" y="218">creates</text>
+  <path class="edge" d="M185,290 L185,326" marker-end="url(#arrow)"/>
+  <text class="elabel" x="193" y="312">owns</text>
+
+  <!-- chain B: program -> loaded executable -->
+  <text class="elabel" x="380" y="128" font-weight="700" fill="#0277bd">compilation</text>
+  <rect class="box prog" x="380" y="138" width="270" height="58"/>
+  <text class="name" x="394" y="160" fill="#01579b">PJRTProgram</text>
+  <text class="t" x="394" y="178">MLIR or HLO source code,</text>
+  <text class="t" x="394" y="190">ready for compilation</text>
+
+  <rect class="box prog" x="380" y="232" width="270" height="58"/>
+  <text class="name" x="394" y="254" fill="#01579b">PJRTLoadedExecutable</text>
+  <text class="t" x="394" y="272">compiled, device-specific</text>
+  <text class="t" x="394" y="284">executable</text>
+
+  <path class="edge" d="M515,196 L515,232" marker-end="url(#arrow)"/>
+  <text class="elabel mono" x="523" y="218">pjrt_compile()</text>
+
+  <!-- group C: data objects -->
+  <text class="elabel" x="720" y="128" font-weight="700" fill="#388e3c">data objects</text>
+  <rect class="box data" x="720" y="138" width="330" height="54"/>
+  <text class="name" x="734" y="160" fill="#1b5e20">PJRTBuffer</text>
+  <text class="t" x="734" y="180">device-resident tensor (the main data object)</text>
+
+  <rect class="box data" x="720" y="206" width="330" height="54"/>
+  <text class="name" x="734" y="228" fill="#1b5e20">PJRTArrayPromise</text>
+  <text class="t" x="734" y="248">async device→host transfer result (environment)</text>
+
+  <rect class="box data" x="720" y="274" width="330" height="54"/>
+  <text class="name" x="734" y="296" fill="#1b5e20">PJRTElementType</text>
+  <text class="t" x="734" y="316">dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</text>
+
+  <!-- Panel 2: execution pipeline -->
+  <rect class="panel" x="30" y="426" width="1060" height="318"/>
+  <text class="ptitle" x="50" y="454">Execution pipeline</text>
+  <text class="t" x="50" y="474" fill="#607d8b">create program → compile → create buffers → execute → read results</text>
+
+  <rect class="box step" x="44" y="492" width="190" height="96"/>
+  <text class="mono" x="56" y="512" font-weight="700" fill="#e65100">pjrt_program(src)</text>
+  <text class="t" x="56" y="532">parse MLIR / HLO</text>
+  <text class="t" x="56" y="566">→ PJRTProgram</text>
+
+  <rect class="box step" x="262" y="492" width="190" height="96"/>
+  <text class="mono" x="274" y="512" font-weight="700" fill="#e65100">pjrt_compile(</text>
+  <text class="mono" x="274" y="526" font-weight="700" fill="#e65100">  prog, device)</text>
+  <text class="t" x="274" y="548">compile for a device</text>
+  <text class="t" x="274" y="566">→ PJRTLoadedExecutable</text>
+
+  <rect class="box step" x="480" y="492" width="190" height="96"/>
+  <text class="mono" x="492" y="512" font-weight="700" fill="#e65100">pjrt_buffer(data)</text>
+  <text class="t" x="492" y="532">host → device</text>
+  <text class="t" x="492" y="566">→ PJRTBuffer</text>
+
+  <rect class="box step" x="698" y="492" width="190" height="96"/>
+  <text class="mono" x="710" y="512" font-weight="700" fill="#e65100">pjrt_execute(</text>
+  <text class="mono" x="710" y="526" font-weight="700" fill="#e65100">  exec, buf)</text>
+  <text class="t" x="710" y="548">runs on device;</text>
+  <text class="t" x="710" y="566">→ PJRTBuffer (may be unready)</text>
+
+  <rect class="box step" x="916" y="492" width="174" height="96"/>
+  <text class="mono" x="928" y="512" font-weight="700" fill="#e65100">as_array(out)</text>
+  <text class="t" x="928" y="532">device → host,</text>
+  <text class="t" x="928" y="548">blocks</text>
+  <text class="t" x="928" y="566">→ R array</text>
+
+  <path class="edge" d="M234,540 L260,540" marker-end="url(#arrow)"/>
+  <path class="edge" d="M452,540 L478,540" marker-end="url(#arrow)"/>
+  <path class="edge" d="M670,540 L696,540" marker-end="url(#arrow)"/>
+  <path class="edge" d="M888,540 L914,540" marker-end="url(#arrow)"/>
+
+  <rect class="note" x="44" y="606" width="1046" height="118"/>
+  <text class="ntext" x="58" y="626" font-weight="700" fill="#5d4037">Async model</text>
+  <text class="ntext" x="58" y="645">• pjrt_execute() returns PJRTBuffers that may not be ready yet. PJRT tracks dependencies internally, so an unready buffer can be passed straight</text>
+  <text class="ntext" x="58" y="660">  into the next execution without blocking.</text>
+  <text class="ntext" x="58" y="678">• as_array_async() returns a PJRTArrayPromise (non-blocking device→host transfer); is_ready() polls without blocking; await() / value() block.</text>
+  <text class="ntext" x="58" y="700"><tspan font-weight="700" fill="#5d4037">Column-major:</tspan> R is column-major (Fortran order); the C++ layer converts row↔column-major when moving data between R and device buffers.</text>
+</svg>
