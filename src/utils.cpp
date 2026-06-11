@@ -2,16 +2,29 @@
 
 #include <optional>
 #include <stdexcept>
+#include <string>
 
 #include "xla/pjrt/c/pjrt_c_api.h"
 
+void destroy_error(const PJRT_Api *api, PJRT_Error *err) {
+  if (err == nullptr) return;
+  PJRT_Error_Destroy_Args args{};
+  args.struct_size = sizeof(PJRT_Error_Destroy_Args);
+  args.error = err;
+  api->PJRT_Error_Destroy_(&args);
+}
+
 void check_err(const PJRT_Api *api, PJRT_Error *err) {
   if (err) {
-    PJRT_Error_Message_Args args;
-    args.error = err;
+    PJRT_Error_Message_Args args{};
     args.struct_size = sizeof(PJRT_Error_Message_Args);
+    args.error = err;
     api->PJRT_Error_Message_(&args);
-    throw std::runtime_error(args.message);
+    std::string message(args.message, args.message_size);
+    // The PJRT_Error is owned by the caller and must be destroyed even on the
+    // failure path, before we unwind via the exception.
+    destroy_error(api, err);
+    throw std::runtime_error(message);
   }
 }
 
