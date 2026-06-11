@@ -73,7 +73,8 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   args.compile_options_size = opts.size();
 
   check_err(this->api.get(), this->api->PJRT_Client_Compile_(&args));
-  return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api);
+  return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api,
+                                                this->is_cpu());
 }
 
 AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
@@ -100,8 +101,10 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
   args.device = device;
   args.memory = nullptr;
 
-  check_err(this->api.get(),
-            this->api->PJRT_Client_BufferFromHostBuffer_(&args));
+  try_alloc(
+      this->api.get(),
+      [&] { return this->api->PJRT_Client_BufferFromHostBuffer_(&args); },
+      /*suppress_logs=*/!this->is_cpu());
 
   AsyncBufferFromHostResult result;
   result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
@@ -161,8 +164,9 @@ PJRTExecuteOptions::PJRTExecuteOptions(
       launch_id(launch_id) {}
 
 PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                                           std::shared_ptr<PJRT_Api> api)
-    : executable(executable), api(api) {}
+                                           std::shared_ptr<PJRT_Api> api,
+                                           bool is_cpu)
+    : executable(executable), api(api), is_cpu_(is_cpu) {}
 
 PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   PJRT_LoadedExecutable_Destroy_Args args{};
@@ -243,8 +247,10 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   // need device completion events.
   exec_args.device_complete_events = nullptr;
 
-  check_err(this->api.get(),
-            this->api->PJRT_LoadedExecutable_Execute_(&exec_args));
+  try_alloc(
+      this->api.get(),
+      [&] { return this->api->PJRT_LoadedExecutable_Execute_(&exec_args); },
+      /*suppress_logs=*/!this->is_cpu_);
 
   // Build result
   AsyncExecuteResult result;
@@ -269,6 +275,13 @@ std::string PJRTClient::platform() {
   args.client = this->client;
   check_err(this->api.get(), this->api->PJRT_Client_PlatformName_(&args));
   return std::string(args.platform_name, args.platform_name_size);
+}
+
+bool PJRTClient::is_cpu() {
+  if (!is_cpu_.has_value()) {
+    is_cpu_ = (platform() == "cpu");
+  }
+  return *is_cpu_;
 }
 
 }  // namespace rpjrt
