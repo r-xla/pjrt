@@ -51,6 +51,19 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
+<div class="section level3">
+<h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
+<ul><li>
+<code>check_err()</code> no longer leaks the underlying <code>PJRT_Error</code> when converting a plugin error into an R exception.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
+<ul><li>The first time a PJRT plugin needs to be downloaded, interactive sessions now ask for confirmation before downloading (similar to <code>torch</code>). Non-interactive sessions no longer download automatically. The <code>PJRT_INSTALL</code> environment variable overrides this: set it to <code>"1"</code> to always download without asking, or <code>"0"</code> to never download.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="internal-development-version">Internal<a class="anchor" aria-label="anchor" href="#internal-development-version"></a></h3>
+<ul><li>The test suite now only runs when the <code>PJRT_TEST</code> environment variable is set to <code>"1"</code>, so it is skipped on CRAN (where the required PJRT plugin cannot be downloaded). CI sets <code>PJRT_TEST=1</code>.</li>
+</ul></div>
 </div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.0" id="pjrt-040">pjrt 0.4.0<a class="anchor" aria-label="anchor" href="#pjrt-040"></a></h2>

@@ -2,6 +2,25 @@
 
 ## pjrt (development version)
 
+### Bug fixes
+
+- `check_err()` no longer leaks the underlying `PJRT_Error` when
+  converting a plugin error into an R exception.
+
+### Features
+
+- The first time a PJRT plugin needs to be downloaded, interactive
+  sessions now ask for confirmation before downloading (similar to
+  `torch`). Non-interactive sessions no longer download automatically.
+  The `PJRT_INSTALL` environment variable overrides this: set it to
+  `"1"` to always download without asking, or `"0"` to never download.
+
+### Internal
+
+- The test suite now only runs when the `PJRT_TEST` environment variable
+  is set to `"1"`, so it is skipped on CRAN (where the required PJRT
+  plugin cannot be downloaded). CI sets `PJRT_TEST=1`.
+
 ## pjrt 0.4.0
 
 ### Features
