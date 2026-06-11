@@ -9,6 +9,14 @@
 
 ### Features
 
+- [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
+  [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
+  and
+  [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)
+  now call R’s garbage collector and retry once when the plugin reports
+  `RESOURCE_EXHAUSTED`. Unreferenced `PJRTBuffer` external pointers are
+  finalized between attempts so their device memory is released before
+  the retry.
 - The first time a PJRT plugin needs to be downloaded, interactive
   sessions now ask for confirmation before downloading (similar to
   `torch`). Non-interactive sessions no longer download automatically.
