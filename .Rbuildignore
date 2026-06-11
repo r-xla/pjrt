@@ -1,3 +1,4 @@
+^\.Renviron$
 ^compile_commands\.json$
 ^\.cache$
 ^configure\.log$

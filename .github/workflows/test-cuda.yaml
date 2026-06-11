@@ -23,6 +23,10 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       PJRT_PLATFORM: cuda
       R_ALWAYS_INSTALL_TESTS: true
+      # Opt in to the test suite (skipped by default, e.g. on CRAN).
+      PJRT_TEST: "1"
+      # Don't prompt for the plugin download in non-interactive CI.
+      PJRT_INSTALL: "1"
 
     steps:
       - name: Create conda environment with R and CUDA libs
