@@ -7,29 +7,73 @@
 #include <stdexcept>
 #include <string>
 
+#if defined(__linux__)
+#include <sys/mman.h>  // memfd_create
+#endif
+
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
 
+namespace {
+
+// A single capture sink, reused for the lifetime of the process rather than
+// recreated per call (creating/unlinking a temp file each time dominated the
+// cost — see the benchmark in the memory-management design doc). On Linux it is
+// an anonymous RAM-backed file (`memfd_create`), which matters because the
+// capture is only ever armed on non-CPU backends and CUDA is Linux-only; on
+// other platforms it falls back to an unlinked `tmpfile()`. try_alloc runs only
+// on the main R thread, so this shared sink never has concurrent users.
+int g_sink_fd = -1;
+bool g_sink_tried = false;
+
+// Open the reusable sink fd, or -1 if unavailable (capture then no-ops).
+int open_sink_fd() {
+#if defined(__linux__)
+  {
+    int fd = memfd_create("rpjrt_stderr_capture", MFD_CLOEXEC);
+    if (fd != -1) return fd;
+    // fall through to the portable path if memfd is unavailable at runtime
+  }
+#endif
+  // tmpfile() gives an already-unlinked temp file; dup a raw fd we own and
+  // close the FILE* (the inode stays alive via our fd until we close it).
+  FILE *f = std::tmpfile();
+  if (f == nullptr) return -1;
+  int fd = dup(fileno(f));
+  std::fclose(f);
+  return fd;
+}
+
+}  // namespace
+
 StderrCapture begin_stderr_capture() {
   StderrCapture cap;
-  std::fflush(stderr);
-  FILE *tmp = std::tmpfile();
-  if (tmp == nullptr) {
-    return cap;  // capture disabled
+  if (!g_sink_tried) {
+    g_sink_tried = true;
+    g_sink_fd = open_sink_fd();
   }
+  if (g_sink_fd == -1) {
+    return cap;  // capture disabled; leave stderr untouched
+  }
+
+  // Reset the shared sink to empty: ftruncate clears the contents but not the
+  // file offset, so lseek back to the start as well.
+  if (ftruncate(g_sink_fd, 0) == -1) {
+    return cap;  // capture disabled for this call
+  }
+  lseek(g_sink_fd, 0, SEEK_SET);
+
+  std::fflush(stderr);
   int saved = dup(STDERR_FILENO);
   if (saved == -1) {
-    std::fclose(tmp);
     return cap;
   }
-  if (dup2(fileno(tmp), STDERR_FILENO) == -1) {
+  if (dup2(g_sink_fd, STDERR_FILENO) == -1) {
     close(saved);
-    std::fclose(tmp);
     return cap;
   }
   cap.saved_fd = saved;
-  cap.tmp = tmp;
   return cap;
 }
 
@@ -37,23 +81,25 @@ void end_stderr_capture(StderrCapture &cap, bool replay) {
   if (cap.saved_fd == -1) {
     return;  // capture was disabled; nothing to restore
   }
-  FILE *tmp = static_cast<FILE *>(cap.tmp);
-  std::fflush(stderr);  // push any buffered XLA output into the temp sink
+  std::fflush(stderr);  // push any libc-buffered stderr into the sink
   dup2(cap.saved_fd, STDERR_FILENO);
   close(cap.saved_fd);
   cap.saved_fd = -1;
 
   if (replay) {
-    std::fseek(tmp, 0, SEEK_SET);
+    lseek(g_sink_fd, 0, SEEK_SET);
     char buf[4096];
-    size_t n;
-    while ((n = std::fread(buf, 1, sizeof(buf), tmp)) > 0) {
-      std::fwrite(buf, 1, n, stderr);
+    ssize_t n;
+    while ((n = read(g_sink_fd, buf, sizeof(buf))) > 0) {
+      ssize_t off = 0;
+      while (off < n) {
+        ssize_t w = write(STDERR_FILENO, buf + off, n - off);
+        if (w <= 0) break;
+        off += w;
+      }
     }
-    std::fflush(stderr);
   }
-  std::fclose(tmp);  // closes the fd and deletes the temp file
-  cap.tmp = nullptr;
+  // The sink is left open for reuse; it is reset on the next begin.
 }
 
 }  // namespace rpjrt

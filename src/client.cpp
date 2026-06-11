@@ -2,13 +2,14 @@
 
 #include <Rcpp.h>
 
+#include <cctype>
 #include <memory>
+#include <string>
 
 #include "buffer.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "xla/service/hlo.pb.h"
-#include "xla/xla.pb.h"
 
 namespace rpjrt {
 
@@ -77,7 +78,9 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   args.compile_options_size = opts.size();
 
   check_err(this->api.get(), this->api->PJRT_Client_Compile_(&args));
-  return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api);
+  return std::make_unique<PJRTLoadedExecutable>(
+      args.executable, this->api, program.code, program.format(),
+      this->is_cpu());
 }
 
 AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
@@ -103,9 +106,10 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
   args.device = device;
   args.memory = nullptr;
 
-  try_alloc(this->api.get(), [&] {
-    return this->api->PJRT_Client_BufferFromHostBuffer_(&args);
-  });
+  try_alloc(
+      this->api.get(),
+      [&] { return this->api->PJRT_Client_BufferFromHostBuffer_(&args); },
+      /*suppress_logs=*/!this->is_cpu());
 
   AsyncBufferFromHostResult result;
   result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
@@ -165,97 +169,116 @@ PJRTExecuteOptions::PJRTExecuteOptions(
       launch_id(launch_id) {}
 
 PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                                           std::shared_ptr<PJRT_Api> api)
-    : executable(executable), api(api) {
-  load_input_output_aliases_();
+                                           std::shared_ptr<PJRT_Api> api,
+                                           const std::string &program_code,
+                                           PJRTProgramFormat program_format,
+                                           bool is_cpu)
+    : executable(executable), api(api), is_cpu_(is_cpu) {
+  load_input_output_aliases_(program_code, program_format);
 }
 
-// Pull the optimized HLO out of the compiled executable, parse it, and
-// cache the input->output alias entries. This is the runtime equivalent
-// of XLA's HloInputOutputAliasConfig: it tells us which input parameter
-// each output is donated from, which we then use to migrate the RAWSXP
-// keepalive from the donated input XPtr to its aliased output XPtr.
-// Robust to plugins that don't implement OptimizedProgram or return a
-// non-HLO format: the cache simply stays empty.
-void PJRTLoadedExecutable::load_input_output_aliases_() {
-  // Wrap the loaded executable to get the underlying Executable handle.
-  PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
-  get_exec_args.struct_size =
-      sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
-  get_exec_args.loaded_executable = this->executable;
-  if (this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args) !=
-      nullptr) {
-    return;
-  }
+namespace {
 
-  // OptimizedProgram is a two-call protocol: first call (code==nullptr)
-  // returns the required buffer size, second call fills it.
-  PJRT_Program program{};
-  program.struct_size = sizeof(PJRT_Program);
+// Parse input->output donation aliases out of the entry function's signature
+// in an MLIR module. stablehlo emits donation as a per-argument attribute
+//   %0: tensor<...> {tf.aliasing_output = M : i32}
+// where the donated argument's positional index is the PJRT parameter number
+// and M is the aliased output index. The value name (%0, %1, ...) is a global
+// counter, not the parameter number, so we recover the index positionally by
+// counting argument-separating commas. Single pass over the `@main(...)` list:
+// `paren` bounds the list, `bracket` masks commas inside types/attributes so
+// only top-level commas advance `arg_index`. This matches stablehlo's fixed
+// output; it is not a general MLIR parser.
+std::vector<PJRTInputOutputAlias> parse_mlir_aliases(const std::string &code) {
+  std::vector<PJRTInputOutputAlias> aliases;
+  const size_t main_pos = code.find("@main(");
+  if (main_pos == std::string::npos) return aliases;
 
-  PJRT_Executable_OptimizedProgram_Args opt_args{};
-  opt_args.struct_size = sizeof(PJRT_Executable_OptimizedProgram_Args);
-  opt_args.executable = get_exec_args.executable;
-  opt_args.program = &program;
-
-  if (this->api->PJRT_Executable_OptimizedProgram_(&opt_args) != nullptr) {
-    goto cleanup;
-  }
-  {
-    std::vector<char> hlo_bytes(program.code_size);
-    program.code = hlo_bytes.data();
-    if (this->api->PJRT_Executable_OptimizedProgram_(&opt_args) != nullptr) {
-      goto cleanup;
-    }
-
-    // OptimizedProgram returns one of two formats depending on the
-    // plugin: "hlo" (raw HloModuleProto) or "hlo_with_config"
-    // (HloModuleProtoWithConfig wrapping the HloModuleProto plus
-    // compiler config). The CPU plugin returns "hlo_with_config".
-    const std::string fmt =
-        program.format == nullptr
-            ? std::string()
-            : std::string(program.format, program.format_size);
-    xla::HloModuleProto module;
-    if (fmt == "hlo") {
-      if (!module.ParseFromArray(hlo_bytes.data(), hlo_bytes.size())) {
-        goto cleanup;
+  static const std::string kAttr = "tf.aliasing_output";
+  int arg_index = 0, paren = 0, bracket = 0;
+  for (size_t i = main_pos + 5 /* at the '(' */; i < code.size(); ++i) {
+    const char c = code[i];
+    if (c == '(') {
+      paren++;
+    } else if (c == ')') {
+      if (--paren == 0) break;  // end of the argument list
+    } else if (c == '<' || c == '[' || c == '{') {
+      bracket++;
+    } else if (c == '>' || c == ']' || c == '}') {
+      if (bracket > 0) bracket--;
+    } else if (c == ',' && paren == 1 && bracket == 0) {
+      arg_index++;
+    } else if (code.compare(i, kAttr.size(), kAttr) == 0) {
+      size_t j = code.find('=', i + kAttr.size());
+      if (j == std::string::npos) continue;
+      j++;
+      while (j < code.size() && std::isspace(static_cast<unsigned char>(code[j]))) {
+        j++;
       }
-    } else if (fmt == "hlo_with_config") {
-      xla::HloModuleProtoWithConfig wrapper;
-      if (!wrapper.ParseFromArray(hlo_bytes.data(), hlo_bytes.size())) {
-        goto cleanup;
+      size_t end = j;
+      while (end < code.size() &&
+             std::isdigit(static_cast<unsigned char>(code[end]))) {
+        end++;
       }
-      if (!wrapper.has_hlo_module()) goto cleanup;
-      module = wrapper.hlo_module();
-    } else {
-      // Unknown format — aliases stay empty; the keepalive transfer
-      // becomes a no-op for this executable.
-      goto cleanup;
-    }
-
-    if (module.has_input_output_alias()) {
-      for (const auto &entry : module.input_output_alias().entries()) {
-        // For non-tuple outputs, output_shape_index is empty and refers
-        // to output 0. For tuple outputs, the first entry is the index
-        // into the top-level tuple — which is what we want since PJRT
-        // returns each tuple element as a separate output buffer.
-        const int output_index = entry.output_shape_index_size() == 0
-                                     ? 0
-                                     : entry.output_shape_index(0);
-        aliases_.push_back(
-            {static_cast<int>(entry.parameter_number()), output_index});
+      if (end > j) {
+        aliases.push_back({arg_index, std::stoi(code.substr(j, end - j))});
       }
     }
   }
+  return aliases;
+}
 
-cleanup:
-  PJRT_Executable_Destroy_Args destroy_args{};
-  destroy_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
-  destroy_args.executable = get_exec_args.executable;
-  // Ignore errors during cleanup; we're best-effort here.
-  PJRT_Error *err = this->api->PJRT_Executable_Destroy_(&destroy_args);
-  if (err != nullptr) destroy_error(this->api.get(), err);
+// Parse input->output aliases out of a serialized HloModuleProto (the form
+// PJRTProgram stores for HLO-format programs). Mirrors XLA's
+// HloInputOutputAliasConfig.
+std::vector<PJRTInputOutputAlias> parse_hlo_aliases(const std::string &code) {
+  std::vector<PJRTInputOutputAlias> aliases;
+  xla::HloModuleProto module;
+  if (!module.ParseFromString(code)) return aliases;
+  if (!module.has_input_output_alias()) return aliases;
+  for (const auto &entry : module.input_output_alias().entries()) {
+    // The output index is a ShapeIndex into the output shape tree:
+    //   - empty            -> a single (non-tuple) output, i.e. output 0;
+    //   - one component {M} -> element M of a flat (one-level) output tuple,
+    //                          which is exactly PJRT's flat output-buffer index.
+    // A multi-component index means a *nested* output tuple, where the flat
+    // PJRT buffer index is a depth-first flattening of the leaves and no longer
+    // equals the first component. We don't implement that flattening; rather
+    // than silently mis-map the keepalive to the wrong output buffer we error.
+    // This is unreachable from anvil/stablehlo (which has no tuple type, so
+    // outputs are a flat tensor list lowering to a one-level HLO tuple) and can
+    // only arise from a hand-written HLO program with nested-tuple outputs.
+    if (entry.output_shape_index_size() > 1) {
+      Rcpp::stop(
+          "Input/output aliasing into a nested output tuple is not supported.");
+    }
+    const int output_index =
+        entry.output_shape_index_size() == 0 ? 0 : entry.output_shape_index(0);
+    aliases.push_back(
+        {static_cast<int>(entry.parameter_number()), output_index});
+  }
+  return aliases;
+}
+
+}  // namespace
+
+// Cache the input->output donation aliases declared in the program we just
+// compiled. We read them from the program source we already hold rather than
+// from the plugin's optimized executable: the aliasing is part of the program
+// (XLA preserves caller-specified donation), so this needs no plugin support
+// and works identically on CPU, CUDA, and Metal — unlike
+// PJRT_Executable_OptimizedProgram, which several plugins (e.g. jax-metal,
+// IREE) leave unimplemented.
+void PJRTLoadedExecutable::load_input_output_aliases_(
+    const std::string &program_code, PJRTProgramFormat program_format) {
+  switch (program_format) {
+    case MLIR:
+      aliases_ = parse_mlir_aliases(program_code);
+      break;
+    case HLO:
+      aliases_ = parse_hlo_aliases(program_code);
+      break;
+  }
 }
 
 PJRTLoadedExecutable::~PJRTLoadedExecutable() {
@@ -337,9 +360,10 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   // need device completion events.
   exec_args.device_complete_events = nullptr;
 
-  try_alloc(this->api.get(), [&] {
-    return this->api->PJRT_LoadedExecutable_Execute_(&exec_args);
-  });
+  try_alloc(
+      this->api.get(),
+      [&] { return this->api->PJRT_LoadedExecutable_Execute_(&exec_args); },
+      /*suppress_logs=*/!this->is_cpu_);
 
   // Build result
   AsyncExecuteResult result;

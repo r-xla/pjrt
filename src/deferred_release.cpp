@@ -31,4 +31,9 @@ void process_pending_releases() {
   }
 }
 
+std::size_t pending_release_count() {
+  std::lock_guard<std::mutex> lock(g_release_mutex);
+  return g_pending_releases.size();
+}
+
 }  // namespace rpjrt

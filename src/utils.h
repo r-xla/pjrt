@@ -16,13 +16,14 @@ void destroy_error(const PJRT_Api *api, PJRT_Error *err);
 
 namespace rpjrt {
 
-// Temporarily redirects stderr (fd 2) into a temp sink so that XLA's native
+// Temporarily redirects stderr (fd 2) into a reusable sink so that XLA's native
 // logging emitted during a single allocation/execution attempt can be dropped
 // when we recover from it. Process-global and not thread-safe; intended only
-// for the main-thread allocation calls wrapped by try_alloc().
+// for the main-thread allocation calls wrapped by try_alloc(). The sink itself
+// is a process-wide singleton (see utils.cpp); this handle only carries the
+// per-call dup of the original stderr.
 struct StderrCapture {
-  int saved_fd = -1;    // dup of the original stderr; -1 means capture disabled
-  void *tmp = nullptr;  // FILE* of the temp sink (void* to keep this header clean)
+  int saved_fd = -1;  // dup of the original stderr; -1 means capture disabled
 };
 
 // Begin capturing stderr. On any failure capture is silently disabled
@@ -47,13 +48,22 @@ void end_stderr_capture(StderrCapture &cap, bool replay);
 // immediately recover via gc-and-retry, that first attempt's stderr is captured
 // and discarded; the retry runs un-captured, so an OOM that persists *after*
 // gc still surfaces its logs.
+//
+// `suppress_logs` gates the stderr capture, which must wrap *every* call (XLA
+// writes the diagnostic during alloc_fn, before returning, so it can't be
+// suppressed after the fact) and costs a temp-file create/redirect per call.
+// Callers pass false on CPU, where allocation failure is rare and the
+// gc-and-retry is largely moot, so the hot path (buffer upload, execute) pays
+// nothing. It is left on for the backends where OOM-and-recover actually
+// happens (CUDA), so the recovered first attempt stays quiet there.
 template <typename F>
-void try_alloc(const PJRT_Api *api, F &&alloc_fn) {
-  auto cap = rpjrt::begin_stderr_capture();
+void try_alloc(const PJRT_Api *api, F &&alloc_fn, bool suppress_logs = true) {
+  rpjrt::StderrCapture cap;
+  if (suppress_logs) cap = rpjrt::begin_stderr_capture();
   PJRT_Error *err = alloc_fn();
   bool is_oom = err != nullptr &&
                 get_error_code(api, err) == PJRT_Error_Code_RESOURCE_EXHAUSTED;
-  rpjrt::end_stderr_capture(cap, /*replay=*/!is_oom);
+  if (suppress_logs) rpjrt::end_stderr_capture(cap, /*replay=*/!is_oom);
 
   if (is_oom) {
     destroy_error(api, err);
@@ -95,6 +105,49 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
       idx_col += coord * col_strides[j];
     }
     dst[idx_col] = static_cast<dst_type>(src[idx_row]);
+  }
+}
+
+// True if `minor_to_major` is the dense row-major order [n-1, ..., 1, 0]
+// (last logical dimension fastest-varying), the layout our readback assumes.
+inline bool is_row_major(const std::vector<int64_t> &minor_to_major) {
+  const int64_t n = minor_to_major.size();
+  for (int64_t k = 0; k < n; ++k) {
+    if (minor_to_major[k] != n - 1 - k) return false;
+  }
+  return true;
+}
+
+// Reorder `total` elements from the device physical order described by
+// `minor_to_major` (minor_to_major[0] = fastest-varying logical dim) into
+// logical row-major order. A no-op copy when the layout is already row-major,
+// so the common path costs nothing extra. `src` and `dst` must not alias.
+template <typename T>
+void device_to_row_major(const T *src, T *dst, const std::vector<int64_t> &dims,
+                         const std::vector<int64_t> &minor_to_major) {
+  const int64_t n = dims.size();
+  int64_t total = 1;
+  for (int64_t d : dims) total *= d;
+  if (n <= 1 || is_row_major(minor_to_major)) {
+    std::copy(src, src + total, dst);
+    return;
+  }
+  // Physical stride of each logical dimension, derived from minor_to_major.
+  std::vector<int64_t> phys(n, 1);
+  int64_t acc = 1;
+  for (int64_t k = 0; k < n; ++k) {
+    phys[minor_to_major[k]] = acc;
+    acc *= dims[minor_to_major[k]];
+  }
+  const std::vector<int64_t> row = dims2strides(dims, /*row_major=*/true);
+  for (int64_t r = 0; r < total; ++r) {
+    int64_t tmp = r, p = 0;
+    for (int64_t d = 0; d < n; ++d) {
+      const int64_t coord = tmp / row[d];
+      tmp %= row[d];
+      p += coord * phys[d];
+    }
+    dst[r] = src[p];
   }
 }
 

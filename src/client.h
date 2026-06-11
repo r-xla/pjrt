@@ -61,24 +61,31 @@ class PJRTLoadedExecutable {
   PJRT_LoadedExecutable *executable;
   std::shared_ptr<PJRT_Api> api;
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                       std::shared_ptr<PJRT_Api> api);
+                       std::shared_ptr<PJRT_Api> api,
+                       const std::string &program_code,
+                       PJRTProgramFormat program_format, bool is_cpu);
   AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   std::vector<PJRT_Device *> addressable_devices();
-  // Input->output aliases baked into the compiled executable (parsed from
-  // the optimized HLO at construction). Used by the Execute wrapper to
-  // transfer the RAWSXP keepalive from each donated input XPtr to its
-  // aliased output XPtr so the underlying host bytes stay alive for the
-  // output's lifetime.
+  // Input->output aliases declared in the program we compiled, parsed at
+  // construction from the program source itself (HLO proto or MLIR text).
+  // Used by the Execute wrapper to transfer the RAWSXP keepalive from each
+  // donated input XPtr to its aliased output XPtr so the underlying host
+  // bytes stay alive for the output's lifetime.
   const std::vector<PJRTInputOutputAlias> &input_output_aliases() const {
     return aliases_;
   }
   ~PJRTLoadedExecutable();
 
  private:
+  // True if compiled for the CPU platform. Used to skip the stderr capture in
+  // execute_async's try_alloc, which is only worthwhile on backends where
+  // OOM-and-retry actually happens (CUDA).
+  bool is_cpu_;
   std::vector<PJRTInputOutputAlias> aliases_;
-  void load_input_output_aliases_();
+  void load_input_output_aliases_(const std::string &program_code,
+                                  PJRTProgramFormat program_format);
 };
 
 class PJRTClient {
