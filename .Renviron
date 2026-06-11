@@ -1,0 +1,4 @@
+# Run the (network-dependent) test suite when developing locally. The suite is
+# opt-in via PJRT_TEST so that it is skipped on CRAN; see tests/testthat.R.
+# This file is excluded from the package build via .Rbuildignore.
+PJRT_TEST=1

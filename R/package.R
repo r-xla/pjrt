@@ -33,6 +33,12 @@ NULL
 #' * `PJRT_PLUGIN_URL_<PLATFORM>`: URL to download plugin from for a specific
 #'   platform (e.g., `PJRT_PLUGIN_URL_CPU`, `PJRT_PLUGIN_URL_CUDA`,
 #'   `PJRT_PLUGIN_URL_METAL`). If set, overrides the default plugin download URL.
+#' * `PJRT_INSTALL`: Controls whether plugins may be downloaded automatically.
+#'   In an interactive session the package asks before downloading a plugin.
+#'   Set this to `"1"` to always download without asking (e.g. in CI, scripts,
+#'   or Docker builds), or to `"0"` to never download (the call errors with
+#'   instructions instead). When unset in a non-interactive session, the
+#'   download proceeds without prompting.
 #' * `PJRT_ZML_ARTIFACT_VERSION`: Version of ZML artifacts to download.
 #'   Only used when downloading plugins from zml/pjrt-artifacts.
 #' * `PJRT_CPU_DEVICE_COUNT`: The number of CPU devices to use. Defaults to 1.

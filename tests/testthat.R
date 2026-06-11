@@ -10,4 +10,9 @@ library(testthat)
 library(checkmate)
 library(pjrt)
 
-test_check("pjrt", reporter = "summary")
+# Nearly all tests require a PJRT plugin, which has to be downloaded over the
+# network. That is not possible on CRAN, so the suite is opt-in: set
+# `PJRT_TEST=1` to run it (CI does this). When unset, no tests run.
+if (Sys.getenv("PJRT_TEST", unset = "0") == "1") {
+  test_check("pjrt", reporter = "summary")
+}
