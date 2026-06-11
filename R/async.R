@@ -61,13 +61,16 @@ is_ready.PJRTBuffer <- function(x, ...) {
 #' @param data XPtr to PJRTHostData holding raw bytes and completion event.
 #' @param dtype Element type string (e.g., "f32", "i32").
 #' @param shape Integer vector of dimensions.
+#' @param minor_to_major Integer vector giving the device buffer's layout
+#'   (minor-to-major dimension order), used to reorder the bytes on readback.
 #' @return A `PJRTArrayPromise` object.
 #' @keywords internal
-pjrt_array_promise <- function(data, dtype, shape) {
+pjrt_array_promise <- function(data, dtype, shape, minor_to_major) {
   env <- new.env(parent = emptyenv())
   env$data <- data
   env$dtype <- dtype
   env$shape <- shape
+  env$minor_to_major <- minor_to_major
   env$materialized <- NULL
   structure(env, class = "PJRTArrayPromise")
 }
@@ -76,7 +79,7 @@ pjrt_array_promise <- function(data, dtype, shape) {
 value.PJRTArrayPromise <- function(x, ...) {
   if (is.null(x$materialized)) {
     impl_host_data_await(x$data)
-    out <- impl_raw_to_array(x$data, x$dtype, x$shape)
+    out <- impl_raw_to_array(x$data, x$dtype, x$shape, x$minor_to_major)
     if (x$dtype %in% c("i64", "ui64", "ui32")) {
       class(out) <- "integer64"
     }
