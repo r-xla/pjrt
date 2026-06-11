@@ -40,6 +40,11 @@ StderrCapture begin_stderr_capture();
 // they are discarded.
 void end_stderr_capture(StderrCapture &cap, bool replay);
 
+// Write `msg` (followed by a newline) to R's stderr, but only when the
+// PJRT_DEBUG environment variable is set to a non-empty value. Used to make
+// the otherwise-silent gc-on-OOM retry observable.
+void debug_inform(const char *msg);
+
 }  // namespace rpjrt
 
 // Run a PJRT allocation call. If it returns RESOURCE_EXHAUSTED, call R's gc()
@@ -67,6 +72,7 @@ void try_alloc(const PJRT_Api *api, F &&alloc_fn, bool suppress_logs = true) {
   if (is_oom) {
     destroy_error(api, err);
     rpjrt::call_r_gc();
+    rpjrt::debug_inform("pjrt: RESOURCE_EXHAUSTED — ran R gc, retrying");
     err = std::forward<F>(alloc_fn)();
   }
   check_err(api, err);

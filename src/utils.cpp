@@ -1,8 +1,10 @@
 #include "utils.h"
 
+#include <R_ext/Print.h>  // REprintf
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstdlib>  // getenv
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -100,6 +102,13 @@ void end_stderr_capture(StderrCapture &cap, bool replay) {
     }
   }
   // The sink is left open for reuse; it is reset on the next begin.
+}
+
+void debug_inform(const char *msg) {
+  const char *dbg = std::getenv("PJRT_DEBUG");
+  if (dbg != nullptr && dbg[0] != '\0') {
+    REprintf("%s\n", msg);
+  }
 }
 
 }  // namespace rpjrt
