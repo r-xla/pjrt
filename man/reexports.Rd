@@ -15,6 +15,6 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{tengen}{\code{\link[tengen]{as_array}}, \code{\link[tengen]{as_raw}}, \code{\link[tengen]{device}}, \code{\link[tengen]{dtype}}, \code{\link[tengen]{shape}}}
+  \item{tengen}{\code{\link[tengen:as_array]{as_array()}}, \code{\link[tengen:as_raw]{as_raw()}}, \code{\link[tengen:device]{device()}}, \code{\link[tengen:dtype]{dtype()}}, \code{\link[tengen:shape]{shape()}}}
 }}
 
