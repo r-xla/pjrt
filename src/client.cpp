@@ -358,9 +358,14 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 
   exec_args.output_lists = outer_out.data();
 
-  // Buffer readiness is tracked via PJRT_Buffer_ReadyEvent, so we don't
-  // need device completion events.
-  exec_args.device_complete_events = nullptr;
+  // Request a per-device completion event. It becomes ready when the execution
+  // finishes reading its inputs, which is how the caller bounds the lifetime of
+  // zero-copy input host keepalives (individual output buffers can become ready
+  // at different times, so they are not a reliable "execution done" signal).
+  // Length must equal num_devices (== 1 here). Per-buffer readiness still uses
+  // PJRT_Buffer_ReadyEvent independently.
+  std::vector<PJRT_Event *> complete_events(1, nullptr);
+  exec_args.device_complete_events = complete_events.data();
 
   try_alloc(
       this->api.get(),
@@ -369,6 +374,10 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 
   // Build result
   AsyncExecuteResult result;
+  if (complete_events[0] != nullptr) {
+    result.complete_event =
+        std::make_unique<PJRTEvent>(complete_events[0], this->api);
+  }
   for (size_t i = 0; i < num_outputs; ++i) {
     auto buf = std::make_unique<PJRTBuffer>(outer_out[0][i], this->api);
     result.buffers.push_back(std::move(buf));

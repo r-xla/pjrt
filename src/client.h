@@ -13,6 +13,11 @@ namespace rpjrt {
 // Each buffer has its completion event set internally.
 struct AsyncExecuteResult {
   std::vector<std::unique_ptr<PJRTBuffer>> buffers;
+  // Becomes ready when the device execution completes (i.e. the computation
+  // has finished reading all of its inputs). Used to bound the lifetime of
+  // zero-copy input host keepalives. Null only if the plugin did not populate
+  // a completion event.
+  std::unique_ptr<PJRTEvent> complete_event;
 };
 
 // An input->output aliasing entry baked into a compiled executable.

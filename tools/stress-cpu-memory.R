@@ -320,6 +320,73 @@ if (donate_peak_mb > budget_mb) {
   ))
 }
 
+# ---------------------------------------------------------------------------
+# Invariant 5: a non-donating pjrt_execute() must keep its zero-copy CPU input
+# alive until the (async) execution has finished reading it. This is the
+# "not freed too early" half of the input lifetime (Invariant 3 covers the
+# "eventually released" half). pjrt_execute dispatches asynchronously and reads
+# its inputs on a background thread; on CPU an input's bytes live in an R RAWSXP
+# that PJRT only aliases, so dropping the input and running the GC mid-flight
+# must not reclaim it -- otherwise the running computation reads freed memory
+# (use-after-free).
+#
+# We observe this directly: a finalizer on the input fires iff it is collected.
+# A correct result additionally proves the bytes were not freed mid-flight.
+# Single execution in this fresh process, so no unrelated buffer finalizer runs
+# during our gc() to drain the deferred-release queue early.
+# ---------------------------------------------------------------------------
+cat("\nNon-donating execute input keepalive:\n")
+
+if (!requireNamespace("stablehlo", quietly = TRUE)) {
+  stop("Invariant 5 needs the stablehlo package to build the program")
+}
+
+# out = (sqrt(arg1^2) repeated) * arg0. With arg1 == 1 the chain collapses to 1,
+# so out == arg0 -- but XLA must evaluate every op (runtime-dependent, not
+# constant-folded). arg0 (the *dropped* input) flows only into the final
+# multiply, so a correct result proves arg0's bytes survived the GC intact.
+ka_n <- 1048576L
+ka_reps <- 64L
+stablehlo::hlo_func()
+ka_arg0 <- stablehlo::hlo_input("arg0", "f32", shape = ka_n)
+ka_arg1 <- stablehlo::hlo_input("arg1", "f32", shape = ka_n)
+ka_chain <- ka_arg1
+for (i in seq_len(ka_reps)) {
+  ka_chain <- stablehlo::hlo_sqrt(stablehlo::hlo_multiply(ka_chain, ka_chain))
+}
+ka_func <- stablehlo::hlo_return(stablehlo::hlo_multiply(ka_chain, ka_arg0))
+ka_exec <- pjrt_compile(pjrt_program(stablehlo::repr(ka_func)), device = device)
+
+ka_ones <- pjrt_buffer(rep(1.0, ka_n), dtype = "f32", device = device) # arg1, kept alive
+ka_x <- pjrt_buffer(rep(2.0, ka_n), dtype = "f32", device = device)
+ka_collected <- new.env()
+ka_collected$fired <- FALSE
+# ka_x is an external pointer, so it can carry a finalizer; it fires when ka_x is
+# garbage collected -- which pjrt_execute must prevent until the execution that
+# reads it completes.
+reg.finalizer(ka_x, function(e) ka_collected$fired <- TRUE, onexit = FALSE)
+
+ka_out <- pjrt_execute(ka_exec, ka_x, ka_ones)
+rm(ka_x)
+# Finalizers fire on GC, not on rm(); ka_x is now unreachable from R, so without
+# the keepalive it would be collected here.
+gc(full = TRUE)
+gc(full = TRUE)
+if (ka_collected$fired) {
+  stop(
+    "input buffer was collected while its execution was still pending -- ",
+    "use-after-free: pjrt_execute did not keep the input alive"
+  )
+}
+cat("  input stayed alive across GC while the execution was pending\n")
+
+ka_res <- as.numeric(as_array(ka_out)) # blocks until the execution completes
+if (!isTRUE(all.equal(ka_res, rep(2.0, ka_n), tolerance = 1e-4))) {
+  stop("result is wrong -- the input's bytes were corrupted mid-flight")
+}
+cat("  result is correct (input bytes intact)\n")
+
 cat("\nCPU host-memory management verified: keepalive pins live buffers,\n")
-cat("ordinary GC reclaims discarded ones, and donation migrates the backing\n")
-cat("RAWSXP from input to output without leaking or freeing it early.\n")
+cat("ordinary GC reclaims discarded ones, donation migrates the backing RAWSXP\n")
+cat("from input to output, and a non-donating execute keeps its input alive for\n")
+cat("the duration of the async computation -- without leaking or freeing early.\n")

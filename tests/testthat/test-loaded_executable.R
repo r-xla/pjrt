@@ -530,8 +530,8 @@ module @two_donations {
     expect_null(impl_test_xptr_prot(a))
     expect_null(impl_test_xptr_prot(b))
 
-    expect_equal(as.numeric(outs[[1]]), c(2, 4, 6), tolerance = 1e-6)
-    expect_equal(as.numeric(outs[[2]]), c(16, 25, 36), tolerance = 1e-6)
+    expect_equal(as.numeric(as_array(outs[[1]])), c(2, 4, 6), tolerance = 1e-6)
+    expect_equal(as.numeric(as_array(outs[[2]])), c(16, 25, 36), tolerance = 1e-6)
   })
 
   it("pjrt_execute drains the deferred-release queue", {
@@ -551,8 +551,19 @@ module {
 '
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
-    pjrt_execute(exec, pjrt_buffer(c(1, 2, 3, 4), dtype = "f32"))
+    out <- pjrt_execute(exec, pjrt_buffer(c(1, 2, 3, 4), dtype = "f32"))
 
+    # pjrt_execute drains the queue at entry, so the sentinel is gone. It also
+    # pins its inputs' host keepalives until the execution completes, then
+    # queues them for release -- so after awaiting completion the queue holds
+    # those, and a final drain empties it.
+    await(out)
+    impl_process_pending_releases()
     expect_equal(impl_pending_release_count(), 0L)
   })
+
+  # Note: the use-after-free where a dropped zero-copy CPU input is collected
+  # while its async execution is still reading it is exercised by Invariant 5 of
+  # tools/stress-cpu-memory.R (it needs a fresh, isolated R process to observe
+  # the keepalive deterministically, so it is not a unit test).
 })
