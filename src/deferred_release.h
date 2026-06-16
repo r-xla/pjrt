@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstddef>
-
 #include <Rcpp.h>
+
+#include <cstddef>
 
 namespace rpjrt {
 
