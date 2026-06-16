@@ -131,6 +131,10 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 <code>src/</code> – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options</li>
 </ul><p><strong>Important:</strong> Do not call <code>devtools::load_all()</code> and <code>devtools::test()</code> in the same R process. The protobuf descriptors get registered twice, causing a fatal <code>CHECK failed: GeneratedDatabase()-&gt;Add(...)</code> crash. Use separate <code>Rscript -e</code> calls instead.</p>
 </div>
+<div class="section level2">
+<h2 id="memory-management">Memory management<a class="anchor" aria-label="anchor" href="#memory-management"></a></h2>
+<p>An object’s finalizer (e.g., <code><a href="https://rdrr.io/r/base/reg.finalizer.html" class="external-link">reg.finalizer()</a></code>) runs only when the object is <strong>garbage collected</strong>, not when its binding goes out of scope or is <code><a href="https://rdrr.io/r/base/rm.html" class="external-link">rm()</a></code>-ed. A test that relies on a finalizer must call <code><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc()</a></code> explicitly to trigger it.</p>
+</div>
 
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

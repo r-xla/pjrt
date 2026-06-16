@@ -111,3 +111,12 @@ buffers.
 in the same R process. The protobuf descriptors get registered twice,
 causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use
 separate `Rscript -e` calls instead.
+
+## Memory management
+
+An object’s finalizer (e.g.,
+[`reg.finalizer()`](https://rdrr.io/r/base/reg.finalizer.html)) runs
+only when the object is **garbage collected**, not when its binding goes
+out of scope or is [`rm()`](https://rdrr.io/r/base/rm.html)-ed. A test
+that relies on a finalizer must call
+[`gc()`](https://rdrr.io/r/base/gc.html) explicitly to trigger it.
