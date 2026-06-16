@@ -401,7 +401,8 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
 // casting. Used by both sync and async buffer-to-host paths.
 template <typename T>
 SEXP raw_to_array_impl(const uint8_t *raw_data,
-                       const std::vector<int64_t> &dimensions, int r_type) {
+                       const std::vector<int64_t> &dimensions, int r_type,
+                       const std::vector<int64_t> &minor_to_major) {
   const auto numel = number_of_elements(dimensions);
 
   if (numel == 0) {
@@ -414,9 +415,12 @@ SEXP raw_to_array_impl(const uint8_t *raw_data,
     return out;
   }
 
-  // Reinterpret raw bytes as typed data and copy to vector for transpose
+  // Reinterpret the device-layout bytes and reorder them to logical row-major
+  // (a no-op copy when the device layout is already row-major).
   const T *typed_data = reinterpret_cast<const T *>(raw_data);
-  std::vector<T> temp_vec(typed_data, typed_data + numel);
+  std::vector<T> temp_vec(numel);
+  device_to_row_major<T>(typed_data, temp_vec.data(), dimensions,
+                         minor_to_major);
 
   SEXP out = PROTECT(Rf_allocVector(r_type, numel));
   void *out_data;
@@ -480,10 +484,13 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   Rcpp::RawVector raw_data(total_bytes);
 
-  if (row_major || format_is_irrelevant(dimensions)) {
-    // optimization: we don't need a temporary buffer because
-    // 1. We don't need to cast the data
-    // 2. We don't need to transpose the data
+  // The bytes from PJRT arrive in the device layout. When that layout already
+  // matches what the caller wants — row-major requested and device is
+  // row-major, or the layout is irrelevant (e.g. 1-D) — we can copy straight
+  // into the output with no temporary or reorder.
+  const auto minor_to_major = buffer->minor_to_major();
+  const bool device_row_major = is_row_major(minor_to_major);
+  if (format_is_irrelevant(dimensions) || (row_major && device_row_major)) {
     std::span<uint8_t> host_buffer(
         reinterpret_cast<uint8_t *>(raw_data.begin()), total_bytes);
     auto event = buffer->buffer_to_host_async(host_buffer);
@@ -494,18 +501,29 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
     return raw_data;
   }
 
+  // Otherwise read the device-layout bytes into a temporary, normalize them to
+  // logical row-major, then emit the requested order (row-major as-is, or
+  // column-major via a transpose).
   auto handle_transpose = [&](auto type_tag) {
     using T = decltype(type_tag);
-    std::vector<T> temp_vec(numel);
-    std::span<uint8_t> host_buffer(reinterpret_cast<uint8_t *>(temp_vec.data()),
-                                   total_bytes);
+    std::vector<T> device_vec(numel);
+    std::span<uint8_t> host_buffer(
+        reinterpret_cast<uint8_t *>(device_vec.data()), total_bytes);
     auto event = buffer->buffer_to_host_async(host_buffer);
     if (event) {
       event->await();
       event->check_error();
     }
-    row_to_col_order<T, T>(temp_vec, reinterpret_cast<T *>(raw_data.begin()),
-                           dimensions);
+    std::vector<T> row_major_vec(numel);
+    device_to_row_major<T>(device_vec.data(), row_major_vec.data(), dimensions,
+                           minor_to_major);
+    if (row_major) {
+      std::copy(row_major_vec.begin(), row_major_vec.end(),
+                reinterpret_cast<T *>(raw_data.begin()));
+    } else {
+      row_to_col_order<T, T>(
+          row_major_vec, reinterpret_cast<T *>(raw_data.begin()), dimensions);
+    }
   };
 
   switch (element_type) {
@@ -768,8 +786,10 @@ void impl_test_enqueue_release(SEXP x) {
 
 // [[Rcpp::export()]]
 SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
-                       const std::string &dtype, Rcpp::IntegerVector dims) {
+                       const std::string &dtype, Rcpp::IntegerVector dims,
+                       Rcpp::IntegerVector minor_to_major) {
   std::vector<int64_t> dimensions(dims.begin(), dims.end());
+  std::vector<int64_t> m2m(minor_to_major.begin(), minor_to_major.end());
 
   // Handle null/empty data
   const uint8_t *raw_data = nullptr;
@@ -778,30 +798,30 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
   }
 
   if (dtype == "f32") {
-    return raw_to_array_impl<float>(raw_data, dimensions, REALSXP);
+    return raw_to_array_impl<float>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "f64") {
-    return raw_to_array_impl<double>(raw_data, dimensions, REALSXP);
+    return raw_to_array_impl<double>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "i8") {
-    return raw_to_array_impl<int8_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<int8_t>(raw_data, dimensions, INTSXP, m2m);
   } else if (dtype == "i16") {
-    return raw_to_array_impl<int16_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<int16_t>(raw_data, dimensions, INTSXP, m2m);
   } else if (dtype == "i32") {
-    return raw_to_array_impl<int32_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<int32_t>(raw_data, dimensions, INTSXP, m2m);
   } else if (dtype == "i64") {
-    return raw_to_array_impl<int64_t>(raw_data, dimensions, REALSXP);
+    return raw_to_array_impl<int64_t>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "ui8") {
-    return raw_to_array_impl<uint8_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<uint8_t>(raw_data, dimensions, INTSXP, m2m);
   } else if (dtype == "ui16") {
-    return raw_to_array_impl<uint16_t>(raw_data, dimensions, INTSXP);
+    return raw_to_array_impl<uint16_t>(raw_data, dimensions, INTSXP, m2m);
   } else if (dtype == "ui32") {
     // u32 -> integer64 storage: signed int32 has no headroom for ui32 values
     // >= 2^31; widen to integer64 (53 bits of headroom) so the R caller gets
     // the full unsigned magnitude. R-side classes the result as integer64.
-    return raw_to_array_impl<uint32_t>(raw_data, dimensions, REALSXP);
+    return raw_to_array_impl<uint32_t>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "ui64") {
-    return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP);
+    return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "pred") {
-    return raw_to_array_impl<uint8_t>(raw_data, dimensions, LGLSXP);
+    return raw_to_array_impl<uint8_t>(raw_data, dimensions, LGLSXP, m2m);
   } else {
     Rcpp::stop("Unsupported dtype: %s", dtype.c_str());
   }
@@ -819,6 +839,11 @@ Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
 
   Rcpp::IntegerVector dims(dimensions.begin(), dimensions.end());
 
+  // The bytes arrive in the device layout; carry it through so value() can
+  // reorder them to a column-major R array.
+  const auto m2m_vec = buffer->minor_to_major();
+  Rcpp::IntegerVector minor_to_major(m2m_vec.begin(), m2m_vec.end());
+
   // Handle empty buffers
   if (numel == 0) {
     auto empty_vec = std::make_unique<std::vector<uint8_t>>();
@@ -827,7 +852,8 @@ Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
     Rcpp::XPtr<rpjrt::PJRTHostData> data_xptr(empty_data.release(), true);
     return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
                               Rcpp::Named("dtype") = dtype,
-                              Rcpp::Named("dims") = dims);
+                              Rcpp::Named("dims") = dims,
+                              Rcpp::Named("minor_to_major") = minor_to_major);
   }
 
   const size_t total_bytes = numel * sizeof_pjrt_buffer_type(element_type);
@@ -845,7 +871,8 @@ Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
 
   return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
                             Rcpp::Named("dtype") = dtype,
-                            Rcpp::Named("dims") = dims);
+                            Rcpp::Named("dims") = dims,
+                            Rcpp::Named("minor_to_major") = minor_to_major);
 }
 
 static std::string device_to_string(PJRT_Device *device, PJRT_Api *api) {
@@ -915,8 +942,8 @@ Rcpp::List impl_loaded_executable_execute(
   // input alive until the computation finishes with it. Pinning the whole XPtr
   // keeps the buffer -- and transitively its RAWSXP -- reachable, so an
   // un-awaited Execute can't read freed memory. Device inputs (CUDA/Metal) are
-  // PJRT-owned and carry a NilValue prot slot, so they are skipped: PJRT already
-  // defers their device-memory free until pending ops complete.
+  // PJRT-owned and carry a NilValue prot slot, so they are skipped: PJRT
+  // already defers their device-memory free until pending ops complete.
   std::vector<SEXP> input_keepalives;
   for (auto i = 0; i < input.size(); ++i) {
     SEXP xptr = VECTOR_ELT(input, i);
@@ -928,8 +955,8 @@ Rcpp::List impl_loaded_executable_execute(
   // Pin the inputs BEFORE launching the async Execute, so the keepalive is
   // already in place when PJRT's background threads begin reading the aliased
   // host bytes. R_PreserveObject runs here on the main thread; the matching
-  // release is deferred to the completion event below. If Execute itself throws,
-  // unpin first so the objects don't leak.
+  // release is deferred to the completion event below. If Execute itself
+  // throws, unpin first so the objects don't leak.
   for (SEXP k : input_keepalives) R_PreserveObject(k);
 
   rpjrt::AsyncExecuteResult result;
@@ -960,9 +987,11 @@ Rcpp::List impl_loaded_executable_execute(
   const auto &aliases = executable->input_output_aliases();
   for (const auto &alias : aliases) {
     if (alias.input_index < 0 ||
-        static_cast<size_t>(alias.input_index) >= static_cast<size_t>(input.size()) ||
+        static_cast<size_t>(alias.input_index) >=
+            static_cast<size_t>(input.size()) ||
         alias.output_index < 0 ||
-        static_cast<size_t>(alias.output_index) >= static_cast<size_t>(buffers.size())) {
+        static_cast<size_t>(alias.output_index) >=
+            static_cast<size_t>(buffers.size())) {
       continue;
     }
     SEXP in_xptr_sexp = VECTOR_ELT(input, alias.input_index);
@@ -980,8 +1009,8 @@ Rcpp::List impl_loaded_executable_execute(
   // Release the input keepalives (pinned before Execute, above) once the
   // execution has finished reading all inputs. Without the pin, a dropped
   // zero-copy input could be collected -- freeing its backing RAWSXP -- while
-  // the async Execute is still reading it (use-after-free). The completion event
-  // fires on a PJRT thread and only enqueues the release; the actual
+  // the async Execute is still reading it (use-after-free). The completion
+  // event fires on a PJRT thread and only enqueues the release; the actual
   // R_ReleaseObject runs later on the main thread via the deferred-release
   // queue. The PJRTEvent wrapper is destroyed when `result` goes out of scope,
   // but the registered callback still fires (see PJRTEvent::on_ready).
@@ -1063,9 +1092,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
-  return create_buffer_from_array_async_no_convert(client, data, REAL(data), dims,
-                                                 buffer_type, sizeof(int64_t),
-                                                 false, device->device);
+  return create_buffer_from_array_async_no_convert(
+      client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
+      device->device);
 }
 
 // [[Rcpp::export()]]

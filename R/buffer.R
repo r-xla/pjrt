@@ -510,7 +510,7 @@ as_array_async <- function(x, ...) {
 #' @export
 as_array_async.PJRTBuffer <- function(x, ...) {
   result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$dtype, result$dims)
+  pjrt_array_promise(result$data, result$dtype, result$dims, result$minor_to_major)
 }
 
 

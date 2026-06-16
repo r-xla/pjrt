@@ -185,8 +185,8 @@ impl_test_enqueue_release <- function(x) {
     invisible(.Call(`_pjrt_impl_test_enqueue_release`, x))
 }
 
-impl_raw_to_array <- function(host_data, dtype, dims) {
-    .Call(`_pjrt_impl_raw_to_array`, host_data, dtype, dims)
+impl_raw_to_array <- function(host_data, dtype, dims, minor_to_major) {
+    .Call(`_pjrt_impl_raw_to_array`, host_data, dtype, dims, minor_to_major)
 }
 
 impl_buffer_to_host_async <- function(buffer) {

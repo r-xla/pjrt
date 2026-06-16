@@ -52,6 +52,11 @@ class PJRTBuffer {
   std::vector<int64_t> dimensions();
   std::unique_ptr<PJRTMemory> memory();
   std::unique_ptr<PJRTBufferMemoryLayout> memory_layout();
+  // The buffer's dense layout as a minor-to-major permutation of logical
+  // dimensions (minor_to_major[0] = fastest-varying dim). Row-major is
+  // [n-1, ..., 0]; column-major is [0, ..., n-1]. Used to interpret the bytes
+  // from buffer_to_host_async, which arrive in the device layout.
+  std::vector<int64_t> minor_to_major();
   PJRT_Buffer_Type element_type();
   std::unique_ptr<PJRTDevice> device();
   std::shared_ptr<PJRT_Api> get_api() const { return api; }

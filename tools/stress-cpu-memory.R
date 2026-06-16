@@ -364,7 +364,13 @@ ka_collected$fired <- FALSE
 # ka_x is an external pointer, so it can carry a finalizer; it fires when ka_x is
 # garbage collected -- which pjrt_execute must prevent until the execution that
 # reads it completes.
-reg.finalizer(ka_x, function(e) ka_collected$fired <- TRUE, onexit = FALSE)
+reg.finalizer(
+  ka_x,
+  function(e) {
+    ka_collected$fired <- TRUE
+  },
+  onexit = FALSE
+)
 
 ka_out <- pjrt_execute(ka_exec, ka_x, ka_ones)
 rm(ka_x)

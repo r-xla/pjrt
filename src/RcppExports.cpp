@@ -532,15 +532,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_raw_to_array
-SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data, const std::string& dtype, Rcpp::IntegerVector dims);
-RcppExport SEXP _pjrt_impl_raw_to_array(SEXP host_dataSEXP, SEXP dtypeSEXP, SEXP dimsSEXP) {
+SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data, const std::string& dtype, Rcpp::IntegerVector dims, Rcpp::IntegerVector minor_to_major);
+RcppExport SEXP _pjrt_impl_raw_to_array(SEXP host_dataSEXP, SEXP dtypeSEXP, SEXP dimsSEXP, SEXP minor_to_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTHostData> >::type host_data(host_dataSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type dtype(dtypeSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dims(dimsSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_raw_to_array(host_data, dtype, dims));
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type minor_to_major(minor_to_majorSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_raw_to_array(host_data, dtype, dims, minor_to_major));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -758,7 +759,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_process_pending_releases", (DL_FUNC) &_pjrt_impl_process_pending_releases, 0},
     {"_pjrt_impl_pending_release_count", (DL_FUNC) &_pjrt_impl_pending_release_count, 0},
     {"_pjrt_impl_test_enqueue_release", (DL_FUNC) &_pjrt_impl_test_enqueue_release, 1},
-    {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 3},
+    {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 4},
     {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
     {"_pjrt_impl_loaded_executable_aliases", (DL_FUNC) &_pjrt_impl_loaded_executable_aliases, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},

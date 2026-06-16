@@ -1058,6 +1058,28 @@ describe("copy_buffer", {
   })
 })
 
+test_that("as_array respects a non-row-major executable output layout", {
+  skip_if(!is_cpu())
+  # Pin a column-major output layout via `mhlo.layout_mode = "{0,1}"` on the
+  # function result (default is row-major, `{1,0}`). The device buffer is then
+  # NOT row-major; readback must still return the correct logical matrix rather
+  # than a transposed/garbled one.
+  mlir <- '
+module {
+  func.func @main(%arg0: tensor<2x3xf32>) -> (tensor<2x3xf32> {mhlo.layout_mode = "{0,1}"}) {
+    return %arg0 : tensor<2x3xf32>
+  }
+}
+'
+  prog <- pjrt_program(src = mlir, format = "mlir")
+  exec <- pjrt_compile(prog, device = "cpu")
+  m <- matrix(as.double(1:6), nrow = 2, ncol = 3)
+  out <- pjrt_execute(exec, pjrt_buffer(m, dtype = "f32"))
+  expect_equal(as_array(out), m, tolerance = 1e-6)
+  # as_raw goes through the same device→host path, so it must agree too.
+  expect_equal(as_raw(out, row_major = FALSE), as_raw(pjrt_buffer(m, dtype = "f32"), row_major = FALSE))
+})
+
 describe("CPU buffer memory management", {
   vcells_mb <- function() {
     g <- gc(full = TRUE, verbose = FALSE)

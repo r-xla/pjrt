@@ -114,6 +114,49 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
   }
 }
 
+// True if `minor_to_major` is the dense row-major order [n-1, ..., 1, 0]
+// (last logical dimension fastest-varying), the layout our readback assumes.
+inline bool is_row_major(const std::vector<int64_t> &minor_to_major) {
+  const int64_t n = minor_to_major.size();
+  for (int64_t k = 0; k < n; ++k) {
+    if (minor_to_major[k] != n - 1 - k) return false;
+  }
+  return true;
+}
+
+// Reorder `total` elements from the device physical order described by
+// `minor_to_major` (minor_to_major[0] = fastest-varying logical dim) into
+// logical row-major order. A no-op copy when the layout is already row-major,
+// so the common path costs nothing extra. `src` and `dst` must not alias.
+template <typename T>
+void device_to_row_major(const T *src, T *dst, const std::vector<int64_t> &dims,
+                         const std::vector<int64_t> &minor_to_major) {
+  const int64_t n = dims.size();
+  int64_t total = 1;
+  for (int64_t d : dims) total *= d;
+  if (n <= 1 || is_row_major(minor_to_major)) {
+    std::copy(src, src + total, dst);
+    return;
+  }
+  // Physical stride of each logical dimension, derived from minor_to_major.
+  std::vector<int64_t> phys(n, 1);
+  int64_t acc = 1;
+  for (int64_t k = 0; k < n; ++k) {
+    phys[minor_to_major[k]] = acc;
+    acc *= dims[minor_to_major[k]];
+  }
+  const std::vector<int64_t> row = dims2strides(dims, /*row_major=*/true);
+  for (int64_t r = 0; r < total; ++r) {
+    int64_t tmp = r, p = 0;
+    for (int64_t d = 0; d < n; ++d) {
+      const int64_t coord = tmp / row[d];
+      tmp %= row[d];
+      p += coord * phys[d];
+    }
+    dst[r] = src[p];
+  }
+}
+
 PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype);
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type);
