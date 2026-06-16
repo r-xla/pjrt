@@ -269,3 +269,301 @@ func.func @main(%x: tensor<1xf32>) -> tensor<1xf32> {
     "is on device"
   )
 })
+
+# The input/output donation aliases declared in a program are parsed at compile
+# time and cached on the loaded executable (exposed via
+# impl_loaded_executable_aliases). These tests pin down the parser's correctness;
+# the runtime donation/keepalive behaviour they drive lives in the describe block
+# below.
+describe("input/output alias parsing", {
+  it("exposes input_output_alias entries on the compiled executable", {
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    aliases <- impl_loaded_executable_aliases(exec)
+    expect_equal(aliases$input, 0L)
+    expect_equal(aliases$output, 0L)
+  })
+
+  it("parses input_output_alias entries regardless of whitespace", {
+    single <- function(open, attr) {
+      sprintf(
+        '
+module @m {
+  func.func @main%s(%%arg0: tensor<4xf32> {%s}) -> tensor<4xf32> {
+    %%out = stablehlo.multiply %%arg0, %%arg0 : tensor<4xf32>
+    return %%out : tensor<4xf32>
+  }
+}',
+        open,
+        attr
+      )
+    }
+    variants <- list(
+      space_before_paren = single(" ", "tf.aliasing_output = 0 : i32"),
+      tab_before_paren = single("\t", "tf.aliasing_output = 0 : i32"),
+      no_space_eq = single("", "tf.aliasing_output=0 : i32"),
+      extra_spaces_eq = single("", "tf.aliasing_output   =   0 : i32"),
+      no_space_colon = single("", "tf.aliasing_output=0:i32"),
+      space_after_colon_only = single("", "tf.aliasing_output = 0: i32"),
+      # A same-prefix symbol declared before @main must not be mistaken for it.
+      lookalike_symbol_first = '
+module @m {
+  func.func private @mainhelper(%a: tensor<4xf32>) -> tensor<4xf32> {
+    return %a : tensor<4xf32>
+  }
+  func.func @main (%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %out = stablehlo.multiply %arg0, %arg0 : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}'
+    )
+    for (nm in names(variants)) {
+      exec <- pjrt_compile(
+        pjrt_program(src = variants[[nm]], format = "mlir"),
+        device = "cpu"
+      )
+      aliases <- impl_loaded_executable_aliases(exec)
+      expect_equal(aliases$input, 0L, info = nm)
+      expect_equal(aliases$output, 0L, info = nm)
+    }
+
+    multi <- '
+module @m {
+  func.func @main(
+      %arg0: tensor<3xf32> {tf.aliasing_output = 0 : i32},
+      %arg1: tensor<3xf32> {tf.aliasing_output = 1 : i32}
+  ) -> (tensor<3xf32>, tensor<3xf32>) {
+    %a = stablehlo.add %arg0, %arg0 : tensor<3xf32>
+    %b = stablehlo.multiply %arg1, %arg1 : tensor<3xf32>
+    return %a, %b : tensor<3xf32>, tensor<3xf32>
+  }
+}'
+    exec <- pjrt_compile(pjrt_program(src = multi, format = "mlir"), device = "cpu")
+    aliases <- impl_loaded_executable_aliases(exec)
+    expect_equal(aliases$input, c(0L, 1L))
+    expect_equal(aliases$output, c(0L, 1L))
+  })
+
+  # The output index M is read digit-by-digit and the parameter index is recovered
+  # by counting argument commas, so both must keep working past a single digit. Use
+  # 12 arguments/outputs and alias the last (index 11 -> output 11).
+  it("parses double-digit alias indices", {
+    n <- 12L
+    idx <- 0:(n - 1L)
+    args <- paste0(
+      sprintf("      %%arg%d: tensor<2xf32>", idx),
+      ifelse(idx == n - 1L, sprintf(" {tf.aliasing_output = %d : i32}", n - 1L), ""),
+      collapse = ",\n"
+    )
+    types <- paste(rep("tensor<2xf32>", n), collapse = ", ")
+    body <- paste0(
+      sprintf("    %%out%d = stablehlo.add %%arg%d, %%arg%d : tensor<2xf32>", idx, idx, idx),
+      collapse = "\n"
+    )
+    rets <- paste0("%out", idx, collapse = ", ")
+    mlir <- sprintf(
+      "\nmodule @m {\n  func.func @main(\n%s\n  ) -> (%s) {\n%s\n    return %s : %s\n  }\n}",
+      args,
+      types,
+      body,
+      rets,
+      types
+    )
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"), device = "cpu")
+    aliases <- impl_loaded_executable_aliases(exec)
+    expect_equal(aliases$input, 11L)
+    expect_equal(aliases$output, 11L)
+  })
+
+  # A non-identity mapping (arg0 -> output 1, arg1 -> output 0) confirms each input
+  # is paired with its *declared* output index rather than with its own position.
+  it("parses non-identity input/output alias mappings", {
+    mlir <- '
+module @m {
+  func.func @main(
+      %arg0: tensor<3xf32> {tf.aliasing_output = 1 : i32},
+      %arg1: tensor<3xf32> {tf.aliasing_output = 0 : i32}
+  ) -> (tensor<3xf32>, tensor<3xf32>) {
+    %a = stablehlo.add %arg0, %arg0 : tensor<3xf32>
+    %b = stablehlo.multiply %arg1, %arg1 : tensor<3xf32>
+    return %a, %b : tensor<3xf32>, tensor<3xf32>
+  }
+}'
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"), device = "cpu")
+    aliases <- impl_loaded_executable_aliases(exec)
+    expect_equal(aliases$input, c(0L, 1L))
+    expect_equal(aliases$output, c(1L, 0L))
+  })
+})
+
+# Runtime behaviour of input/output donation: on execute, PJRT donates the
+# aliased input and pjrt_execute migrates the input's keepalive (the backing
+# RAWSXP) to the aliased output, leaving the input invalidated.
+describe("input/output donation keepalive", {
+  it("transfers keepalive from donated input to aliased output", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
+    x_prot <- impl_test_xptr_prot(x)
+    expect_true(is.raw(x_prot))
+
+    out <- pjrt_execute(exec, x)
+
+    # Output's prot slot now holds the input's RAWSXP; input's is cleared.
+    expect_identical(impl_test_xptr_prot(out), x_prot)
+    expect_null(impl_test_xptr_prot(x))
+
+    expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
+  })
+
+  it("raises a clean R-level error on operations on a donated input", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(1, 2, 3, 4), dtype = "f32")
+    pjrt_execute(exec, x)
+    expect_error(as_array(x), "called on deleted or donated buffer")
+  })
+
+  # tf.aliasing_output is a *may*-alias: PJRT donates the input only if it is
+  # donatable at runtime, otherwise it copies and leaves the input valid.
+  it("leaves the input untouched when a may-alias is not donated", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
+    x_prot <- impl_test_xptr_prot(x)
+
+    opts <- pjrt_execution_options(non_donatable_input_indices = 0L)
+    out <- pjrt_execute(exec, x, execution_options = opts)
+
+    # Input was copied, not donated: its keepalive stays put and input remains readable.
+    expect_identical(impl_test_xptr_prot(x), x_prot)
+    expect_equal(as.numeric(as_array(x)), c(10, 20, 30, 40), tolerance = 1e-6)
+
+    expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
+    expect_equal(as.numeric(as_array(x)), c(10, 20, 30, 40), tolerance = 1e-6)
+  })
+
+  # Donating the same buffer to two parameters is rejected by PJRT before any
+  # donation happens, so the input must remain valid after the error.
+  it("rejects donating the same buffer twice and leaves it valid", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @two_donations {
+  func.func @main(%arg0: tensor<3xf32> {tf.aliasing_output = 0 : i32},
+                  %arg1: tensor<3xf32> {tf.aliasing_output = 1 : i32})
+      -> (tensor<3xf32>, tensor<3xf32>) {
+    %a = stablehlo.add %arg0, %arg0 : tensor<3xf32>
+    %b = stablehlo.multiply %arg1, %arg1 : tensor<3xf32>
+    return %a, %b : tensor<3xf32>, tensor<3xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+    expect_error(pjrt_execute(exec, x, x, simplify = FALSE), "donate the same buffer twice")
+  })
+
+  it("migrates each donated input to its own aliased output", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @two_donations {
+  func.func @main(%arg0: tensor<3xf32> {tf.aliasing_output = 0 : i32},
+                  %arg1: tensor<3xf32> {tf.aliasing_output = 1 : i32})
+      -> (tensor<3xf32>, tensor<3xf32>) {
+    %a = stablehlo.add %arg0, %arg0 : tensor<3xf32>
+    %b = stablehlo.multiply %arg1, %arg1 : tensor<3xf32>
+    return %a, %b : tensor<3xf32>, tensor<3xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    a <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+    b <- pjrt_buffer(c(4, 5, 6), dtype = "f32")
+    a_prot <- impl_test_xptr_prot(a)
+    b_prot <- impl_test_xptr_prot(b)
+
+    outs <- pjrt_execute(exec, a, b, simplify = FALSE)
+
+    expect_identical(impl_test_xptr_prot(outs[[1]]), a_prot)
+    expect_identical(impl_test_xptr_prot(outs[[2]]), b_prot)
+    expect_null(impl_test_xptr_prot(a))
+    expect_null(impl_test_xptr_prot(b))
+
+    expect_equal(as.numeric(as_array(outs[[1]])), c(2, 4, 6), tolerance = 1e-6)
+    expect_equal(as.numeric(as_array(outs[[2]])), c(16, 25, 36), tolerance = 1e-6)
+  })
+
+  it("pjrt_execute drains the deferred-release queue", {
+    skip_if(!is_cpu())
+    impl_process_pending_releases()
+    impl_test_enqueue_release(raw(8L))
+    expect_gte(impl_pending_release_count(), 1L)
+
+    mlir <- '
+module {
+  func.func @main(%arg0: tensor<4xf32>) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    out <- pjrt_execute(exec, pjrt_buffer(c(1, 2, 3, 4), dtype = "f32"))
+
+    # pjrt_execute drains the queue at entry, so the sentinel is gone. It also
+    # pins its inputs' host keepalives until the execution completes, then
+    # queues them for release -- so after awaiting completion the queue holds
+    # those, and a final drain empties it.
+    await(out)
+    impl_process_pending_releases()
+    expect_equal(impl_pending_release_count(), 0L)
+  })
+
+  # Note: the use-after-free where a dropped zero-copy CPU input is collected
+  # while its async execution is still reading it is exercised by Invariant 5 of
+  # tools/stress-cpu-memory.R (it needs a fresh, isolated R process to observe
+  # the keepalive deterministically, so it is not a unit test).
+})

@@ -81,6 +81,10 @@ impl_client_buffer_from_raw <- function(client, device, data, dims, dtype, row_m
     .Call(`_pjrt_impl_client_buffer_from_raw`, client, device, data, dims, dtype, row_major)
 }
 
+impl_client_buffer_empty <- function(client, device, dims, dtype) {
+    .Call(`_pjrt_impl_client_buffer_empty`, client, device, dims, dtype)
+}
+
 impl_buffer_to_raw <- function(client, buffer, row_major = FALSE) {
     .Call(`_pjrt_impl_buffer_to_raw`, client, buffer, row_major)
 }
@@ -173,12 +177,24 @@ impl_process_pending_releases <- function() {
     invisible(.Call(`_pjrt_impl_process_pending_releases`))
 }
 
+impl_pending_release_count <- function() {
+    .Call(`_pjrt_impl_pending_release_count`)
+}
+
+impl_test_enqueue_release <- function(x) {
+    invisible(.Call(`_pjrt_impl_test_enqueue_release`, x))
+}
+
 impl_raw_to_array <- function(host_data, dtype, dims, minor_to_major) {
     .Call(`_pjrt_impl_raw_to_array`, host_data, dtype, dims, minor_to_major)
 }
 
 impl_buffer_to_host_async <- function(buffer) {
     .Call(`_pjrt_impl_buffer_to_host_async`, buffer)
+}
+
+impl_loaded_executable_aliases <- function(executable) {
+    .Call(`_pjrt_impl_loaded_executable_aliases`, executable)
 }
 
 impl_loaded_executable_execute <- function(executable, input, execution_options) {
@@ -223,5 +239,9 @@ get_svd_handler <- function() {
 
 get_svd_handler_cuda <- function() {
     .Call(`_pjrt_get_svd_handler_cuda`)
+}
+
+impl_test_xptr_prot <- function(x) {
+    .Call(`_pjrt_impl_test_xptr_prot`, x)
 }
 

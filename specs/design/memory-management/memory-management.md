@@ -81,8 +81,10 @@ Runs, in order, on the main R thread:
    retry, rather than at some later GC.
 
 It bumps a counter exposed via `impl_gc_call_count()` so tooling/tests can
-confirm the retry path fired; `tools/stress-gc-retry.R` is a CUDA stress harness
-that allocates large unreferenced buffers until the retry triggers. The retry is
+confirm the retry path fired; `tools/stress-gc-retry-cuda.R` is a CUDA stress
+harness that allocates large unreferenced buffers until the retry triggers, and
+`tools/stress-cpu-memory.R` is the CPU counterpart that checks the RAWSXP
+keepalive is reclaimed by ordinary GC. The retry is
 otherwise silent; setting the `PJRT_DEBUG` environment variable makes
 `try_alloc` print `"RESOURCE_EXHAUSTED — ran R gc, retrying"` when it fires
 (`rpjrt::debug_inform`).

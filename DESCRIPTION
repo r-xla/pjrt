@@ -24,6 +24,7 @@ Imports:
     withr,
     tengen (>= 0.2.0)
 Suggests:
+    stablehlo,
     testthat (>= 3.0.0)
 LinkingTo:
     Rcpp

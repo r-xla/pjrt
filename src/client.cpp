@@ -1,10 +1,15 @@
 #include "client.h"
 
+#include <Rcpp.h>
+
+#include <cctype>
 #include <memory>
+#include <string>
 
 #include "buffer.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
+#include "xla/service/hlo.pb.h"
 
 namespace rpjrt {
 
@@ -74,13 +79,14 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
 
   check_err(this->api.get(), this->api->PJRT_Client_Compile_(&args));
   return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api,
+                                                program.code, program.format(),
                                                 this->is_cpu());
 }
 
 AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
     void *data, const std::optional<std::vector<int64_t>> &dims,
     const std::optional<std::vector<int64_t>> &strides, PJRT_Buffer_Type dtype,
-    PJRT_Device *device) {
+    PJRT_Device *device, PJRT_HostBufferSemantics semantics) {
   // If no device is specified, use the first device
   if (device == nullptr) {
     const auto devices = this->devices();
@@ -96,8 +102,7 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
   args.num_dims = dims.has_value() ? dims->size() : 0;
   args.byte_strides = strides.has_value() ? strides->data() : nullptr;
   args.num_byte_strides = strides.has_value() ? strides->size() : 0;
-  args.host_buffer_semantics =
-      PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes;
+  args.host_buffer_semantics = semantics;
   args.device = device;
   args.memory = nullptr;
 
@@ -165,8 +170,118 @@ PJRTExecuteOptions::PJRTExecuteOptions(
 
 PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                                            std::shared_ptr<PJRT_Api> api,
+                                           const std::string &program_code,
+                                           PJRTProgramFormat program_format,
                                            bool is_cpu)
-    : executable(executable), api(api), is_cpu_(is_cpu) {}
+    : executable(executable), api(api), is_cpu_(is_cpu) {
+  load_input_output_aliases_(program_code, program_format);
+}
+
+namespace {
+
+// Parse input->output donation aliases out of the entry function's signature
+// in an MLIR module. stablehlo emits donation as a per-argument attribute
+//   %0: tensor<...> {tf.aliasing_output = M : i32}
+// where the donated argument's positional index is the PJRT parameter number
+// and M is the aliased output index.
+std::vector<rpjrt::PJRTInputOutputAlias> parse_mlir_aliases(
+    const std::string &code) {
+  std::vector<rpjrt::PJRTInputOutputAlias> aliases;
+
+  // Locate the `(` that opens @main's argument list. MLIR allows whitespace
+  // between the symbol name and the list, so we can't assume `@main(` is
+  // contiguous: find `@main`, skip any whitespace, and require a `(` next. The
+  // whitespace check also rejects same-prefix symbols like `@main2(`, whose
+  // next character is an identifier char rather than whitespace or `(`.
+  static const std::string kMain = "@main";
+  size_t paren_pos = std::string::npos;
+  for (size_t m = code.find(kMain); m != std::string::npos;
+       m = code.find(kMain, m + kMain.size())) {
+    size_t p = m + kMain.size();
+    while (p < code.size() &&
+           std::isspace(static_cast<unsigned char>(code[p]))) {
+      p++;
+    }
+    if (p < code.size() && code[p] == '(') {
+      paren_pos = p;
+      break;
+    }
+  }
+  if (paren_pos == std::string::npos) return aliases;
+
+  static const std::string kAttr = "tf.aliasing_output";
+  int arg_index = 0, paren = 0, bracket = 0;
+  for (size_t i = paren_pos /* at the '(' */; i < code.size(); ++i) {
+    const char c = code[i];
+    if (c == '(') {
+      paren++;
+    } else if (c == ')') {
+      if (--paren == 0) break;
+    } else if (c == '<' || c == '[' || c == '{') {
+      bracket++;
+    } else if (c == '>' || c == ']' || c == '}') {
+      if (bracket > 0) bracket--;
+    } else if (c == ',' && paren == 1 && bracket == 0) {
+      arg_index++;
+    } else if (code.compare(i, kAttr.size(), kAttr) == 0) {
+      size_t j = code.find('=', i + kAttr.size());
+      if (j == std::string::npos) continue;
+      j++;
+      while (j < code.size() &&
+             std::isspace(static_cast<unsigned char>(code[j]))) {
+        j++;
+      }
+      size_t end = j;
+      while (end < code.size() &&
+             std::isdigit(static_cast<unsigned char>(code[end]))) {
+        end++;
+      }
+      if (end > j) {
+        aliases.push_back({arg_index, std::stoi(code.substr(j, end - j))});
+      }
+    }
+  }
+  return aliases;
+}
+
+// Input/output aliasing for HLO-format programs is not supported; donation is
+// only wired up for the MLIR (stablehlo) path. We don't silently ignore a
+// declared HLO alias, though: PJRT would still donate the input at runtime
+// while the R layer kept treating it as live, reading freed memory and
+// double-freeing the keepalive. So inspect the module and reject the
+// unsupported case loudly. HLO programs without aliasing are unaffected.
+void reject_hlo_aliases(const std::string &code) {
+  // `code` is the HloModuleProto that PJRTProgram already round-tripped through
+  // protobuf and that compilation succeeded on, so ParseFromString cannot fail
+  // here; it only loads the message.
+  xla::HloModuleProto module;
+  module.ParseFromString(code);
+  if (module.has_input_output_alias()) {
+    Rcpp::stop(
+        "Input/output aliasing is not supported for HLO-format programs; "
+        "use an MLIR (stablehlo) program instead.");
+  }
+}
+
+}  // namespace
+
+// Cache the input->output donation aliases declared in the program we just
+// compiled. We read them from the program source we already hold rather than
+// from the plugin's optimized executable: the aliasing is part of the program
+// (XLA preserves caller-specified donation), so this needs no plugin support
+// and works identically on CPU, CUDA, and Metal. Only the MLIR path extracts
+// aliases; the HLO path rejects them (see reject_hlo_aliases).
+void PJRTLoadedExecutable::load_input_output_aliases_(
+    const std::string &program_code, PJRTProgramFormat program_format) {
+  switch (program_format) {
+    case MLIR:
+      aliases_ = parse_mlir_aliases(program_code);
+      break;
+    case HLO:
+      reject_hlo_aliases(program_code);
+      break;
+  }
+}
 
 PJRTLoadedExecutable::~PJRTLoadedExecutable() {
   PJRT_LoadedExecutable_Destroy_Args args{};
@@ -243,9 +358,14 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 
   exec_args.output_lists = outer_out.data();
 
-  // Buffer readiness is tracked via PJRT_Buffer_ReadyEvent, so we don't
-  // need device completion events.
-  exec_args.device_complete_events = nullptr;
+  // Request a per-device completion event. It becomes ready when the execution
+  // finishes reading its inputs, which is how the caller bounds the lifetime of
+  // zero-copy input host keepalives (individual output buffers can become ready
+  // at different times, so they are not a reliable "execution done" signal).
+  // Length must equal num_devices (== 1 here). Per-buffer readiness still uses
+  // PJRT_Buffer_ReadyEvent independently.
+  std::vector<PJRT_Event *> complete_events(1, nullptr);
+  exec_args.device_complete_events = complete_events.data();
 
   try_alloc(
       this->api.get(),
@@ -254,6 +374,10 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 
   // Build result
   AsyncExecuteResult result;
+  if (complete_events[0] != nullptr) {
+    result.complete_event =
+        std::make_unique<PJRTEvent>(complete_events[0], this->api);
+  }
   for (size_t i = 0; i < num_outputs; ++i) {
     auto buf = std::make_unique<PJRTBuffer>(outer_out[0][i], this->api);
     result.buffers.push_back(std::move(buf));

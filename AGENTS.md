@@ -74,3 +74,7 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options
 
 **Important:** Do not call `devtools::load_all()` and `devtools::test()` in the same R process. The protobuf descriptors get registered twice, causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use separate `Rscript -e` calls instead.
+
+## Memory management
+
+An object's finalizer (e.g., `reg.finalizer()`) runs only when the object is **garbage collected**, not when its binding goes out of scope or is `rm()`-ed. A test that relies on a finalizer must call `gc()` explicitly to trigger it.

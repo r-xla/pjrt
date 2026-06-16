@@ -88,11 +88,23 @@ PJRTBufferMemoryLayout::PJRTBufferMemoryLayout(PJRT_Buffer_MemoryLayout layout)
 PJRTBuffer::PJRTBuffer(PJRT_Buffer *buffer, std::shared_ptr<PJRT_Api> api)
     : buffer(buffer), api(api) {}
 
+PJRT_Buffer *PJRTBuffer::checked_buffer() const {
+  if (this->buffer == nullptr) {
+    Rcpp::stop("called on deleted or donated buffer");
+  }
+  return this->buffer;
+}
+
 PJRTBuffer::~PJRTBuffer() {
   // Drain the deferred release queue while we're on the main R thread.
   // This ensures R objects preserved for zero-copy transfers get released
   // when buffers are garbage collected.
   process_pending_releases();
+
+  // A null `buffer` means this wrapper held a donated input whose PJRT
+  // handle was invalidated by Execute and explicitly nulled by the
+  // keepalive-transfer logic. There's nothing left to destroy.
+  if (this->buffer == nullptr) return;
 
   PJRT_Buffer_Destroy_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Destroy_Args);
@@ -103,7 +115,7 @@ PJRTBuffer::~PJRTBuffer() {
 std::vector<int64_t> PJRTBuffer::dimensions() {
   PJRT_Buffer_Dimensions_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Dimensions_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_Dimensions_(&args));
 
   return std::vector<int64_t>(args.dims, args.dims + args.num_dims);
@@ -112,7 +124,7 @@ std::vector<int64_t> PJRTBuffer::dimensions() {
 std::unique_ptr<PJRTMemory> PJRTBuffer::memory() {
   PJRT_Buffer_Memory_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Memory_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_Memory_(&args));
 
   return std::make_unique<PJRTMemory>(args.memory, this->api);
@@ -121,7 +133,7 @@ std::unique_ptr<PJRTMemory> PJRTBuffer::memory() {
 std::unique_ptr<PJRTBufferMemoryLayout> PJRTBuffer::memory_layout() {
   PJRT_Buffer_GetMemoryLayout_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_GetMemoryLayout_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_GetMemoryLayout_(&args));
 
   return std::make_unique<PJRTBufferMemoryLayout>(args.layout);
@@ -181,7 +193,7 @@ std::vector<int64_t> PJRTBuffer::minor_to_major() {
 PJRT_Buffer_Type PJRTBuffer::element_type() {
   PJRT_Buffer_ElementType_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_ElementType_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_ElementType_(&args));
 
   return args.type;
@@ -190,7 +202,7 @@ PJRT_Buffer_Type PJRTBuffer::element_type() {
 std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
   PJRT_Buffer_Device_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_Device_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_Device_(&args));
 
   return std::make_unique<PJRTDevice>(args.device, this->api);
@@ -200,7 +212,7 @@ std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
     std::span<uint8_t> &host_buffer) {
   PJRT_Buffer_ToHostBuffer_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_ToHostBuffer_Args);
-  args.src = this->buffer;
+  args.src = checked_buffer();
   args.dst = host_buffer.data();
   args.dst_size = host_buffer.size();
 
@@ -220,7 +232,7 @@ std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
 PJRTEvent PJRTBuffer::ready_event() {
   PJRT_Buffer_ReadyEvent_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
   return PJRTEvent(args.event, this->api);
 }
@@ -239,10 +251,19 @@ void PJRTBuffer::await() {
 std::unique_ptr<PJRTBuffer> PJRTBuffer::copy_to_device(PJRTDevice &dst_device) {
   PJRT_Buffer_CopyToDevice_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_CopyToDevice_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   args.dst_device = dst_device.device;
   check_err(this->api.get(), this->api->PJRT_Buffer_CopyToDevice_(&args));
   return std::make_unique<PJRTBuffer>(args.dst_buffer, this->api);
+}
+
+bool PJRTBuffer::is_deleted() {
+  if (this->buffer == nullptr) return true;
+  PJRT_Buffer_IsDeleted_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_IsDeleted_Args);
+  args.buffer = this->buffer;
+  check_err(this->api.get(), this->api->PJRT_Buffer_IsDeleted_(&args));
+  return args.is_deleted;
 }
 
 // PJRTHostData implementation

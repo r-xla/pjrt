@@ -1,6 +1,7 @@
 #pragma once
 #include <numeric>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -155,6 +156,8 @@ void device_to_row_major(const T *src, T *dst, const std::vector<int64_t> &dims,
     dst[r] = src[p];
   }
 }
+
+PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype);
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type);
 

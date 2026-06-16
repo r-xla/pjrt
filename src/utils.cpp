@@ -1,7 +1,13 @@
 #include "utils.h"
 
 #include <R_ext/Print.h>  // REprintf
+#include <Rinternals.h>   // SEXP, R_ExternalPtrProtected
 #include <unistd.h>
+
+// R's headers #define `error` (-> Rf_error), which collides with the `.error`
+// members on PJRT's C-API structs used throughout this file. Drop the macro; we
+// never call R's error() here (failures throw std::runtime_error instead).
+#undef error
 
 #include <cstdio>
 #include <cstdlib>  // getenv
@@ -178,6 +184,21 @@ PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err) {
   return args.code;
 }
 
+PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
+  if (dtype == "f32") return PJRT_Buffer_Type_F32;
+  if (dtype == "f64") return PJRT_Buffer_Type_F64;
+  if (dtype == "i8") return PJRT_Buffer_Type_S8;
+  if (dtype == "i16") return PJRT_Buffer_Type_S16;
+  if (dtype == "i32") return PJRT_Buffer_Type_S32;
+  if (dtype == "i64") return PJRT_Buffer_Type_S64;
+  if (dtype == "ui8") return PJRT_Buffer_Type_U8;
+  if (dtype == "ui16") return PJRT_Buffer_Type_U16;
+  if (dtype == "ui32") return PJRT_Buffer_Type_U32;
+  if (dtype == "ui64") return PJRT_Buffer_Type_U64;
+  if (dtype == "pred") return PJRT_Buffer_Type_PRED;
+  throw std::runtime_error("Unsupported type: " + dtype);
+}
+
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {
   switch (type) {
     case PJRT_Buffer_Type_F32:
@@ -264,3 +285,8 @@ std::vector<int64_t> id2indices(int lid, const std::vector<int64_t> strides) {
   }
   return idx;
 }
+
+// Test-only: read the SEXP stored in an external pointer's protected slot. Used
+// to assert the keepalive invariant — which RAWSXP a CPU buffer's XPtr pins.
+// [[Rcpp::export()]]
+SEXP impl_test_xptr_prot(SEXP x) { return R_ExternalPtrProtected(x); }

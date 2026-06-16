@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include <Rcpp.h>
 
 namespace rpjrt {
@@ -12,5 +14,9 @@ void queue_release(SEXP obj);
 // Process any pending releases. This MUST be called from the main R thread.
 // It is safe to call this function even if there are no pending releases.
 void process_pending_releases();
+
+// Number of objects currently waiting in the release queue. Exposed for
+// tests/tooling to observe that the queue drains.
+std::size_t pending_release_count();
 
 }  // namespace rpjrt

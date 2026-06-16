@@ -749,8 +749,11 @@ test_that("create 0-dim array from integer", {
   )
 })
 
-test_that("empty buffer assertion", {
-  expect_error(pjrt_empty("f32", c(1, 2, 3)), "Empty buffers must have at least one dimension equal to 0")
+test_that("pjrt_empty allocates an uninitialized buffer of the requested shape", {
+  e <- pjrt_empty("f32", c(1, 2, 3))
+  expect_s3_class(e, "PJRTBuffer")
+  expect_equal(shape(e), c(1, 2, 3))
+  expect_true(elt_type(e) == "f32")
 })
 
 test_that("identity of buffer", {
@@ -1075,4 +1078,113 @@ module {
   expect_equal(as_array(out), m, tolerance = 1e-6)
   # as_raw goes through the same device→host path, so it must agree too.
   expect_equal(as_raw(out, row_major = FALSE), as_raw(pjrt_buffer(m, dtype = "f32"), row_major = FALSE))
+})
+
+describe("CPU buffer memory management", {
+  vcells_mb <- function() {
+    g <- gc(full = TRUE, verbose = FALSE)
+    g["Vcells", "(Mb)"]
+  }
+
+  it("keeps pjrt_buffer's backing RAWSXP in the XPtr's prot slot", {
+    skip_if(!is_cpu())
+    nfloats <- 1024L * 256L
+    b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
+    p <- impl_test_xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), nfloats * 4L)
+  })
+
+  it("keeps pjrt_empty's backing RAWSXP in the XPtr's prot slot", {
+    skip_if(!is_cpu())
+    e <- pjrt_empty("f32", c(256L, 256L))
+    p <- impl_test_xptr_prot(e)
+    expect_true(is.raw(p))
+    expect_equal(length(p), 256L * 256L * 4L)
+  })
+
+  # Every CPU buffer must be backed by a prot-slot RAWSXP, including the
+  # paths where R's in-memory layout already matches the dtype byte-for-byte
+  # (so no per-element conversion happens) and the raw path. Otherwise that
+  # buffer's host memory would be invisible to R's garbage collector.
+  it("keeps the backing RAWSXP for a no-conversion f64 buffer", {
+    skip_if(!is_cpu())
+    n <- 4096L
+    b <- pjrt_buffer(as.double(seq_len(n)), dtype = "f64")
+    p <- impl_test_xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), n * 8L)
+  })
+
+  it("keeps the backing RAWSXP for a no-conversion i32 buffer", {
+    skip_if(!is_cpu())
+    n <- 4096L
+    b <- pjrt_buffer(seq_len(n), dtype = "i32")
+    p <- impl_test_xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), n * 4L)
+  })
+
+  it("keeps the backing RAWSXP for an integer64 buffer", {
+    skip_if(!is_cpu())
+    n <- 4096L
+    b <- pjrt_buffer(bit64::as.integer64(seq_len(n)), dtype = "i64")
+    p <- impl_test_xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), n * 8L)
+  })
+
+  it("keeps the backing RAWSXP for a raw buffer", {
+    skip_if(!is_cpu())
+    b <- pjrt_buffer(raw(4096L * 4L), dtype = "f32", shape = 4096L, row_major = FALSE)
+    p <- impl_test_xptr_prot(b)
+    expect_true(is.raw(p))
+    expect_equal(length(p), 4096L * 4L)
+  })
+
+  it("reports the backing RAWSXP size via object.size, not just the pointer", {
+    skip_if(!is_cpu())
+    nfloats <- 1024L * 256L
+    expected_bytes <- nfloats * 4L
+    b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
+    size <- as.numeric(object.size(b))
+    # The RAWSXP backing the buffer lives in the XPtr's prot slot, so
+    # object.size traverses it and reports (at least) the data's bytes,
+    # rather than the handful of bytes an external pointer alone occupies.
+    expect_gte(size, expected_bytes)
+    # And it's the data dominating the size, not some unrelated allocation.
+    expect_lt(size - expected_bytes, 1024L)
+  })
+
+  it("keeps RAWSXPs alive under GC pressure while the XPtr is reachable", {
+    skip_if(!is_cpu())
+    bufs <- lapply(1:8, function(i) {
+      pjrt_buffer(matrix(0.5, 1024L * 1024L, 1), dtype = "f32")
+    })
+    for (i in 1:5) {
+      invisible(rnorm(1e5))
+      gc(full = TRUE)
+    }
+    expect_true(all(as.numeric(as_array(bufs[[1]])) == 0.5))
+  })
+
+  it("reclaims RAWSXPs when XPtrs go out of scope", {
+    skip_if(!is_cpu())
+    gc(full = TRUE)
+    gc(full = TRUE)
+    before <- vcells_mb()
+
+    bufs <- lapply(1:20, function(i) {
+      pjrt_buffer(matrix(0.5, 1024L * 1024L, 1), dtype = "f32")
+    })
+    during <- vcells_mb()
+    # 20 buffers x 4 MB f32 = ~80 MB. Allow some slack for accounting noise.
+    expect_gt(during - before, 70)
+
+    rm(bufs)
+    gc(full = TRUE)
+    gc(full = TRUE)
+    after <- vcells_mb()
+    expect_lt(abs(after - before), 5)
+  })
 })
