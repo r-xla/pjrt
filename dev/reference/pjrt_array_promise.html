@@ -59,7 +59,7 @@ Users should not call this directly - use <code><a href="as_array_async.html">as
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_array_promise</span><span class="op">(</span><span class="va">data</span>, <span class="va">dtype</span>, <span class="va">shape</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_array_promise</span><span class="op">(</span><span class="va">data</span>, <span class="va">dtype</span>, <span class="va">shape</span>, <span class="va">minor_to_major</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -76,6 +76,11 @@ Users should not call this directly - use <code><a href="as_array_async.html">as
 
 <dt id="arg-shape">shape<a class="anchor" aria-label="anchor" href="#arg-shape"></a></dt>
 <dd><p>Integer vector of dimensions.</p></dd>
+
+
+<dt id="arg-minor-to-major">minor_to_major<a class="anchor" aria-label="anchor" href="#arg-minor-to-major"></a></dt>
+<dd><p>Integer vector giving the device buffer's layout
+(minor-to-major dimension order), used to reorder the bytes on readback.</p></dd>
 
 </dl></div>
     <div class="section level2">

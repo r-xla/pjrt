@@ -6,6 +6,13 @@
 
 - `check_err()` no longer leaks the underlying `PJRT_Error` when
   converting a plugin error into an R exception.
+- Reading a buffer back to the host now respects the device buffer’s
+  actual memory layout. A non-row-major (but untiled) executable output
+  — e.g. one pinned to a column-major layout via `mhlo.layout_mode` — is
+  reordered correctly instead of being returned transposed. A layout the
+  readback cannot faithfully reorder (strided, tiled, or
+  rank-mismatched) now raises a clear error rather than silently
+  returning wrong data.
 
 ### Features
 
