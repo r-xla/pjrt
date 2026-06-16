@@ -942,8 +942,8 @@ Rcpp::List impl_loaded_executable_execute(
   // input alive until the computation finishes with it. Pinning the whole XPtr
   // keeps the buffer -- and transitively its RAWSXP -- reachable, so an
   // un-awaited Execute can't read freed memory. Device inputs (CUDA/Metal) are
-  // PJRT-owned and carry a NilValue prot slot, so they are skipped: PJRT already
-  // defers their device-memory free until pending ops complete.
+  // PJRT-owned and carry a NilValue prot slot, so they are skipped: PJRT
+  // already defers their device-memory free until pending ops complete.
   std::vector<SEXP> input_keepalives;
   for (auto i = 0; i < input.size(); ++i) {
     SEXP xptr = VECTOR_ELT(input, i);
@@ -955,8 +955,8 @@ Rcpp::List impl_loaded_executable_execute(
   // Pin the inputs BEFORE launching the async Execute, so the keepalive is
   // already in place when PJRT's background threads begin reading the aliased
   // host bytes. R_PreserveObject runs here on the main thread; the matching
-  // release is deferred to the completion event below. If Execute itself throws,
-  // unpin first so the objects don't leak.
+  // release is deferred to the completion event below. If Execute itself
+  // throws, unpin first so the objects don't leak.
   for (SEXP k : input_keepalives) R_PreserveObject(k);
 
   rpjrt::AsyncExecuteResult result;
@@ -987,9 +987,11 @@ Rcpp::List impl_loaded_executable_execute(
   const auto &aliases = executable->input_output_aliases();
   for (const auto &alias : aliases) {
     if (alias.input_index < 0 ||
-        static_cast<size_t>(alias.input_index) >= static_cast<size_t>(input.size()) ||
+        static_cast<size_t>(alias.input_index) >=
+            static_cast<size_t>(input.size()) ||
         alias.output_index < 0 ||
-        static_cast<size_t>(alias.output_index) >= static_cast<size_t>(buffers.size())) {
+        static_cast<size_t>(alias.output_index) >=
+            static_cast<size_t>(buffers.size())) {
       continue;
     }
     SEXP in_xptr_sexp = VECTOR_ELT(input, alias.input_index);
@@ -1007,8 +1009,8 @@ Rcpp::List impl_loaded_executable_execute(
   // Release the input keepalives (pinned before Execute, above) once the
   // execution has finished reading all inputs. Without the pin, a dropped
   // zero-copy input could be collected -- freeing its backing RAWSXP -- while
-  // the async Execute is still reading it (use-after-free). The completion event
-  // fires on a PJRT thread and only enqueues the release; the actual
+  // the async Execute is still reading it (use-after-free). The completion
+  // event fires on a PJRT thread and only enqueues the release; the actual
   // R_ReleaseObject runs later on the main thread via the deferred-release
   // queue. The PJRTEvent wrapper is destroyed when `result` goes out of scope,
   // but the registered callback still fires (see PJRTEvent::on_ready).
@@ -1090,9 +1092,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
-  return create_buffer_from_array_async_no_convert(client, data, REAL(data), dims,
-                                                 buffer_type, sizeof(int64_t),
-                                                 false, device->device);
+  return create_buffer_from_array_async_no_convert(
+      client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
+      device->device);
 }
 
 // [[Rcpp::export()]]
