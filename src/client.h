@@ -13,6 +13,20 @@ namespace rpjrt {
 // Each buffer has its completion event set internally.
 struct AsyncExecuteResult {
   std::vector<std::unique_ptr<PJRTBuffer>> buffers;
+  // Becomes ready when the device execution completes (i.e. the computation
+  // has finished reading all of its inputs). Used to bound the lifetime of
+  // zero-copy input host keepalives. Null only if the plugin did not populate
+  // a completion event.
+  std::unique_ptr<PJRTEvent> complete_event;
+};
+
+// An input->output aliasing entry baked into a compiled executable.
+// On execute the input buffer at `input_index` is donated to the output
+// at `output_index`; PJRT invalidates the input handle and reuses its
+// memory for the output.
+struct PJRTInputOutputAlias {
+  int input_index;
+  int output_index;
 };
 
 // Result of async buffer-from-host transfer
@@ -52,11 +66,16 @@ class PJRTLoadedExecutable {
   PJRT_LoadedExecutable *executable;
   std::shared_ptr<PJRT_Api> api;
   PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                       std::shared_ptr<PJRT_Api> api, bool is_cpu);
+                       std::shared_ptr<PJRT_Api> api,
+                       const std::string &program_code,
+                       PJRTProgramFormat program_format, bool is_cpu);
   AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   std::vector<PJRT_Device *> addressable_devices();
+  const std::vector<PJRTInputOutputAlias> &input_output_aliases() const {
+    return aliases_;
+  }
   ~PJRTLoadedExecutable();
 
  private:
@@ -64,6 +83,9 @@ class PJRTLoadedExecutable {
   // execute_async's try_alloc, which is only worthwhile on backends where
   // OOM-and-retry actually happens (CUDA).
   bool is_cpu_;
+  std::vector<PJRTInputOutputAlias> aliases_;
+  void load_input_output_aliases_(const std::string &program_code,
+                                  PJRTProgramFormat program_format);
 };
 
 class PJRTClient {
@@ -79,7 +101,9 @@ class PJRTClient {
   AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
-      PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr);
+      PJRT_Buffer_Type dtype, PJRT_Device *device = nullptr,
+      PJRT_HostBufferSemantics semantics =
+          PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes);
   std::string platform();
   bool is_cpu();
 
