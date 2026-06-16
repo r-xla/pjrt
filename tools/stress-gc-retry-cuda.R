@@ -19,7 +19,7 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 platform <- if (length(args) >= 1L) args[[1L]] else "cuda"
-chunk_mb <- if (length(args) >= 2L) as.numeric(args[[2L]]) else 256
+chunk_mb <- if (length(args) >= 2L) as.numeric(args[[2L]]) else 2560
 n_chunks <- if (length(args) >= 3L) as.integer(args[[3L]]) else 200L
 
 library(pjrt)
