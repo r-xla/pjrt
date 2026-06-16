@@ -69,9 +69,20 @@ class PJRTBuffer {
   // Copy the buffer to a different device within the same client
   std::unique_ptr<PJRTBuffer> copy_to_device(PJRTDevice& dst_device);
 
+  // True iff PJRT has dropped this buffer's device memory — i.e. it was
+  // explicitly deleted or donated to an Execute. Queried right after Execute
+  // to learn whether an aliased input was *actually* donated (see
+  // impl_loaded_executable_execute). A null handle counts as deleted.
+  bool is_deleted();
+
  private:
   std::shared_ptr<PJRT_Api> api;
   PJRTEvent ready_event();
+  // Returns this->buffer, raising an R-level error if the underlying
+  // PJRT handle has been invalidated by donation. Used by every method
+  // that hands `this->buffer` to a PJRT C API call, so that operating on
+  // a donated buffer surfaces a clean error rather than a crash.
+  PJRT_Buffer* checked_buffer() const;
 };
 
 // Holds result of an async device-to-host transfer.

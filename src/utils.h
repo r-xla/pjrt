@@ -1,6 +1,7 @@
 #pragma once
 #include <numeric>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -112,6 +113,8 @@ void row_to_col_order(const std::vector<src_type> &src, dst_type *dst,
     dst[idx_col] = static_cast<dst_type>(src[idx_row]);
   }
 }
+
+PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype);
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type);
 

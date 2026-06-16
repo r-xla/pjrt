@@ -1,7 +1,13 @@
-# Stress test for the gc-on-OOM retry path in pjrt.
+# Stress test for the gc-on-OOM retry path in pjrt (CUDA device memory).
+#
+# This is the CUDA counterpart to tools/stress-cpu-memory.R: here R's GC is
+# blind to VRAM pressure, so unreferenced buffers accumulate until PJRT reports
+# RESOURCE_EXHAUSTED and the try_alloc wrapper forces a gc() and retries. On
+# CPU the bytes live in an R RAWSXP that ordinary GC can see, so that script
+# verifies reclamation happens without any retry instead.
 #
 # Usage:
-#   Rscript tools/stress-gc-retry.R [platform] [chunk_mb] [n_chunks]
+#   Rscript tools/stress-gc-retry-cuda.R [platform] [chunk_mb] [n_chunks]
 #
 # Defaults to cuda. On CUDA, the script repeatedly allocates large buffers
 # without keeping R references to them, so PJRTBuffer external pointers
