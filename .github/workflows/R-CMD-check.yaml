@@ -29,7 +29,7 @@ jobs:
         include:
           - config: {os: "ubuntu", platform: "cuda"}
             container: {image: 'nvidia/cuda:12.8.1-base-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
-            runner: ['self-hosted', 'gpu']
+            runner: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64"
             extra-packages: "any::rcmdcheck, cuda12.8"
             extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
             as-cran: 'false'
