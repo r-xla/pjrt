@@ -157,6 +157,10 @@ impl_buffer_print <- function(buffer, max_rows, max_width, max_rows_slice) {
     invisible(.Call(`_pjrt_impl_buffer_print`, buffer, max_rows, max_width, max_rows_slice))
 }
 
+impl_format_array <- function(data, max_rows, max_width, max_rows_slice) {
+    .Call(`_pjrt_impl_format_array`, data, max_rows, max_width, max_rows_slice)
+}
+
 impl_buffer_is_ready <- function(buffer) {
     .Call(`_pjrt_impl_buffer_is_ready`, buffer)
 }
