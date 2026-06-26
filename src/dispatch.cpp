@@ -12,12 +12,16 @@
 #include <Rcpp.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <list>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "buffer.h"
+#include "device.h"
 
 namespace rpjrt {
 
@@ -143,6 +147,84 @@ static bool node_eq(const Node& a, const Node& b) {
   return false;
 }
 
+// Per-leaf abstract value -- mirrors anvl's nv_aval(dtype, shape, ambiguous).
+// dtype/shape are genuine PJRT_Buffer properties read natively; `ambiguous` is
+// an anvl type-system bit supplied per leaf (pjrt folds it into the key but
+// never interprets it). `device` is NOT per-aval: it is a single per-call value
+// on the cache_key (matching anvl).
+struct aval {
+  int dtype = 0;  // PJRT_Buffer_Type enum
+  std::vector<int64_t> shape;
+  bool ambiguous = false;
+};
+
+// One leaf of the cache key. Dynamic leaves carry an `aval`; static-arg leaves
+// carry the R value itself (compared via R's identical()).
+struct KeyLeaf {
+  bool is_static = false;
+  aval av;                  // when !is_static
+  SEXP value = R_NilValue;  // when is_static (protected by the cache entry)
+};
+
+// The executable-cache key -- mirrors anvl's list(in_tree, key_leaves, device).
+struct CacheKey {
+  Node in_tree;
+  std::vector<KeyLeaf> leaves;
+  const void* device = nullptr;  // canonical device id (PJRT_Device*), or null
+};
+
+static std::size_t aval_hash(const aval& a) {
+  std::size_t h = static_cast<std::size_t>(a.dtype);
+  hash_combine(h, a.ambiguous ? 1u : 0u);
+  hash_combine(h, a.shape.size());
+  for (int64_t d : a.shape) {
+    hash_combine(h, static_cast<std::size_t>(d));
+  }
+  return h;
+}
+
+static bool aval_eq(const aval& a, const aval& b) {
+  return a.dtype == b.dtype && a.ambiguous == b.ambiguous && a.shape == b.shape;
+}
+
+struct CacheKeyHash {
+  std::size_t operator()(const CacheKey& k) const {
+    std::size_t h = node_hash(k.in_tree);
+    hash_combine(h, reinterpret_cast<std::size_t>(k.device));
+    hash_combine(h, k.leaves.size());
+    for (const KeyLeaf& leaf : k.leaves) {
+      if (leaf.is_static) {
+        // Cheap discriminator only; exact equality falls back to identical().
+        hash_combine(h, 0x57A71Cu);
+        hash_combine(h, static_cast<std::size_t>(TYPEOF(leaf.value)));
+        hash_combine(h, static_cast<std::size_t>(Rf_xlength(leaf.value)));
+      } else {
+        hash_combine(h, aval_hash(leaf.av));
+      }
+    }
+    return h;
+  }
+};
+
+struct CacheKeyEq {
+  bool operator()(const CacheKey& a, const CacheKey& b) const {
+    if (!node_eq(a.in_tree, b.in_tree)) return false;
+    if (a.device != b.device) return false;
+    if (a.leaves.size() != b.leaves.size()) return false;
+    for (std::size_t k = 0; k < a.leaves.size(); ++k) {
+      const KeyLeaf& x = a.leaves[k];
+      const KeyLeaf& y = b.leaves[k];
+      if (x.is_static != y.is_static) return false;
+      if (x.is_static) {
+        if (!R_compute_identical(x.value, y.value, /*flags=*/0)) return false;
+      } else if (!aval_eq(x.av, y.av)) {
+        return false;
+      }
+    }
+    return true;
+  }
+};
+
 // A least-recently-used cache: a hashmap for lookup plus a doubly-linked list
 // ordering entries most- to least-recently-used (mirrors xlamisc::LRUCache, the
 // R cache anvl's jit uses). `get`/`set` move the touched entry to the front;
@@ -194,6 +276,22 @@ class LRUCache {
   std::function<void(V&)> on_evict_;
 };
 
+// Read (dtype, shape) off a PJRTBuffer xptr and (device) as its canonical id.
+// Native reads via pjrt's own buffer class -- no R round-trip.
+static aval aval_from_buffer(SEXP buf_xptr, bool ambiguous,
+                             const void** out_device) {
+  Rcpp::XPtr<PJRTBuffer> buf(buf_xptr);
+  aval a;
+  a.dtype = static_cast<int>(buf->element_type());
+  a.shape = buf->dimensions();
+  a.ambiguous = ambiguous;
+  if (out_device) {
+    std::unique_ptr<PJRTDevice> dev = buf->device();
+    *out_device = static_cast<const void*>(dev->device);
+  }
+  return a;
+}
+
 }  // namespace rpjrt
 
 // Self-test entry: flatten `x`, rebuild it, and hash the tree. Lets the R tests
@@ -218,6 +316,53 @@ Rcpp::List impl_dispatch_node_selftest(SEXP x) {
       Rcpp::Named("hash") = static_cast<double>(node_hash(tree)));
   UNPROTECT(2);
   return out;
+}
+
+namespace rpjrt {
+
+// Build a CacheKey from a flat list of dynamic leaves, each a
+// list(buffer_xptr, ambiguous), with a flat ListNode in_tree over them.
+static CacheKey build_key_from_leaves(Rcpp::List leaves) {
+  CacheKey key;
+  key.in_tree.kind = Node::ListNode;
+  key.in_tree.nodes.resize(leaves.size());
+  key.leaves.reserve(leaves.size());
+  for (R_xlen_t k = 0; k < leaves.size(); ++k) {
+    Rcpp::List leaf = leaves[k];
+    SEXP buf = leaf[0];
+    bool ambiguous = Rcpp::as<bool>(leaf[1]);
+    const void* dev = nullptr;
+    KeyLeaf kl;
+    kl.is_static = false;
+    kl.av = aval_from_buffer(buf, ambiguous, &dev);
+    key.leaves.push_back(std::move(kl));
+    // device is a single per-call value; take it from the first leaf.
+    if (k == 0) key.device = dev;
+    Node child;
+    child.kind = Node::LeafNode;
+    child.i = static_cast<int>(k + 1);
+    key.in_tree.nodes[k] = child;
+  }
+  return key;
+}
+
+}  // namespace rpjrt
+
+// Self-test for aval/CacheKey hashing. Returns the 64-bit key hash as a decimal
+// string (a double would lose the low bits that distinguish keys). Each leaf is
+// a list(buffer_xptr, ambiguous).
+// [[Rcpp::export]]
+std::string impl_dispatch_key_hash(Rcpp::List leaves) {
+  rpjrt::CacheKey key = rpjrt::build_key_from_leaves(leaves);
+  return std::to_string(rpjrt::CacheKeyHash{}(key));
+}
+
+// Self-test for aval/CacheKey equality (what actually governs cache hits).
+// [[Rcpp::export]]
+bool impl_dispatch_key_eq(Rcpp::List a, Rcpp::List b) {
+  rpjrt::CacheKey ka = rpjrt::build_key_from_leaves(a);
+  rpjrt::CacheKey kb = rpjrt::build_key_from_leaves(b);
+  return rpjrt::CacheKeyEq{}(ka, kb);
 }
 
 // Self-test for the LRU cache: capacity 2, exercise recency + eviction.

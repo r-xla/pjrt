@@ -5,6 +5,14 @@ impl_dispatch_node_selftest <- function(x) {
     .Call(`_pjrt_impl_dispatch_node_selftest`, x)
 }
 
+impl_dispatch_key_hash <- function(leaves) {
+    .Call(`_pjrt_impl_dispatch_key_hash`, leaves)
+}
+
+impl_dispatch_key_eq <- function(a, b) {
+    .Call(`_pjrt_impl_dispatch_key_eq`, a, b)
+}
+
 impl_dispatch_lru_selftest <- function() {
     .Call(`_pjrt_impl_dispatch_lru_selftest`)
 }

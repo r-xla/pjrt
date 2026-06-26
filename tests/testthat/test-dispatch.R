@@ -45,3 +45,29 @@ test_that("native LRU cache: recency, eviction, on_evict hook", {
     c(10L, 1L, 0L, 1L, 2L, 1L)
   )
 })
+
+test_that("native cache key distinguishes dtype/shape/ambiguity/arity", {
+  skip_if_not(plugins_downloaded())
+  leaf <- function(buf, ambiguous = FALSE) list(buf, ambiguous)
+  x <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+  x2 <- pjrt_buffer(c(4, 5, 6), dtype = "f32") # same dtype/shape/device
+  xi <- pjrt_buffer(c(1L, 2L, 3L), dtype = "i32") # different dtype
+  xs <- pjrt_buffer(c(1, 2), dtype = "f32") # different shape
+
+  H <- function(...) impl_dispatch_key_hash(list(...))
+  E <- function(a, b) impl_dispatch_key_eq(a, b)
+
+  # equal signatures (even from different buffers) hash and compare equal
+  expect_equal(H(leaf(x), leaf(x)), H(leaf(x2), leaf(x2)))
+  expect_true(E(list(leaf(x), leaf(x)), list(leaf(x2), leaf(x2))))
+
+  # each distinguishing property changes both hash and equality
+  expect_false(H(leaf(x)) == H(leaf(xi))) # dtype
+  expect_false(E(list(leaf(x)), list(leaf(xi))))
+  expect_false(H(leaf(x)) == H(leaf(xs))) # shape
+  expect_false(E(list(leaf(x)), list(leaf(xs))))
+  expect_false(H(leaf(x, TRUE)) == H(leaf(x))) # ambiguity
+  expect_false(E(list(leaf(x, TRUE)), list(leaf(x))))
+  expect_false(H(leaf(x), leaf(x)) == H(leaf(x))) # arity
+  expect_false(E(list(leaf(x), leaf(x)), list(leaf(x))))
+})
