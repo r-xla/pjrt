@@ -23,6 +23,12 @@
 #' @param simplify (`logical(1)`)\cr
 #'   If `TRUE` (default), a single output is returned as a `PJRTBuffer`.
 #'   If `FALSE`, a single output is returned as a `list` of length 1 containing a `PJRTBuffer`.
+#' @param check (`logical(1)`)\cr
+#'   If `TRUE` (default), validate the arguments (executable type, that all
+#'   inputs are `PJRTBuffer`s and unnamed, execution options, and `simplify`).
+#'   Trusted callers on a hot dispatch path can pass `FALSE` to skip this
+#'   validation; the caller is then responsible for guaranteeing that
+#'   `executable`, the inputs, and `execution_options` are valid.
 #' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
 #' @seealso [await()], [is_ready()], [as_array_async()]
 #' @examplesIf plugins_downloaded()
@@ -44,23 +50,24 @@
 #' y <- pjrt_buffer(c(5, 6, 7, 8), shape = c(2, 2), dtype = "f32")
 #' pjrt_execute(exec, x, y)
 #' @export
-pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = TRUE) {
-  if (!is.null(...names())) {
-    cli_abort("Expected unnamed arguments")
-  }
-
-  check_loaded_executable(executable)
+pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = TRUE, check = TRUE) {
   input_raw <- list(...)
 
-  lapply(input_raw, check_buffer)
-
-  if (is.null(execution_options)) {
-    execution_options <- pjrt_execution_options()
-  } else {
-    check_execution_options(execution_options)
+  if (check) {
+    if (!is.null(...names())) {
+      cli_abort("Expected unnamed arguments")
+    }
+    check_loaded_executable(executable)
+    lapply(input_raw, check_buffer)
+    assert_flag(simplify)
+    if (!is.null(execution_options)) {
+      check_execution_options(execution_options)
+    }
   }
 
-  assert_flag(simplify)
+  if (is.null(execution_options)) {
+    execution_options <- default_execution_options()
+  }
 
   buffers <- impl_loaded_executable_execute(executable, input_raw, execution_options)
 
