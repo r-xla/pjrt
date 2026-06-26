@@ -317,34 +317,35 @@ struct LeafBuf {
 
 static LeafBuf extract_leaf(SEXP leaf) {
   LeafBuf lb;
-  if (TYPEOF(leaf) == EXTPTRSXP && Rf_inherits(leaf, "PJRTBuffer")) {
-    lb.ok = true;
-    lb.buffer = leaf;
+  // Only an xla AnvlArray is dispatchable: a named list of class "AnvlArray"
+  // with $backend == "xla", from which we read $data (a PJRTBuffer) and
+  // $ambiguous. Everything else -- a bare buffer (the anvl compile callback
+  // cannot turn it into an aval), a non-xla backend, a literal, etc. -- is not
+  // dispatchable and falls back to the R path.
+  if (TYPEOF(leaf) != VECSXP || !Rf_inherits(leaf, "AnvlArray")) return lb;
+  SEXP nms = Rf_getAttrib(leaf, R_NamesSymbol);
+  if (nms == R_NilValue) return lb;
+  SEXP data = R_NilValue, backend = R_NilValue, amb = R_NilValue;
+  for (R_xlen_t k = 0; k < XLENGTH(leaf); ++k) {
+    const char* nm = CHAR(STRING_ELT(nms, k));
+    if (!std::strcmp(nm, "data"))
+      data = VECTOR_ELT(leaf, k);
+    else if (!std::strcmp(nm, "backend"))
+      backend = VECTOR_ELT(leaf, k);
+    else if (!std::strcmp(nm, "ambiguous"))
+      amb = VECTOR_ELT(leaf, k);
+  }
+  if (backend == R_NilValue || TYPEOF(backend) != STRSXP ||
+      std::strcmp(CHAR(STRING_ELT(backend, 0)), "xla") != 0) {
+    return lb;  // non-xla backend -> not dispatchable here
+  }
+  if (data == R_NilValue || TYPEOF(data) != EXTPTRSXP ||
+      !Rf_inherits(data, "PJRTBuffer")) {
     return lb;
   }
-  if (TYPEOF(leaf) == VECSXP && Rf_inherits(leaf, "AnvlArray")) {
-    SEXP nms = Rf_getAttrib(leaf, R_NamesSymbol);
-    if (nms == R_NilValue) return lb;
-    SEXP data = R_NilValue, backend = R_NilValue, amb = R_NilValue;
-    for (R_xlen_t k = 0; k < XLENGTH(leaf); ++k) {
-      const char* nm = CHAR(STRING_ELT(nms, k));
-      if (!std::strcmp(nm, "data"))
-        data = VECTOR_ELT(leaf, k);
-      else if (!std::strcmp(nm, "backend"))
-        backend = VECTOR_ELT(leaf, k);
-      else if (!std::strcmp(nm, "ambiguous"))
-        amb = VECTOR_ELT(leaf, k);
-    }
-    if (backend == R_NilValue || TYPEOF(backend) != STRSXP ||
-        std::strcmp(CHAR(STRING_ELT(backend, 0)), "xla") != 0) {
-      return lb;  // non-xla backend -> not dispatchable here
-    }
-    if (data == R_NilValue || TYPEOF(data) != EXTPTRSXP) return lb;
-    lb.ok = true;
-    lb.buffer = data;
-    lb.ambiguous = (amb != R_NilValue && Rf_asLogical(amb) == TRUE);
-    return lb;
-  }
+  lb.ok = true;
+  lb.buffer = data;
+  lb.ambiguous = (amb != R_NilValue && Rf_asLogical(amb) == TRUE);
   return lb;
 }
 
@@ -601,19 +602,25 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
   if (entry == nullptr) {
     Rcpp::Function miss(d->miss_fn());
     Rcpp::List res = miss(args);
+
+    // Extract everything that can throw FIRST (while `res` keeps the SEXPs
+    // rooted), and only then R_PreserveObject into the entry. This keeps the
+    // preserve/release balanced even if a malformed callback result throws --
+    // a half-built entry with dangling preserves would otherwise leak.
     CacheEntry e;
-    e.exec = res["exec"];
-    R_PreserveObject(e.exec);
-    if (res.containsElementNamed("const_arrays")) {
-      Rcpp::List consts = res["const_arrays"];
-      for (R_xlen_t i = 0; i < consts.size(); ++i) {
-        SEXP c = consts[i];
-        R_PreserveObject(c);
-        e.const_arrays.push_back(c);
-      }
-    }
+    auto named = [&](const char* nm) -> SEXP {
+      return res.containsElementNamed(nm) ? static_cast<SEXP>(res[nm])
+                                          : R_NilValue;
+    };
+    SEXP exec = res["exec"];  // required
+    SEXP consts = named("const_arrays");
+    SEXP client = named("client");
+    SEXP device_xptr = named("device");
+    SEXP out_tree = named("out_tree");
+    SEXP ambiguous_out = named("ambiguous_out");
     if (res.containsElementNamed("phantom_specs")) {
       Rcpp::List specs = res["phantom_specs"];
+      e.phantom_specs.reserve(specs.size());
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
@@ -622,19 +629,28 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
         e.phantom_specs.push_back(std::move(ps));
       }
     }
-    auto preserve_named = [&](const char* nm, SEXP& slot) {
-      if (res.containsElementNamed(nm)) {
-        SEXP v = res[nm];
-        if (v != R_NilValue) {
-          R_PreserveObject(v);
-          slot = v;
-        }
+
+    // No throwing operations past this point: preserve the R objects.
+    auto keep = [](SEXP v, SEXP& slot) {
+      if (v != R_NilValue) {
+        R_PreserveObject(v);
+        slot = v;
       }
     };
-    preserve_named("client", e.client);
-    preserve_named("device", e.device_xptr);
-    preserve_named("out_tree", e.out_tree);
-    preserve_named("ambiguous_out", e.ambiguous_out);
+    keep(exec, e.exec);
+    if (consts != R_NilValue) {
+      Rcpp::List cl(consts);
+      e.const_arrays.reserve(cl.size());
+      for (R_xlen_t i = 0; i < cl.size(); ++i) {
+        SEXP c = cl[i];
+        R_PreserveObject(c);
+        e.const_arrays.push_back(c);
+      }
+    }
+    keep(client, e.client);
+    keep(device_xptr, e.device_xptr);
+    keep(out_tree, e.out_tree);
+    keep(ambiguous_out, e.ambiguous_out);
     e.device = key.device;
     d->cache().set(key, std::move(e));
     entry = d->cache().get(key);
@@ -642,23 +658,24 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
 
   // 5. assemble inputs: const_arrays ++ leaf buffers ++ freshly-allocated
   // phantom donation buffers, then execute.
-  std::vector<SEXP> phantoms;
-  phantoms.reserve(entry->phantom_specs.size());
+  // Build the GC-rooted `inputs` list first, then allocate each phantom buffer
+  // straight into its slot. A phantom is reachable only through `inputs` (the
+  // R GC does not scan a std::vector<SEXP>), and impl_client_buffer_empty
+  // allocates -- so writing it into the rooted list immediately, before the
+  // next allocation, is required to avoid a GC use-after-free.
+  Rcpp::List inputs(entry->const_arrays.size() + bufs.size() +
+                    entry->phantom_specs.size());
+  R_xlen_t pos = 0;
+  for (SEXP c : entry->const_arrays) inputs[pos++] = c;
+  for (const LeafBuf& lb : bufs) inputs[pos++] = lb.buffer;
   if (!entry->phantom_specs.empty()) {
     Rcpp::XPtr<rpjrt::PJRTClient> client(entry->client);
     Rcpp::XPtr<rpjrt::PJRTDevice> device(entry->device_xptr);
     for (const PhantomSpec& ps : entry->phantom_specs) {
-      Rcpp::XPtr<rpjrt::PJRTBuffer> ph =
+      inputs[pos++] =
           impl_client_buffer_empty(client, device, ps.shape, ps.dtype);
-      phantoms.push_back(static_cast<SEXP>(ph));
     }
   }
-
-  Rcpp::List inputs(entry->const_arrays.size() + bufs.size() + phantoms.size());
-  R_xlen_t pos = 0;
-  for (SEXP c : entry->const_arrays) inputs[pos++] = c;
-  for (const LeafBuf& lb : bufs) inputs[pos++] = lb.buffer;
-  for (SEXP ph : phantoms) inputs[pos++] = ph;
 
   Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> exec(entry->exec);
   Rcpp::XPtr<rpjrt::PJRTExecuteOptions> opts(d->opts());

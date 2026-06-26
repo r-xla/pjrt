@@ -89,8 +89,14 @@ test_that("native dispatcher caches, executes, and falls back", {
     list(exec = exec2)
   })
 
-  x <- pjrt_buffer(c(1, 2), dtype = "f32")
-  y <- pjrt_buffer(c(3, 4), dtype = "f32")
+  # Leaves are xla AnvlArray-shaped lists (list(data=buffer, backend="xla", ...)).
+  arr <- function(buf) {
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"),
+      class = "AnvlArray"
+    )
+  }
+  x <- arr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  y <- arr(pjrt_buffer(c(3, 4), dtype = "f32"))
 
   r1 <- impl_dispatch_run(d, list(x, y)) # miss -> compile -> execute
   r2 <- impl_dispatch_run(d, list(x, y)) # cache hit -> execute
@@ -98,19 +104,14 @@ test_that("native dispatcher caches, executes, and falls back", {
   expect_equal(out(r2), c(4, 6))
   expect_equal(n_miss, 1L) # compiled once, then served from cache
 
-  # AnvlArray-shaped leaves (list(data=buffer, backend="xla", ambiguous=)) work
-  arr <- function(buf) {
-    structure(list(data = buf, ambiguous = FALSE, backend = "xla"),
-      class = "AnvlArray"
-    )
-  }
-  ra <- impl_dispatch_run(d, list(arr(x), arr(y)))
-  expect_equal(out(ra), c(4, 6))
-
   # non-dispatchable inputs return the sentinel (caller falls back)
   sentinel <- impl_dispatch_sentinel()
-  expect_identical(impl_dispatch_run(d, list(x, 42L)), sentinel) # non-buffer
-  quirk <- structure(list(data = x, ambiguous = FALSE, backend = "quickr"),
+  expect_identical(impl_dispatch_run(d, list(x, 42L)), sentinel) # literal arg
+  expect_identical(
+    impl_dispatch_run(d, list(pjrt_buffer(c(1, 2), dtype = "f32"))),
+    sentinel
+  ) # bare buffer (not an AnvlArray) is not dispatchable
+  quirk <- structure(list(data = x$data, ambiguous = FALSE, backend = "quickr"),
     class = "AnvlArray"
   )
   expect_identical(impl_dispatch_run(d, list(quirk, quirk)), sentinel)
