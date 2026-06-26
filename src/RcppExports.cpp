@@ -55,6 +55,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_dispatch_sentinel
+SEXP impl_dispatch_sentinel();
+RcppExport SEXP _pjrt_impl_dispatch_sentinel() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_sentinel());
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_create
+SEXP impl_dispatch_create(int capacity, SEXP miss_fn);
+RcppExport SEXP _pjrt_impl_dispatch_create(SEXP capacitySEXP, SEXP miss_fnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type capacity(capacitySEXP);
+    Rcpp::traits::input_parameter< SEXP >::type miss_fn(miss_fnSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_create(capacity, miss_fn));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_run
+SEXP impl_dispatch_run(SEXP handle, Rcpp::List args);
+RcppExport SEXP _pjrt_impl_dispatch_run(SEXP handleSEXP, SEXP argsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type handle(handleSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type args(argsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_run(handle, args));
+    return rcpp_result_gen;
+END_RCPP
+}
 // get_eigh_handler
 SEXP get_eigh_handler();
 RcppExport SEXP _pjrt_get_eigh_handler() {
@@ -761,6 +795,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_dispatch_key_hash", (DL_FUNC) &_pjrt_impl_dispatch_key_hash, 1},
     {"_pjrt_impl_dispatch_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_key_eq, 2},
     {"_pjrt_impl_dispatch_lru_selftest", (DL_FUNC) &_pjrt_impl_dispatch_lru_selftest, 0},
+    {"_pjrt_impl_dispatch_sentinel", (DL_FUNC) &_pjrt_impl_dispatch_sentinel, 0},
+    {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 2},
+    {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
     {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
     {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},

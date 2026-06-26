@@ -13,14 +13,17 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <list>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "buffer.h"
+#include "client.h"
 #include "device.h"
 
 namespace rpjrt {
@@ -265,6 +268,16 @@ class LRUCache {
 
   std::size_t size() const { return index_.size(); }
 
+  // Run on_evict over every entry and drop them (used on dispatcher teardown so
+  // cached R objects are released, not leaked).
+  void clear() {
+    if (on_evict_) {
+      for (Entry& e : order_) on_evict_(e.value);
+    }
+    order_.clear();
+    index_.clear();
+  }
+
  private:
   struct Entry {
     K key;
@@ -292,7 +305,104 @@ static aval aval_from_buffer(SEXP buf_xptr, bool ambiguous,
   return a;
 }
 
+// Extract the input buffer + ambiguity from a leaf. A leaf is dispatchable iff
+// it is a bare PJRTBuffer xptr (ambiguous = false) or an xla AnvlArray -- an R
+// list with class "AnvlArray" whose `$backend` is "xla" -- from which we read
+// `$data` (the buffer) and `$ambiguous`. Anything else is not dispatchable.
+struct LeafBuf {
+  bool ok = false;
+  SEXP buffer = R_NilValue;
+  bool ambiguous = false;
+};
+
+static LeafBuf extract_leaf(SEXP leaf) {
+  LeafBuf lb;
+  if (TYPEOF(leaf) == EXTPTRSXP && Rf_inherits(leaf, "PJRTBuffer")) {
+    lb.ok = true;
+    lb.buffer = leaf;
+    return lb;
+  }
+  if (TYPEOF(leaf) == VECSXP && Rf_inherits(leaf, "AnvlArray")) {
+    SEXP nms = Rf_getAttrib(leaf, R_NamesSymbol);
+    if (nms == R_NilValue) return lb;
+    SEXP data = R_NilValue, backend = R_NilValue, amb = R_NilValue;
+    for (R_xlen_t k = 0; k < XLENGTH(leaf); ++k) {
+      const char* nm = CHAR(STRING_ELT(nms, k));
+      if (!std::strcmp(nm, "data"))
+        data = VECTOR_ELT(leaf, k);
+      else if (!std::strcmp(nm, "backend"))
+        backend = VECTOR_ELT(leaf, k);
+      else if (!std::strcmp(nm, "ambiguous"))
+        amb = VECTOR_ELT(leaf, k);
+    }
+    if (backend == R_NilValue || TYPEOF(backend) != STRSXP ||
+        std::strcmp(CHAR(STRING_ELT(backend, 0)), "xla") != 0) {
+      return lb;  // non-xla backend -> not dispatchable here
+    }
+    if (data == R_NilValue || TYPEOF(data) != EXTPTRSXP) return lb;
+    lb.ok = true;
+    lb.buffer = data;
+    lb.ambiguous = (amb != R_NilValue && Rf_asLogical(amb) == TRUE);
+    return lb;
+  }
+  return lb;
+}
+
+// What a compiled program needs at execute time -- mirrors anvl's stored cache
+// value list(exec, const_arrays, phantom_specs, device, ...). The structural
+// out_tree / ambiguity are carried as opaque R objects for the caller to use
+// when wrapping outputs (this engine returns raw output buffers).
+struct CacheEntry {
+  SEXP exec = R_NilValue;          // PJRTLoadedExecutable xptr (preserved)
+  std::vector<SEXP> const_arrays;  // (preserved)
+  const void* device = nullptr;
+};
+
+// Per-jit dispatcher: owns the executable cache, the R cache_miss callback
+// (compiles on a miss), and a reusable default-options object. R objects held
+// in the cache are R_PreserveObject'd on insert and released on eviction /
+// teardown via the cache's on_evict hook + clear().
+class Dispatcher {
+ public:
+  Dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts)
+      : cache_(capacity,
+               [](CacheEntry& e) {
+                 if (e.exec != R_NilValue) R_ReleaseObject(e.exec);
+                 for (SEXP c : e.const_arrays) R_ReleaseObject(c);
+               }),
+        miss_fn_(miss_fn),
+        opts_(opts) {
+    R_PreserveObject(miss_fn_);
+    R_PreserveObject(opts_);
+  }
+
+  ~Dispatcher() {
+    cache_.clear();
+    R_ReleaseObject(miss_fn_);
+    R_ReleaseObject(opts_);
+  }
+
+  LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq>& cache() {
+    return cache_;
+  }
+  SEXP miss_fn() const { return miss_fn_; }
+  SEXP opts() const { return opts_; }
+
+ private:
+  LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq> cache_;
+  SEXP miss_fn_;
+  SEXP opts_;
+};
+
 }  // namespace rpjrt
+
+// These are defined in pjrt.cpp; the dispatcher reuses them directly so the
+// keepalive/donation/options logic lives in one place.
+Rcpp::List impl_loaded_executable_execute(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
+    Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
+Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(
+    std::vector<int64_t> non_donatable_input_indices, int launch_id);
 
 // Self-test entry: flatten `x`, rebuild it, and hash the tree. Lets the R tests
 // check the native Node against R's flatten()/unflatten() on real inputs.
@@ -381,4 +491,106 @@ Rcpp::IntegerVector impl_dispatch_lru_selftest() {
   bool has3 = cache.get(3) != nullptr;
   return Rcpp::IntegerVector::create(g1, has1, has2, has3,
                                      static_cast<int>(cache.size()), evicted);
+}
+
+// ---- Dispatcher: the native eager-dispatch hot path -------------------------
+
+// The sentinel returned by impl_dispatch_run() when the call is not handled by
+// the native fast path (the R caller must fall back to its slow path). A unique
+// symbol, identity-comparable on the R side.
+// [[Rcpp::export]]
+SEXP impl_dispatch_sentinel() {
+  return Rf_install("__pjrt_dispatch_sentinel__");
+}
+
+// Create a dispatcher for one jitted function. `miss_fn(args)` is the R
+// callback that compiles on a cache miss and returns a list with at least
+// `exec` (a PJRTLoadedExecutable xptr) and optionally `const_arrays` (a list of
+// buffer xptrs prepended to the inputs). `capacity` is the executable-cache
+// size.
+// [[Rcpp::export]]
+SEXP impl_dispatch_create(int capacity, SEXP miss_fn) {
+  using namespace rpjrt;
+  if (TYPEOF(miss_fn) != CLOSXP && TYPEOF(miss_fn) != BUILTINSXP &&
+      TYPEOF(miss_fn) != SPECIALSXP) {
+    Rcpp::stop("miss_fn must be a function");
+  }
+  Rcpp::XPtr<PJRTExecuteOptions> opts =
+      impl_execution_options_create(std::vector<int64_t>(), 0);
+  auto* d = new Dispatcher(static_cast<std::size_t>(capacity), miss_fn,
+                           static_cast<SEXP>(opts));
+  Rcpp::XPtr<Dispatcher> ptr(d, true);
+  ptr.attr("class") = "PJRTDispatcher";
+  return ptr;
+}
+
+// Run the native dispatch for `args` (the evaluated argument list of the call).
+// Returns the raw output buffers (a list of PJRTBuffer xptrs) on success, or
+// the dispatch sentinel when the call is not handled natively (caller falls
+// back).
+// [[Rcpp::export]]
+SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
+  using namespace rpjrt;
+  Rcpp::XPtr<Dispatcher> d(handle);
+
+  // 1. flatten args into leaves + structure.
+  std::vector<SEXP> leaves;
+  Node in_tree;
+  int counter = 0;
+  flatten_rec(args, leaves, in_tree, counter);
+
+  // 2. classify every leaf; bail to the R slow path on anything unhandled.
+  std::vector<LeafBuf> bufs;
+  bufs.reserve(leaves.size());
+  for (SEXP leaf : leaves) {
+    LeafBuf lb = extract_leaf(leaf);
+    if (!lb.ok) return impl_dispatch_sentinel();
+    bufs.push_back(lb);
+  }
+  if (bufs.empty()) return impl_dispatch_sentinel();
+
+  // 3. build the cache key (device from the first leaf; avals read natively).
+  CacheKey key;
+  key.in_tree = in_tree;
+  key.leaves.reserve(bufs.size());
+  for (std::size_t k = 0; k < bufs.size(); ++k) {
+    const void* dev = nullptr;
+    KeyLeaf kl;
+    kl.is_static = false;
+    kl.av = aval_from_buffer(bufs[k].buffer, bufs[k].ambiguous,
+                             k == 0 ? &dev : nullptr);
+    if (k == 0) key.device = dev;
+    key.leaves.push_back(std::move(kl));
+  }
+
+  // 4. probe cache; compile via the R miss callback on a miss.
+  CacheEntry* entry = d->cache().get(key);
+  if (entry == nullptr) {
+    Rcpp::Function miss(d->miss_fn());
+    Rcpp::List res = miss(args);
+    CacheEntry e;
+    e.exec = res["exec"];
+    R_PreserveObject(e.exec);
+    if (res.containsElementNamed("const_arrays")) {
+      Rcpp::List consts = res["const_arrays"];
+      for (R_xlen_t i = 0; i < consts.size(); ++i) {
+        SEXP c = consts[i];
+        R_PreserveObject(c);
+        e.const_arrays.push_back(c);
+      }
+    }
+    e.device = key.device;
+    d->cache().set(key, std::move(e));
+    entry = d->cache().get(key);
+  }
+
+  // 5. assemble inputs: const_arrays ++ leaf buffers, then execute.
+  Rcpp::List inputs(entry->const_arrays.size() + bufs.size());
+  R_xlen_t pos = 0;
+  for (SEXP c : entry->const_arrays) inputs[pos++] = c;
+  for (const LeafBuf& lb : bufs) inputs[pos++] = lb.buffer;
+
+  Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> exec(entry->exec);
+  Rcpp::XPtr<rpjrt::PJRTExecuteOptions> opts(d->opts());
+  return impl_loaded_executable_execute(exec, inputs, opts);
 }

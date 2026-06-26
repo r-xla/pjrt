@@ -71,3 +71,56 @@ test_that("native cache key distinguishes dtype/shape/ambiguity/arity", {
   expect_false(H(leaf(x), leaf(x)) == H(leaf(x))) # arity
   expect_false(E(list(leaf(x), leaf(x)), list(leaf(x))))
 })
+
+test_that("native dispatcher caches, executes, and falls back", {
+  skip_if_not(plugins_downloaded())
+  out <- function(buf) as.numeric(tengen::as_array(await(buf)))
+
+  add_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<2xf32>) -> tensor<2xf32> {
+    %0 = "stablehlo.add"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    "func.return"(%0): (tensor<2xf32>) -> ()
+  }'
+  exec2 <- pjrt_compile(pjrt_program(src = add_src))
+
+  n_miss <- 0L
+  d <- impl_dispatch_create(10L, function(args) {
+    n_miss <<- n_miss + 1L
+    list(exec = exec2)
+  })
+
+  x <- pjrt_buffer(c(1, 2), dtype = "f32")
+  y <- pjrt_buffer(c(3, 4), dtype = "f32")
+
+  r1 <- impl_dispatch_run(d, list(x, y)) # miss -> compile -> execute
+  r2 <- impl_dispatch_run(d, list(x, y)) # cache hit -> execute
+  expect_equal(out(r1[[1]]), c(4, 6))
+  expect_equal(out(r2[[1]]), c(4, 6))
+  expect_equal(n_miss, 1L) # compiled once, then served from cache
+
+  # AnvlArray-shaped leaves (list(data=buffer, backend="xla", ambiguous=)) work
+  arr <- function(buf) {
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"),
+      class = "AnvlArray"
+    )
+  }
+  ra <- impl_dispatch_run(d, list(arr(x), arr(y)))
+  expect_equal(out(ra[[1]]), c(4, 6))
+
+  # non-dispatchable inputs return the sentinel (caller falls back)
+  sentinel <- impl_dispatch_sentinel()
+  expect_identical(impl_dispatch_run(d, list(x, 42L)), sentinel) # non-buffer
+  quirk <- structure(list(data = x, ambiguous = FALSE, backend = "quickr"),
+    class = "AnvlArray"
+  )
+  expect_identical(impl_dispatch_run(d, list(quirk, quirk)), sentinel)
+
+  # GC-correct: many dispatches with periodic gc(), then teardown
+  for (i in 1:300) {
+    r <- impl_dispatch_run(d, list(x, y))
+    if (i %% 100 == 0) gc()
+    expect_equal(out(r[[1]]), c(4, 6))
+  }
+  rm(d)
+  gc()
+  expect_true(TRUE) # reached teardown without crashing
+})

@@ -17,6 +17,18 @@ impl_dispatch_lru_selftest <- function() {
     .Call(`_pjrt_impl_dispatch_lru_selftest`)
 }
 
+impl_dispatch_sentinel <- function() {
+    .Call(`_pjrt_impl_dispatch_sentinel`)
+}
+
+impl_dispatch_create <- function(capacity, miss_fn) {
+    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn)
+}
+
+impl_dispatch_run <- function(handle, args) {
+    .Call(`_pjrt_impl_dispatch_run`, handle, args)
+}
+
 get_eigh_handler <- function() {
     .Call(`_pjrt_get_eigh_handler`)
 }
