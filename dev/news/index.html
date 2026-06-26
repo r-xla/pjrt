@@ -62,6 +62,7 @@
 <ul><li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>, <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code>, and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> now call R’s garbage collector and retry once when the plugin reports <code>RESOURCE_EXHAUSTED</code>. Unreferenced <code>PJRTBuffer</code> external pointers are finalized between attempts so their device memory is released before the retry.</li>
 <li>The first time a PJRT plugin needs to be downloaded, interactive sessions now ask for confirmation before downloading (similar to <code>torch</code>). Non-interactive sessions no longer download automatically. The <code>PJRT_INSTALL</code> environment variable overrides this: set it to <code>"1"</code> to always download without asking, or <code>"0"</code> to never download.</li>
+<li>Added an <code><a href="../reference/install_pjrt.html">install_pjrt()</a></code> function which is a slight convenience wrapper for downloading the plugins.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="internal-development-version">Internal<a class="anchor" aria-label="anchor" href="#internal-development-version"></a></h3>

@@ -12,14 +12,24 @@ pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
 To create an empty buffer (at least one dimension must be 0), use pjrt_empty.
 Important:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (e.g., to prevent buffer overflow) and that no NA values are present."><meta property="og:description" content="Create a PJRT Buffer from an R object.
+the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+pjrt_empty() allocates a buffer of the given shape and dtype with
+unspecified contents. The bytes should be treated as uninitialized —
+read them only after they have been written to (e.g. as a donated output
+of pjrt_execute()). Shapes with at least one zero-sized dimension
+are supported as a degenerate case (the buffer holds zero elements)."><meta property="og:description" content="Create a PJRT Buffer from an R object.
 Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars.
 pjrt_buffer will create a array with dimensions (1) for a vector of length 1, while
 pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
 To create an empty buffer (at least one dimension must be 0), use pjrt_empty.
 Important:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (e.g., to prevent buffer overflow) and that no NA values are present."><meta name="robots" content="noindex"></head><body>
+the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+pjrt_empty() allocates a buffer of the given shape and dtype with
+unspecified contents. The bytes should be treated as uninitialized —
+read them only after they have been written to (e.g. as a donated output
+of pjrt_execute()). Shapes with at least one zero-sized dimension
+are supported as a degenerate case (the buffer holds zero elements)."><meta name="robots" content="noindex"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -73,6 +83,11 @@ Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars
 <p><strong>Important</strong>:
 No checks are performed when creating the buffer, so you need to ensure that the data fits
 the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.</p>
+<p><code>pjrt_empty()</code> allocates a buffer of the given <code>shape</code> and <code>dtype</code> with
+<strong>unspecified contents</strong>. The bytes should be treated as uninitialized —
+read them only after they have been written to (e.g. as a donated output
+of <code><a href="pjrt_execute.html">pjrt_execute()</a></code>). Shapes with at least one zero-sized dimension
+are supported as a degenerate case (the buffer holds zero elements).</p>
     </div>
 
     <div class="section level2">
@@ -213,11 +228,13 @@ To create a 0-dimensional buffer, use <code>pjrt_scalar</code> where the resulti
 <span class="r-out co"><span class="r-pr">#&gt;</span> PJRTBuffer </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  42</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{} ] </span>
-<span class="r-in"><span><span class="co"># Create an empty buffer</span></span></span>
-<span class="r-in"><span><span class="va">empty</span> <span class="op">&lt;-</span> <span class="fu">pjrt_empty</span><span class="op">(</span>dtype <span class="op">=</span> <span class="st">"f32"</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Allocate an uninitialized 2x3 f32 buffer (contents are unspecified)</span></span></span>
+<span class="r-in"><span><span class="va">empty</span> <span class="op">&lt;-</span> <span class="fu">pjrt_empty</span><span class="op">(</span>dtype <span class="op">=</span> <span class="st">"f32"</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">empty</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PJRTBuffer </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{0x3} ] </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  9.1073e+23 9.1073e+23 9.1073e+23</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  3.0646e-41 3.0646e-41 3.0646e-41</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{2x3} ] </span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

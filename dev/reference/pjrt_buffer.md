@@ -13,6 +13,14 @@ To create an empty buffer (at least one dimension must be 0), use
 need to ensure that the data fits the selected element type (e.g., to
 prevent buffer overflow) and that no NA values are present.
 
+`pjrt_empty()` allocates a buffer of the given `shape` and `dtype` with
+**unspecified contents**. The bytes should be treated as uninitialized —
+read them only after they have been written to (e.g. as a donated output
+of
+[`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)).
+Shapes with at least one zero-sized dimension are supported as a
+degenerate case (the buffer holds zero elements).
+
 ## Usage
 
 ``` r
@@ -167,9 +175,11 @@ scalar
 #> PJRTBuffer 
 #>  42
 #> [ CPUf32{} ] 
-# Create an empty buffer
-empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
+# Allocate an uninitialized 2x3 f32 buffer (contents are unspecified)
+empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#> [ CPUf32{0x3} ] 
+#>  9.1073e+23 9.1073e+23 9.1073e+23
+#>  3.0646e-41 3.0646e-41 3.0646e-41
+#> [ CPUf32{2x3} ] 
 ```

@@ -214,6 +214,9 @@ pjrt_execute(executable, x, y)
 - [`format_buffer()`](https://r-xla.github.io/pjrt/dev/reference/format_buffer.md)
   : Format Buffer Data
 
+- [`install_pjrt()`](https://r-xla.github.io/pjrt/dev/reference/install_pjrt.md)
+  : Install PJRT Plugins
+
 - [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
   : Check if an async operation is ready
 
