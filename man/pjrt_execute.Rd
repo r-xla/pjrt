@@ -4,7 +4,13 @@
 \alias{pjrt_execute}
 \title{Execute a PJRT program}
 \usage{
-pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
+pjrt_execute(
+  executable,
+  ...,
+  execution_options = NULL,
+  simplify = TRUE,
+  check = TRUE
+)
 }
 \arguments{
 \item{executable}{(\code{PJRTLoadedExecutable})\cr
@@ -20,6 +26,13 @@ Optional execution options for configuring buffer donation and other settings.}
 \item{simplify}{(\code{logical(1)})\cr
 If \code{TRUE} (default), a single output is returned as a \code{PJRTBuffer}.
 If \code{FALSE}, a single output is returned as a \code{list} of length 1 containing a \code{PJRTBuffer}.}
+
+\item{check}{(\code{logical(1)})\cr
+If \code{TRUE} (default), validate the arguments (executable type, that all
+inputs are \code{PJRTBuffer}s and unnamed, execution options, and \code{simplify}).
+Trusted callers on a hot dispatch path can pass \code{FALSE} to skip this
+validation; the caller is then responsible for guaranteeing that
+\code{executable}, the inputs, and \code{execution_options} are valid.}
 }
 \value{
 \code{PJRTBuffer} | \code{list} of \code{PJRTBuffer}s
