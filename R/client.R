@@ -206,15 +206,25 @@ client_from_device <- function(device) {
 
 # Map a freshly-created PJRTDevice xptr to the cached device with the same
 # string representation, so equal devices share one external pointer and can
-# be used as stable hashtab keys.
+# be used as stable hashtab keys (and compared by identity).
+#
+# Memoized by the device string: after the first lookup the canonical xptr is
+# returned via a single hashtab read, avoiding the per-call rescan of the
+# client's device list (each iteration of which stringified a device).
 cached_device <- function(device) {
+  target <- as.character(device)
+  canonical <- the[["canonical_devices"]][[target]]
+  if (!is.null(canonical)) {
+    return(canonical)
+  }
   client <- client_from_device(device)
   if (is.null(client)) {
+    # Client not yet created: don't cache, the platform may not be set up.
     return(device)
   }
-  target <- as.character(device)
   for (d in devices(client)) {
     if (identical(as.character(d), target)) {
+      the[["canonical_devices"]][[target]] <- d
       return(d)
     }
   }
