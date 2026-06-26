@@ -23,6 +23,8 @@
   Non-interactive sessions no longer download automatically. The
   `PJRT_INSTALL` environment variable overrides this: set it to `"1"` to
   always download without asking, or `"0"` to never download.
+* Added an `install_pjrt()` function which is a slight convenience wrapper
+  for downloading the plugins.
 
 ## Internal
 
