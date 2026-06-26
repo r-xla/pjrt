@@ -76,6 +76,9 @@ class PJRTLoadedExecutable {
   const std::vector<PJRTInputOutputAlias> &input_output_aliases() const {
     return aliases_;
   }
+  // Number of outputs the program produces. Static per executable, cached at
+  // construction.
+  size_t num_outputs() const { return num_outputs_; }
   ~PJRTLoadedExecutable();
 
  private:
@@ -83,9 +86,13 @@ class PJRTLoadedExecutable {
   // execute_async's try_alloc, which is only worthwhile on backends where
   // OOM-and-retry actually happens (CUDA).
   bool is_cpu_;
+  size_t num_outputs_;
   std::vector<PJRTInputOutputAlias> aliases_;
   void load_input_output_aliases_(const std::string &program_code,
                                   PJRTProgramFormat program_format);
+  // Query the executable's output count once (GetExecutable + NumOutputs +
+  // Destroy) and cache it in num_outputs_.
+  void load_num_outputs_();
 };
 
 class PJRTClient {
