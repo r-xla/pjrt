@@ -77,6 +77,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_dispatch_size
+int impl_dispatch_size(SEXP handle);
+RcppExport SEXP _pjrt_impl_dispatch_size(SEXP handleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type handle(handleSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_size(handle));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_dispatch_run
 SEXP impl_dispatch_run(SEXP handle, Rcpp::List args);
 RcppExport SEXP _pjrt_impl_dispatch_run(SEXP handleSEXP, SEXP argsSEXP) {
@@ -797,6 +808,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_dispatch_lru_selftest", (DL_FUNC) &_pjrt_impl_dispatch_lru_selftest, 0},
     {"_pjrt_impl_dispatch_sentinel", (DL_FUNC) &_pjrt_impl_dispatch_sentinel, 0},
     {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 2},
+    {"_pjrt_impl_dispatch_size", (DL_FUNC) &_pjrt_impl_dispatch_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
     {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},

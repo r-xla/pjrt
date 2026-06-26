@@ -543,6 +543,13 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn) {
   return ptr;
 }
 
+// Number of compiled executables currently cached by the dispatcher.
+// [[Rcpp::export]]
+int impl_dispatch_size(SEXP handle) {
+  Rcpp::XPtr<rpjrt::Dispatcher> d(handle);
+  return static_cast<int>(d->cache().size());
+}
+
 // Run the native dispatch for `args` (the evaluated argument list of the call).
 // Returns the raw output buffers (a list of PJRTBuffer xptrs) on success, or
 // the dispatch sentinel when the call is not handled natively (caller falls

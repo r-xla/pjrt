@@ -25,6 +25,10 @@ impl_dispatch_create <- function(capacity, miss_fn) {
     .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn)
 }
 
+impl_dispatch_size <- function(handle) {
+    .Call(`_pjrt_impl_dispatch_size`, handle)
+}
+
 impl_dispatch_run <- function(handle, args) {
     .Call(`_pjrt_impl_dispatch_run`, handle, args)
 }

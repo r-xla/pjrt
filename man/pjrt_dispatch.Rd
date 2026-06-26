@@ -4,6 +4,7 @@
 \alias{pjrt_dispatch}
 \alias{pjrt_dispatcher}
 \alias{pjrt_dispatch_sentinel}
+\alias{pjrt_dispatch_size}
 \title{Native eager-dispatch fast path}
 \usage{
 pjrt_dispatcher(capacity, compile)
@@ -11,6 +12,8 @@ pjrt_dispatcher(capacity, compile)
 pjrt_dispatch(dispatcher, args)
 
 pjrt_dispatch_sentinel()
+
+pjrt_dispatch_size(dispatcher)
 }
 \arguments{
 \item{capacity}{(\code{integer(1)})\cr
@@ -43,6 +46,9 @@ for the caller to wrap the outputs.
 
 \code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}} returns the singleton sentinel value
 that \code{\link[=pjrt_dispatch]{pjrt_dispatch()}} yields for calls it does not handle natively.
+
+\code{\link[=pjrt_dispatch_size]{pjrt_dispatch_size()}} returns the number of compiled executables
+the dispatcher currently caches.
 }
 \description{
 A native fast path for repeatedly executing a compiled program on inputs of

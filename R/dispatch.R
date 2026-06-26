@@ -63,6 +63,14 @@ pjrt_dispatch_sentinel <- function() {
   impl_dispatch_sentinel()
 }
 
+#' @rdname pjrt_dispatch
+#' @return [`pjrt_dispatch_size()`] returns the number of compiled executables
+#'   the dispatcher currently caches.
+#' @export
+pjrt_dispatch_size <- function(dispatcher) {
+  impl_dispatch_size(dispatcher)
+}
+
 #' @export
 print.PJRTDispatcher <- function(x, ...) {
   cat("<PJRTDispatcher>\n")
