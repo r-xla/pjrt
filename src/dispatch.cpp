@@ -348,15 +348,37 @@ static LeafBuf extract_leaf(SEXP leaf) {
   return lb;
 }
 
+// One output-donation phantom buffer to allocate per call (CPU memory mgmt).
+struct PhantomSpec {
+  std::string dtype;  // pjrt dtype string (e.g. "f32")
+  std::vector<int64_t> shape;
+};
+
 // What a compiled program needs at execute time -- mirrors anvl's stored cache
-// value list(exec, const_arrays, phantom_specs, device, ...). The structural
-// out_tree / ambiguity are carried as opaque R objects for the caller to use
-// when wrapping outputs (this engine returns raw output buffers).
+// value list(exec, out_tree, const_arrays, ambiguous_out, device,
+// phantom_specs). out_tree / ambiguous_out are opaque R objects the caller uses
+// to wrap the raw output buffers (this engine does not know AnvlArray layout).
+// client / device_xptr are kept to allocate fresh phantom buffers per call.
 struct CacheEntry {
   SEXP exec = R_NilValue;          // PJRTLoadedExecutable xptr (preserved)
   std::vector<SEXP> const_arrays;  // (preserved)
+  std::vector<PhantomSpec> phantom_specs;
+  SEXP client = R_NilValue;         // PJRTClient xptr for phantom alloc
+  SEXP device_xptr = R_NilValue;    // PJRTDevice xptr for phantom alloc
+  SEXP out_tree = R_NilValue;       // opaque, for the caller's wrap
+  SEXP ambiguous_out = R_NilValue;  // opaque, for the caller's wrap
   const void* device = nullptr;
 };
+
+// Release every R object a cache entry preserves (on eviction / teardown).
+static void release_entry(CacheEntry& e) {
+  if (e.exec != R_NilValue) R_ReleaseObject(e.exec);
+  for (SEXP c : e.const_arrays) R_ReleaseObject(c);
+  if (e.client != R_NilValue) R_ReleaseObject(e.client);
+  if (e.device_xptr != R_NilValue) R_ReleaseObject(e.device_xptr);
+  if (e.out_tree != R_NilValue) R_ReleaseObject(e.out_tree);
+  if (e.ambiguous_out != R_NilValue) R_ReleaseObject(e.ambiguous_out);
+}
 
 // Per-jit dispatcher: owns the executable cache, the R cache_miss callback
 // (compiles on a miss), and a reusable default-options object. R objects held
@@ -365,13 +387,7 @@ struct CacheEntry {
 class Dispatcher {
  public:
   Dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts)
-      : cache_(capacity,
-               [](CacheEntry& e) {
-                 if (e.exec != R_NilValue) R_ReleaseObject(e.exec);
-                 for (SEXP c : e.const_arrays) R_ReleaseObject(c);
-               }),
-        miss_fn_(miss_fn),
-        opts_(opts) {
+      : cache_(capacity, release_entry), miss_fn_(miss_fn), opts_(opts) {
     R_PreserveObject(miss_fn_);
     R_PreserveObject(opts_);
   }
@@ -403,6 +419,9 @@ Rcpp::List impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
 Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(
     std::vector<int64_t> non_donatable_input_indices, int launch_id);
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    std::vector<int64_t> dims, std::string dtype);
 
 // Self-test entry: flatten `x`, rebuild it, and hash the tree. Lets the R tests
 // check the native Node against R's flatten()/unflatten() on real inputs.
@@ -549,7 +568,8 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
   }
   if (bufs.empty()) return impl_dispatch_sentinel();
 
-  // 3. build the cache key (device from the first leaf; avals read natively).
+  // 3. build the cache key; avals read natively. Every leaf must live on the
+  // same device, else bail so the R path produces its multi-device error.
   CacheKey key;
   key.in_tree = in_tree;
   key.leaves.reserve(bufs.size());
@@ -557,13 +577,19 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
     const void* dev = nullptr;
     KeyLeaf kl;
     kl.is_static = false;
-    kl.av = aval_from_buffer(bufs[k].buffer, bufs[k].ambiguous,
-                             k == 0 ? &dev : nullptr);
-    if (k == 0) key.device = dev;
+    kl.av = aval_from_buffer(bufs[k].buffer, bufs[k].ambiguous, &dev);
+    if (k == 0) {
+      key.device = dev;
+    } else if (dev != key.device) {
+      return impl_dispatch_sentinel();
+    }
     key.leaves.push_back(std::move(kl));
   }
 
-  // 4. probe cache; compile via the R miss callback on a miss.
+  // 4. probe cache; compile via the R miss callback on a miss. The callback
+  // returns the compiled artifacts (mirrors anvl's compile result): exec,
+  // optional const_arrays, phantom_specs (list(dtype, shape)), client + device
+  // xptrs (to allocate phantoms), and opaque out_tree / ambiguous_out.
   CacheEntry* entry = d->cache().get(key);
   if (entry == nullptr) {
     Rcpp::Function miss(d->miss_fn());
@@ -579,18 +605,62 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
         e.const_arrays.push_back(c);
       }
     }
+    if (res.containsElementNamed("phantom_specs")) {
+      Rcpp::List specs = res["phantom_specs"];
+      for (R_xlen_t i = 0; i < specs.size(); ++i) {
+        Rcpp::List spec = specs[i];
+        PhantomSpec ps;
+        ps.dtype = Rcpp::as<std::string>(spec["dtype"]);
+        ps.shape = Rcpp::as<std::vector<int64_t>>(spec["shape"]);
+        e.phantom_specs.push_back(std::move(ps));
+      }
+    }
+    auto preserve_named = [&](const char* nm, SEXP& slot) {
+      if (res.containsElementNamed(nm)) {
+        SEXP v = res[nm];
+        if (v != R_NilValue) {
+          R_PreserveObject(v);
+          slot = v;
+        }
+      }
+    };
+    preserve_named("client", e.client);
+    preserve_named("device", e.device_xptr);
+    preserve_named("out_tree", e.out_tree);
+    preserve_named("ambiguous_out", e.ambiguous_out);
     e.device = key.device;
     d->cache().set(key, std::move(e));
     entry = d->cache().get(key);
   }
 
-  // 5. assemble inputs: const_arrays ++ leaf buffers, then execute.
-  Rcpp::List inputs(entry->const_arrays.size() + bufs.size());
+  // 5. assemble inputs: const_arrays ++ leaf buffers ++ freshly-allocated
+  // phantom donation buffers, then execute.
+  std::vector<SEXP> phantoms;
+  phantoms.reserve(entry->phantom_specs.size());
+  if (!entry->phantom_specs.empty()) {
+    Rcpp::XPtr<rpjrt::PJRTClient> client(entry->client);
+    Rcpp::XPtr<rpjrt::PJRTDevice> device(entry->device_xptr);
+    for (const PhantomSpec& ps : entry->phantom_specs) {
+      Rcpp::XPtr<rpjrt::PJRTBuffer> ph =
+          impl_client_buffer_empty(client, device, ps.shape, ps.dtype);
+      phantoms.push_back(static_cast<SEXP>(ph));
+    }
+  }
+
+  Rcpp::List inputs(entry->const_arrays.size() + bufs.size() + phantoms.size());
   R_xlen_t pos = 0;
   for (SEXP c : entry->const_arrays) inputs[pos++] = c;
   for (const LeafBuf& lb : bufs) inputs[pos++] = lb.buffer;
+  for (SEXP ph : phantoms) inputs[pos++] = ph;
 
   Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> exec(entry->exec);
   Rcpp::XPtr<rpjrt::PJRTExecuteOptions> opts(d->opts());
-  return impl_loaded_executable_execute(exec, inputs, opts);
+  Rcpp::List out_bufs = impl_loaded_executable_execute(exec, inputs, opts);
+
+  // Return the raw output buffers plus the opaque wrap material; the caller
+  // (anvl) turns these into its array type via out_tree / ambiguous_out.
+  return Rcpp::List::create(
+      Rcpp::Named("buffers") = out_bufs,
+      Rcpp::Named("out_tree") = entry->out_tree,
+      Rcpp::Named("ambiguous_out") = entry->ambiguous_out);
 }

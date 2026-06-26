@@ -74,7 +74,8 @@ test_that("native cache key distinguishes dtype/shape/ambiguity/arity", {
 
 test_that("native dispatcher caches, executes, and falls back", {
   skip_if_not(plugins_downloaded())
-  out <- function(buf) as.numeric(tengen::as_array(await(buf)))
+  # run() returns list(buffers, out_tree, ambiguous_out); take the first buffer.
+  out <- function(res) as.numeric(tengen::as_array(await(res$buffers[[1]])))
 
   add_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<2xf32>) -> tensor<2xf32> {
     %0 = "stablehlo.add"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
@@ -93,8 +94,8 @@ test_that("native dispatcher caches, executes, and falls back", {
 
   r1 <- impl_dispatch_run(d, list(x, y)) # miss -> compile -> execute
   r2 <- impl_dispatch_run(d, list(x, y)) # cache hit -> execute
-  expect_equal(out(r1[[1]]), c(4, 6))
-  expect_equal(out(r2[[1]]), c(4, 6))
+  expect_equal(out(r1), c(4, 6))
+  expect_equal(out(r2), c(4, 6))
   expect_equal(n_miss, 1L) # compiled once, then served from cache
 
   # AnvlArray-shaped leaves (list(data=buffer, backend="xla", ambiguous=)) work
@@ -104,7 +105,7 @@ test_that("native dispatcher caches, executes, and falls back", {
     )
   }
   ra <- impl_dispatch_run(d, list(arr(x), arr(y)))
-  expect_equal(out(ra[[1]]), c(4, 6))
+  expect_equal(out(ra), c(4, 6))
 
   # non-dispatchable inputs return the sentinel (caller falls back)
   sentinel <- impl_dispatch_sentinel()
@@ -118,7 +119,7 @@ test_that("native dispatcher caches, executes, and falls back", {
   for (i in 1:300) {
     r <- impl_dispatch_run(d, list(x, y))
     if (i %% 100 == 0) gc()
-    expect_equal(out(r[[1]]), c(4, 6))
+    expect_equal(out(r), c(4, 6))
   }
   rm(d)
   gc()
