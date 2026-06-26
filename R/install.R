@@ -6,13 +6,8 @@
 #' passed explicitly.
 #'
 #' Plugins are otherwise downloaded lazily the first time a client is
-#' created. Calling `install_pjrt()` performs this download eagerly, for
-#' example to warm a cache during a Docker build or before going offline.
-#'
-#' @details
-#' The call to `install_pjrt()` is treated as consent to download, so the
-#' interactive confirmation prompt (and the `PJRT_INSTALL` environment
-#' variable that controls it) is bypassed.
+#' created, but the download requires user confirmation, unless
+#' the environment variable `PJRT_INSTALL=1`.
 #'
 #' @param cuda (`logical(1)` | `NULL`)\cr
 #'   Whether to also install the CUDA plugin. When `NULL` (the default),
@@ -20,8 +15,6 @@
 #'   NVIDIA GPU is available on a Linux x86_64 machine.
 #' @return (`character()`)\cr
 #'   The platforms that were installed, invisibly.
-#' @examplesIf interactive()
-#' install_pjrt()
 #' @export
 install_pjrt <- function(cuda = NULL) {
   if (is.null(cuda)) {

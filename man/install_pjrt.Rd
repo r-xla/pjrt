@@ -23,16 +23,6 @@ addition when a CUDA-capable GPU is detected, or when \code{cuda = TRUE} is
 passed explicitly.
 
 Plugins are otherwise downloaded lazily the first time a client is
-created. Calling \code{install_pjrt()} performs this download eagerly, for
-example to warm a cache during a Docker build or before going offline.
-}
-\details{
-The call to \code{install_pjrt()} is treated as consent to download, so the
-interactive confirmation prompt (and the \code{PJRT_INSTALL} environment
-variable that controls it) is bypassed.
-}
-\examples{
-\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
-install_pjrt()
-\dontshow{\}) # examplesIf}
+created, but the download requires user confirmation, unless
+the environment variable \code{PJRT_INSTALL=1}.
 }
