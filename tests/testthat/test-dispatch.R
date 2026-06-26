@@ -36,3 +36,12 @@ test_that("native Node hashing reflects structure", {
   expect_false(h(list(1, 2)) == h(list(a = 1, b = 2))) # unnamed vs named
   expect_false(h(list(1, 2)) == h(list(1, 2, 3))) # arity
 })
+
+test_that("native LRU cache: recency, eviction, on_evict hook", {
+  # capacity 2: set 1,2; touch 1; set 3 -> evicts 2 (LRU). on_evict fires once.
+  # returns c(get1, has1, has2, has3, size, n_evicted)
+  expect_identical(
+    as.integer(impl_dispatch_lru_selftest()),
+    c(10L, 1L, 0L, 1L, 2L, 1L)
+  )
+})

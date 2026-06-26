@@ -22,6 +22,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_dispatch_lru_selftest
+Rcpp::IntegerVector impl_dispatch_lru_selftest();
+RcppExport SEXP _pjrt_impl_dispatch_lru_selftest() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_lru_selftest());
+    return rcpp_result_gen;
+END_RCPP
+}
 // get_eigh_handler
 SEXP get_eigh_handler();
 RcppExport SEXP _pjrt_get_eigh_handler() {
@@ -725,6 +735,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_dispatch_node_selftest", (DL_FUNC) &_pjrt_impl_dispatch_node_selftest, 1},
+    {"_pjrt_impl_dispatch_lru_selftest", (DL_FUNC) &_pjrt_impl_dispatch_lru_selftest, 0},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
     {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
     {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},

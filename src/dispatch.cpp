@@ -12,7 +12,11 @@
 #include <Rcpp.h>
 
 #include <cstddef>
+#include <functional>
+#include <list>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace rpjrt {
@@ -139,6 +143,57 @@ static bool node_eq(const Node& a, const Node& b) {
   return false;
 }
 
+// A least-recently-used cache: a hashmap for lookup plus a doubly-linked list
+// ordering entries most- to least-recently-used (mirrors xlamisc::LRUCache, the
+// R cache anvl's jit uses). `get`/`set` move the touched entry to the front;
+// `set` evicts from the back when over capacity. `on_evict` runs on the evicted
+// value before it is dropped -- used to release R objects held in the value.
+template <typename K, typename V, typename Hash, typename Eq>
+class LRUCache {
+ public:
+  explicit LRUCache(std::size_t capacity,
+                    std::function<void(V&)> on_evict = nullptr)
+      : capacity_(capacity), on_evict_(std::move(on_evict)) {}
+
+  // Returns a pointer to the value (now MRU), or nullptr on miss.
+  V* get(const K& key) {
+    auto it = index_.find(key);
+    if (it == index_.end()) return nullptr;
+    order_.splice(order_.begin(), order_, it->second);
+    return &it->second->value;
+  }
+
+  void set(const K& key, V value) {
+    auto it = index_.find(key);
+    if (it != index_.end()) {
+      if (on_evict_) on_evict_(it->second->value);
+      it->second->value = std::move(value);
+      order_.splice(order_.begin(), order_, it->second);
+      return;
+    }
+    order_.push_front(Entry{key, std::move(value)});
+    index_.emplace(key, order_.begin());
+    if (index_.size() > capacity_) {
+      Entry& victim = order_.back();
+      if (on_evict_) on_evict_(victim.value);
+      index_.erase(victim.key);
+      order_.pop_back();
+    }
+  }
+
+  std::size_t size() const { return index_.size(); }
+
+ private:
+  struct Entry {
+    K key;
+    V value;
+  };
+  std::list<Entry> order_;  // front = MRU, back = LRU
+  std::unordered_map<K, typename std::list<Entry>::iterator, Hash, Eq> index_;
+  std::size_t capacity_;
+  std::function<void(V&)> on_evict_;
+};
+
 }  // namespace rpjrt
 
 // Self-test entry: flatten `x`, rebuild it, and hash the tree. Lets the R tests
@@ -163,4 +218,22 @@ Rcpp::List impl_dispatch_node_selftest(SEXP x) {
       Rcpp::Named("hash") = static_cast<double>(node_hash(tree)));
   UNPROTECT(2);
   return out;
+}
+
+// Self-test for the LRU cache: capacity 2, exercise recency + eviction.
+// Returns c(get1, has1, has2, has3, size, n_evicted); expect c(10,1,0,1,2,1).
+// [[Rcpp::export]]
+Rcpp::IntegerVector impl_dispatch_lru_selftest() {
+  int evicted = 0;
+  rpjrt::LRUCache<int, int, std::hash<int>, std::equal_to<int>> cache(
+      2, [&](int&) { ++evicted; });
+  cache.set(1, 10);
+  cache.set(2, 20);
+  int g1 = *cache.get(1);  // 10; touching 1 makes it MRU, 2 is LRU
+  cache.set(3, 30);        // over capacity -> evicts 2
+  bool has1 = cache.get(1) != nullptr;
+  bool has2 = cache.get(2) != nullptr;  // evicted
+  bool has3 = cache.get(3) != nullptr;
+  return Rcpp::IntegerVector::create(g1, has1, has2, has3,
+                                     static_cast<int>(cache.size()), evicted);
 }

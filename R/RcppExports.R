@@ -5,6 +5,10 @@ impl_dispatch_node_selftest <- function(x) {
     .Call(`_pjrt_impl_dispatch_node_selftest`, x)
 }
 
+impl_dispatch_lru_selftest <- function() {
+    .Call(`_pjrt_impl_dispatch_lru_selftest`)
+}
+
 get_eigh_handler <- function() {
     .Call(`_pjrt_get_eigh_handler`)
 }
