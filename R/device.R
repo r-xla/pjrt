@@ -34,7 +34,15 @@ platform.PJRTDevice <- function(x, ...) {
 # `to_string` representation (e.g. "CudaDevice(id=0)", "CpuDevice(id=0)"):
 # strip the leading [A-Za-z]+ run, drop a trailing "Device", and lowercase.
 # Used for both PJRTDevice and PJRTBuffer so they agree with platform.PJRTClient.
+# Memoized: the device-string domain is tiny and this is on the hot dispatch
+# path, so we avoid the regex after the first occurrence of each string.
 platform_from_device_string <- function(desc) {
+  cached <- the[["platforms"]][[desc]]
+  if (!is.null(cached)) {
+    return(cached)
+  }
   letters_only <- regmatches(desc, regexpr("^[A-Za-z]+", desc, perl = TRUE))
-  tolower(sub("Device$", "", letters_only))
+  plat <- tolower(sub("Device$", "", letters_only))
+  the[["platforms"]][[desc]] <- plat
+  plat
 }
