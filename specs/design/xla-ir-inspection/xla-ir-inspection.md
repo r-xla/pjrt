@@ -68,31 +68,39 @@ defaults instead of replacing them.
 
 ## Architecture
 
-Pure-R, no native code. The compiler dumps; we configure it via `XLA_FLAGS` and
-read the files back.
+The compiler dumps; we enable that via `XLA_FLAGS` and read the files back. The
+compile runs in a **subprocess** to make `XLA_FLAGS` reliable.
 
-### The `XLA_FLAGS` constraint
+### The `XLA_FLAGS` constraint → subprocess
 
 XLA parses `XLA_FLAGS` **once, before the first compilation** in the process
-(measured: setting it after a prior compile dumps nothing). The design works with
-this rather than against it.
+(measured: setting it after a prior compile dumps nothing). So an in-process
+approach only works if `pjrt_dump_hlo()` happens to be the session's first
+compile — useless in interactive debugging, where the user has already compiled.
+
+The fix: run the dump-compile in a **fresh R process** (via `callr`) with
+`XLA_FLAGS` set in its environment from the start. That process's first (and only)
+compile always honours the flag, so `pjrt_dump_hlo()` works regardless of session
+state — strictly friendlier than gomlx/zml, which just tell users to export
+`XLA_FLAGS` before starting.
 
 ### R — the single entry point
 
 `pjrt_dump_hlo(program, device = NULL, passes = FALSE)` → `PJRTHLODump`
 
-- Determines the dump dir from the current `XLA_FLAGS` (`--xla_dump_to=`); if
-  absent, best-effort sets `XLA_FLAGS` to a fresh temp dir (with
-  `--xla_dump_hlo_as_text`, plus `--xla_dump_hlo_pass_re=.*` when `passes`), which
-  takes effect only if this is the process's first compilation.
-- Snapshots the dir, compiles `program` for `device` (via `pjrt_compile()`), and
-  diffs for the files this compilation produced.
-- Parses those files into a `PJRTHLODump`. If nothing was dumped (a prior compile
-  already fixed `XLA_FLAGS`), raises an actionable error telling the user to set
-  `XLA_FLAGS=--xla_dump_to=...` before starting R.
-- The compiled executable is discarded — this function is for inspection only.
+- Extracts the program's raw code (`impl_program_code`) + format
+  (`impl_program_format`) and writes the code to a temp file.
+- Spawns a child R process (`callr::r`) whose environment reproduces the current
+  one but forces `XLA_FLAGS=--xla_dump_to=<tmp> --xla_dump_hlo_as_text`
+  (`+ --xla_dump_hlo_pass_re=.*` when `passes`) and drops `R_TESTS`. The child
+  only calls the **exported** `pjrt_program(path=, format=)` + `pjrt_compile()`,
+  so it works with any installed `pjrt` (no dev-only symbols needed).
+- The parent then parses the dumped files (in the shared temp dir) into a
+  `PJRTHLODump`. The child's executable is discarded — this is inspection only.
 
-Internal helpers (unexported): `xla_dump_dir_from_flags()`, `parse_hlo_dump()`.
+Native additions: two tiny accessors, `impl_program_code` (raw `program.code`
+bytes) and `impl_program_format`. `parse_hlo_dump()` and `run_dump_subprocess()`
+are unexported R helpers. `callr` is added to Imports.
 
 ### Low-level escape hatch
 
@@ -139,9 +147,9 @@ S3 methods (with `#' @export` + `devtools::document()`):
 ## Error handling
 
 - `pjrt_dump_hlo()` validates `passes` is a single `TRUE`/`FALSE`.
-- If, after compiling, no HLO was dumped (missing `after_optimizations` stage),
-  raise an actionable error pointing at the `XLA_FLAGS`-before-first-compile
-  requirement.
+- A compile failure in the child surfaces as a `callr` error.
+- If the child dumped nothing (missing `after_optimizations`), raise an error that
+  the backend may not support HLO dumping (not expected for the CPU/CUDA plugins).
 
 ## Spike results (2026-07-02, CPU plugin)
 
@@ -154,8 +162,8 @@ installed `pjrt` 0.4.0.9000 + cached CPU plugin. Findings that shaped the design
   (*parallel_codegen_split_count (0)*). → pivoted to `XLA_FLAGS` (see "Why not the
   proto").
 - **`XLA_FLAGS` is once-per-process.** A compile-then-set-`XLA_FLAGS`-then-compile
-  sequence dumped **0 files**. → `pjrt_dump_hlo()` best-effort sets the flag only
-  when it can be the first compile, and errors clearly otherwise.
+  sequence dumped **0 files**. → `pjrt_dump_hlo()` runs the compile in a fresh
+  subprocess so the flag is always honoured (see Architecture).
 - **Dumping content is exactly the readable HLO** we want. `before_optimizations`
   shows the two ops; `cpu_after_optimizations` shows them fused into a single
   `kLoop` fusion (`%add_multiply_fusion` calling `%fused_computation`) with
@@ -167,19 +175,21 @@ installed `pjrt` 0.4.0.9000 + cached CPU plugin. Findings that shaped the design
 
 ## Testing
 
-- Unit (no compile, deterministic): `xla_dump_dir_from_flags()` parsing;
-  `parse_hlo_dump()` on fabricated files — stage keys, pass ordering by index,
-  backend-prefixed `after_optimizations`, exclusion of `-buffer-assignment`.
+No test setup/`XLA_FLAGS` juggling is needed: because each `pjrt_dump_hlo()` call
+compiles in its own subprocess, the tests are independent of session/ordering
+state — including an explicit test that dumping still works **after a prior
+in-session compile** (the exact case the subprocess exists to handle).
+
+- Unit (no compile, deterministic): `parse_hlo_dump()` on fabricated files — stage
+  keys, pass ordering by index, backend-prefixed `after_optimizations`, exclusion
+  of `-buffer-assignment`.
 - Integration (CPU): `pjrt_dump_hlo()` returns non-empty `before_optimizations`
   (mentions `add`/`multiply`) and `after_optimizations` (mentions `fusion`);
   optimized differs from input; `as.character()` == optimized; `print()` works;
-  `passes` argument validated.
+  works after a prior compile; `passes` argument validated.
 - CUDA: same shape assertions, gated with `skip_if(!is_cuda())` — runs later with
   `PJRT_PLATFORM=cuda`; kept lenient (no exact fusion assertion) since GPU output
   differs.
-- `tests/testthat/setup-dump.R` sets `XLA_FLAGS=--xla_dump_to=<tmpdir>
-  --xla_dump_hlo_as_text` before any test compiles, so the integration/CUDA tests
-  read back reliably regardless of test-file ordering.
 
 Build/test note (from CLAUDE.md): never `devtools::load_all()` and
 `devtools::test()` in the same R process (protobuf double-registration crash);

@@ -1,15 +1,5 @@
-# Extract the `--xla_dump_to=<dir>` directory from an XLA_FLAGS string, or NULL.
-xla_dump_dir_from_flags <- function(flags = Sys.getenv("XLA_FLAGS")) {
-  m <- regmatches(flags, regexpr("--xla_dump_to=\\S+", flags))
-  if (length(m) == 0L || !nzchar(m)) {
-    return(NULL)
-  }
-  sub("--xla_dump_to=", "", m, fixed = TRUE)
-}
-
 # Parse the HLO dump files produced by a single compilation into a PJRTHLODump.
-# `files` are paths relative to `dir` (typically the files newly created by the
-# compilation).
+# `files` are paths relative to `dir`.
 parse_hlo_dump <- function(dir, files) {
   txt <- files[grepl("\\.txt$", files)]
   module <- NA_character_
@@ -53,15 +43,30 @@ parse_hlo_dump <- function(dir, files) {
   structure(stages, class = "PJRTHLODump", dir = dir, module = module)
 }
 
-dump_missing_msg <- function(dir) {
-  paste0(
-    "No HLO was dumped to '",
-    dir,
-    "'.\n",
-    "XLA reads XLA_FLAGS once, before the first compilation in the process. ",
-    "For reliable dumping, set e.g.\n",
-    "  XLA_FLAGS=\"--xla_dump_to=/path --xla_dump_hlo_as_text\"\n",
-    "before starting R, or call pjrt_dump_hlo() before any other compilation."
+# Compile `progfile` (a program dumped to disk) in a fresh R process with
+# XLA_FLAGS enabling HLO dumping into `dir`. A subprocess is used because XLA
+# reads XLA_FLAGS once, before the first compilation in a process -- so an
+# in-process attempt would silently do nothing once anything else has compiled.
+run_dump_subprocess <- function(progfile, format, device, dir, passes) {
+  flags <- sprintf("--xla_dump_to=%s --xla_dump_hlo_as_text", dir)
+  if (passes) {
+    flags <- paste(flags, "--xla_dump_hlo_pass_re=.*")
+  }
+  # Reproduce the current environment (so the child finds the plugin, platform,
+  # libraries) but force XLA_FLAGS and drop R_TESTS (which breaks nested R).
+  child_env <- Sys.getenv()
+  child_env <- child_env[names(child_env) != "R_TESTS"]
+  child_env[["XLA_FLAGS"]] <- flags
+
+  callr::r(
+    function(progfile, format, device) {
+      library(pjrt)
+      prog <- pjrt_program(path = progfile, format = format)
+      pjrt_compile(prog, device = device)
+      invisible(NULL)
+    },
+    args = list(progfile = progfile, format = format, device = device),
+    env = child_env
   )
 }
 
@@ -72,24 +77,18 @@ dump_missing_msg <- function(dir) {
 #' HLO (`after_optimizations`) by default, and one entry per compiler pass when
 #' `passes = TRUE`.
 #'
-#' Dumping is performed by the XLA compiler itself and controlled through the
-#' `XLA_FLAGS` environment variable (`--xla_dump_to`). XLA reads `XLA_FLAGS`
-#' **once, before the first compilation** in the process. Therefore:
-#'
-#' * If `XLA_FLAGS=--xla_dump_to=...` is already set (ideally before R starts),
-#'   `pjrt_dump_hlo()` reads back what the compiler dumps into that directory.
-#' * Otherwise `pjrt_dump_hlo()` sets `XLA_FLAGS` to a temporary directory, which
-#'   only takes effect if this is the first compilation in the session.
-#'
-#' If no IR is produced (because a different compilation already fixed
-#' `XLA_FLAGS`), an error explains how to enable dumping.
+#' The compilation is run in a fresh R subprocess. This is necessary because
+#' dumping is enabled via the `XLA_FLAGS` environment variable, which XLA reads
+#' only once, before the first compilation in a process. Running in a subprocess
+#' makes `pjrt_dump_hlo()` work reliably regardless of what has already been
+#' compiled or executed in the current session, at the cost of a one-off process
+#' startup (roughly a second).
 #'
 #' @param program (`PJRTProgram`)\cr The program to inspect.
 #' @param device (`NULL` | `PJRTDevice` | `character(1)`)\cr Device or platform to
 #'   compile for, as in [pjrt_compile()].
 #' @param passes (`logical(1)`)\cr If `TRUE`, additionally dump the HLO after
-#'   every compiler pass. Requires `--xla_dump_hlo_pass_re` to be part of
-#'   `XLA_FLAGS` when the directory is taken from a pre-set `XLA_FLAGS`.
+#'   every compiler pass.
 #'
 #' @return A `PJRTHLODump` object: a named list of HLO text keyed by stage
 #'   (`before_optimizations`, `after_optimizations`, and one entry per pass when
@@ -102,30 +101,34 @@ pjrt_dump_hlo <- function(program, device = NULL, passes = FALSE) {
     stop("`passes` must be a single TRUE/FALSE value.")
   }
 
-  flags <- Sys.getenv("XLA_FLAGS")
-  dir <- xla_dump_dir_from_flags(flags)
-  if (is.null(dir)) {
-    dir <- tempfile("pjrt_hlo_")
-    added <- sprintf("--xla_dump_to=%s --xla_dump_hlo_as_text", dir)
-    if (passes) {
-      added <- paste(added, "--xla_dump_hlo_pass_re=.*")
-    }
-    Sys.setenv(XLA_FLAGS = trimws(paste(flags, added)))
-  } else if (passes && !grepl("--xla_dump_hlo_pass_re", flags)) {
-    warning(
-      "`passes = TRUE` but XLA_FLAGS lacks --xla_dump_hlo_pass_re; ",
-      "per-pass dumps require it to be set before the first compilation."
-    )
-  }
+  progfile <- tempfile("pjrt_prog_")
+  writeBin(impl_program_code(program), progfile)
+  on.exit(unlink(progfile), add = TRUE)
+
+  dir <- tempfile("pjrt_hlo_")
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 
-  before <- list.files(dir)
-  pjrt_compile(program, device = device)
-  new_files <- setdiff(list.files(dir), before)
+  device_spec <- if (inherits(device, "PJRTDevice")) {
+    as.character(device)
+  } else {
+    device
+  }
 
-  dump <- parse_hlo_dump(dir, new_files)
+  run_dump_subprocess(
+    progfile,
+    impl_program_format(program),
+    device_spec,
+    dir,
+    passes
+  )
+
+  dump <- parse_hlo_dump(dir, list.files(dir))
   if (is.null(dump[["after_optimizations"]])) {
-    stop(dump_missing_msg(dir), call. = FALSE)
+    stop(
+      "The XLA compiler produced no HLO dump; the backend may not support ",
+      "HLO dumping.",
+      call. = FALSE
+    )
   }
   dump
 }

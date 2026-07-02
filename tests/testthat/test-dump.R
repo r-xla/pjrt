@@ -11,15 +11,6 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
   pjrt_program(src)
 }
 
-test_that("xla_dump_dir_from_flags extracts the dump directory", {
-  expect_null(xla_dump_dir_from_flags(""))
-  expect_null(xla_dump_dir_from_flags("--xla_dump_hlo_as_text"))
-  expect_equal(
-    xla_dump_dir_from_flags("--xla_dump_to=/tmp/x --xla_dump_hlo_as_text"),
-    "/tmp/x"
-  )
-})
-
 test_that("parse_hlo_dump keys stages and orders passes", {
   dir <- withr::local_tempdir()
   files <- c(
@@ -54,36 +45,35 @@ test_that("parse_hlo_dump keys stages and orders passes", {
   )
 })
 
-test_that("pjrt_dump_hlo returns the input and optimized HLO", {
+test_that("pjrt_dump_hlo validates arguments", {
+  expect_error(pjrt_dump_hlo(dump_test_program(), passes = "yes"), "passes")
+})
+
+test_that("pjrt_dump_hlo returns the input and optimized HLO, showing optimization", {
   dump <- pjrt_dump_hlo(dump_test_program())
 
   expect_s3_class(dump, "PJRTHLODump")
   expect_true(all(
     c("before_optimizations", "after_optimizations") %in% names(dump)
   ))
-  expect_true(nzchar(dump[["before_optimizations"]]))
-  expect_true(nzchar(dump[["after_optimizations"]]))
+  # Input HLO contains the two ops the user wrote.
   expect_match(dump[["before_optimizations"]], "add")
   expect_match(dump[["before_optimizations"]], "multiply")
-})
-
-test_that("pjrt_dump_hlo shows the effect of optimization", {
-  dump <- pjrt_dump_hlo(dump_test_program())
-  # The optimizer fuses the two ops, so the optimized HLO differs from the input.
+  # Optimization fuses them, so the optimized HLO differs and mentions a fusion.
   expect_false(
     identical(dump[["before_optimizations"]], dump[["after_optimizations"]])
   )
   expect_match(dump[["after_optimizations"]], "fusion")
-})
-
-test_that("as.character returns the optimized HLO and print works", {
-  dump <- pjrt_dump_hlo(dump_test_program())
+  # Accessors.
   expect_identical(as.character(dump), dump[["after_optimizations"]])
   expect_output(print(dump), "PJRTHLODump")
 })
 
-test_that("pjrt_dump_hlo validates arguments", {
-  expect_error(pjrt_dump_hlo(dump_test_program(), passes = "yes"), "passes")
+test_that("pjrt_dump_hlo works after a prior compilation in the session", {
+  # The subprocess design must not depend on this session being pristine.
+  invisible(pjrt_compile(dump_test_program()))
+  dump <- pjrt_dump_hlo(dump_test_program())
+  expect_true(nzchar(dump[["after_optimizations"]]))
 })
 
 test_that("pjrt_dump_hlo works on CUDA", {

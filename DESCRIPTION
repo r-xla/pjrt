@@ -15,6 +15,7 @@ URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
 BugReports: https://github.com/r-xla/pjrt/issues
 Imports:
     bit64,
+    callr,
     checkmate,
     cli,
     fs,

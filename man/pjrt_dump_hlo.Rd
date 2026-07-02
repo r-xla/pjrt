@@ -13,8 +13,7 @@ pjrt_dump_hlo(program, device = NULL, passes = FALSE)
 compile for, as in \code{\link[=pjrt_compile]{pjrt_compile()}}.}
 
 \item{passes}{(\code{logical(1)})\cr If \code{TRUE}, additionally dump the HLO after
-every compiler pass. Requires \code{--xla_dump_hlo_pass_re} to be part of
-\code{XLA_FLAGS} when the directory is taken from a pre-set \code{XLA_FLAGS}.}
+every compiler pass.}
 }
 \value{
 A \code{PJRTHLODump} object: a named list of HLO text keyed by stage
@@ -29,16 +28,10 @@ HLO (\code{after_optimizations}) by default, and one entry per compiler pass whe
 \code{passes = TRUE}.
 }
 \details{
-Dumping is performed by the XLA compiler itself and controlled through the
-\code{XLA_FLAGS} environment variable (\code{--xla_dump_to}). XLA reads \code{XLA_FLAGS}
-\strong{once, before the first compilation} in the process. Therefore:
-\itemize{
-\item If \code{XLA_FLAGS=--xla_dump_to=...} is already set (ideally before R starts),
-\code{pjrt_dump_hlo()} reads back what the compiler dumps into that directory.
-\item Otherwise \code{pjrt_dump_hlo()} sets \code{XLA_FLAGS} to a temporary directory, which
-only takes effect if this is the first compilation in the session.
-}
-
-If no IR is produced (because a different compilation already fixed
-\code{XLA_FLAGS}), an error explains how to enable dumping.
+The compilation is run in a fresh R subprocess. This is necessary because
+dumping is enabled via the \code{XLA_FLAGS} environment variable, which XLA reads
+only once, before the first compilation in a process. Running in a subprocess
+makes \code{pjrt_dump_hlo()} work reliably regardless of what has already been
+compiled or executed in the current session, at the cost of a one-off process
+startup (roughly a second).
 }
