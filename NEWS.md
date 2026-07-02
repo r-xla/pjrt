@@ -1,5 +1,12 @@
 # pjrt (development version)
 
+## New features
+
+* `pjrt_dump_hlo()` returns the HLO intermediate representations the XLA
+  compiler produces for a program -- the input and optimized HLO by default,
+  and one entry per compiler pass with `passes = TRUE` -- to help debug
+  compilation (#194).
+
 ## Bug fixes
 
 * `check_err()` no longer leaks the underlying `PJRT_Error` when

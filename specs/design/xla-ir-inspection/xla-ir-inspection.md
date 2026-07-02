@@ -45,56 +45,60 @@ cost is that it goes via disk.
 Neither reads the dumped IR back into the host language. Our high-level readback
 helper (below) is a deliberate ergonomic step beyond both.
 
+## Why not the `DebugOptions` proto (design pivot)
+
+The original plan set dump fields on `ExecutableBuildOptions.DebugOptions` in the
+serialized `CompileOptionsProto`. Implemented and tested, this **does not work**:
+
+- `xla.proto` is **proto3 with no custom defaults**, so a freshly
+  `mutable_debug_options()`-constructed message is all-zero. The plugin takes it
+  literally, overriding XLA's real defaults (`xla_backend_optimization_level` → 0,
+  `xla_cpu_parallel_codegen_split_count` → 0, ...). Compilation then errors
+  (*"Too many extra compilation parts ... parallel_codegen_split_count (0)"*), and
+  even patched, the "optimized" HLO would not be genuinely optimized.
+- XLA's real defaults live in the compiler's `DefaultDebugOptionsIgnoringFlags()`.
+  There is no PJRT C-API way to fetch them, and reconstructing ~50
+  version/backend-specific fields ourselves is a non-starter.
+- **gomlx/gopjrt confirms this**: it sets `DebugOptions` only when the user
+  supplies a *complete* `XLA_DEBUG_OPTIONS` prototext (else leaves it nil so the
+  plugin defaults apply), and for dumping its docs tell users to set `XLA_FLAGS`.
+
+So dumping must go through the flag path, which *merges* onto the compiler
+defaults instead of replacing them.
+
 ## Architecture
 
-Two layers on top of one new native entry point.
+Pure-R, no native code. The compiler dumps; we configure it via `XLA_FLAGS` and
+read the files back.
 
-### C++ (one new Rcpp export)
+### The `XLA_FLAGS` constraint
 
-`impl_compile_options_set_dump(compile_options, dump_to, hlo_as_text,
-hlo_as_proto, hlo_as_dot, hlo_as_html, pass_re, module_re)`
+XLA parses `XLA_FLAGS` **once, before the first compilation** in the process
+(measured: setting it after a prior compile dumps nothing). The design works with
+this rather than against it.
 
-- Mutates
-  `compile_options.mutable_executable_build_options()->mutable_debug_options()`,
-  setting the corresponding `DebugOptions` fields (all confirmed present in
-  `inst/proto/xla/xla.proto`): `xla_dump_to` (109), `xla_dump_hlo_module_re`
-  (110), `xla_dump_hlo_pass_re` (111), `xla_dump_hlo_as_text` (112),
-  `xla_dump_hlo_as_proto` (113), `xla_dump_hlo_as_dot` (114),
-  `xla_dump_hlo_as_html` (116).
-- String fields are only set when non-empty; bool fields set as given.
-- No change to the serialize → `PJRT_Client_Compile` path; the debug options ride
-  along in the already-serialized `CompileOptionsProto`.
-
-This is the only new native code.
-
-### R — low-level escape hatch
-
-- `pjrt_dump_options(dir = NULL, hlo_as_text = TRUE, hlo_as_proto = FALSE,
-  hlo_as_dot = FALSE, hlo_as_html = FALSE, pass_re = NULL, module_re = NULL)`
-  → validated S3 object of class `PJRTDumpOptions` (a plain, checked list).
-  - `dir`: destination directory (`xla_dump_to`). Created if it does not exist.
-  - Format flags map to the `xla_dump_hlo_as_*` booleans.
-  - `pass_re = ".*"` turns on per-pass dumping; `module_re` filters modules.
-- New `dump = NULL` argument on `pjrt_compile()`:
-  - When a `PJRTDumpOptions` is supplied, `pjrt_compile()` calls
-    `impl_compile_options_set_dump()` on the (default or user-provided)
-    compile-options object before compiling.
-  - Chosen over exporting the currently-internal `new_compile_options()` /
-    `new_build_options()` machinery: it keeps the surface small while letting any
-    compile dump wherever/however the user wants.
-
-### R — high-level helper
+### R — the single entry point
 
 `pjrt_dump_hlo(program, device = NULL, passes = FALSE)` → `PJRTHLODump`
 
-- Resolves `device` exactly as `pjrt_compile()` does (default device when `NULL`).
-- Creates a fresh temp dir (`tempfile("pjrt_hlo_")`).
-- Compiles `program` for `device` with
-  `pjrt_dump_options(dir = <tmp>, hlo_as_text = TRUE, pass_re = if (passes) ".*")`.
-  (`xla_dump_to` with no format flag already defaults to text; we set
-  `hlo_as_text = TRUE` explicitly.)
-- Reads the resulting `*.txt` files back and returns a `PJRTHLODump` object.
+- Determines the dump dir from the current `XLA_FLAGS` (`--xla_dump_to=`); if
+  absent, best-effort sets `XLA_FLAGS` to a fresh temp dir (with
+  `--xla_dump_hlo_as_text`, plus `--xla_dump_hlo_pass_re=.*` when `passes`), which
+  takes effect only if this is the process's first compilation.
+- Snapshots the dir, compiles `program` for `device` (via `pjrt_compile()`), and
+  diffs for the files this compilation produced.
+- Parses those files into a `PJRTHLODump`. If nothing was dumped (a prior compile
+  already fixed `XLA_FLAGS`), raises an actionable error telling the user to set
+  `XLA_FLAGS=--xla_dump_to=...` before starting R.
 - The compiled executable is discarded — this function is for inspection only.
+
+Internal helpers (unexported): `xla_dump_dir_from_flags()`, `parse_hlo_dump()`.
+
+### Low-level escape hatch
+
+Just `XLA_FLAGS` itself (documented), exactly like gomlx/zml. No wrapper object —
+the proto route it would have wrapped is unusable, so wrapping it would be a
+footgun.
 
 ## Return object: `PJRTHLODump`
 
@@ -128,77 +132,65 @@ Attributes:
 S3 methods (with `#' @export` + `devtools::document()`):
 - `print.PJRTHLODump` / `format.PJRTHLODump`: summary — module name, ordered list
   of stages with per-stage line counts; not the full text.
-- `[[.PJRTHLODump` / `$.PJRTHLODump`: return a stage's text (inherited list
-  behaviour is sufficient; only override if needed for nicer errors on unknown
-  stage).
+- `[[` / `$`: return a stage's text (inherited list behaviour; not overridden).
 - `as.character.PJRTHLODump`: the `after_optimizations` text (the single most
   useful artifact).
 
 ## Error handling
 
-- `pjrt_dump_options()` validates types and that at least one format flag is
-  `TRUE` when used directly; invalid `dir` (non-string) errors early.
-- `pjrt_compile(dump=)` errors if `dump` is not a `PJRTDumpOptions`.
-- `pjrt_dump_hlo()`: if, after compiling, the temp dir contains **no** dump files,
-  raise an informative error pointing at the plugin-honours-proto risk (below) —
-  this is the signal that the fallback is needed.
+- `pjrt_dump_hlo()` validates `passes` is a single `TRUE`/`FALSE`.
+- If, after compiling, no HLO was dumped (missing `after_optimizations` stage),
+  raise an actionable error pointing at the `XLA_FLAGS`-before-first-compile
+  requirement.
 
 ## Spike results (2026-07-02, CPU plugin)
 
-Ran a real compile of a two-op program (`add` then `multiply`) with
-`XLA_FLAGS=--xla_dump_to=<dir> --xla_dump_hlo_as_text` against the installed
-`pjrt` 0.4.0.9000 + cached CPU plugin. Findings:
+Ran real compiles of a two-op program (`add` then `multiply`) against the
+installed `pjrt` 0.4.0.9000 + cached CPU plugin. Findings that shaped the design:
 
-- **Dumping works and content is exactly the readable HLO text** we want.
-  `before_optimizations.txt` shows the two ops; `cpu_after_optimizations.txt`
-  shows them fused into a single `kLoop` fusion (`%add_multiply_fusion` calling a
-  `%fused_computation`) with `is_scheduled=true` — optimization clearly visible.
-- The CPU backend emits extra artifacts alongside the HLO text: LLVM IR
-  (`.ir-no-opt.ll` / `.ir-with-opt.ll`), MLIR lowering stages (`*.mlir`), an object
-  file (`.o`), a `.debug_options` file, and buffer-assignment / memory-usage
-  reports. The helper filters to the HLO `.txt` stages (see "Return object").
-- `--xla_dump_hlo_pass_re=.*` produced 28 files (one per pass), confirming the
-  `passes = TRUE` path. Filenames drove the corrected parser design above.
+- **Proto route is honoured but unusable.** Setting the dump fields on
+  `DebugOptions` via the serialized `CompileOptionsProto` took effect, but the
+  all-zero proto3 message clobbered XLA's defaults and the compile errored
+  (*parallel_codegen_split_count (0)*). → pivoted to `XLA_FLAGS` (see "Why not the
+  proto").
+- **`XLA_FLAGS` is once-per-process.** A compile-then-set-`XLA_FLAGS`-then-compile
+  sequence dumped **0 files**. → `pjrt_dump_hlo()` best-effort sets the flag only
+  when it can be the first compile, and errors clearly otherwise.
+- **Dumping content is exactly the readable HLO** we want. `before_optimizations`
+  shows the two ops; `cpu_after_optimizations` shows them fused into a single
+  `kLoop` fusion (`%add_multiply_fusion` calling `%fused_computation`) with
+  `is_scheduled=true`.
+- CPU emits extra artifacts (LLVM `.ll`, `*.mlir`, `.o`, `.debug_options`,
+  buffer-assignment / memory-usage reports); the helper filters to HLO `.txt`.
+- `--xla_dump_hlo_pass_re=.*` produced 28 files (one per pass) → drove the
+  per-pass parser and its filename format.
 
-This validates the **`XLA_FLAGS` fallback path end-to-end.**
+## Testing
 
-## Primary risk
-
-**Risk:** a plugin might honour `xla_dump_to` only via the `XLA_FLAGS` env var and
-ignore the `DebugOptions` proto passed through compile options.
-
-**Remaining check (first implementation step):** confirm the same dump fires when
-`xla_dump_to` is set via the `DebugOptions` **proto** (the low-level path), not the
-env var. gomlx sets `DebugOptions` on the proto and it works for it, so this is
-expected to pass.
-
-**Fallback (same public API):** if the proto is ignored, have `pjrt_dump_hlo()`
-set `XLA_FLAGS=--xla_dump_to=<tmp> --xla_dump_hlo_as_text[...]` around the compile
-(save/restore the env var) — this route is **confirmed working** by the spike
-above. The R API is unchanged either way.
-
-## Testing (CPU backend)
-
-- `pjrt_dump_hlo()` on a trivial program (e.g. `add`) returns a `PJRTHLODump`
-  containing `before_optimizations` and `after_optimizations`; both texts
-  non-empty and mention the expected op.
-- `passes = TRUE` yields strictly more stages than the default.
-- `pjrt_dump_options(dir = d)` + `pjrt_compile(dump = ...)` writes files into `d`.
-- `pjrt_dump_options()` input validation (bad `dir`, no formats) errors.
-- `print.PJRTHLODump` snapshot (module name + stage list; avoid embedding
-  full, potentially version-dependent HLO text).
+- Unit (no compile, deterministic): `xla_dump_dir_from_flags()` parsing;
+  `parse_hlo_dump()` on fabricated files — stage keys, pass ordering by index,
+  backend-prefixed `after_optimizations`, exclusion of `-buffer-assignment`.
+- Integration (CPU): `pjrt_dump_hlo()` returns non-empty `before_optimizations`
+  (mentions `add`/`multiply`) and `after_optimizations` (mentions `fusion`);
+  optimized differs from input; `as.character()` == optimized; `print()` works;
+  `passes` argument validated.
+- CUDA: same shape assertions, gated with `skip_if(!is_cuda())` — runs later with
+  `PJRT_PLATFORM=cuda`; kept lenient (no exact fusion assertion) since GPU output
+  differs.
+- `tests/testthat/setup-dump.R` sets `XLA_FLAGS=--xla_dump_to=<tmpdir>
+  --xla_dump_hlo_as_text` before any test compiles, so the integration/CUDA tests
+  read back reliably regardless of test-file ordering.
 
 Build/test note (from CLAUDE.md): never `devtools::load_all()` and
 `devtools::test()` in the same R process (protobuf double-registration crash);
-use separate `Rscript -e` calls.
+use separate `Rscript -e` calls. Verified: full suite 655 pass / 0 fail / 13 skip.
 
 ## Documentation
 
-- Roxygen for `pjrt_dump_hlo()`, `pjrt_dump_options()`, the new `dump` arg on
-  `pjrt_compile()`, and the `print`/`format`/`as.character` methods; document
-  return values.
-- `devtools::document()` to regenerate `.Rd` + `NAMESPACE`.
-- Add new exported functions to `_pkgdown.yml`.
+- Roxygen for `pjrt_dump_hlo()` and the `print`/`format`/`as.character` methods,
+  including the return value and the `XLA_FLAGS` behaviour.
+- `devtools::document()` regenerates `.Rd` + `NAMESPACE`.
+- `_pkgdown.yml` has no explicit `reference:` list, so exports are auto-included.
 
 ## Out of scope / follow-up
 
@@ -210,5 +202,6 @@ use separate `Rscript -e` calls.
   `XSpace`/`ProfileOptions` protos — sized as its own slice.
 - Linking XLA to render optimized HLO in-memory from
   `PJRT_Executable_OptimizedProgram` (rejected: enormous dependency).
-- Non-text formats (proto/dot/html) in the **high-level** helper: reachable via
-  the low-level `pjrt_dump_options()` flags; the helper stays text-focused.
+- Non-text formats (proto/dot/html): reachable by adding the corresponding
+  `--xla_dump_hlo_as_*` flags to `XLA_FLAGS` directly; `pjrt_dump_hlo()` stays
+  text-focused.
