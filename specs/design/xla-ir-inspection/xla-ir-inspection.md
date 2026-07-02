@@ -102,14 +102,24 @@ A named list keyed by **stage**, each value the file's text (character scalar):
 
 - Always present when compilation dumps: `before_optimizations`,
   `after_optimizations`.
-- When `passes = TRUE`: one entry per dumped pass, keyed by the pass label parsed
-  from the filename.
+- When `passes = TRUE`: one entry per dumped pass, keyed by the numeric pass
+  index + label parsed from the filename.
 
-XLA dump filenames look like
-`module_0000.<name>.before_optimizations.txt`,
-`module_0000.<name>.after_optimizations.txt`, and (with `pass_re`)
-`module_0000.<name>.<NNNN>.<pass_name>.{before,after}.txt`. The helper parses the
-stage/pass label out of the filename; the module name is captured as an attribute.
+**Real filenames** (verified by spike on the CPU plugin — see "Spike results"):
+
+- Input HLO: `module_<NNNN>.<name>.before_optimizations.txt`.
+- Optimized HLO: **backend-prefixed** — `module_<NNNN>.<name>.<backend>_after_optimizations.txt`
+  (e.g. `cpu_after_optimizations.txt`). The helper matches on the
+  `after_optimizations.txt` *suffix* (so it works across backends) and maps it to
+  the canonical `after_optimizations` key.
+- Per-pass (with `pass_re`): `module_<NNNN>.<name>.<IIII>.<pipeline>.after_<prev>.before_<next>.txt`,
+  where `<IIII>` is a zero-padded sequence index. The helper keys these by
+  `<IIII>` + the descriptive label, preserving compiler order.
+
+The `after_optimizations.txt` suffix match must **exclude** sibling artifacts that
+share the `cpu_after_optimizations` prefix but add a hyphenated suffix
+(`-buffer-assignment.txt`, `-memory-usage-report.txt`) — match files *ending in*
+`after_optimizations.txt` exactly. The module name is captured as an attribute.
 
 Attributes:
 - `attr(x, "dir")`: the dump directory (so power users can inspect raw files).
@@ -133,20 +143,39 @@ S3 methods (with `#' @export` + `devtools::document()`):
   raise an informative error pointing at the plugin-honours-proto risk (below) —
   this is the signal that the fallback is needed.
 
-## Primary risk + spike
+## Spike results (2026-07-02, CPU plugin)
+
+Ran a real compile of a two-op program (`add` then `multiply`) with
+`XLA_FLAGS=--xla_dump_to=<dir> --xla_dump_hlo_as_text` against the installed
+`pjrt` 0.4.0.9000 + cached CPU plugin. Findings:
+
+- **Dumping works and content is exactly the readable HLO text** we want.
+  `before_optimizations.txt` shows the two ops; `cpu_after_optimizations.txt`
+  shows them fused into a single `kLoop` fusion (`%add_multiply_fusion` calling a
+  `%fused_computation`) with `is_scheduled=true` — optimization clearly visible.
+- The CPU backend emits extra artifacts alongside the HLO text: LLVM IR
+  (`.ir-no-opt.ll` / `.ir-with-opt.ll`), MLIR lowering stages (`*.mlir`), an object
+  file (`.o`), a `.debug_options` file, and buffer-assignment / memory-usage
+  reports. The helper filters to the HLO `.txt` stages (see "Return object").
+- `--xla_dump_hlo_pass_re=.*` produced 28 files (one per pass), confirming the
+  `passes = TRUE` path. Filenames drove the corrected parser design above.
+
+This validates the **`XLA_FLAGS` fallback path end-to-end.**
+
+## Primary risk
 
 **Risk:** a plugin might honour `xla_dump_to` only via the `XLA_FLAGS` env var and
 ignore the `DebugOptions` proto passed through compile options.
 
-**Spike (first implementation step):** compile a trivial program on the CPU
-plugin with `xla_dump_to` set via the proto and confirm files appear. gomlx sets
-`DebugOptions` on the proto and it works for it, so this is expected to pass.
+**Remaining check (first implementation step):** confirm the same dump fires when
+`xla_dump_to` is set via the `DebugOptions` **proto** (the low-level path), not the
+env var. gomlx sets `DebugOptions` on the proto and it works for it, so this is
+expected to pass.
 
 **Fallback (same public API):** if the proto is ignored, have `pjrt_dump_hlo()`
 set `XLA_FLAGS=--xla_dump_to=<tmp> --xla_dump_hlo_as_text[...]` around the compile
-(save/restore the env var). The R API is unchanged either way. The low-level
-`pjrt_dump_options()` + `pjrt_compile(dump=)` path still sets the proto (correct
-if/when plugins honour it).
+(save/restore the env var) — this route is **confirmed working** by the spike
+above. The R API is unchanged either way.
 
 ## Testing (CPU backend)
 
