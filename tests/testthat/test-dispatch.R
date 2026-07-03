@@ -175,3 +175,53 @@ test_that("dispatcher with static names still dispatches a pure-dynamic call", {
   expect_false(identical(res, pjrt_dispatch_sentinel()))
   expect_equal(as.numeric(tengen::as_array(await(res$buffers[[1]]))), c(4, 6))
 })
+
+test_that("native dispatcher keys static args by value and excludes them from execute", {
+  skip_if_not(plugins_downloaded())
+  # Identity executable over ONE f32 input. If a static leaf were ever sent to
+  # execute, the input arity (2) would mismatch @main (1) and execution would
+  # error -- so reaching the asserts proves the static leaf was excluded.
+  id_src <- 'func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
+    "func.return"(%x): (tensor<2xf32>) -> ()
+  }'
+  exec_id <- pjrt_compile(pjrt_program(src = id_src))
+
+  seen <- list()
+  d <- impl_dispatch_create(10L, function(args) {
+    seen[[length(seen) + 1L]] <<- args$flag
+    list(exec = exec_id)
+  }, "flag")
+
+  arr <- function(buf) {
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"), class = "AnvlArray")
+  }
+  x <- arr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  out <- function(res) as.numeric(tengen::as_array(await(res$buffers[[1]])))
+
+  r1 <- impl_dispatch_run(d, list(x = x, flag = TRUE)) # miss (flag = TRUE)
+  r2 <- impl_dispatch_run(d, list(x = x, flag = FALSE)) # miss (flag = FALSE)
+  r3 <- impl_dispatch_run(d, list(x = x, flag = TRUE)) # hit  (flag = TRUE)
+
+  expect_equal(out(r1), c(1, 2))
+  expect_equal(out(r2), c(1, 2))
+  expect_equal(out(r3), c(1, 2))
+  expect_equal(length(seen), 2L) # two distinct static values compiled
+  expect_identical(seen, list(TRUE, FALSE))
+  expect_equal(impl_dispatch_size(d), 2L)
+
+  # GC-correct with static keys: the preserved static values survive gc().
+  for (i in 1:50) {
+    r <- impl_dispatch_run(d, list(x = x, flag = TRUE))
+    if (i %% 25 == 0) {
+      gc()
+    }
+    expect_equal(out(r), c(1, 2))
+  }
+  expect_equal(impl_dispatch_size(d), 2L)
+  rm(d)
+  gc()
+
+  # An all-static / zero-dynamic call has no device -> sentinel (R fallback).
+  d2 <- impl_dispatch_create(10L, function(args) list(exec = exec_id), "flag")
+  expect_identical(impl_dispatch_run(d2, list(flag = TRUE)), pjrt_dispatch_sentinel())
+})

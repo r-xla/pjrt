@@ -46,10 +46,13 @@ static inline bool is_bare_list(SEXP x) {
   return TYPEOF(x) == VECSXP && !Rf_isObject(x);
 }
 
-// Flatten `x` into `leaves` (in order) and fill `node` with its structure.
-// `counter` assigns 1-based leaf indices in flatten order (matches build_tree).
-static void flatten_rec(SEXP x, std::vector<SEXP>& leaves, Node& node,
-                        int& counter) {
+// Flatten `x` into `leaves` (in order), fill `node` with its structure, and push
+// each leaf's static-ness into `is_static`. `inherited_static` is propagated to
+// all descendants (a static top-level arg makes all its leaves static). `counter`
+// assigns 1-based leaf indices in flatten order (matches build_tree).
+static void flatten_rec(SEXP x, std::vector<SEXP>& leaves,
+                        std::vector<char>& is_static, Node& node, int& counter,
+                        bool inherited_static) {
   if (x == R_NilValue) {
     node.kind = Node::NullNode;
     return;
@@ -67,13 +70,15 @@ static void flatten_rec(SEXP x, std::vector<SEXP>& leaves, Node& node,
       }
     }
     for (R_xlen_t k = 0; k < n; ++k) {
-      flatten_rec(VECTOR_ELT(x, k), leaves, node.nodes[k], counter);
+      flatten_rec(VECTOR_ELT(x, k), leaves, is_static, node.nodes[k], counter,
+                  inherited_static);
     }
     return;
   }
   node.kind = Node::LeafNode;
   node.i = ++counter;
   leaves.push_back(x);
+  is_static.push_back(inherited_static ? 1 : 0);
 }
 
 // Reconstruct an R object from a tree and a flat leaf list (mirrors unflatten).
@@ -446,9 +451,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
 Rcpp::List impl_dispatch_node_selftest(SEXP x) {
   using namespace rpjrt;
   std::vector<SEXP> leaves;
+  std::vector<char> is_static;
   Node tree;
   int counter = 0;
-  flatten_rec(x, leaves, tree, counter);
+  flatten_rec(x, leaves, is_static, tree, counter, /*inherited_static=*/false);
 
   SEXP leaves_list = PROTECT(Rf_allocVector(VECSXP, leaves.size()));
   for (std::size_t k = 0; k < leaves.size(); ++k) {
@@ -611,40 +617,70 @@ int impl_dispatch_size(SEXP handle) {
 SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
   using namespace rpjrt;
   Rcpp::XPtr<Dispatcher> d(handle);
+  const std::unordered_set<std::string>& statics = d->static_names();
 
-  // 1. flatten args into leaves + structure.
+  // 1. Flatten args into leaves + structure, marking static leaves. Static-ness
+  // is decided at the top level by argument name and propagated to every leaf
+  // beneath a static arg (mirrors anvl's static-arg marking).
   std::vector<SEXP> leaves;
+  std::vector<char> is_static;
   Node in_tree;
   int counter = 0;
-  flatten_rec(args, leaves, in_tree, counter);
-
-  // 2. classify every leaf; bail to the R slow path on anything unhandled.
-  std::vector<LeafBuf> bufs;
-  bufs.reserve(leaves.size());
-  for (SEXP leaf : leaves) {
-    LeafBuf lb = extract_leaf(leaf);
-    if (!lb.ok) return impl_dispatch_sentinel();
-    bufs.push_back(lb);
+  in_tree.kind = Node::ListNode;
+  const R_xlen_t n_args = args.size();
+  in_tree.nodes.resize(n_args);
+  SEXP arg_nms = Rf_getAttrib(args, R_NamesSymbol);
+  in_tree.has_names = (arg_nms != R_NilValue);
+  if (in_tree.has_names) {
+    in_tree.names.resize(n_args);
+    for (R_xlen_t k = 0; k < n_args; ++k) {
+      in_tree.names[k] = std::string(CHAR(STRING_ELT(arg_nms, k)));
+    }
   }
-  if (bufs.empty()) return impl_dispatch_sentinel();
+  for (R_xlen_t k = 0; k < n_args; ++k) {
+    bool child_static = !statics.empty() && in_tree.has_names &&
+                        statics.count(in_tree.names[k]) > 0;
+    flatten_rec(VECTOR_ELT(args, k), leaves, is_static, in_tree.nodes[k],
+                counter, child_static);
+  }
 
-  // 3. build the cache key; avals read natively. Every leaf must live on the
-  // same device, else bail so the R path produces its multi-device error.
+  // 2. Classify leaves. Static leaves become value-keyed KeyLeafs; dynamic
+  // leaves must be xla AnvlArrays (else bail). Collect dynamic buffers (in
+  // flatten order) for execution and read avals + device natively. Every
+  // dynamic leaf must live on the same device, else bail so the R path
+  // produces its multi-device error.
   CacheKey key;
   key.in_tree = in_tree;
-  key.leaves.reserve(bufs.size());
-  for (std::size_t k = 0; k < bufs.size(); ++k) {
-    const void* dev = nullptr;
+  key.leaves.reserve(leaves.size());
+  std::vector<LeafBuf> bufs;  // dynamic buffers only
+  bufs.reserve(leaves.size());
+  bool have_device = false;
+  for (std::size_t k = 0; k < leaves.size(); ++k) {
     KeyLeaf kl;
+    if (is_static[k]) {
+      kl.is_static = true;
+      kl.value = leaves[k];
+      key.leaves.push_back(std::move(kl));
+      continue;
+    }
+    LeafBuf lb = extract_leaf(leaves[k]);
+    if (!lb.ok) return impl_dispatch_sentinel();
+    const void* dev = nullptr;
     kl.is_static = false;
-    kl.av = aval_from_buffer(bufs[k].buffer, bufs[k].ambiguous, &dev);
-    if (k == 0) {
+    kl.av = aval_from_buffer(lb.buffer, lb.ambiguous, &dev);
+    if (!have_device) {
       key.device = dev;
+      have_device = true;
     } else if (dev != key.device) {
       return impl_dispatch_sentinel();
     }
     key.leaves.push_back(std::move(kl));
+    bufs.push_back(lb);
   }
+
+  // No dynamic buffers -> no device to run on natively; let R infer from the
+  // trace (e.g. all-static or zero-arg constructor calls).
+  if (bufs.empty()) return impl_dispatch_sentinel();
 
   // 4. probe cache; compile via the R miss callback on a miss. The callback
   // returns the compiled artifacts (mirrors anvl's compile result): exec,
@@ -704,12 +740,23 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
     keep(out_tree, e.out_tree);
     keep(ambiguous_out, e.ambiguous_out);
     e.device = key.device;
+
+    // Preserve the static key values so the inserted key's SEXPs outlive this
+    // call; released in release_entry on eviction/teardown.
+    for (KeyLeaf& kl : key.leaves) {
+      if (kl.is_static) {
+        R_PreserveObject(kl.value);
+        e.static_key_values.push_back(kl.value);
+      }
+    }
+
     d->cache().set(key, std::move(e));
     entry = d->cache().get(key);
   }
 
-  // 5. assemble inputs: const_arrays ++ leaf buffers ++ freshly-allocated
-  // phantom donation buffers, then execute.
+  // 5. assemble inputs: const_arrays ++ dynamic buffers ++ freshly-allocated
+  // phantom donation buffers, then execute. Static leaves are excluded (they
+  // are baked into the executable as constants).
   // Build the GC-rooted `inputs` list first, then allocate each phantom buffer
   // straight into its slot. A phantom is reachable only through `inputs` (the
   // R GC does not scan a std::vector<SEXP>), and impl_client_buffer_empty
