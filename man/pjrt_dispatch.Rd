@@ -7,7 +7,7 @@
 \alias{pjrt_dispatch_size}
 \title{Native eager-dispatch fast path}
 \usage{
-pjrt_dispatcher(capacity, compile)
+pjrt_dispatcher(capacity, compile, static = character())
 
 pjrt_dispatch(dispatcher, args)
 
@@ -32,6 +32,11 @@ list and must return a named list with:
 for the caller to wrap the outputs.
 }}
 
+\item{static}{(\code{character()})\cr
+Names of top-level arguments that are static (not arrays). Static values
+are part of the cache key (compared with \code{\link[=identical]{identical()}}) and are excluded
+from execution. Defaults to none.}
+
 \item{dispatcher}{(\code{PJRTDispatcher})\cr A dispatcher from \code{\link[=pjrt_dispatcher]{pjrt_dispatcher()}}.}
 
 \item{args}{(\code{list})\cr The (already evaluated) argument list of the call.}
@@ -53,7 +58,7 @@ the dispatcher currently caches.
 \description{
 A native fast path for repeatedly executing a compiled program on inputs of
 the same signature, intended for a code-transformation frontend's eager
-primitive dispatch (e.g. anvil). It owns an executable cache keyed on the
+primitive dispatch (e.g. anvl). It owns an executable cache keyed on the
 inputs' structure and abstract values, calling back into R to compile only on
 a cache miss.
 

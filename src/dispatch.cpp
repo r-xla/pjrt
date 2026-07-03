@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -368,6 +369,7 @@ struct PhantomSpec {
 struct CacheEntry {
   SEXP exec = R_NilValue;          // PJRTLoadedExecutable xptr (preserved)
   std::vector<SEXP> const_arrays;  // (preserved)
+  std::vector<SEXP> static_key_values;  // static key-leaf SEXPs (preserved)
   std::vector<PhantomSpec> phantom_specs;
   SEXP client = R_NilValue;         // PJRTClient xptr for phantom alloc
   SEXP device_xptr = R_NilValue;    // PJRTDevice xptr for phantom alloc
@@ -380,6 +382,7 @@ struct CacheEntry {
 static void release_entry(CacheEntry& e) {
   if (e.exec != R_NilValue) R_ReleaseObject(e.exec);
   for (SEXP c : e.const_arrays) R_ReleaseObject(c);
+  for (SEXP c : e.static_key_values) R_ReleaseObject(c);
   if (e.client != R_NilValue) R_ReleaseObject(e.client);
   if (e.device_xptr != R_NilValue) R_ReleaseObject(e.device_xptr);
   if (e.out_tree != R_NilValue) R_ReleaseObject(e.out_tree);
@@ -392,8 +395,12 @@ static void release_entry(CacheEntry& e) {
 // teardown via the cache's on_evict hook + clear().
 class Dispatcher {
  public:
-  Dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts)
-      : cache_(capacity, release_entry), miss_fn_(miss_fn), opts_(opts) {
+  Dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts,
+             std::unordered_set<std::string> static_names)
+      : cache_(capacity, release_entry),
+        miss_fn_(miss_fn),
+        opts_(opts),
+        static_names_(std::move(static_names)) {
     R_PreserveObject(miss_fn_);
     R_PreserveObject(opts_);
   }
@@ -409,11 +416,15 @@ class Dispatcher {
   }
   SEXP miss_fn() const { return miss_fn_; }
   SEXP opts() const { return opts_; }
+  const std::unordered_set<std::string>& static_names() const {
+    return static_names_;
+  }
 
  private:
   LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq> cache_;
   SEXP miss_fn_;
   SEXP opts_;
+  std::unordered_set<std::string> static_names_;
 };
 
 }  // namespace rpjrt
@@ -560,18 +571,26 @@ SEXP impl_dispatch_sentinel() {
 // callback that compiles on a cache miss and returns a list with at least
 // `exec` (a PJRTLoadedExecutable xptr) and optionally `const_arrays` (a list of
 // buffer xptrs prepended to the inputs). `capacity` is the executable-cache
-// size.
+// size. `static_names` are the top-level argument names whose values are
+// static (part of the cache key, excluded from execution).
 // [[Rcpp::export]]
-SEXP impl_dispatch_create(int capacity, SEXP miss_fn) {
+SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names) {
   using namespace rpjrt;
   if (TYPEOF(miss_fn) != CLOSXP && TYPEOF(miss_fn) != BUILTINSXP &&
       TYPEOF(miss_fn) != SPECIALSXP) {
     Rcpp::stop("miss_fn must be a function");
   }
+  std::unordered_set<std::string> statics;
+  if (static_names != R_NilValue && TYPEOF(static_names) == STRSXP) {
+    const R_xlen_t n = XLENGTH(static_names);
+    for (R_xlen_t k = 0; k < n; ++k) {
+      statics.insert(std::string(CHAR(STRING_ELT(static_names, k))));
+    }
+  }
   Rcpp::XPtr<PJRTExecuteOptions> opts =
       impl_execution_options_create(std::vector<int64_t>(), 0);
   auto* d = new Dispatcher(static_cast<std::size_t>(capacity), miss_fn,
-                           static_cast<SEXP>(opts));
+                           static_cast<SEXP>(opts), std::move(statics));
   Rcpp::XPtr<Dispatcher> ptr(d, true);
   ptr.attr("class") = "PJRTDispatcher";
   return ptr;

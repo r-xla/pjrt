@@ -3,7 +3,7 @@
 #' @description
 #' A native fast path for repeatedly executing a compiled program on inputs of
 #' the same signature, intended for a code-transformation frontend's eager
-#' primitive dispatch (e.g. anvil). It owns an executable cache keyed on the
+#' primitive dispatch (e.g. anvl). It owns an executable cache keyed on the
 #' inputs' structure and abstract values, calling back into R to compile only on
 #' a cache miss.
 #'
@@ -35,12 +35,17 @@
 #'     [`pjrt_client`] and device used to allocate phantom buffers,
 #'   * `out_tree`, `ambiguous_out` (optional): opaque values returned verbatim
 #'     for the caller to wrap the outputs.
+#' @param static (`character()`)\cr
+#'   Names of top-level arguments that are static (not arrays). Static values
+#'   are part of the cache key (compared with [identical()]) and are excluded
+#'   from execution. Defaults to none.
 #' @return [`pjrt_dispatcher()`] returns a `PJRTDispatcher`.
 #' @export
-pjrt_dispatcher <- function(capacity, compile) {
+pjrt_dispatcher <- function(capacity, compile, static = character()) {
   checkmate::assert_count(capacity, positive = TRUE)
   checkmate::assert_function(compile)
-  impl_dispatch_create(as.integer(capacity), compile)
+  checkmate::assert_character(static, any.missing = FALSE)
+  impl_dispatch_create(as.integer(capacity), compile, as.character(static))
 }
 
 #' @rdname pjrt_dispatch

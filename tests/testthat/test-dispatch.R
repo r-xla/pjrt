@@ -118,7 +118,7 @@ test_that("native dispatcher caches, executes, and falls back", {
   d <- impl_dispatch_create(10L, function(args) {
     n_miss <<- n_miss + 1L
     list(exec = exec2)
-  })
+  }, character(0))
 
   # Leaves are xla AnvlArray-shaped lists (list(data=buffer, backend="xla", ...)).
   arr <- function(buf) {
@@ -154,4 +154,24 @@ test_that("native dispatcher caches, executes, and falls back", {
   rm(d)
   gc()
   expect_true(TRUE) # reached teardown without crashing
+})
+
+test_that("dispatcher with static names still dispatches a pure-dynamic call", {
+  skip_if_not(plugins_downloaded())
+  add_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<2xf32>) -> tensor<2xf32> {
+    %0 = "stablehlo.add"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    "func.return"(%0): (tensor<2xf32>) -> ()
+  }'
+  exec2 <- pjrt_compile(pjrt_program(src = add_src))
+  arr <- function(buf) {
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"), class = "AnvlArray")
+  }
+  x <- arr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  y <- arr(pjrt_buffer(c(3, 4), dtype = "f32"))
+
+  # static name "flag" declared, but this call has no such arg -> all dynamic.
+  d <- pjrt_dispatcher(10L, function(args) list(exec = exec2), static = "flag")
+  res <- pjrt_dispatch(d, list(x = x, y = y))
+  expect_false(identical(res, pjrt_dispatch_sentinel()))
+  expect_equal(as.numeric(tengen::as_array(await(res$buffers[[1]]))), c(4, 6))
 })
