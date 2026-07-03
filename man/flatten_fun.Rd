@@ -31,5 +31,5 @@ ff <- flatten_fun(f, list(a = 1, b = 2))
 ff(3, 4)
 }
 \seealso{
-\code{\link[=build_tree]{build_tree()}}, \code{\link[rlang:flatten]{flatten()}}, \code{\link[=unflatten]{unflatten()}}
+\code{\link[=build_tree]{build_tree()}}, \code{\link[=flatten]{flatten()}}, \code{\link[=unflatten]{unflatten()}}
 }

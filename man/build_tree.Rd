@@ -17,7 +17,7 @@ A \code{PJRTNode}.
 \description{
 Captures the nesting structure of an object as an opaque \code{PJRTNode} tree.
 Each leaf in the input corresponds to its position in the flat list produced
-by \code{\link[rlang:flatten]{flatten()}}. The resulting tree can be passed to \code{\link[=unflatten]{unflatten()}} to
+by \code{\link[=flatten]{flatten()}}. The resulting tree can be passed to \code{\link[=unflatten]{unflatten()}} to
 reconstruct the original structure from a flat list.
 
 \code{NULL} is an empty node: it holds no leaf and contributes nothing to the
@@ -32,5 +32,5 @@ tree_size(tree)
 unflatten(tree, flatten(x))
 }
 \seealso{
-\code{\link[rlang:flatten]{flatten()}}, \code{\link[=unflatten]{unflatten()}}, \code{\link[=tree_size]{tree_size()}}
+\code{\link[=flatten]{flatten()}}, \code{\link[=unflatten]{unflatten()}}, \code{\link[=tree_size]{tree_size()}}
 }

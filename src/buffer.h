@@ -80,8 +80,21 @@ class PJRTBuffer {
   // impl_loaded_executable_execute). A null handle counts as deleted.
   bool is_deleted();
 
+  // Cached views of the buffer's immutable metadata (dtype, shape, device),
+  // for the dispatch hot path: each plain accessor above performs a PJRT C
+  // API call per read (and device() heap-allocates a wrapper). Reads through
+  // the PJRT API on first use, then serves from the cache.
+  PJRT_Buffer_Type element_type_cached();
+  const std::vector<int64_t>& dimensions_cached();
+  PJRT_Device* device_ptr_cached();
+
  private:
   std::shared_ptr<PJRT_Api> api;
+  bool meta_cached_ = false;
+  PJRT_Buffer_Type cached_type_;
+  std::vector<int64_t> cached_dims_;
+  PJRT_Device* cached_device_ = nullptr;
+  void cache_meta();
   PJRTEvent ready_event();
   // Returns this->buffer, raising an R-level error if the underlying
   // PJRT handle has been invalidated by donation. Used by every method

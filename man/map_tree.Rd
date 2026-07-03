@@ -21,12 +21,12 @@ is the result of \code{.f(leaf, ...)}.
 }
 \description{
 Apply a function to each leaf of a (possibly nested) list, preserving the
-tree structure. Equivalent to flattening \code{.x} with \code{\link[rlang:flatten]{flatten()}}, applying
+tree structure. Equivalent to flattening \code{.x} with \code{\link[=flatten]{flatten()}}, applying
 \code{.f} to each leaf, and reassembling with \code{\link[=unflatten]{unflatten()}}.
 }
 \examples{
 map_tree(list(a = 1, b = list(c = 2, d = 3)), \(x) x + 1)
 }
 \seealso{
-\code{\link[rlang:flatten]{flatten()}}, \code{\link[=build_tree]{build_tree()}}, \code{\link[=unflatten]{unflatten()}}
+\code{\link[=flatten]{flatten()}}, \code{\link[=build_tree]{build_tree()}}, \code{\link[=unflatten]{unflatten()}}
 }

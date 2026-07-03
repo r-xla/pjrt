@@ -9,6 +9,12 @@
   off the buffers) and calls back into R to compile only on a miss. Static
   arguments (declared via `pjrt_dispatcher(static = )`) are part of the
   cache key (compared with `identical()`) and excluded from execution.
+* `pjrt_dispatch()` results now include per-output `out_dtypes`/`out_shapes`
+  (read natively) and the compile callback's `device`, so callers can wrap
+  output buffers without per-output S3 metadata reads; the metadata is cached
+  per executable. Buffer dtype/shape/device and an executable's addressable
+  devices are cached natively after the first read, removing repeated PJRT
+  C-API calls (and a per-input allocation) from the execute hot path.
 * pjrt now owns the pytree module (previously anvl's `R/flatten.R`):
   `build_tree()`, `flatten()`, `unflatten()`, `tree_size()`, `tree_equal()`,
   `tree_kind()`, `tree_names()`, `child_kinds()`, `child_sizes()`,

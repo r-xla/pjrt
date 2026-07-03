@@ -170,17 +170,18 @@ class LRUCache {
 };
 
 // Read (dtype, shape) off a PJRTBuffer xptr and (device) as its canonical id.
-// Native reads via pjrt's own buffer class -- no R round-trip.
+// Native reads via pjrt's own buffer class -- no R round-trip. Uses the
+// buffer's cached metadata so repeated dispatches of the same buffers skip
+// the PJRT C API calls entirely.
 static aval aval_from_buffer(SEXP buf_xptr, bool ambiguous,
                              const void** out_device) {
   Rcpp::XPtr<PJRTBuffer> buf(buf_xptr);
   aval a;
-  a.dtype = static_cast<int>(buf->element_type());
-  a.shape = buf->dimensions();
+  a.dtype = static_cast<int>(buf->element_type_cached());
+  a.shape = buf->dimensions_cached();
   a.ambiguous = ambiguous;
   if (out_device) {
-    std::unique_ptr<PJRTDevice> dev = buf->device();
-    *out_device = static_cast<const void*>(dev->device);
+    *out_device = static_cast<const void*>(buf->device_ptr_cached());
   }
   return a;
 }
@@ -249,6 +250,11 @@ struct CacheEntry {
   SEXP device_xptr = R_NilValue;    // PJRTDevice xptr for phantom alloc
   SEXP out_tree = R_NilValue;       // opaque, for the caller's wrap
   SEXP ambiguous_out = R_NilValue;  // opaque, for the caller's wrap
+  // Per-output dtype strings / integer shapes (preserved). Fixed for a given
+  // executable, so they are read off the first call's output buffers and
+  // served from the entry afterwards.
+  SEXP out_dtypes = R_NilValue;
+  SEXP out_shapes = R_NilValue;
   const void* device = nullptr;
 };
 
@@ -261,6 +267,8 @@ static void release_entry(CacheEntry& e) {
   if (e.device_xptr != R_NilValue) R_ReleaseObject(e.device_xptr);
   if (e.out_tree != R_NilValue) R_ReleaseObject(e.out_tree);
   if (e.ambiguous_out != R_NilValue) R_ReleaseObject(e.ambiguous_out);
+  if (e.out_dtypes != R_NilValue) R_ReleaseObject(e.out_dtypes);
+  if (e.out_shapes != R_NilValue) R_ReleaseObject(e.out_shapes);
 }
 
 // Per-jit dispatcher: owns the executable cache, the R cache_miss callback
@@ -483,9 +491,9 @@ int impl_dispatch_size(SEXP handle) {
 // the dispatch sentinel when the call is not handled natively (caller falls
 // back).
 // [[Rcpp::export]]
-SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
+SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   using namespace rpjrt;
-  Rcpp::XPtr<Dispatcher> d(handle);
+  Rcpp::XPtr<Dispatcher> d(dispatcher);
   const std::unordered_set<std::string>& statics = d->static_names();
 
   // 1. Flatten args into leaves + structure, marking static leaves. Static-ness
@@ -652,10 +660,40 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
   Rcpp::XPtr<rpjrt::PJRTExecuteOptions> opts(d->opts());
   Rcpp::List out_bufs = impl_loaded_executable_execute(exec, inputs, opts);
 
-  // Return the raw output buffers plus the opaque wrap material; the caller
-  // (anvl) turns these into its array type via out_tree / ambiguous_out.
-  return Rcpp::List::create(
-      Rcpp::Named("buffers") = out_bufs,
-      Rcpp::Named("out_tree") = entry->out_tree,
-      Rcpp::Named("ambiguous_out") = entry->ambiguous_out);
+  // Read each output's dtype/shape natively so the caller can build its array
+  // wrappers without per-output S3 dtype()/shape()/device() round-trips. The
+  // metadata is fixed for a given executable, so it is read off the first
+  // call's output buffers and cached on the entry. Shapes are IntegerVectors
+  // to match impl_buffer_dimensions (the caller may compare/cache them
+  // interchangeably).
+  if (entry->out_dtypes == R_NilValue) {
+    const R_xlen_t n_out = out_bufs.size();
+    Rcpp::CharacterVector out_dtypes(n_out);
+    Rcpp::List out_shapes(n_out);
+    for (R_xlen_t i = 0; i < n_out; ++i) {
+      Rcpp::XPtr<PJRTBuffer> ob(static_cast<SEXP>(out_bufs[i]));
+      out_dtypes[i] = PJRTElementType(ob->element_type_cached()).as_string();
+      const std::vector<int64_t>& dims = ob->dimensions_cached();
+      Rcpp::IntegerVector shp(dims.size());
+      for (std::size_t k = 0; k < dims.size(); ++k) {
+        shp[k] = static_cast<int>(dims[k]);
+      }
+      out_shapes[i] = shp;
+    }
+    R_PreserveObject(out_dtypes);
+    entry->out_dtypes = out_dtypes;
+    R_PreserveObject(out_shapes);
+    entry->out_shapes = out_shapes;
+  }
+
+  // Return the raw output buffers plus the wrap material; the caller (anvl)
+  // turns these into its array type via out_tree / ambiguous_out / the
+  // per-output metadata. `device` is the compile callback's device object
+  // (shared by all outputs of one executable).
+  return Rcpp::List::create(Rcpp::Named("buffers") = out_bufs,
+                            Rcpp::Named("out_tree") = entry->out_tree,
+                            Rcpp::Named("ambiguous_out") = entry->ambiguous_out,
+                            Rcpp::Named("out_dtypes") = entry->out_dtypes,
+                            Rcpp::Named("out_shapes") = entry->out_shapes,
+                            Rcpp::Named("device") = entry->device_xptr);
 }

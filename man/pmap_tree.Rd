@@ -28,5 +28,5 @@ All trees in \code{.l} must have identical structure.
 pmap_tree(list(list(a = 1, b = 2), list(a = 10, b = 20)), `+`)
 }
 \seealso{
-\code{\link[=map_tree]{map_tree()}}, \code{\link[rlang:flatten]{flatten()}}, \code{\link[=unflatten]{unflatten()}}
+\code{\link[=map_tree]{map_tree()}}, \code{\link[=flatten]{flatten()}}, \code{\link[=unflatten]{unflatten()}}
 }

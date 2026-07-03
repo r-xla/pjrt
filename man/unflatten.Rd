@@ -11,7 +11,7 @@ unflatten(node, x)
 Tree describing the target structure, as returned by \code{\link[=build_tree]{build_tree()}}.}
 
 \item{x}{(\code{list})\cr
-Flat list of leaf values, typically produced by \code{\link[rlang:flatten]{flatten()}}.}
+Flat list of leaf values, typically produced by \code{\link[=flatten]{flatten()}}.}
 }
 \value{
 The reconstructed nested structure (list or single value).
@@ -28,5 +28,5 @@ unflatten(tree, flatten(x))
 unflatten(tree, list(10, 20, 30))
 }
 \seealso{
-\code{\link[rlang:flatten]{flatten()}}, \code{\link[=build_tree]{build_tree()}}
+\code{\link[=flatten]{flatten()}}, \code{\link[=build_tree]{build_tree()}}
 }

@@ -52,13 +52,16 @@ pjrt_dispatcher <- function(capacity, compile, static = character()) {
 #' @param dispatcher (`PJRTDispatcher`)\cr A dispatcher from [`pjrt_dispatcher()`].
 #' @param args (`list`)\cr The (already evaluated) argument list of the call.
 #' @return [`pjrt_dispatch()`] returns, on a handled call, a list with
-#'   `buffers` (the raw output [`pjrt_buffer`]s), `out_tree`, and
-#'   `ambiguous_out` (the opaque values from `compile`); otherwise the value of
-#'   [`pjrt_dispatch_sentinel()`].
+#'   `buffers` (the raw output [`pjrt_buffer`]s), `out_tree` and
+#'   `ambiguous_out` (the opaque values from `compile`), `out_dtypes` and
+#'   `out_shapes` (each output's dtype string and integer shape, read
+#'   natively), and `device` (the `compile` callback's device object);
+#'   otherwise the value of [`pjrt_dispatch_sentinel()`].
 #' @export
-pjrt_dispatch <- function(dispatcher, args) {
-  impl_dispatch_run(dispatcher, args)
-}
+# Bound directly to the generated native entry (RcppExports.R precedes this
+# file in the Collate order): pjrt_dispatch() is on anvl's per-primitive hot
+# path, and a plain forwarding wrapper would add an R call frame per dispatch.
+pjrt_dispatch <- impl_dispatch_run
 
 #' @rdname pjrt_dispatch
 #' @return [`pjrt_dispatch_sentinel()`] returns the singleton sentinel value

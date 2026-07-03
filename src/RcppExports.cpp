@@ -102,14 +102,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_dispatch_run
-SEXP impl_dispatch_run(SEXP handle, Rcpp::List args);
-RcppExport SEXP _pjrt_impl_dispatch_run(SEXP handleSEXP, SEXP argsSEXP) {
+SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args);
+RcppExport SEXP _pjrt_impl_dispatch_run(SEXP dispatcherSEXP, SEXP argsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type handle(handleSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type dispatcher(dispatcherSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type args(argsSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_dispatch_run(handle, args));
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_run(dispatcher, args));
     return rcpp_result_gen;
 END_RCPP
 }

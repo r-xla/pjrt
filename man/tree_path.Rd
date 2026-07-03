@@ -25,5 +25,5 @@ the target leaf, making it efficient for error reporting.
 tree_path(build_tree(list(a = 1, b = list(c = 2))), 2L)
 }
 \seealso{
-\code{\link[=build_tree]{build_tree()}}, \code{\link[rlang:flatten]{flatten()}}
+\code{\link[=build_tree]{build_tree()}}, \code{\link[=flatten]{flatten()}}
 }

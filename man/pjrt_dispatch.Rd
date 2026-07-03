@@ -45,9 +45,11 @@ from execution. Defaults to none.}
 \code{\link[=pjrt_dispatcher]{pjrt_dispatcher()}} returns a \code{PJRTDispatcher}.
 
 \code{\link[=pjrt_dispatch]{pjrt_dispatch()}} returns, on a handled call, a list with
-\code{buffers} (the raw output \code{\link{pjrt_buffer}}s), \code{out_tree}, and
-\code{ambiguous_out} (the opaque values from \code{compile}); otherwise the value of
-\code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}}.
+\code{buffers} (the raw output \code{\link{pjrt_buffer}}s), \code{out_tree} and
+\code{ambiguous_out} (the opaque values from \code{compile}), \code{out_dtypes} and
+\code{out_shapes} (each output's dtype string and integer shape, read
+natively), and \code{device} (the \code{compile} callback's device object);
+otherwise the value of \code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}}.
 
 \code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}} returns the singleton sentinel value
 that \code{\link[=pjrt_dispatch]{pjrt_dispatch()}} yields for calls it does not handle natively.

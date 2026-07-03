@@ -15,11 +15,11 @@ A scalar \code{integer}.
 }
 \description{
 Counts the number of leaf nodes in a tree. This equals the length of the
-flat list produced by \code{\link[rlang:flatten]{flatten()}} on the original structure.
+flat list produced by \code{\link[=flatten]{flatten()}} on the original structure.
 }
 \examples{
 tree_size(build_tree(list(a = 1, b = list(c = 2, d = 3))))
 }
 \seealso{
-\code{\link[=build_tree]{build_tree()}}, \code{\link[rlang:flatten]{flatten()}}
+\code{\link[=build_tree]{build_tree()}}, \code{\link[=flatten]{flatten()}}
 }

@@ -208,6 +208,32 @@ std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
   return std::make_unique<PJRTDevice>(args.device, this->api);
 }
 
+void PJRTBuffer::cache_meta() {
+  cached_type_ = element_type();
+  cached_dims_ = dimensions();
+  PJRT_Buffer_Device_Args args{};
+  args.struct_size = sizeof(PJRT_Buffer_Device_Args);
+  args.buffer = checked_buffer();
+  check_err(this->api.get(), this->api->PJRT_Buffer_Device_(&args));
+  cached_device_ = args.device;
+  meta_cached_ = true;
+}
+
+PJRT_Buffer_Type PJRTBuffer::element_type_cached() {
+  if (!meta_cached_) cache_meta();
+  return cached_type_;
+}
+
+const std::vector<int64_t> &PJRTBuffer::dimensions_cached() {
+  if (!meta_cached_) cache_meta();
+  return cached_dims_;
+}
+
+PJRT_Device *PJRTBuffer::device_ptr_cached() {
+  if (!meta_cached_) cache_meta();
+  return cached_device_;
+}
+
 std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
     std::span<uint8_t> &host_buffer) {
   PJRT_Buffer_ToHostBuffer_Args args{};

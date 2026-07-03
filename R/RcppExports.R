@@ -33,8 +33,8 @@ impl_dispatch_size <- function(handle) {
     .Call(`_pjrt_impl_dispatch_size`, handle)
 }
 
-impl_dispatch_run <- function(handle, args) {
-    .Call(`_pjrt_impl_dispatch_run`, handle, args)
+impl_dispatch_run <- function(dispatcher, args) {
+    .Call(`_pjrt_impl_dispatch_run`, dispatcher, args)
 }
 
 get_eigh_handler <- function() {

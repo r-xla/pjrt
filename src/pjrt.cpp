@@ -909,7 +909,7 @@ Rcpp::List impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
   rpjrt::process_pending_releases();
   auto api = executable->api;
-  auto exec_devices = executable->addressable_devices();
+  const auto &exec_devices = executable->addressable_devices_cached();
 
   std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
   for (auto i = 0; i < input.size(); i++) {
@@ -917,16 +917,16 @@ Rcpp::List impl_loaded_executable_execute(
     auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
     inputs[i] = buffer.get();
 
-    auto buf_device = buffer->device();
+    PJRT_Device *buf_device = buffer->device_ptr_cached();
     bool on_exec_device = false;
     for (auto *dev : exec_devices) {
-      if (buf_device->device == dev) {
+      if (buf_device == dev) {
         on_exec_device = true;
         break;
       }
     }
     if (!on_exec_device) {
-      auto buf_dev_str = device_to_string(buf_device->device, api.get());
+      auto buf_dev_str = device_to_string(buf_device, api.get());
       auto exec_dev_str = device_to_string(exec_devices[0], api.get());
       Rcpp::stop(
           "Input %d is on device '%s', but the executable was "
