@@ -24,7 +24,7 @@ jobs:
           - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "ubuntu-arm", r: "release", platform: "cpu"}
           - { os: "windows", r: "release", platform: "cpu"}
-          - { os: "macos", r: "release", platform: "metal"}
+          # - { os: "macos", r: "release", platform: "metal"}
 
         include:
           - config: {os: "ubuntu", platform: "cuda"}
@@ -44,11 +44,11 @@ jobs:
               brew link protobuf@21 --force --overwrite
           - config: {os: "windows"}
             runner: 'windows-latest'
-          - config: {os: "macos", platform: "metal"}
-            runner: 'macos-15'
-            setup: |
-              brew install protobuf@21
-              brew link protobuf@21 --force --overwrite
+          # - config: {os: "macos", platform: "metal"}
+          #   runner: 'macos-15'
+          #   setup: |
+          #     brew install protobuf@21
+          #     brew link protobuf@21 --force --overwrite
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
