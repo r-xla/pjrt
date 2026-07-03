@@ -121,7 +121,9 @@ test_that("native dispatcher caches, executes, and falls back", {
       n_miss <<- n_miss + 1L
       list(exec = exec2)
     },
-    character(0)
+    character(0),
+    "pjrt",
+    FALSE
   )
 
   # Leaves are xla AnvlArray-shaped lists (list(data=buffer, backend="xla", ...)).
@@ -136,16 +138,6 @@ test_that("native dispatcher caches, executes, and falls back", {
   expect_equal(out(r1), c(4, 6))
   expect_equal(out(r2), c(4, 6))
   expect_equal(n_miss, 1L) # compiled once, then served from cache
-
-  # non-dispatchable inputs return the sentinel (caller falls back)
-  sentinel <- impl_dispatch_sentinel()
-  expect_identical(impl_dispatch_run(d, list(x, 42L)), sentinel) # literal arg
-  expect_identical(
-    impl_dispatch_run(d, list(pjrt_buffer(c(1, 2), dtype = "f32"))),
-    sentinel
-  ) # bare buffer (not an AnvlArray) is not dispatchable
-  quirk <- structure(list(data = x$data, ambiguous = FALSE, backend = "quickr"), class = "AnvlArray")
-  expect_identical(impl_dispatch_run(d, list(quirk, quirk)), sentinel)
 
   # GC-correct: many dispatches with periodic gc(), then teardown
   for (i in 1:300) {
@@ -197,7 +189,9 @@ test_that("native dispatcher keys static args by value and excludes them from ex
       seen[[length(seen) + 1L]] <<- args$flag
       list(exec = exec_id)
     },
-    "flag"
+    "flag",
+    "pjrt",
+    FALSE
   )
 
   arr <- function(buf) {
@@ -229,7 +223,205 @@ test_that("native dispatcher keys static args by value and excludes them from ex
   rm(d)
   gc()
 
-  # An all-static / zero-dynamic call has no device -> sentinel (R fallback).
-  d2 <- impl_dispatch_create(10L, function(args) list(exec = exec_id), "flag")
-  expect_identical(impl_dispatch_run(d2, list(flag = TRUE)), pjrt_dispatch_sentinel())
+  # An all-static / zero-dynamic call dispatches natively too: the entry has
+  # no dynamic inputs and its device comes from the compile callback.
+  zero_src <- 'func.func @main() -> tensor<2xf32> {
+    %0 = "stablehlo.constant"() { value = dense<[7.0, 8.0]> : tensor<2xf32> } : () -> tensor<2xf32>
+    "func.return"(%0): (tensor<2xf32>) -> ()
+  }'
+  exec_zero <- pjrt_compile(pjrt_program(src = zero_src))
+  n2 <- 0L
+  d2 <- impl_dispatch_create(
+    10L,
+    function(args) {
+      n2 <<- n2 + 1L
+      list(exec = exec_zero)
+    },
+    "flag",
+    "pjrt",
+    FALSE
+  )
+  z1 <- impl_dispatch_run(d2, list(flag = TRUE))
+  z2 <- impl_dispatch_run(d2, list(flag = TRUE))
+  expect_equal(out(z1), c(7, 8))
+  expect_equal(out(z2), c(7, 8))
+  expect_equal(n2, 1L)
+})
+
+test_that("native dispatcher uploads bare R literals and arrays (pjrt engine)", {
+  skip_if_not(plugins_downloaded())
+  add_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<f32>) -> tensor<2xf32> {
+    %0 = "stablehlo.broadcast_in_dim"(%y) { broadcast_dimensions = array<i64> } : (tensor<f32>) -> tensor<2xf32>
+    %1 = "stablehlo.add"(%x, %0) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    "func.return"(%1): (tensor<2xf32>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = add_src))
+  client <- pjrt_client("cpu")
+  device <- pjrt_device("cpu")
+  n_miss <- 0L
+  d <- impl_dispatch_create(
+    10L,
+    function(args) {
+      n_miss <<- n_miss + 1L
+      list(exec = exec, client = client, device = device)
+    },
+    character(0),
+    "pjrt",
+    FALSE
+  )
+  arr <- function(buf) {
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"), class = "AnvlArray")
+  }
+  x <- arr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  out <- function(res) as.numeric(tengen::as_array(await(res$buffers[[1]])))
+
+  # a bare double literal is uploaded as a rank-0 f32 buffer per call
+  r1 <- impl_dispatch_run(d, list(x, 10))
+  r2 <- impl_dispatch_run(d, list(x, 20)) # same signature -> cache hit
+  expect_equal(out(r1), c(11, 12))
+  expect_equal(out(r2), c(21, 22))
+  expect_equal(n_miss, 1L)
+
+  # a literal missing client/device in the entry is a clear error
+  d_bad <- impl_dispatch_create(
+    10L,
+    function(args) list(exec = exec),
+    character(0),
+    "pjrt",
+    FALSE
+  )
+  expect_error(impl_dispatch_run(d_bad, list(x, 10)), "client")
+
+  # an R array leaf uploads column-major like pjrt_buffer()
+  id2_src <- 'func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
+    "func.return"(%x): (tensor<2x2xf32>) -> ()
+  }'
+  exec_id2 <- pjrt_compile(pjrt_program(src = id2_src))
+  d2 <- impl_dispatch_create(
+    10L,
+    function(args) list(exec = exec_id2, client = client, device = device),
+    character(0),
+    "pjrt",
+    FALSE
+  )
+  m <- matrix(c(1, 2, 3, 4), nrow = 2)
+  r3 <- impl_dispatch_run(d2, list(m))
+  expect_equal(tengen::as_array(await(r3$buffers[[1]])), m)
+})
+
+test_that("native dispatcher moves buffers to the target device (move_inputs)", {
+  skip_if_not(plugins_downloaded())
+  id_src <- 'func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
+    "func.return"(%x): (tensor<2xf32>) -> ()
+  }'
+  client <- pjrt_client("cpu")
+  target <- pjrt_device("cpu:0")
+  exec_id <- pjrt_compile(pjrt_program(src = id_src), device = target)
+  d <- impl_dispatch_create(
+    10L,
+    function(args) list(exec = exec_id, client = client, device = target),
+    character(0),
+    "pjrt",
+    TRUE
+  )
+  arr <- function(buf) {
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"), class = "AnvlArray")
+  }
+  out <- function(res) as.numeric(tengen::as_array(await(res$buffers[[1]])))
+
+  # same-device input passes through
+  x0 <- arr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
+  expect_equal(out(impl_dispatch_run(d, list(x0))), c(1, 2))
+
+  # an input on another device is copied to the target (needs >= 2 devices)
+  cpus <- devices(client)
+  skip_if(length(cpus) < 2L, "needs a second cpu device")
+  x1 <- arr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
+  res <- impl_dispatch_run(d, list(x1))
+  expect_equal(out(res), c(3, 4))
+  expect_equal(impl_dispatch_size(d), 1L) # device is not part of the key
+})
+
+test_that("native dispatcher sentinels only on a device conflict (infer policy)", {
+  skip_if_not(plugins_downloaded())
+  cpus <- devices(pjrt_client("cpu"))
+  skip_if(length(cpus) < 2L, "needs a second cpu device")
+  add_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<2xf32>) -> tensor<2xf32> {
+    %0 = "stablehlo.add"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    "func.return"(%0): (tensor<2xf32>) -> ()
+  }'
+  exec2 <- pjrt_compile(pjrt_program(src = add_src))
+  d <- impl_dispatch_create(
+    10L,
+    function(args) list(exec = exec2),
+    character(0),
+    "pjrt",
+    FALSE
+  )
+  arr <- function(buf) {
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"), class = "AnvlArray")
+  }
+  x0 <- arr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
+  y1 <- arr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
+  expect_identical(impl_dispatch_run(d, list(x0, y1)), pjrt_dispatch_sentinel())
+})
+
+test_that("closure engine dispatches through a compiled R closure", {
+  n_miss <- 0L
+  d <- impl_dispatch_create(
+    10L,
+    function(args) {
+      n_miss <<- n_miss + 1L
+      # `r_fun` receives the flat leaves: quickr/plain AnvlArrays contribute
+      # their $data, everything else (statics included) passes through.
+      list(r_fun = function(flat) list(sum = flat[[1]] + flat[[2]], flag = flat[[3]]))
+    },
+    "flag",
+    "closure",
+    FALSE
+  )
+  qarr <- function(v) {
+    structure(
+      list(
+        data = v,
+        dtype = tengen::as_dtype("f64"),
+        shape = as.integer(length(v)),
+        ambiguous = FALSE,
+        backend = "quickr"
+      ),
+      class = "AnvlArray"
+    )
+  }
+  a <- qarr(c(1, 2))
+  b <- qarr(c(10, 20))
+  r1 <- impl_dispatch_run(d, list(x = a, y = b, flag = TRUE))
+  expect_identical(r1$value, list(sum = c(11, 22), flag = TRUE))
+  r2 <- impl_dispatch_run(d, list(x = a, y = b, flag = TRUE))
+  expect_identical(r2$value, list(sum = c(11, 22), flag = TRUE))
+  expect_equal(n_miss, 1L) # same signature -> hit
+  expect_equal(impl_dispatch_size(d), 1L)
+
+  # a different dtype or shape is a new signature
+  qi <- structure(
+    list(
+      data = c(1L, 2L),
+      dtype = tengen::as_dtype("i32"),
+      shape = 2L,
+      ambiguous = FALSE,
+      backend = "quickr"
+    ),
+    class = "AnvlArray"
+  )
+  invisible(impl_dispatch_run(d, list(x = qi, y = b, flag = TRUE)))
+  expect_equal(n_miss, 2L)
+
+  # a bare R literal passes through to the closure as-is
+  d2 <- impl_dispatch_create(
+    10L,
+    function(args) list(r_fun = function(flat) flat[[1]] * flat[[2]]),
+    character(0),
+    "closure",
+    FALSE
+  )
+  expect_identical(impl_dispatch_run(d2, list(a, 3))$value, c(3, 6))
 })

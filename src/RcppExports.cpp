@@ -78,15 +78,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_dispatch_create
-SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names);
-RcppExport SEXP _pjrt_impl_dispatch_create(SEXP capacitySEXP, SEXP miss_fnSEXP, SEXP static_namesSEXP) {
+SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names, std::string engine, bool move_inputs);
+RcppExport SEXP _pjrt_impl_dispatch_create(SEXP capacitySEXP, SEXP miss_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP move_inputsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type capacity(capacitySEXP);
     Rcpp::traits::input_parameter< SEXP >::type miss_fn(miss_fnSEXP);
     Rcpp::traits::input_parameter< SEXP >::type static_names(static_namesSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_dispatch_create(capacity, miss_fn, static_names));
+    Rcpp::traits::input_parameter< std::string >::type engine(engineSEXP);
+    Rcpp::traits::input_parameter< bool >::type move_inputs(move_inputsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_create(capacity, miss_fn, static_names, engine, move_inputs));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1004,7 +1006,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_dispatch_static_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_static_key_eq, 2},
     {"_pjrt_impl_dispatch_lru_selftest", (DL_FUNC) &_pjrt_impl_dispatch_lru_selftest, 0},
     {"_pjrt_impl_dispatch_sentinel", (DL_FUNC) &_pjrt_impl_dispatch_sentinel, 0},
-    {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 3},
+    {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 5},
     {"_pjrt_impl_dispatch_size", (DL_FUNC) &_pjrt_impl_dispatch_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},

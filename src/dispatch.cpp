@@ -36,12 +36,24 @@ struct aval {
   bool ambiguous = false;
 };
 
-// One leaf of the cache key. Dynamic leaves carry an `aval`; static-arg leaves
-// carry the R value itself (compared via R's identical()).
+// One leaf of the cache key.
+//   kBuffer    device buffer (xla AnvlArray): keyed by its aval.
+//   kStatic    static arg: keyed by value via R's identical().
+//   kRData     bare R literal/array: keyed by (default dtype, shape); it is
+//              uploaded to the entry's device at execute time (pjrt engine)
+//              or passed through as-is (closure engine).
+//   kClosureArr R-array-backed AnvlArray (closure engine): keyed by its
+//              cached $dtype object (identical()), $shape, and $ambiguous;
+//              its $data is the execute-time input.
+//   kOpaque    anything else: keyed by value via identical(). Never
+//              executable -- the compile callback (the full R prepare +
+//              compile path) raises the canonical error for it, so such a
+//              call errors on every (always-miss or never-valid) attempt.
 struct KeyLeaf {
-  bool is_static = false;
-  aval av;                  // when !is_static
-  SEXP value = R_NilValue;  // when is_static (protected by the cache entry)
+  enum Kind { kBuffer, kStatic, kRData, kClosureArr, kOpaque };
+  Kind kind = kBuffer;
+  aval av;                  // kBuffer / kRData / kClosureArr (shape+ambiguous)
+  SEXP value = R_NilValue;  // kStatic / kOpaque: the leaf; kClosureArr: $dtype
 };
 
 // The executable-cache key -- mirrors anvl's list(in_tree, key_leaves, device).
@@ -71,18 +83,39 @@ struct CacheKeyHash {
     hash_combine(h, reinterpret_cast<std::size_t>(k.device));
     hash_combine(h, k.leaves.size());
     for (const KeyLeaf& leaf : k.leaves) {
-      if (leaf.is_static) {
-        // Cheap discriminator only; exact equality falls back to identical().
-        hash_combine(h, 0x57A71Cu);
-        hash_combine(h, static_cast<std::size_t>(TYPEOF(leaf.value)));
-        hash_combine(h, static_cast<std::size_t>(Rf_xlength(leaf.value)));
-      } else {
-        hash_combine(h, aval_hash(leaf.av));
+      hash_combine(h, static_cast<std::size_t>(leaf.kind));
+      switch (leaf.kind) {
+        case KeyLeaf::kBuffer:
+        case KeyLeaf::kRData:
+          hash_combine(h, aval_hash(leaf.av));
+          break;
+        case KeyLeaf::kClosureArr:
+          // The dtype SEXP gets a cheap discriminator only (exact equality
+          // falls back to identical()); shape/ambiguity hash natively.
+          hash_combine(h, static_cast<std::size_t>(TYPEOF(leaf.value)));
+          hash_combine(h, aval_hash(leaf.av));
+          break;
+        case KeyLeaf::kStatic:
+        case KeyLeaf::kOpaque:
+          // Cheap discriminator only; exact equality falls back to
+          // identical().
+          hash_combine(h, 0x57A71Cu);
+          hash_combine(h, static_cast<std::size_t>(TYPEOF(leaf.value)));
+          hash_combine(h, static_cast<std::size_t>(Rf_xlength(leaf.value)));
+          break;
       }
     }
     return h;
   }
 };
+
+// R's default identical(): R_compute_identical's flag bits are USE bits
+// (identical.c); the default sets only IDENT_USE_CLOENV (16), i.e. compare
+// closure environments but ignore bytecode/srcref. flags=0 would ignore
+// environments and wrongly merge distinct closures.
+static inline bool r_identical(SEXP a, SEXP b) {
+  return R_compute_identical(a, b, /*flags=*/16);
+}
 
 struct CacheKeyEq {
   bool operator()(const CacheKey& a, const CacheKey& b) const {
@@ -92,16 +125,22 @@ struct CacheKeyEq {
     for (std::size_t k = 0; k < a.leaves.size(); ++k) {
       const KeyLeaf& x = a.leaves[k];
       const KeyLeaf& y = b.leaves[k];
-      if (x.is_static != y.is_static) return false;
-      if (x.is_static) {
-        // Match anvl, which compares static args with R's default identical().
-        // R_compute_identical's flag bits are USE bits (identical.c): default
-        // identical() sets only IDENT_USE_CLOENV (16), i.e. compare closure
-        // environments but ignore bytecode/srcref. flags=0 would ignore
-        // environments and wrongly merge distinct closures.
-        if (!R_compute_identical(x.value, y.value, /*flags=*/16)) return false;
-      } else if (!aval_eq(x.av, y.av)) {
-        return false;
+      if (x.kind != y.kind) return false;
+      switch (x.kind) {
+        case KeyLeaf::kBuffer:
+        case KeyLeaf::kRData:
+          if (!aval_eq(x.av, y.av)) return false;
+          break;
+        case KeyLeaf::kClosureArr:
+          if (!aval_eq(x.av, y.av)) return false;
+          if (!r_identical(x.value, y.value)) return false;
+          break;
+        case KeyLeaf::kStatic:
+        case KeyLeaf::kOpaque:
+          // Match anvl, which compares static args with R's default
+          // identical().
+          if (!r_identical(x.value, y.value)) return false;
+          break;
       }
     }
     return true;
@@ -186,48 +225,98 @@ static aval aval_from_buffer(SEXP buf_xptr, bool ambiguous,
   return a;
 }
 
-// Extract the input buffer + ambiguity from a leaf. A leaf is dispatchable iff
-// it is a bare PJRTBuffer xptr (ambiguous = false) or an xla AnvlArray -- an R
-// list with class "AnvlArray" whose `$backend` is "xla" -- from which we read
-// `$data` (the buffer) and `$ambiguous`. Anything else is not dispatchable.
-struct LeafBuf {
-  bool ok = false;
-  SEXP buffer = R_NilValue;
+// The relevant fields of an AnvlArray leaf -- an R list with class
+// "AnvlArray" from which we read `$data`, `$backend`, `$ambiguous`, and the
+// cached `$dtype`/`$shape`.
+struct AnvlFields {
+  bool is_anvl = false;
+  SEXP data = R_NilValue;
+  SEXP dtype = R_NilValue;
+  SEXP shape = R_NilValue;
+  const char* backend = nullptr;
   bool ambiguous = false;
 };
 
-static LeafBuf extract_leaf(SEXP leaf) {
-  LeafBuf lb;
-  // Only an xla AnvlArray is dispatchable: a named list of class "AnvlArray"
-  // with $backend == "xla", from which we read $data (a PJRTBuffer) and
-  // $ambiguous. Everything else -- a bare buffer (the anvl compile callback
-  // cannot turn it into an aval), a non-xla backend, a literal, etc. -- is not
-  // dispatchable and falls back to the R path.
-  if (TYPEOF(leaf) != VECSXP || !Rf_inherits(leaf, "AnvlArray")) return lb;
+static AnvlFields anvl_fields(SEXP leaf) {
+  AnvlFields f;
+  if (TYPEOF(leaf) != VECSXP || !Rf_inherits(leaf, "AnvlArray")) return f;
   SEXP nms = Rf_getAttrib(leaf, R_NamesSymbol);
-  if (nms == R_NilValue) return lb;
-  SEXP data = R_NilValue, backend = R_NilValue, amb = R_NilValue;
+  if (nms == R_NilValue) return f;
+  SEXP amb = R_NilValue;
   for (R_xlen_t k = 0; k < XLENGTH(leaf); ++k) {
     const char* nm = CHAR(STRING_ELT(nms, k));
     if (!std::strcmp(nm, "data"))
-      data = VECTOR_ELT(leaf, k);
+      f.data = VECTOR_ELT(leaf, k);
     else if (!std::strcmp(nm, "backend"))
-      backend = VECTOR_ELT(leaf, k);
+      f.backend = TYPEOF(VECTOR_ELT(leaf, k)) == STRSXP
+                      ? CHAR(STRING_ELT(VECTOR_ELT(leaf, k), 0))
+                      : nullptr;
     else if (!std::strcmp(nm, "ambiguous"))
       amb = VECTOR_ELT(leaf, k);
+    else if (!std::strcmp(nm, "dtype"))
+      f.dtype = VECTOR_ELT(leaf, k);
+    else if (!std::strcmp(nm, "shape"))
+      f.shape = VECTOR_ELT(leaf, k);
   }
-  if (backend == R_NilValue || TYPEOF(backend) != STRSXP ||
-      std::strcmp(CHAR(STRING_ELT(backend, 0)), "xla") != 0) {
-    return lb;  // non-xla backend -> not dispatchable here
+  f.is_anvl = true;
+  f.ambiguous = (amb != R_NilValue && Rf_asLogical(amb) == TRUE);
+  return f;
+}
+
+// Classify a bare (class-less) R value as an uploadable literal/array leaf.
+// Mirrors anvl's is_valid_r_lit / is_valid_r_array and its default dtypes
+// (double -> f32, integer -> i32, logical -> pred -- also pjrt_scalar()'s
+// defaults). Returns false for anything else (NA literals included: they
+// have no dtype).
+struct RDataInfo {
+  bool ok = false;
+  PJRT_Buffer_Type dtype = PJRT_Buffer_Type_INVALID;
+  std::vector<int64_t> shape;  // empty for a rank-0 literal
+};
+
+static RDataInfo classify_rdata(SEXP leaf) {
+  RDataInfo info;
+  const SEXPTYPE t = TYPEOF(leaf);
+  if (Rf_isObject(leaf)) return info;  // classed values are not bare R data
+  switch (t) {
+    case REALSXP:
+      info.dtype = PJRT_Buffer_Type_F32;
+      break;
+    case INTSXP:
+      info.dtype = PJRT_Buffer_Type_S32;
+      break;
+    case LGLSXP:
+      info.dtype = PJRT_Buffer_Type_PRED;
+      break;
+    default:
+      return info;
   }
-  if (data == R_NilValue || TYPEOF(data) != EXTPTRSXP ||
-      !Rf_inherits(data, "PJRTBuffer")) {
-    return lb;
+  SEXP dim = Rf_getAttrib(leaf, R_DimSymbol);
+  if (dim != R_NilValue) {
+    // an array of any rank; NA elements pass through like pjrt_buffer()'s
+    const R_xlen_t n = XLENGTH(dim);
+    info.shape.reserve(n);
+    for (R_xlen_t k = 0; k < n; ++k) info.shape.push_back(INTEGER(dim)[k]);
+    info.ok = true;
+    return info;
   }
-  lb.ok = true;
-  lb.buffer = data;
-  lb.ambiguous = (amb != R_NilValue && Rf_asLogical(amb) == TRUE);
-  return lb;
+  if (XLENGTH(leaf) != 1) return info;  // bare vector: not a valid input
+  // a scalar literal; reject NA (it has no dtype), keep NaN
+  switch (t) {
+    case REALSXP:
+      if (R_IsNA(REAL(leaf)[0])) return info;
+      break;
+    case INTSXP:
+      if (INTEGER(leaf)[0] == NA_INTEGER) return info;
+      break;
+    case LGLSXP:
+      if (LOGICAL(leaf)[0] == NA_LOGICAL) return info;
+      break;
+    default:
+      break;
+  }
+  info.ok = true;
+  return info;
 }
 
 // One output-donation phantom buffer to allocate per call (CPU memory mgmt).
@@ -242,12 +331,13 @@ struct PhantomSpec {
 // to wrap the raw output buffers (this engine does not know AnvlArray layout).
 // client / device_xptr are kept to allocate fresh phantom buffers per call.
 struct CacheEntry {
-  SEXP exec = R_NilValue;               // PJRTLoadedExecutable xptr (preserved)
+  SEXP exec = R_NilValue;   // PJRTLoadedExecutable xptr (preserved)
+  SEXP r_fun = R_NilValue;  // closure engine: compiled R closure (preserved)
   std::vector<SEXP> const_arrays;       // (preserved)
-  std::vector<SEXP> static_key_values;  // static key-leaf SEXPs (preserved)
+  std::vector<SEXP> static_key_values;  // key-leaf SEXPs (preserved)
   std::vector<PhantomSpec> phantom_specs;
-  SEXP client = R_NilValue;         // PJRTClient xptr for phantom alloc
-  SEXP device_xptr = R_NilValue;    // PJRTDevice xptr for phantom alloc
+  SEXP client = R_NilValue;         // PJRTClient xptr for phantom alloc/uploads
+  SEXP device_xptr = R_NilValue;    // PJRTDevice xptr for phantom alloc/uploads
   SEXP out_tree = R_NilValue;       // opaque, for the caller's wrap
   SEXP ambiguous_out = R_NilValue;  // opaque, for the caller's wrap
   // Per-output dtype strings / integer shapes (preserved). Fixed for a given
@@ -261,6 +351,7 @@ struct CacheEntry {
 // Release every R object a cache entry preserves (on eviction / teardown).
 static void release_entry(CacheEntry& e) {
   if (e.exec != R_NilValue) R_ReleaseObject(e.exec);
+  if (e.r_fun != R_NilValue) R_ReleaseObject(e.r_fun);
   for (SEXP c : e.const_arrays) R_ReleaseObject(c);
   for (SEXP c : e.static_key_values) R_ReleaseObject(c);
   if (e.client != R_NilValue) R_ReleaseObject(e.client);
@@ -278,11 +369,14 @@ static void release_entry(CacheEntry& e) {
 class Dispatcher {
  public:
   Dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts,
-             std::unordered_set<std::string> static_names)
+             std::unordered_set<std::string> static_names, bool closure_engine,
+             bool move_inputs)
       : cache_(capacity, release_entry),
         miss_fn_(miss_fn),
         opts_(opts),
-        static_names_(std::move(static_names)) {
+        static_names_(std::move(static_names)),
+        closure_engine_(closure_engine),
+        move_inputs_(move_inputs) {
     R_PreserveObject(miss_fn_);
     R_PreserveObject(opts_);
   }
@@ -301,12 +395,21 @@ class Dispatcher {
   const std::unordered_set<std::string>& static_names() const {
     return static_names_;
   }
+  // Closure engine: entries hold a compiled R closure called on the flat
+  // leaves (anvl's quickr backend) instead of a PJRT executable.
+  bool closure_engine() const { return closure_engine_; }
+  // Move policy: a target device is fixed per entry (jit(device = ) /
+  // device_arg), so buffer inputs are copied to it at execute time and the
+  // key carries no device.
+  bool move_inputs() const { return move_inputs_; }
 
  private:
   LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq> cache_;
   SEXP miss_fn_;
   SEXP opts_;
   std::unordered_set<std::string> static_names_;
+  bool closure_engine_;
+  bool move_inputs_;
 };
 
 }  // namespace rpjrt
@@ -321,6 +424,18 @@ Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     std::vector<int64_t> dims, std::string dtype);
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    SEXP data, std::vector<int64_t> dims, std::string dtype);
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    SEXP data, std::vector<int64_t> dims, std::string dtype);
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    SEXP data, std::vector<int64_t> dims, std::string dtype);
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
+    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    Rcpp::XPtr<rpjrt::PJRTClient> dst_client, bool cross_client);
 
 // Self-test entry: flatten `x`, rebuild it, and hash the tree. Lets the R tests
 // check the native Node against R's flatten()/unflatten() on real inputs.
@@ -362,7 +477,7 @@ static CacheKey build_key_from_leaves(Rcpp::List leaves) {
     bool ambiguous = Rcpp::as<bool>(leaf[1]);
     const void* dev = nullptr;
     KeyLeaf kl;
-    kl.is_static = false;
+    kl.kind = KeyLeaf::kBuffer;
     kl.av = aval_from_buffer(buf, ambiguous, &dev);
     key.leaves.push_back(std::move(kl));
     // device is a single per-call value; take it from the first leaf.
@@ -406,7 +521,7 @@ bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b) {
     key.leaves.reserve(vals.size());
     for (R_xlen_t k = 0; k < vals.size(); ++k) {
       rpjrt::KeyLeaf kl;
-      kl.is_static = true;
+      kl.kind = rpjrt::KeyLeaf::kStatic;
       SEXP v = vals[k];
       kl.value = v;
       key.leaves.push_back(std::move(kl));
@@ -457,11 +572,20 @@ SEXP impl_dispatch_sentinel() {
 // size. `static_names` are the top-level argument names whose values are
 // static (part of the cache key, excluded from execution).
 // [[Rcpp::export]]
-SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names) {
+SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
+                          std::string engine, bool move_inputs) {
   using namespace rpjrt;
   if (TYPEOF(miss_fn) != CLOSXP && TYPEOF(miss_fn) != BUILTINSXP &&
       TYPEOF(miss_fn) != SPECIALSXP) {
     Rcpp::stop("miss_fn must be a function");
+  }
+  bool closure_engine;
+  if (engine == "pjrt") {
+    closure_engine = false;
+  } else if (engine == "closure") {
+    closure_engine = true;
+  } else {
+    Rcpp::stop("engine must be \"pjrt\" or \"closure\"");
   }
   std::unordered_set<std::string> statics;
   if (static_names != R_NilValue && TYPEOF(static_names) == STRSXP) {
@@ -473,7 +597,8 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names) {
   Rcpp::XPtr<PJRTExecuteOptions> opts =
       impl_execution_options_create(std::vector<int64_t>(), 0);
   auto* d = new Dispatcher(static_cast<std::size_t>(capacity), miss_fn,
-                           static_cast<SEXP>(opts), std::move(statics));
+                           static_cast<SEXP>(opts), std::move(statics),
+                           closure_engine, move_inputs);
   Rcpp::XPtr<Dispatcher> ptr(d, true);
   ptr.attr("class") = "PJRTDispatcher";
   return ptr;
@@ -486,10 +611,11 @@ int impl_dispatch_size(SEXP handle) {
   return static_cast<int>(d->cache().size());
 }
 
-// Run the native dispatch for `args` (the evaluated argument list of the call).
-// Returns the raw output buffers (a list of PJRTBuffer xptrs) on success, or
-// the dispatch sentinel when the call is not handled natively (caller falls
-// back).
+// Run the native dispatch for `args` (the evaluated argument list of the
+// call). PJRT engine: returns the raw output buffers plus wrap material.
+// Closure engine: returns list(value = <closure result>). The sentinel is
+// returned only for a device conflict under the infer policy -- the caller
+// re-runs its own validation to raise the canonical error.
 // [[Rcpp::export]]
 SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   using namespace rpjrt;
@@ -521,43 +647,88 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
                 counter, child_static);
   }
 
-  // 2. Classify leaves. Static leaves become value-keyed KeyLeafs; dynamic
-  // leaves must be xla AnvlArrays (else bail). Collect dynamic buffers (in
-  // flatten order) for execution and read avals + device natively. Every
-  // dynamic leaf must live on the same device, else bail so the R path
-  // produces its multi-device error.
+  // 2. Classify leaves into key leaves + per-leaf execute material. The only
+  // case left to the sentinel is a device conflict under the infer policy
+  // (the caller re-runs its R validation to raise the canonical error);
+  // everything else either dispatches or errors via the compile callback.
+  const bool closure = d->closure_engine();
+  const bool move = d->move_inputs();
   CacheKey key;
   key.in_tree = in_tree;
   key.leaves.reserve(leaves.size());
-  std::vector<LeafBuf> bufs;  // dynamic buffers only
-  bufs.reserve(leaves.size());
+  // Per-leaf execute-time SEXP: the buffer xptr (kBuffer), the backing R
+  // array `$data` (kClosureArr), or the leaf itself (everything else).
+  std::vector<SEXP> exec_sexp(leaves.size());
   bool have_device = false;
+  bool needs_upload = false;
   for (std::size_t k = 0; k < leaves.size(); ++k) {
+    SEXP leaf = leaves[k];
+    exec_sexp[k] = leaf;
     KeyLeaf kl;
     if (is_static[k]) {
-      kl.is_static = true;
-      kl.value = leaves[k];
+      kl.kind = KeyLeaf::kStatic;
+      kl.value = leaf;
       key.leaves.push_back(std::move(kl));
       continue;
     }
-    LeafBuf lb = extract_leaf(leaves[k]);
-    if (!lb.ok) return impl_dispatch_sentinel();
-    const void* dev = nullptr;
-    kl.is_static = false;
-    kl.av = aval_from_buffer(lb.buffer, lb.ambiguous, &dev);
-    if (!have_device) {
-      key.device = dev;
-      have_device = true;
-    } else if (dev != key.device) {
-      return impl_dispatch_sentinel();
+    AnvlFields af = anvl_fields(leaf);
+    if (af.is_anvl) {
+      if (!closure && af.backend != nullptr &&
+          std::strcmp(af.backend, "xla") == 0 && TYPEOF(af.data) == EXTPTRSXP &&
+          Rf_inherits(af.data, "PJRTBuffer")) {
+        const void* dev = nullptr;
+        kl.kind = KeyLeaf::kBuffer;
+        kl.av = aval_from_buffer(af.data, af.ambiguous, move ? nullptr : &dev);
+        if (!move) {
+          // Infer policy: the first buffer's device is the call's device;
+          // a conflicting input is the caller's validation error.
+          if (!have_device) {
+            key.device = dev;
+            have_device = true;
+          } else if (dev != key.device) {
+            return impl_dispatch_sentinel();
+          }
+        }
+        exec_sexp[k] = af.data;
+        key.leaves.push_back(std::move(kl));
+        continue;
+      }
+      if (closure && af.backend != nullptr &&
+          (std::strcmp(af.backend, "quickr") == 0 ||
+           std::strcmp(af.backend, "plain") == 0) &&
+          af.dtype != R_NilValue && TYPEOF(af.shape) == INTSXP) {
+        kl.kind = KeyLeaf::kClosureArr;
+        kl.value = af.dtype;
+        kl.av.ambiguous = af.ambiguous;
+        const R_xlen_t nd = XLENGTH(af.shape);
+        kl.av.shape.reserve(nd);
+        for (R_xlen_t j = 0; j < nd; ++j) {
+          kl.av.shape.push_back(INTEGER(af.shape)[j]);
+        }
+        exec_sexp[k] = af.data;
+        key.leaves.push_back(std::move(kl));
+        continue;
+      }
+      // An AnvlArray this engine cannot execute (wrong backend): opaque.
+      kl.kind = KeyLeaf::kOpaque;
+      kl.value = leaf;
+      key.leaves.push_back(std::move(kl));
+      continue;
     }
+    RDataInfo rd = classify_rdata(leaf);
+    if (rd.ok) {
+      kl.kind = KeyLeaf::kRData;
+      kl.av.dtype = static_cast<int>(rd.dtype);
+      kl.av.shape = std::move(rd.shape);
+      kl.av.ambiguous = true;  // bare R data is dtype-ambiguous (to_avals)
+      if (!closure) needs_upload = true;
+      key.leaves.push_back(std::move(kl));
+      continue;
+    }
+    kl.kind = KeyLeaf::kOpaque;
+    kl.value = leaf;
     key.leaves.push_back(std::move(kl));
-    bufs.push_back(lb);
   }
-
-  // No dynamic buffers -> no device to run on natively; let R infer from the
-  // trace (e.g. all-static or zero-arg constructor calls).
-  if (bufs.empty()) return impl_dispatch_sentinel();
 
   // 4. probe cache; compile via the R miss callback on a miss. The callback
   // returns the compiled artifacts (mirrors anvl's compile result): exec,
@@ -577,7 +748,15 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       return res.containsElementNamed(nm) ? static_cast<SEXP>(res[nm])
                                           : R_NilValue;
     };
-    SEXP exec = res["exec"];  // required
+    SEXP exec = named("exec");
+    SEXP r_fun = named("r_fun");
+    if (closure) {
+      if (r_fun == R_NilValue) {
+        Rcpp::stop("compile callback must return `r_fun` (closure engine)");
+      }
+    } else if (exec == R_NilValue) {
+      Rcpp::stop("compile callback must return `exec`");
+    }
     SEXP consts = named("const_arrays");
     SEXP client = named("client");
     SEXP device_xptr = named("device");
@@ -606,6 +785,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       }
     };
     keep(exec, e.exec);
+    keep(r_fun, e.r_fun);
     if (consts != R_NilValue) {
       Rcpp::List cl(consts);
       e.const_arrays.reserve(cl.size());
@@ -621,10 +801,11 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     keep(ambiguous_out, e.ambiguous_out);
     e.device = key.device;
 
-    // Preserve the static key values so the inserted key's SEXPs outlive this
-    // call; released in release_entry on eviction/teardown.
+    // Preserve the value-keyed key-leaf SEXPs (static/opaque values, cached
+    // dtype objects) so the inserted key outlives this call; released in
+    // release_entry on eviction/teardown.
     for (KeyLeaf& kl : key.leaves) {
-      if (kl.is_static) {
+      if (kl.value != R_NilValue) {
         R_PreserveObject(kl.value);
         e.static_key_values.push_back(kl.value);
       }
@@ -634,19 +815,81 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     entry = d->cache().get(key);
   }
 
-  // 5. assemble inputs: const_arrays ++ dynamic buffers ++ freshly-allocated
-  // phantom donation buffers, then execute. Static leaves are excluded (they
-  // are baked into the executable as constants).
-  // Build the GC-rooted `inputs` list first, then allocate each phantom buffer
-  // straight into its slot. A phantom is reachable only through `inputs` (the
-  // R GC does not scan a std::vector<SEXP>), and impl_client_buffer_empty
-  // allocates -- so writing it into the rooted list immediately, before the
-  // next allocation, is required to avoid a GC use-after-free.
-  Rcpp::List inputs(entry->const_arrays.size() + bufs.size() +
+  // 5a. Closure engine (anvl's quickr backend): call the compiled R closure
+  // on the full flat leaf list -- array-backed AnvlArrays contribute their
+  // backing R array, everything else (static values included; the closure's
+  // wrapper drops them) passes through as-is. The closure returns the final
+  // (already wrapped) result.
+  if (entry->r_fun != R_NilValue) {
+    Rcpp::List flat(leaves.size());
+    for (std::size_t k = 0; k < leaves.size(); ++k) flat[k] = exec_sexp[k];
+    Rcpp::Function fun(entry->r_fun);
+    return Rcpp::List::create(Rcpp::Named("value") = fun(flat));
+  }
+
+  // 5b. PJRT engine: assemble inputs as const_arrays ++ dynamic leaves ++
+  // freshly-allocated phantom donation buffers, then execute. Static and
+  // opaque leaves are excluded (statics are baked into the executable as
+  // constants). A buffer leaf passes through -- or, under the move policy,
+  // is copied to the entry's device when it lives elsewhere; a bare R
+  // literal/array leaf is uploaded to the entry's device (same impls and
+  // dtype defaults as pjrt_scalar()/pjrt_buffer()).
+  // Build the GC-rooted `inputs` list first, then write each allocated
+  // buffer (copy, upload, phantom) straight into its slot: it is reachable
+  // only through `inputs` (the R GC does not scan C++ locals across the
+  // next allocation).
+  if ((needs_upload || move) &&
+      (entry->client == R_NilValue || entry->device_xptr == R_NilValue)) {
+    Rcpp::stop(
+        "compile callback must return `client` and `device` for calls with "
+        "R-data inputs or a target device");
+  }
+  std::size_t n_dyn = 0;
+  for (const KeyLeaf& kl : key.leaves) {
+    if (kl.kind == KeyLeaf::kBuffer || kl.kind == KeyLeaf::kRData) ++n_dyn;
+  }
+  Rcpp::List inputs(entry->const_arrays.size() + n_dyn +
                     entry->phantom_specs.size());
   R_xlen_t pos = 0;
   for (SEXP c : entry->const_arrays) inputs[pos++] = c;
-  for (const LeafBuf& lb : bufs) inputs[pos++] = lb.buffer;
+  for (std::size_t k = 0; k < key.leaves.size(); ++k) {
+    const KeyLeaf& kl = key.leaves[k];
+    if (kl.kind == KeyLeaf::kBuffer) {
+      SEXP b = exec_sexp[k];
+      if (move) {
+        Rcpp::XPtr<PJRTBuffer> buf(b);
+        Rcpp::XPtr<PJRTDevice> dev(entry->device_xptr);
+        if (buf->device_ptr_cached() != dev->device) {
+          Rcpp::XPtr<PJRTClient> client(entry->client);
+          // Same plugin <=> same client (clients are per-platform
+          // singletons), so a differing API pointer means a cross-client
+          // host-roundtrip copy -- mirrors pjrt::copy_buffer().
+          const bool cross = buf->get_api().get() != client->api.get();
+          inputs[pos++] = impl_buffer_copy_to_device(buf, dev, client, cross);
+          continue;
+        }
+      }
+      inputs[pos++] = b;
+    } else if (kl.kind == KeyLeaf::kRData) {
+      Rcpp::XPtr<PJRTClient> client(entry->client);
+      Rcpp::XPtr<PJRTDevice> dev(entry->device_xptr);
+      SEXP leaf = exec_sexp[k];
+      switch (TYPEOF(leaf)) {
+        case REALSXP:
+          inputs[pos++] = impl_client_buffer_from_double(client, dev, leaf,
+                                                         kl.av.shape, "f32");
+          break;
+        case INTSXP:
+          inputs[pos++] = impl_client_buffer_from_integer(client, dev, leaf,
+                                                          kl.av.shape, "i32");
+          break;
+        default:
+          inputs[pos++] = impl_client_buffer_from_logical(client, dev, leaf,
+                                                          kl.av.shape, "pred");
+          break;
+      }
+    }
+  }
   if (!entry->phantom_specs.empty()) {
     Rcpp::XPtr<rpjrt::PJRTClient> client(entry->client);
     Rcpp::XPtr<rpjrt::PJRTDevice> device(entry->device_xptr);

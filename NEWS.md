@@ -15,6 +15,14 @@
   per executable. Buffer dtype/shape/device and an executable's addressable
   devices are cached natively after the first read, removing repeated PJRT
   C-API calls (and a per-input allocation) from the execute hot path.
+* The dispatcher now covers every jit call shape: bare R literals/arrays are
+  classified natively and uploaded at execute time (same dtype defaults as
+  `pjrt_scalar()`/`pjrt_buffer()`), a fixed target device
+  (`pjrt_dispatcher(move_inputs = TRUE)`) copies buffer inputs to the entry's
+  device natively, and `engine = "closure"` executes a compiled R closure on
+  the flat leaves (anvl's quickr backend) instead of a PJRT executable. The
+  sentinel remains only for device conflicts under the infer policy; all
+  other invalid inputs error through the compile callback.
 * pjrt now owns the pytree module (previously anvl's `R/flatten.R`):
   `build_tree()`, `flatten()`, `unflatten()`, `tree_size()`, `tree_equal()`,
   `tree_kind()`, `tree_names()`, `child_kinds()`, `child_sizes()`,

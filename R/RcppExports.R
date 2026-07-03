@@ -25,8 +25,8 @@ impl_dispatch_sentinel <- function() {
     .Call(`_pjrt_impl_dispatch_sentinel`)
 }
 
-impl_dispatch_create <- function(capacity, miss_fn, static_names) {
-    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names)
+impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, move_inputs) {
+    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, move_inputs)
 }
 
 impl_dispatch_size <- function(handle) {

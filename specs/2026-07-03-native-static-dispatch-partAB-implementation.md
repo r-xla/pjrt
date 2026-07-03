@@ -180,3 +180,32 @@ round-trip `unflatten(build_tree(x), flatten(x)) == x`, with
   CUDA/Metal tests skipped).
 - Static-arg xla jits now dispatch natively at hot-path cost; the R fallback
   cache stays empty for them (asserted in tests).
+
+## Part C (implemented in a follow-up pass): one native engine for everything
+
+The dispatcher is now the single cache + dispatch path for both backends:
+
+- **Key leaves** are kinded: `kBuffer` (xla AnvlArray, aval-keyed), `kStatic`
+  (identical()-keyed, excluded from execution), `kRData` (bare R
+  literal/array: keyed by default dtype -- double/f32, integer/i32,
+  logical/pred -- plus shape, ambiguous; uploaded at execute), `kClosureArr`
+  (quickr/plain AnvlArray under the closure engine: keyed by cached `$dtype`
+  via identical() + `$shape` + `$ambiguous`; `$data` is the execute input),
+  and `kOpaque` (anything else: identical()-keyed; the compile callback --
+  the full R validate/trace/compile path -- raises the canonical error).
+- **Engines**: `engine = "pjrt"` executes a PJRT executable (inputs =
+  const_arrays ++ buffers/uploads ++ phantoms); `engine = "closure"` calls
+  the compiled R closure (`r_fun` from the callback) on the flat leaves and
+  returns `list(value = ...)`.
+- **Device policies**: infer (first buffer's device keys the call; conflicts
+  return the sentinel and anvl re-runs `jit_prepare_args()` purely to raise
+  the canonical error) or `move_inputs = TRUE` (fixed/device_arg jits: the
+  key carries no device; buffers are copied to the entry device natively,
+  cross-client detected by comparing plugin API pointers -- clients are
+  per-platform singletons).
+- **Deleted from anvl**: the xla R fallback and its `xlamisc::LRUCache`, the
+  quickr R cache, `jit_call_xla()` (a test-only stand-in lives in
+  `helper-eval-graph.R`), `jit_key_leaves()`, `jit_prepare_call()`.
+  `cache_size()` now reads only `pjrt_dispatch_size()`. All-static /
+  zero-dynamic / literal-only calls dispatch natively (entry device comes
+  from the compile callback).

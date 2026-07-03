@@ -7,7 +7,13 @@
 \alias{pjrt_dispatch_size}
 \title{Native eager-dispatch fast path}
 \usage{
-pjrt_dispatcher(capacity, compile, static = character())
+pjrt_dispatcher(
+  capacity,
+  compile,
+  static = character(),
+  engine = "pjrt",
+  move_inputs = FALSE
+)
 
 pjrt_dispatch(dispatcher, args)
 
@@ -23,11 +29,12 @@ Maximum number of compiled executables to cache.}
 Cache-miss callback. Called as \code{compile(args)} with the dispatched argument
 list and must return a named list with:
 \itemize{
-\item \code{exec}: a \code{\link{pjrt_compile}}d executable,
+\item \code{exec}: a \code{\link{pjrt_compile}}d executable (\code{engine = "pjrt"}),
+\item \code{r_fun}: a function called on the flat leaf list (\code{engine = "closure"}),
 \item \code{const_arrays} (optional): buffers prepended to the inputs,
 \item \code{phantom_specs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)} donation-output buffers to allocate fresh per call,
-\item \code{client}, \code{device} (required if \code{phantom_specs} is non-empty): the
-\code{\link{pjrt_client}} and device used to allocate phantom buffers,
+\item \code{client}, \code{device} (required for phantom allocation, R-data uploads, and
+device moves): the \code{\link{pjrt_client}} and target device,
 \item \code{out_tree}, \code{ambiguous_out} (optional): opaque values returned verbatim
 for the caller to wrap the outputs.
 }}
@@ -37,6 +44,16 @@ Names of top-level arguments that are static (not arrays). Static values
 are part of the cache key (compared with \code{\link[=identical]{identical()}}) and are excluded
 from execution. Defaults to none.}
 
+\item{engine}{(\code{character(1)})\cr
+\code{"pjrt"} (default) executes a compiled PJRT executable; \code{"closure"} calls
+the compiled R closure returned by \code{compile} on the flat leaves.}
+
+\item{move_inputs}{(\code{logical(1)})\cr
+If \code{TRUE}, a target device is fixed per cache entry (via the \code{compile}
+callback's \code{device}) and buffer inputs are copied to it at execute time;
+the cache key then carries no device. Default \code{FALSE}: the first buffer's
+device is the call's device and conflicting inputs yield the sentinel.}
+
 \item{dispatcher}{(\code{PJRTDispatcher})\cr A dispatcher from \code{\link[=pjrt_dispatcher]{pjrt_dispatcher()}}.}
 
 \item{args}{(\code{list})\cr The (already evaluated) argument list of the call.}
@@ -44,12 +61,14 @@ from execution. Defaults to none.}
 \value{
 \code{\link[=pjrt_dispatcher]{pjrt_dispatcher()}} returns a \code{PJRTDispatcher}.
 
-\code{\link[=pjrt_dispatch]{pjrt_dispatch()}} returns, on a handled call, a list with
-\code{buffers} (the raw output \code{\link{pjrt_buffer}}s), \code{out_tree} and
-\code{ambiguous_out} (the opaque values from \code{compile}), \code{out_dtypes} and
-\code{out_shapes} (each output's dtype string and integer shape, read
-natively), and \code{device} (the \code{compile} callback's device object);
-otherwise the value of \code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}}.
+\code{\link[=pjrt_dispatch]{pjrt_dispatch()}} returns, on a handled call with
+\code{engine = "pjrt"}, a list with \code{buffers} (the raw output
+\code{\link{pjrt_buffer}}s), \code{out_tree} and \code{ambiguous_out} (the opaque values from
+\code{compile}), \code{out_dtypes} and \code{out_shapes} (each output's dtype string and
+integer shape, read natively), and \code{device} (the \code{compile} callback's
+device object). With \code{engine = "closure"} it returns
+\verb{list(value = <closure result>)}. Otherwise it returns the value of
+\code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}}.
 
 \code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}} returns the singleton sentinel value
 that \code{\link[=pjrt_dispatch]{pjrt_dispatch()}} yields for calls it does not handle natively.
@@ -69,13 +88,22 @@ a cache miss.
 }
 \details{
 On each \code{\link[=pjrt_dispatch]{pjrt_dispatch()}} call the inputs are flattened, classified, and
-turned into a cache key built from each leaf's dtype/shape/device (read
-natively off the buffers) plus an \code{ambiguous} flag. On a hit the cached
-executable runs immediately; on a miss \code{compile} is invoked.
+turned into a cache key built per leaf from either its dtype/shape (read
+natively off buffers, or the R type/dim of a bare literal/array) plus an
+\code{ambiguous} flag, or -- for static and other value-keyed leaves -- the value
+itself (compared with \code{\link[=identical]{identical()}}). On a hit the cached artifact runs
+immediately; on a miss \code{compile} is invoked.
 
-A leaf is dispatchable if it is a \code{\link{pjrt_buffer}} or an \code{"AnvlArray"} list
-with \verb{$backend == "xla"} (from which \verb{$data} and \verb{$ambiguous} are read).
-Any other input -- a non-buffer, a non-xla backend, or inputs spread across
-devices -- makes \code{\link[=pjrt_dispatch]{pjrt_dispatch()}} return \code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}} so
-the caller can fall back to its own slow path.
+With \code{engine = "pjrt"}, executable inputs are assembled natively: \code{"xla"}
+\code{"AnvlArray"} leaves contribute their buffer (copied to the entry's device
+under \code{move_inputs = TRUE}), and bare R literals/arrays are uploaded with
+the same dtype defaults as \code{\link[=pjrt_scalar]{pjrt_scalar()}}/\code{\link[=pjrt_buffer]{pjrt_buffer()}}. With
+\code{engine = "closure"}, the compiled R closure is called on the flat leaf
+list, with R-array-backed \code{"AnvlArray"} leaves contributing their \verb{$data}.
+
+A leaf no engine can execute (e.g. an \code{"AnvlArray"} of a foreign backend)
+is keyed by value; \code{compile} is expected to reject it, so such calls error
+through the callback. \code{\link[=pjrt_dispatch_sentinel]{pjrt_dispatch_sentinel()}} is returned only for
+inputs spread across devices when no target device is fixed -- the caller
+should re-run its own input validation to raise its canonical error.
 }
