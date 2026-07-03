@@ -166,15 +166,18 @@ test_that("tree_repr / format / print render R-idiomatic literals", {
     tree_repr,
     character(1)
   )
-  expect_identical(reprs, c(
-    "*",
-    "list()",
-    "list(*, *)",
-    "list(a = *, b = *)",
-    "list(*, b = *)",
-    "list(a = list(b = *, c = *), d = *)",
-    "list(a = *, b = NULL)"
-  ))
+  expect_identical(
+    reprs,
+    c(
+      "*",
+      "list()",
+      "list(*, *)",
+      "list(a = *, b = *)",
+      "list(*, b = *)",
+      "list(a = list(b = *, c = *), d = *)",
+      "list(a = *, b = NULL)"
+    )
+  )
   expect_identical(format(build_tree(list(a = 1))), "list(a = *)")
   expect_output(print(build_tree(list(a = 1))), "list(a = *)", fixed = TRUE)
 })

@@ -5,14 +5,14 @@
 // No sub-node handles escape to R (a child handle would alias into a
 // parent-owned subtree).
 
+#include "tree.h"
+
 #include <Rcpp.h>
 
 #include <cstddef>
 #include <string>
 #include <unordered_set>
 #include <vector>
-
-#include "tree.h"
 
 namespace rpjrt {
 

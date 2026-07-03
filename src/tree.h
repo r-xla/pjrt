@@ -37,10 +37,11 @@ inline bool is_bare_list(SEXP x) {
   return TYPEOF(x) == VECSXP && !Rf_isObject(x);
 }
 
-// Flatten `x` into `leaves` (in order), fill `node` with its structure, and push
-// each leaf's static-ness into `is_static`. `inherited_static` is propagated to
-// all descendants (a static top-level arg makes all its leaves static). `counter`
-// assigns 1-based leaf indices in flatten order (matches build_tree).
+// Flatten `x` into `leaves` (in order), fill `node` with its structure, and
+// push each leaf's static-ness into `is_static`. `inherited_static` is
+// propagated to all descendants (a static top-level arg makes all its leaves
+// static). `counter` assigns 1-based leaf indices in flatten order (matches
+// build_tree).
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves,
                         std::vector<char>& is_static, Node& node, int& counter,
                         bool inherited_static) {

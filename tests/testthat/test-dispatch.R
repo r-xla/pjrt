@@ -115,10 +115,14 @@ test_that("native dispatcher caches, executes, and falls back", {
   exec2 <- pjrt_compile(pjrt_program(src = add_src))
 
   n_miss <- 0L
-  d <- impl_dispatch_create(10L, function(args) {
-    n_miss <<- n_miss + 1L
-    list(exec = exec2)
-  }, character(0))
+  d <- impl_dispatch_create(
+    10L,
+    function(args) {
+      n_miss <<- n_miss + 1L
+      list(exec = exec2)
+    },
+    character(0)
+  )
 
   # Leaves are xla AnvlArray-shaped lists (list(data=buffer, backend="xla", ...)).
   arr <- function(buf) {
@@ -187,10 +191,14 @@ test_that("native dispatcher keys static args by value and excludes them from ex
   exec_id <- pjrt_compile(pjrt_program(src = id_src))
 
   seen <- list()
-  d <- impl_dispatch_create(10L, function(args) {
-    seen[[length(seen) + 1L]] <<- args$flag
-    list(exec = exec_id)
-  }, "flag")
+  d <- impl_dispatch_create(
+    10L,
+    function(args) {
+      seen[[length(seen) + 1L]] <<- args$flag
+      list(exec = exec_id)
+    },
+    "flag"
+  )
 
   arr <- function(buf) {
     structure(list(data = buf, ambiguous = FALSE, backend = "xla"), class = "AnvlArray")

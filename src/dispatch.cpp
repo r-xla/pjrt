@@ -241,8 +241,8 @@ struct PhantomSpec {
 // to wrap the raw output buffers (this engine does not know AnvlArray layout).
 // client / device_xptr are kept to allocate fresh phantom buffers per call.
 struct CacheEntry {
-  SEXP exec = R_NilValue;          // PJRTLoadedExecutable xptr (preserved)
-  std::vector<SEXP> const_arrays;  // (preserved)
+  SEXP exec = R_NilValue;               // PJRTLoadedExecutable xptr (preserved)
+  std::vector<SEXP> const_arrays;       // (preserved)
   std::vector<SEXP> static_key_values;  // static key-leaf SEXPs (preserved)
   std::vector<PhantomSpec> phantom_specs;
   SEXP client = R_NilValue;         // PJRTClient xptr for phantom alloc

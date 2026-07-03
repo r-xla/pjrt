@@ -4,6 +4,8 @@
 
 `pjrt` is the runtime layer of the r-xla stack. It compiles StableHLO/MLIR programs to hardware-specific executables and runs them via the PJRT C API. It supports CPU, CUDA, and Metal backends through dynamically loaded plugins.
 
+Beyond the runtime, pjrt also owns two pieces of jit infrastructure used by anvl (pjrt : anvl is roughly jaxlib : JAX): the **native eager-dispatch fast path** (`pjrt_dispatcher()`/`pjrt_dispatch()` in `src/dispatch.cpp` -- a per-function executable cache keyed natively on input structure/dtype/shape/device plus static-arg values, with an R compile callback on miss) and the **pytree module** (`build_tree()`/`flatten()`/`unflatten()` and the structural tree ops in `src/tree.h`/`src/tree.cpp`/`R/tree.R`; trees are opaque `PJRTNode` external pointers).
+
 ## Core Design
 
 ### Object Hierarchy
@@ -69,6 +71,8 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `device.R` – `pjrt_device()`, device spec parsing ("cpu:0")
 - `program.R` – `pjrt_program()` (MLIR/HLO loading)
 - `format.R` – buffer pretty-printing
+- `dispatch.R` – native eager-dispatch fast path (`pjrt_dispatcher()`, `pjrt_dispatch()`)
+- `tree.R` – pytree API over the native `PJRTNode` (`build_tree()`, `flatten()`, `unflatten()`, `map_tree()`, ...)
 - `safetensors.R` – safetensors read/write integration
 - `reexports.R` – tengen re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options
