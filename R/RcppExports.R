@@ -13,6 +13,10 @@ impl_dispatch_key_eq <- function(a, b) {
     .Call(`_pjrt_impl_dispatch_key_eq`, a, b)
 }
 
+impl_dispatch_static_key_eq <- function(a, b) {
+    .Call(`_pjrt_impl_dispatch_static_key_eq`, a, b)
+}
+
 impl_dispatch_lru_selftest <- function() {
     .Call(`_pjrt_impl_dispatch_lru_selftest`)
 }

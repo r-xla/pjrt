@@ -45,6 +45,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_dispatch_static_key_eq
+bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b);
+RcppExport SEXP _pjrt_impl_dispatch_static_key_eq(SEXP aSEXP, SEXP bSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type a(aSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type b(bSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_static_key_eq(a, b));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_dispatch_lru_selftest
 Rcpp::IntegerVector impl_dispatch_lru_selftest();
 RcppExport SEXP _pjrt_impl_dispatch_lru_selftest() {
@@ -805,6 +817,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_dispatch_node_selftest", (DL_FUNC) &_pjrt_impl_dispatch_node_selftest, 1},
     {"_pjrt_impl_dispatch_key_hash", (DL_FUNC) &_pjrt_impl_dispatch_key_hash, 1},
     {"_pjrt_impl_dispatch_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_key_eq, 2},
+    {"_pjrt_impl_dispatch_static_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_static_key_eq, 2},
     {"_pjrt_impl_dispatch_lru_selftest", (DL_FUNC) &_pjrt_impl_dispatch_lru_selftest, 0},
     {"_pjrt_impl_dispatch_sentinel", (DL_FUNC) &_pjrt_impl_dispatch_sentinel, 0},
     {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 2},

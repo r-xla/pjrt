@@ -219,7 +219,12 @@ struct CacheKeyEq {
       const KeyLeaf& y = b.leaves[k];
       if (x.is_static != y.is_static) return false;
       if (x.is_static) {
-        if (!R_compute_identical(x.value, y.value, /*flags=*/0)) return false;
+        // Match anvl, which compares static args with R's default identical().
+        // R_compute_identical's flag bits are USE bits (identical.c): default
+        // identical() sets only IDENT_USE_CLOENV (16), i.e. compare closure
+        // environments but ignore bytecode/srcref. flags=0 would ignore
+        // environments and wrongly merge distinct closures.
+        if (!R_compute_identical(x.value, y.value, /*flags=*/16)) return false;
       } else if (!aval_eq(x.av, y.av)) {
         return false;
       }
@@ -492,6 +497,34 @@ std::string impl_dispatch_key_hash(Rcpp::List leaves) {
 bool impl_dispatch_key_eq(Rcpp::List a, Rcpp::List b) {
   rpjrt::CacheKey ka = rpjrt::build_key_from_leaves(a);
   rpjrt::CacheKey kb = rpjrt::build_key_from_leaves(b);
+  return rpjrt::CacheKeyEq{}(ka, kb);
+}
+
+// Self-test for static-arg cache-key equality. Each element of `a`/`b` is
+// treated as a static KeyLeaf value (compared via identical()); the in_tree is
+// a flat ListNode over them. Exercises value- and environment-sensitivity.
+// [[Rcpp::export]]
+bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b) {
+  auto build = [](Rcpp::List vals) {
+    rpjrt::CacheKey key;
+    key.in_tree.kind = rpjrt::Node::ListNode;
+    key.in_tree.nodes.resize(vals.size());
+    key.leaves.reserve(vals.size());
+    for (R_xlen_t k = 0; k < vals.size(); ++k) {
+      rpjrt::KeyLeaf kl;
+      kl.is_static = true;
+      SEXP v = vals[k];
+      kl.value = v;
+      key.leaves.push_back(std::move(kl));
+      rpjrt::Node child;
+      child.kind = rpjrt::Node::LeafNode;
+      child.i = static_cast<int>(k + 1);
+      key.in_tree.nodes[k] = child;
+    }
+    return key;
+  };
+  rpjrt::CacheKey ka = build(a);
+  rpjrt::CacheKey kb = build(b);
   return rpjrt::CacheKeyEq{}(ka, kb);
 }
 

@@ -72,6 +72,37 @@ test_that("native cache key distinguishes dtype/shape/ambiguity/arity", {
   expect_false(E(list(leaf(x), leaf(x)), list(leaf(x))))
 })
 
+test_that("native static cache key compares values via identical() (env-sensitive)", {
+  E <- function(a, b) impl_dispatch_static_key_eq(a, b)
+
+  # same value -> equal; different value -> not equal
+  expect_true(E(list(1L), list(1L)))
+  expect_true(E(list("a", TRUE), list("a", TRUE)))
+  expect_false(E(list(1L), list(2L)))
+  expect_false(E(list("a"), list("b")))
+  expect_false(E(list(1L, 2L), list(1L))) # arity
+
+  # Two closures with identical body/formals but different environments must
+  # NOT be merged: R's default identical() has ignore.environment = FALSE.
+  mk <- function() function() NULL
+  f1 <- mk()
+  f2 <- mk()
+  expect_true(E(list(f1), list(f1)))
+  expect_false(E(list(f1), list(f2)))
+  expect_false(identical(f1, f2)) # the R reference behavior being mirrored
+
+  # ...but bytecode and srcref differences are ignored, like default identical().
+  f3 <- compiler::cmpfun(f1)
+  expect_true(identical(f1, f3))
+  expect_true(E(list(f1), list(f3)))
+  env <- new.env()
+  g1 <- eval(parse(text = "function() NULL", keep.source = TRUE), envir = env)
+  g2 <- eval(parse(text = "function() NULL", keep.source = TRUE), envir = env)
+  expect_false(identical(attr(g1, "srcref"), attr(g2, "srcref"), ignore.srcref = FALSE))
+  expect_true(identical(g1, g2))
+  expect_true(E(list(g1), list(g2)))
+})
+
 test_that("native dispatcher caches, executes, and falls back", {
   skip_if_not(plugins_downloaded())
   # run() returns list(buffers, out_tree, ambiguous_out); take the first buffer.
@@ -91,9 +122,7 @@ test_that("native dispatcher caches, executes, and falls back", {
 
   # Leaves are xla AnvlArray-shaped lists (list(data=buffer, backend="xla", ...)).
   arr <- function(buf) {
-    structure(list(data = buf, ambiguous = FALSE, backend = "xla"),
-      class = "AnvlArray"
-    )
+    structure(list(data = buf, ambiguous = FALSE, backend = "xla"), class = "AnvlArray")
   }
   x <- arr(pjrt_buffer(c(1, 2), dtype = "f32"))
   y <- arr(pjrt_buffer(c(3, 4), dtype = "f32"))
@@ -111,15 +140,15 @@ test_that("native dispatcher caches, executes, and falls back", {
     impl_dispatch_run(d, list(pjrt_buffer(c(1, 2), dtype = "f32"))),
     sentinel
   ) # bare buffer (not an AnvlArray) is not dispatchable
-  quirk <- structure(list(data = x$data, ambiguous = FALSE, backend = "quickr"),
-    class = "AnvlArray"
-  )
+  quirk <- structure(list(data = x$data, ambiguous = FALSE, backend = "quickr"), class = "AnvlArray")
   expect_identical(impl_dispatch_run(d, list(quirk, quirk)), sentinel)
 
   # GC-correct: many dispatches with periodic gc(), then teardown
   for (i in 1:300) {
     r <- impl_dispatch_run(d, list(x, y))
-    if (i %% 100 == 0) gc()
+    if (i %% 100 == 0) {
+      gc()
+    }
     expect_equal(out(r), c(4, 6))
   }
   rm(d)
