@@ -4,7 +4,7 @@
 \alias{pjrt_dump_hlo}
 \title{Inspect the HLO intermediate representations of a program}
 \usage{
-pjrt_dump_hlo(program, device = NULL, passes = FALSE)
+pjrt_dump_hlo(program, device = NULL, passes = FALSE, flags = character())
 }
 \arguments{
 \item{program}{(\code{PJRTProgram})\cr The program to inspect.}
@@ -14,6 +14,13 @@ compile for, as in \code{\link[=pjrt_compile]{pjrt_compile()}}.}
 
 \item{passes}{(\code{logical(1)})\cr If \code{TRUE}, additionally dump the HLO after
 every compiler pass.}
+
+\item{flags}{(\code{character()})\cr Additional XLA compiler flags for the dump
+compilation (the same strings you would put in \code{XLA_FLAGS}, e.g.
+\code{"--xla_dump_hlo_as_proto"}). Appended to any \code{XLA_FLAGS} already set in the
+session. The dump destination is controlled by \code{pjrt_dump_hlo()}, so a
+\code{--xla_dump_to} here is ignored. Supplying any \code{flags} forces the subprocess
+path.}
 }
 \value{
 A \code{PJRTHLODump} object: a named list of HLO text keyed by stage
@@ -27,11 +34,33 @@ compiler produced: the input HLO (\code{before_optimizations}) and the optimized
 HLO (\code{after_optimizations}) by default, and one entry per compiler pass when
 \code{passes = TRUE}.
 }
-\details{
-The compilation is run in a fresh R subprocess. This is necessary because
-dumping is enabled via the \code{XLA_FLAGS} environment variable, which XLA reads
-only once, before the first compilation in a process. Running in a subprocess
-makes \code{pjrt_dump_hlo()} work reliably regardless of what has already been
-compiled or executed in the current session, at the cost of a one-off process
-startup (roughly a second).
+\section{Subprocess vs. in-process}{
+
+
+HLO dumping is enabled via the \code{XLA_FLAGS} environment variable, which XLA
+reads only \strong{once, before the first compilation in a process}. So that
+\code{pjrt_dump_hlo()} works regardless of what has already been compiled or
+executed in the session, it compiles \code{program} in a fresh R subprocess with
+\code{XLA_FLAGS} set from the start. This costs a one-off process startup and
+plugin load (roughly a second) per call.
+
+To inspect many programs in a session without that per-call cost, set the
+dump flags in \code{XLA_FLAGS} \strong{before your first compilation}. \code{pjrt_dump_hlo()}
+then detects them and compiles in-process, skipping the subprocess:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Before any pjrt_compile()/pjrt_execute() in the session:
+Sys.setenv(XLA_FLAGS = paste(
+  "--xla_dump_to=/tmp/hlo",
+  "--xla_dump_hlo_as_text",
+  "--xla_dump_hlo_pass_re=.*" # only needed for passes = TRUE
+))
+# ... then, as often as you like, with no per-call subprocess cost:
+pjrt_dump_hlo(prog1)
+pjrt_dump_hlo(prog2)
+}\if{html}{\out{</div>}}
+
+The in-process fast path is taken only when no extra \code{flags} are requested and
+the flags are actually active (set before the first compile); otherwise
+\code{pjrt_dump_hlo()} transparently falls back to the subprocess.
 }
+

@@ -84,29 +84,58 @@ compile always honours the flag, so `pjrt_dump_hlo()` works regardless of sessio
 state — strictly friendlier than gomlx/zml, which just tell users to export
 `XLA_FLAGS` before starting.
 
+### In-process fast path (opt-in)
+
+The subprocess costs ~1 s (process startup + plugin load) per call — noticeable
+when inspecting many programs. So `pjrt_dump_hlo()` also offers the JAX-style
+in-process route for users who *do* set `XLA_FLAGS` up front: if the session's
+own `XLA_FLAGS` already enables text dumping (`--xla_dump_to=<dir>` +
+`--xla_dump_hlo_as_text`, plus `--xla_dump_hlo_pass_re` when `passes`), it
+compiles **in-process** and reads `<dir>` instead of spawning a child.
+
+Correctness under the once-per-process constraint is preserved by *verification,
+not trust*: it snapshots `<dir>`, compiles, and diffs (`setdiff`) to grab exactly
+this compile's new files. If none appeared — i.e. the flags were set too late to
+be parsed — it transparently **falls back to the subprocess**. Measured: ~0.06–0.12 s
+per call on the fast path vs. ~1 s via subprocess. This is gated on `session_dump_dir()`
+returning non-NULL and on no extra `flags` being requested (see below).
+
 ### R — the single entry point
 
-`pjrt_dump_hlo(program, device = NULL, passes = FALSE)` → `PJRTHLODump`
+`pjrt_dump_hlo(program, device = NULL, passes = FALSE, flags = character())` → `PJRTHLODump`
 
-- Extracts the program's raw code (`impl_program_code`) + format
-  (`impl_program_format`) and writes the code to a temp file.
-- Spawns a child R process (`callr::r`) whose environment reproduces the current
-  one but forces `XLA_FLAGS=--xla_dump_to=<tmp> --xla_dump_hlo_as_text`
-  (`+ --xla_dump_hlo_pass_re=.*` when `passes`) and drops `R_TESTS`. The child
+- **Fast path** (when `length(flags) == 0` and `session_dump_dir(passes)` is
+  non-NULL): compile in-process via the exported `pjrt_compile()`, then parse the
+  files that appeared in the session's dump dir. Falls back to the subprocess if
+  nothing was dumped.
+- **Subprocess path** (default): extracts the program's raw code
+  (`impl_program_code`) + format (`impl_program_format`), writes the code to a
+  temp file, and spawns a child R process (`callr::r`) whose environment
+  reproduces the current one but sets `XLA_FLAGS` and drops `R_TESTS`. The child
   only calls the **exported** `pjrt_program(path=, format=)` + `pjrt_compile()`,
-  so it works with any installed `pjrt` (no dev-only symbols needed).
-- The parent then parses the dumped files (in the shared temp dir) into a
-  `PJRTHLODump`. The child's executable is discarded — this is inspection only.
+  so it works with any installed `pjrt` (no dev-only symbols needed). The parent
+  parses the dumped files into a `PJRTHLODump`; the child's executable is
+  discarded — this is inspection only.
+
+The subprocess `XLA_FLAGS` is built as `existing session XLA_FLAGS` + user `flags`
++ our dump flags, in that order, so that: (a) the user's own flags (optimization
+levels, etc.) still apply, (b) the user can request extra behaviour via `flags`
+(e.g. `--xla_dump_hlo_as_proto`), and (c) our `--xla_dump_to=<tmp>` is **last** and
+therefore wins (XLA honours the last occurrence of a flag), so the child always
+dumps into the directory we read back. Supplying any `flags` forces the subprocess
+path (extra flags cannot be injected into an already-initialised in-process XLA).
 
 Native additions: two tiny accessors, `impl_program_code` (raw `program.code`
-bytes) and `impl_program_format`. `parse_hlo_dump()` and `run_dump_subprocess()`
-are unexported R helpers. `callr` is added to Imports.
+bytes) and `impl_program_format`. `parse_hlo_dump()`, `run_dump_subprocess()`,
+`dump_flags()`, and `session_dump_dir()` are unexported R helpers. `callr` is
+added to Imports.
 
 ### Low-level escape hatch
 
-Just `XLA_FLAGS` itself (documented), exactly like gomlx/zml. No wrapper object —
-the proto route it would have wrapped is unusable, so wrapping it would be a
-footgun.
+Two, both documented: (1) the `flags` argument for per-call XLA flags, and (2)
+`XLA_FLAGS` itself, exactly like gomlx/zml — which additionally *enables the
+in-process fast path* above. No wrapper object — the proto route it would have
+wrapped is unusable, so wrapping it would be a footgun.
 
 ## Return object: `PJRTHLODump`
 
@@ -182,18 +211,26 @@ in-session compile** (the exact case the subprocess exists to handle).
 
 - Unit (no compile, deterministic): `parse_hlo_dump()` on fabricated files — stage
   keys, pass ordering by index, backend-prefixed `after_optimizations`, exclusion
-  of `-buffer-assignment`.
+  of `-buffer-assignment`; `session_dump_dir()` flag detection (returns the dir
+  only when text dumping is enabled, requires `pass_re` for `passes`, NULL when
+  `XLA_FLAGS` is unset or lacks `--xla_dump_hlo_as_text`).
 - Integration (CPU): `pjrt_dump_hlo()` returns non-empty `before_optimizations`
   (mentions `add`/`multiply`) and `after_optimizations` (mentions `fusion`);
   optimized differs from input; `as.character()` == optimized; `print()` works;
-  works after a prior compile; `passes` argument validated.
+  works after a prior compile; `passes` and `flags` arguments validated; `flags =
+  "--xla_dump_hlo_as_proto"` reaches the compiler (a `.pb` appears in the dump
+  dir). The in-process fast path and the too-late-flags fallback are verified
+  manually — they cannot be forced deterministically inside the shared test
+  process, since earlier tests have already initialised in-process XLA (the
+  once-per-process constraint); `session_dump_dir()`'s unit test covers the
+  decision logic they hinge on.
 - CUDA: same shape assertions, gated with `skip_if(!is_cuda())` — runs later with
   `PJRT_PLATFORM=cuda`; kept lenient (no exact fusion assertion) since GPU output
   differs.
 
 Build/test note (from CLAUDE.md): never `devtools::load_all()` and
 `devtools::test()` in the same R process (protobuf double-registration crash);
-use separate `Rscript -e` calls. Verified: full suite 655 pass / 0 fail / 13 skip.
+use separate `Rscript -e` calls. Verified: full suite 658 pass / 0 fail / 13 skip.
 
 ## Documentation
 

@@ -45,8 +45,47 @@ test_that("parse_hlo_dump keys stages and orders passes", {
   )
 })
 
+test_that("session_dump_dir detects usable dump flags", {
+  # No XLA_FLAGS at all -> no fast path.
+  withr::local_envvar(XLA_FLAGS = NA)
+  expect_null(session_dump_dir(FALSE))
+
+  # Text dumping enabled -> returns the dump directory.
+  withr::local_envvar(
+    XLA_FLAGS = "--xla_dump_to=/tmp/hlo --xla_dump_hlo_as_text"
+  )
+  expect_equal(session_dump_dir(FALSE), "/tmp/hlo")
+  # ...but per-pass dumping needs --xla_dump_hlo_pass_re too.
+  expect_null(session_dump_dir(TRUE))
+
+  withr::local_envvar(
+    XLA_FLAGS = paste(
+      "--xla_dump_to=/tmp/hlo",
+      "--xla_dump_hlo_as_text",
+      "--xla_dump_hlo_pass_re=.*"
+    )
+  )
+  expect_equal(session_dump_dir(TRUE), "/tmp/hlo")
+
+  # A dump dir without --xla_dump_hlo_as_text is not usable.
+  withr::local_envvar(XLA_FLAGS = "--xla_dump_to=/tmp/hlo")
+  expect_null(session_dump_dir(FALSE))
+})
+
 test_that("pjrt_dump_hlo validates arguments", {
   expect_error(pjrt_dump_hlo(dump_test_program(), passes = "yes"), "passes")
+  expect_error(pjrt_dump_hlo(dump_test_program(), flags = 123), "flags")
+})
+
+test_that("pjrt_dump_hlo passes extra flags through to the compiler", {
+  # --xla_dump_hlo_as_proto makes XLA additionally emit .pb protos alongside
+  # the text dumps, proving the user flag reached the compiler.
+  dump <- pjrt_dump_hlo(
+    dump_test_program(),
+    flags = "--xla_dump_hlo_as_proto"
+  )
+  files <- list.files(attr(dump, "dir"))
+  expect_true(any(grepl("\\.pb$", files)))
 })
 
 test_that("pjrt_dump_hlo returns the input and optimized HLO, showing optimization", {

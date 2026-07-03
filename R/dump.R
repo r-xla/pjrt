@@ -43,20 +43,59 @@ parse_hlo_dump <- function(dir, files) {
   structure(stages, class = "PJRTHLODump", dir = dir, module = module)
 }
 
+# The XLA flags that enable text HLO dumping into `dir` (plus per-pass dumps
+# when `passes`). These are what both the in-process and subprocess paths need.
+dump_flags <- function(dir, passes) {
+  flags <- c(
+    sprintf("--xla_dump_to=%s", dir),
+    "--xla_dump_hlo_as_text"
+  )
+  if (passes) {
+    flags <- c(flags, "--xla_dump_hlo_pass_re=.*")
+  }
+  flags
+}
+
+# If the running session's XLA_FLAGS already enables text HLO dumping (and, when
+# `passes`, per-pass dumping), return the directory XLA dumps into -- so the
+# caller can compile in-process instead of spawning a subprocess. Returns NULL
+# when the required flags are absent. NB: this only actually dumps if those
+# flags were set before the session's first compilation (XLA parses XLA_FLAGS
+# once); the caller confirms by checking that new files appear.
+session_dump_dir <- function(passes) {
+  xla_flags <- Sys.getenv("XLA_FLAGS")
+  if (!nzchar(xla_flags)) {
+    return(NULL)
+  }
+  m <- regmatches(xla_flags, regexpr("--xla_dump_to=\\S+", xla_flags))
+  if (!length(m) || !grepl("--xla_dump_hlo_as_text", xla_flags, fixed = TRUE)) {
+    return(NULL)
+  }
+  if (passes && !grepl("--xla_dump_hlo_pass_re", xla_flags, fixed = TRUE)) {
+    return(NULL)
+  }
+  sub("--xla_dump_to=", "", m)
+}
+
 # Compile `progfile` (a program dumped to disk) in a fresh R process with
 # XLA_FLAGS enabling HLO dumping into `dir`. A subprocess is used because XLA
 # reads XLA_FLAGS once, before the first compilation in a process -- so an
 # in-process attempt would silently do nothing once anything else has compiled.
-run_dump_subprocess <- function(progfile, format, device, dir, passes) {
-  flags <- sprintf("--xla_dump_to=%s --xla_dump_hlo_as_text", dir)
-  if (passes) {
-    flags <- paste(flags, "--xla_dump_hlo_pass_re=.*")
-  }
+run_dump_subprocess <- function(progfile, format, device, dir, passes, flags) {
+  # Preserve any XLA_FLAGS already set in the session plus the user's `flags`,
+  # then append our dump flags LAST so that --xla_dump_to wins (XLA honours the
+  # last occurrence of a flag) and points at the directory we read back.
+  existing <- Sys.getenv("XLA_FLAGS")
+  combined <- paste(
+    c(if (nzchar(existing)) existing, flags, dump_flags(dir, passes)),
+    collapse = " "
+  )
+
   # Reproduce the current environment (so the child finds the plugin, platform,
   # libraries) but force XLA_FLAGS and drop R_TESTS (which breaks nested R).
   child_env <- Sys.getenv()
   child_env <- child_env[names(child_env) != "R_TESTS"]
-  child_env[["XLA_FLAGS"]] <- flags
+  child_env[["XLA_FLAGS"]] <- combined
 
   callr::r(
     function(progfile, format, device) {
@@ -77,28 +116,80 @@ run_dump_subprocess <- function(progfile, format, device, dir, passes) {
 #' HLO (`after_optimizations`) by default, and one entry per compiler pass when
 #' `passes = TRUE`.
 #'
-#' The compilation is run in a fresh R subprocess. This is necessary because
-#' dumping is enabled via the `XLA_FLAGS` environment variable, which XLA reads
-#' only once, before the first compilation in a process. Running in a subprocess
-#' makes `pjrt_dump_hlo()` work reliably regardless of what has already been
-#' compiled or executed in the current session, at the cost of a one-off process
-#' startup (roughly a second).
+#' @section Subprocess vs. in-process:
+#'
+#' HLO dumping is enabled via the `XLA_FLAGS` environment variable, which XLA
+#' reads only **once, before the first compilation in a process**. So that
+#' `pjrt_dump_hlo()` works regardless of what has already been compiled or
+#' executed in the session, it compiles `program` in a fresh R subprocess with
+#' `XLA_FLAGS` set from the start. This costs a one-off process startup and
+#' plugin load (roughly a second) per call.
+#'
+#' To inspect many programs in a session without that per-call cost, set the
+#' dump flags in `XLA_FLAGS` **before your first compilation**. `pjrt_dump_hlo()`
+#' then detects them and compiles in-process, skipping the subprocess:
+#'
+#' ```r
+#' # Before any pjrt_compile()/pjrt_execute() in the session:
+#' Sys.setenv(XLA_FLAGS = paste(
+#'   "--xla_dump_to=/tmp/hlo",
+#'   "--xla_dump_hlo_as_text",
+#'   "--xla_dump_hlo_pass_re=.*" # only needed for passes = TRUE
+#' ))
+#' # ... then, as often as you like, with no per-call subprocess cost:
+#' pjrt_dump_hlo(prog1)
+#' pjrt_dump_hlo(prog2)
+#' ```
+#'
+#' The in-process fast path is taken only when no extra `flags` are requested and
+#' the flags are actually active (set before the first compile); otherwise
+#' `pjrt_dump_hlo()` transparently falls back to the subprocess.
 #'
 #' @param program (`PJRTProgram`)\cr The program to inspect.
 #' @param device (`NULL` | `PJRTDevice` | `character(1)`)\cr Device or platform to
 #'   compile for, as in [pjrt_compile()].
 #' @param passes (`logical(1)`)\cr If `TRUE`, additionally dump the HLO after
 #'   every compiler pass.
+#' @param flags (`character()`)\cr Additional XLA compiler flags for the dump
+#'   compilation (the same strings you would put in `XLA_FLAGS`, e.g.
+#'   `"--xla_dump_hlo_as_proto"`). Appended to any `XLA_FLAGS` already set in the
+#'   session. The dump destination is controlled by `pjrt_dump_hlo()`, so a
+#'   `--xla_dump_to` here is ignored. Supplying any `flags` forces the subprocess
+#'   path.
 #'
 #' @return A `PJRTHLODump` object: a named list of HLO text keyed by stage
 #'   (`before_optimizations`, `after_optimizations`, and one entry per pass when
 #'   `passes = TRUE`). Use `[[` to extract a stage and [as.character()] for the
 #'   optimized HLO. Carries the dump directory and module name as attributes.
 #' @export
-pjrt_dump_hlo <- function(program, device = NULL, passes = FALSE) {
+pjrt_dump_hlo <- function(program, device = NULL, passes = FALSE, flags = character()) {
   check_program(program)
-  if (!is.logical(passes) || length(passes) != 1L || is.na(passes)) {
-    stop("`passes` must be a single TRUE/FALSE value.")
+  checkmate::assert_flag(passes)
+  checkmate::assert_character(flags, any.missing = FALSE)
+
+  device_spec <- if (inherits(device, "PJRTDevice")) {
+    as.character(device)
+  } else {
+    device
+  }
+
+  # Fast path: if the session was configured (before its first compile) to dump
+  # text HLO, compile in-process and read the freshly written files -- avoiding
+  # a subprocess + plugin reload. Only when no extra `flags` are requested,
+  # since those cannot be applied to an already-initialised process.
+  if (length(flags) == 0L) {
+    dir <- session_dump_dir(passes)
+    if (!is.null(dir)) {
+      before <- list.files(dir)
+      pjrt_compile(program, device = device_spec)
+      new_files <- setdiff(list.files(dir), before)
+      dump <- parse_hlo_dump(dir, new_files)
+      if (!is.null(dump[["after_optimizations"]])) {
+        return(dump)
+      }
+      # Flags were not actually active (set after the first compile) -- fall
+      # through to the subprocess, which sets XLA_FLAGS from the start.
+    }
   }
 
   progfile <- tempfile("pjrt_prog_")
@@ -108,18 +199,13 @@ pjrt_dump_hlo <- function(program, device = NULL, passes = FALSE) {
   dir <- tempfile("pjrt_hlo_")
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 
-  device_spec <- if (inherits(device, "PJRTDevice")) {
-    as.character(device)
-  } else {
-    device
-  }
-
   run_dump_subprocess(
     progfile,
     impl_program_format(program),
     device_spec,
     dir,
-    passes
+    passes,
+    flags
   )
 
   dump <- parse_hlo_dump(dir, list.files(dir))
