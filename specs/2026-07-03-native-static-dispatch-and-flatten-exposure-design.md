@@ -37,9 +37,9 @@ motivate this work:
   (confirmed empirically: a static jit grows the R cache, native stays at 0). The
   `KeyLeaf::is_static` / value-identity branch in `CacheKeyHash`/`CacheKeyEq` is
   never reached — `is_static` is never set `true` anywhere. An uncommitted change
-  sets its `identical()` flags to `16`, which is `IGNORE_ENV` (ignores
-  environments) — the opposite of the comment's intent, and wrong for matching
-  R's default `identical()`.
+  sets its `identical()` flags to `16` — which (contrary to what this
+  paragraph originally claimed) turned out to be exactly R's default
+  `identical()`; see A.5.
 - **Two sources of truth for flatten.** `dispatch.cpp` ports anvl's
   `R/flatten.R` (`flatten`/`build_tree`/`unflatten`) into C++. The two were only
   "verified by hand" and can silently drift; drift corrupts the cache key or the
@@ -112,16 +112,18 @@ The cache **key** now holds SEXPs for static leaves.
 - Lookup keys are transient (stack-built each call; their SEXPs are the live call
   args, rooted by R) and preserve nothing.
 
-### A.5 The `identical()` flags fix
+### A.5 The `identical()` flags (CORRECTED during implementation)
 
-`CacheKeyEq` static comparison uses
-`R_compute_identical(x, y, /*flags=*/40)` — `IGNORE_BYTECODE | IGNORE_SRCREF`,
-`ignore.environment = FALSE`. This reproduces R's default `identical()`.
-Confirmed defaults: `num.eq=TRUE, single.NA=TRUE, attrib.as.set=TRUE,
-ignore.bytecode=TRUE, ignore.environment=FALSE, ignore.srcref=TRUE`; the first
-three are encoded as their *non-default* bit, so the default value is
-`8 (bytecode) + 32 (srcref) = 40`. `16` (the uncommitted value) is `IGNORE_ENV`
-alone and is wrong.
+**The original claim here (40 right, 16 wrong) was inverted.** Per R's
+`identical.c`, `R_compute_identical`'s flag bits are *USE* bits: a bit is set
+when the corresponding property must be *compared*. Default `identical()`
+(`ignore.bytecode=TRUE, ignore.environment=FALSE, ignore.srcref=TRUE`) sets
+only `IDENT_USE_CLOENV (16)` — compare closure environments, ignore
+bytecode/srcref — so **`flags=16` is correct** and is what the code keeps.
+`40 = USE_BYTECODE | USE_SRCREF` would have ignored environments (wrongly
+merging distinct closures) while comparing bytecode and srcrefs. Verified
+empirically; pinned by `impl_dispatch_static_key_eq` tests covering value-,
+environment-, bytecode-, and srcref-sensitivity.
 
 ---
 

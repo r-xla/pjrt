@@ -12,11 +12,13 @@ Repos: `pjrt` (branch `feat/native-dispatch`), `anvl` (branch
 
 Implemented exactly per the Part A plan, tasks 1–4:
 
-1. **`identical()` flags fix + self-test.** `CacheKeyEq`'s static branch uses
-   `R_compute_identical(x, y, /*flags=*/40)` (`IGNORE_BYTECODE | IGNORE_SRCREF`,
-   `ignore.environment = FALSE` — R's default `identical()`). New R-callable
-   self-test `impl_dispatch_static_key_eq(a, b)` proves value- and
-   environment-sensitivity.
+1. **`identical()` flags + self-test — DEVIATION from the plan.** The plan's
+   claim (40 correct, 16 wrong) was inverted: `R_compute_identical`'s flag
+   bits are USE bits, and R's default `identical()` corresponds to
+   `flags=16` (`IDENT_USE_CLOENV` — compare environments, ignore
+   bytecode/srcref). Verified empirically; **`flags=16` was kept** and the new
+   self-test `impl_dispatch_static_key_eq(a, b)` pins value-, environment-,
+   bytecode-, and srcref-behavior against real `identical()`.
 2. **Plumbing.** `impl_dispatch_create(capacity, miss_fn, static_names)`;
    `pjrt_dispatcher(capacity, compile, static = character())`;
    `Dispatcher::static_names()` (an `std::unordered_set<std::string>`);
@@ -156,3 +158,25 @@ round-trip `unflatten(build_tree(x), flatten(x)) == x`, with
 - anvl: `R CMD INSTALL` pjrt first, then full `testthat` suite green
   (autodiff, jit xla/quickr, graph — they exercise every rewired site).
 - `make format` + `jarl check` in both repos before the final commits.
+
+## Deviations & extra fixes discovered during implementation
+
+- `identical()` flags stayed at 16 (see Part A item 1) — the plan's 40 was wrong.
+- `tree_diff()` returns the diverging subtrees as `tree_repr()` strings, not
+  Nodes (its only consumer formats them; avoids handing out extra handles).
+- anvl `stablehlo()`: region/closure lowerings (`constants_as_inputs = FALSE`)
+  now use a non-"main" func id so stablehlo's build-wide SSA-id counter is not
+  reset mid-build; `prim_reduce`'s reductor lowering joins that path. This was
+  a pre-existing bug (independent of this arc) producing "redefinition of SSA
+  value" parse errors for scatter/reduce with enough inputs.
+- pjrt dispatcher: phantom-spec dtypes accept the `bool`/`i1` aliases (a tengen
+  `BooleanType` stringifies as `"bool"`; canonical pjrt name is `"pred"`).
+- `prim_if`/`prim_while` tree-structure checks and one test moved from
+  `identical()` to `tree_equal()` (xptrs compare by address).
+
+## Final state
+
+- pjrt suite: FAIL 0, PASS 1362. anvl suite: FAIL 0, PASS 1935 (CPU sandbox;
+  CUDA/Metal tests skipped).
+- Static-arg xla jits now dispatch natively at hot-path cost; the R fallback
+  cache stays empty for them (asserted in tests).
