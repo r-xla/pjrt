@@ -582,6 +582,9 @@ SEXP impl_dispatch_run(SEXP handle, Rcpp::List args) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
         ps.dtype = Rcpp::as<std::string>(spec["dtype"]);
+        // Normalize the boolean aliases the R layer also accepts (a tengen
+        // BooleanType stringifies as "bool"; pjrt's canonical name is "pred").
+        if (ps.dtype == "bool" || ps.dtype == "i1") ps.dtype = "pred";
         ps.shape = Rcpp::as<std::vector<int64_t>>(spec["shape"]);
         e.phantom_specs.push_back(std::move(ps));
       }
