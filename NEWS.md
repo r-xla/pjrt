@@ -1,5 +1,23 @@
 # pjrt (development version)
 
+## Features
+
+* New native eager-dispatch fast path for code-transformation frontends:
+  `pjrt_dispatcher()`, `pjrt_dispatch()`, `pjrt_dispatch_sentinel()`, and
+  `pjrt_dispatch_size()`. The dispatcher owns a per-function executable
+  cache keyed on the inputs' structure and abstract values (read natively
+  off the buffers) and calls back into R to compile only on a miss. Static
+  arguments (declared via `pjrt_dispatcher(static = )`) are part of the
+  cache key (compared with `identical()`) and excluded from execution.
+* pjrt now owns the pytree module (previously anvl's `R/flatten.R`):
+  `build_tree()`, `flatten()`, `unflatten()`, `tree_size()`, `tree_equal()`,
+  `tree_kind()`, `tree_names()`, `child_kinds()`, `child_sizes()`,
+  `flat_names()`, `tree_path()`, `filter_by_names()`, `tree_concat()`,
+  `mask_from_names()`, `tree_repr()`, `tree_diff()`, `map_tree()`,
+  `pmap_tree()`, and `flatten_fun()`. Trees are opaque native objects
+  (`PJRTNode`); the same C++ traversal drives both the exposed API and the
+  dispatch hot path.
+
 ## Bug fixes
 
 * `check_err()` no longer leaks the underlying `PJRT_Error` when
@@ -60,7 +78,7 @@
   plugin loads, so handlers can be registered during `.onLoad()`.
 * `pjrt_device()` now returns cached `PJRTDevice` instances, so repeated calls
   for the same device yield objects with stable identity (useful for hashing
-  and caching, e.g. in `{anvil}`'s JIT).
+  and caching, e.g. in `{anvl}`'s JIT).
 
 ## Bug fixes
 

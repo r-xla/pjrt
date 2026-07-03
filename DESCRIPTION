@@ -42,6 +42,7 @@ Collate:
     'compare.R'
     'custom_call.R'
     'device.R'
+    'dispatch.R'
     'execution_options.R'
     'format.R'
     'loaded_executable.R'
@@ -51,6 +52,7 @@ Collate:
     'program.R'
     'reexports.R'
     'safetensors.R'
+    'tree.R'
     'utils.R'
     'zzz.R'
 Config/roxygen2/version: 8.0.0
