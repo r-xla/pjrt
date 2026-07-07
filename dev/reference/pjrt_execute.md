@@ -19,7 +19,13 @@ to chain async buffer-to-host transfer.
 ## Usage
 
 ``` r
-pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
+pjrt_execute(
+  executable,
+  ...,
+  execution_options = NULL,
+  simplify = TRUE,
+  check = TRUE
+)
 ```
 
 ## Arguments
@@ -47,6 +53,16 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
   If `TRUE` (default), a single output is returned as a `PJRTBuffer`. If
   `FALSE`, a single output is returned as a `list` of length 1
   containing a `PJRTBuffer`.
+
+- check:
+
+  (`logical(1)`)  
+  If `TRUE` (default), validate the arguments (executable type, that all
+  inputs are `PJRTBuffer`s and unnamed, execution options, and
+  `simplify`). Trusted callers on a hot dispatch path can pass `FALSE`
+  to skip this validation; the caller is then responsible for
+  guaranteeing that `executable`, the inputs, and `execution_options`
+  are valid.
 
 ## Value
 

@@ -80,7 +80,13 @@ Use <code><a href="as_array_async.html">as_array_async()</a></code> to chain asy
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_execute</span><span class="op">(</span><span class="va">executable</span>, <span class="va">...</span>, execution_options <span class="op">=</span> <span class="cn">NULL</span>, simplify <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_execute</span><span class="op">(</span></span>
+<span>  <span class="va">executable</span>,</span>
+<span>  <span class="va">...</span>,</span>
+<span>  execution_options <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  simplify <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  check <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -107,6 +113,15 @@ Optional execution options for configuring buffer donation and other settings.</
 <dd><p>(<code>logical(1)</code>)<br>
 If <code>TRUE</code> (default), a single output is returned as a <code>PJRTBuffer</code>.
 If <code>FALSE</code>, a single output is returned as a <code>list</code> of length 1 containing a <code>PJRTBuffer</code>.</p></dd>
+
+
+<dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>
+<dd><p>(<code>logical(1)</code>)<br>
+If <code>TRUE</code> (default), validate the arguments (executable type, that all
+inputs are <code>PJRTBuffer</code>s and unnamed, execution options, and <code>simplify</code>).
+Trusted callers on a hot dispatch path can pass <code>FALSE</code> to skip this
+validation; the caller is then responsible for guaranteeing that
+<code>executable</code>, the inputs, and <code>execution_options</code> are valid.</p></dd>
 
 </dl></div>
     <div class="section level2">
