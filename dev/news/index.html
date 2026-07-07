@@ -52,8 +52,9 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
 <div class="section level3">
-<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
-<ul><li>
+<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
+<ul><li>pjrt now owns the Rtree module (pjrt’s R analog of JAX’s pytree), which includes functions like <code><a href="../reference/build_tree.html">build_tree()</a></code>, <code><a href="../reference/flatten.html">flatten()</a></code>, <code><a href="../reference/unflatten.html">unflatten()</a></code>, etc..</li>
+<li>
 <code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> returns the HLO intermediate representations the XLA compiler produces for a program – the input (<code>before_optimizations</code>) and optimized (<code>after_optimizations</code>) HLO – to help debug compilation (<a href="https://github.com/r-xla/pjrt/issues/194" class="external-link">#194</a>). Enable it by setting the dump flags in <code>XLA_FLAGS</code> (e.g. <code>--xla_dump_to=&lt;dir&gt; --xla_dump_hlo_as_text</code>) at the start of the session, before the first compilation; <code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> errors with instructions if they are not set.</li>
 </ul></div>
 <div class="section level3">
@@ -63,7 +64,7 @@
 <li>Reading a buffer back to the host now respects the device buffer’s actual memory layout. A non-row-major (but untiled) executable output — e.g. one pinned to a column-major layout via <code>mhlo.layout_mode</code> — is reordered correctly instead of being returned transposed. A layout the readback cannot faithfully reorder (strided, tiled, or rank-mismatched) now raises a clear error rather than silently returning wrong data.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
+<h3 id="features-development-version-1">Features<a class="anchor" aria-label="anchor" href="#features-development-version-1"></a></h3>
 <ul><li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>, <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code>, and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> now call R’s garbage collector and retry once when the plugin reports <code>RESOURCE_EXHAUSTED</code>. Unreferenced <code>PJRTBuffer</code> external pointers are finalized between attempts so their device memory is released before the retry.</li>
 <li>The first time a PJRT plugin needs to be downloaded, interactive sessions now ask for confirmation before downloading (similar to <code>torch</code>). Non-interactive sessions no longer download automatically. The <code>PJRT_INSTALL</code> environment variable overrides this: set it to <code>"1"</code> to always download without asking, or <code>"0"</code> to never download.</li>

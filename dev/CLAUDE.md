@@ -9,6 +9,13 @@ StableHLO/MLIR programs to hardware-specific executables and runs them
 via the PJRT C API. It supports CPU, CUDA, and Metal backends through
 dynamically loaded plugins.
 
+Beyond the runtime, pjrt also owns the **Rtree module**
+([`build_tree()`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md)/[`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md)/[`unflatten()`](https://r-xla.github.io/pjrt/dev/reference/unflatten.md)
+and the structural tree ops in `src/tree.h`/`src/tree.cpp`/`R/tree.R`);
+trees are opaque `RTree` external pointers. The Rtree is pjrt’s R analog
+of [JAX’s pytree](https://docs.jax.dev/en/latest/pytrees.html), which is
+where the idea comes from.
+
 ## Core Design
 
 ### Object Hierarchy
@@ -102,6 +109,12 @@ buffers.
   [`pjrt_program()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_program.md)
   (MLIR/HLO loading)
 - `format.R` – buffer pretty-printing
+- `tree.R` – Rtree API over the native `RTree`
+  ([`build_tree()`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md),
+  [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md),
+  [`unflatten()`](https://r-xla.github.io/pjrt/dev/reference/unflatten.md),
+  [`map_tree()`](https://r-xla.github.io/pjrt/dev/reference/map_tree.md),
+  …)
 - `safetensors.R` – safetensors read/write integration
 - `reexports.R` – tengen re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for
