@@ -52,6 +52,11 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
 <div class="section level3">
+<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<ul><li>
+<code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> returns the HLO intermediate representations the XLA compiler produces for a program – the input (<code>before_optimizations</code>) and optimized (<code>after_optimizations</code>) HLO – to help debug compilation (<a href="https://github.com/r-xla/pjrt/issues/194" class="external-link">#194</a>). Enable it by setting the dump flags in <code>XLA_FLAGS</code> (e.g. <code>--xla_dump_to=&lt;dir&gt; --xla_dump_hlo_as_text</code>) at the start of the session, before the first compilation; <code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> errors with instructions if they are not set.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
 <code>check_err()</code> no longer leaks the underlying <code>PJRT_Error</code> when converting a plugin error into an R exception.</li>

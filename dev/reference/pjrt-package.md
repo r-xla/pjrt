@@ -23,6 +23,18 @@ scattered across various websites. The options include:
 
 - `XLA_FLAGS`: See the [openxla
   website](https://openxla.org/xla/flags_guidance) for more information.
+  Among these, the following flags control HLO dumping and are used by
+  [`inspect_hlo()`](https://r-xla.github.io/pjrt/dev/reference/inspect_hlo.md)
+  to inspect the XLA IR:
+
+  - `--xla_dump_to=<dir>`: Directory XLA writes its HLO dump files into.
+
+  - `--xla_dump_hlo_as_text`: Dump the HLO modules as text (before and
+    after optimizations).
+
+  XLA reads `XLA_FLAGS` only **once**, before the first compilation, so
+  set it at the start of a fresh R session, e.g.
+  `Sys.setenv(XLA_FLAGS = "--xla_dump_to=/tmp/hlo --xla_dump_hlo_as_text")`.
 
 **Configuration options provided by this package**
 
@@ -89,6 +101,9 @@ Useful links:
 ([ORCID](https://orcid.org/0000-0002-9609-3197))
 
 Authors:
+
+- Sebastian Fischer <seb.fischer@tutamail.com>
+  ([ORCID](https://orcid.org/0000-0002-9609-3197))
 
 - Daniel Falbel <daniel@posit.co>
   ([ORCID](https://orcid.org/0009-0006-0143-2392))

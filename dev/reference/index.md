@@ -37,6 +37,9 @@
 - [`format_buffer()`](https://r-xla.github.io/pjrt/dev/reference/format_buffer.md)
   : Format Buffer Data
 
+- [`inspect_hlo()`](https://r-xla.github.io/pjrt/dev/reference/inspect_hlo.md)
+  : Inspect the HLO Source of a Program
+
 - [`install_pjrt()`](https://r-xla.github.io/pjrt/dev/reference/install_pjrt.md)
   : Install PJRT Plugins
 
