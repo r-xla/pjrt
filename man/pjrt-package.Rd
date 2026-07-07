@@ -23,7 +23,17 @@ various websites. The options include:
 \item 3: shows nothing
 }
 \item \code{XLA_FLAGS}: See the \href{https://openxla.org/xla/flags_guidance}{openxla website} for
-more information.
+more information. Among these, the following flags control HLO dumping and are
+used by \code{\link[=inspect_hlo]{inspect_hlo()}} to inspect the XLA IR:
+\itemize{
+\item \verb{--xla_dump_to=<dir>}: Directory XLA writes its HLO dump files into.
+\item \code{--xla_dump_hlo_as_text}: Dump the HLO modules as text (before and after
+optimizations).
+}
+
+XLA reads \code{XLA_FLAGS} only \strong{once}, before the first compilation, so set it
+at the start of a fresh R session, e.g.
+\code{Sys.setenv(XLA_FLAGS = "--xla_dump_to=/tmp/hlo --xla_dump_hlo_as_text")}.
 }
 
 \strong{Configuration options provided by this package}
