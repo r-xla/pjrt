@@ -3,11 +3,14 @@ the <- new.env(parent = emptyenv())
 the[["plugins"]] <- new.env(parent = emptyenv())
 the[["clients"]] <- new.env(parent = emptyenv())
 the[["devices"]] <- new.env(parent = emptyenv())
-# Memoization caches keyed by a device's string representation. `platforms`
-# caches the parsed platform name (avoids a regex per call); `canonical_devices`
-# maps a device string to the canonical cached `PJRTDevice` xptr (avoids
-# rescanning the client's device list per call). Both domains are tiny.
+# Device String -> Platform String
 the[["platforms"]] <- new.env(parent = emptyenv())
+# Device String -> canonical PJRTDevice xptr. Memoization cache for
+# cached_device() (client.R): the first PJRTDevice seen for a given string
+# (e.g. "cpu:0") becomes the canonical one, so all equal devices collapse to a
+# single external pointer. That lets devices be compared by identity and used
+# as stable hashtab keys, and avoids rescanning the client's device list on
+# every lookup.
 the[["canonical_devices"]] <- new.env(parent = emptyenv())
 the[["custom_calls"]] <- list()
 the[["config"]] <- list(
