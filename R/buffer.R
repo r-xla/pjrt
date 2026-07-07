@@ -696,6 +696,11 @@ shape.PJRTBuffer <- function(x, ...) {
   if (!inherits(e2, "PJRTDevice")) {
     return(FALSE)
   }
+  # Canonical devices (from `cached_device()`) share one xptr, so equal devices
+  # are usually identical -- a pointer compare that skips stringification.
+  if (identical(e1, e2)) {
+    return(TRUE)
+  }
   identical(as.character(e1), as.character(e2))
 }
 

@@ -39,3 +39,16 @@ check_execution_options <- function(options) {
   stopifnot(inherits(options, "PJRTExecuteOptions"))
   invisible(NULL)
 }
+
+# The default execution options (no non-donatable indices, launch_id 0) are an
+# immutable value reused on every donation-enabled execute. Building them per
+# call (checkmate asserts + a C++ constructor) is pure overhead on the hot
+# dispatch path, so we memoize a single shared instance.
+default_execution_options <- function() {
+  opts <- the[["default_execution_options"]]
+  if (is.null(opts)) {
+    opts <- pjrt_execution_options()
+    the[["default_execution_options"]] <- opts
+  }
+  opts
+}

@@ -175,6 +175,32 @@ PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
                                            bool is_cpu)
     : executable(executable), api(api), is_cpu_(is_cpu) {
   load_input_output_aliases_(program_code, program_format);
+  load_num_outputs_();
+}
+
+// Query and cache the executable's output count. This is a static property of
+// the compiled program, so resolving it per execute (GetExecutable + NumOutputs
+// + Executable_Destroy) would be three plugin-boundary calls of pure overhead
+// on the hot dispatch path.
+void PJRTLoadedExecutable::load_num_outputs_() {
+  PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
+  get_exec_args.struct_size = sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
+  get_exec_args.loaded_executable = this->executable;
+  check_err(this->api.get(),
+            this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args));
+
+  PJRT_Executable_NumOutputs_Args num_outputs_args{};
+  num_outputs_args.struct_size = sizeof(PJRT_Executable_NumOutputs_Args);
+  num_outputs_args.executable = get_exec_args.executable;
+  check_err(this->api.get(),
+            this->api->PJRT_Executable_NumOutputs_(&num_outputs_args));
+  this->num_outputs_ = num_outputs_args.num_outputs;
+
+  PJRT_Executable_Destroy_Args destroy_exec_args{};
+  destroy_exec_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
+  destroy_exec_args.executable = get_exec_args.executable;
+  check_err(this->api.get(),
+            this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
 }
 
 namespace {
@@ -337,20 +363,8 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 
   exec_args.execute_device = nullptr;
 
-  // Get the number of outputs from the executable
-  PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
-  get_exec_args.struct_size = sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
-  get_exec_args.loaded_executable = this->executable;
-  check_err(this->api.get(),
-            this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args));
-
-  PJRT_Executable_NumOutputs_Args num_outputs_args{};
-  num_outputs_args.struct_size = sizeof(PJRT_Executable_NumOutputs_Args);
-  num_outputs_args.executable = get_exec_args.executable;
-  check_err(this->api.get(),
-            this->api->PJRT_Executable_NumOutputs_(&num_outputs_args));
-
-  size_t num_outputs = num_outputs_args.num_outputs;
+  // Output count is cached at construction (static per executable).
+  size_t num_outputs = this->num_outputs_;
 
   // Prepare output buffer storage
   std::vector<PJRT_Buffer *> inner_out(num_outputs);
@@ -382,13 +396,6 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
     auto buf = std::make_unique<PJRTBuffer>(outer_out[0][i], this->api);
     result.buffers.push_back(std::move(buf));
   }
-
-  // Clean up the executable we got
-  PJRT_Executable_Destroy_Args destroy_exec_args{};
-  destroy_exec_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
-  destroy_exec_args.executable = get_exec_args.executable;
-  check_err(this->api.get(),
-            this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
 
   return result;
 };
