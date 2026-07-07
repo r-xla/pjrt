@@ -24,6 +24,7 @@ Imports:
     withr,
     tengen (>= 0.2.0)
 Suggests:
+    callr,
     stablehlo,
     testthat (>= 3.0.0)
 LinkingTo:
@@ -44,6 +45,7 @@ Collate:
     'device.R'
     'execution_options.R'
     'format.R'
+    'hlo.R'
     'install.R'
     'loaded_executable.R'
     'package.R'
