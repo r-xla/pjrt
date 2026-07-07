@@ -73,6 +73,12 @@ class PJRTLoadedExecutable {
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   std::vector<PJRT_Device *> addressable_devices();
+  // Cached view of addressable_devices() for the execute hot path -- the set
+  // is fixed per executable, and the uncached query is a PJRT API call.
+  const std::vector<PJRT_Device *> &addressable_devices_cached() {
+    if (addr_devices_.empty()) addr_devices_ = addressable_devices();
+    return addr_devices_;
+  }
   const std::vector<PJRTInputOutputAlias> &input_output_aliases() const {
     return aliases_;
   }
@@ -87,6 +93,7 @@ class PJRTLoadedExecutable {
   // OOM-and-retry actually happens (CUDA).
   bool is_cpu_;
   size_t num_outputs_;
+  std::vector<PJRT_Device *> addr_devices_;
   std::vector<PJRTInputOutputAlias> aliases_;
   void load_input_output_aliases_(const std::string &program_code,
                                   PJRTProgramFormat program_format);

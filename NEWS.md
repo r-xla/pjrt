@@ -74,7 +74,7 @@
   plugin loads, so handlers can be registered during `.onLoad()`.
 * `pjrt_device()` now returns cached `PJRTDevice` instances, so repeated calls
   for the same device yield objects with stable identity (useful for hashing
-  and caching, e.g. in `{anvil}`'s JIT).
+  and caching, e.g. in `{anvl}`'s JIT).
 
 ## Bug fixes
 

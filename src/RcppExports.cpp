@@ -11,6 +11,110 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// impl_dispatch_node_selftest
+Rcpp::List impl_dispatch_node_selftest(SEXP x);
+RcppExport SEXP _pjrt_impl_dispatch_node_selftest(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_node_selftest(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_key_hash
+std::string impl_dispatch_key_hash(Rcpp::List leaves);
+RcppExport SEXP _pjrt_impl_dispatch_key_hash(SEXP leavesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type leaves(leavesSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_key_hash(leaves));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_key_eq
+bool impl_dispatch_key_eq(Rcpp::List a, Rcpp::List b);
+RcppExport SEXP _pjrt_impl_dispatch_key_eq(SEXP aSEXP, SEXP bSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type a(aSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type b(bSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_key_eq(a, b));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_static_key_eq
+bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b);
+RcppExport SEXP _pjrt_impl_dispatch_static_key_eq(SEXP aSEXP, SEXP bSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type a(aSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type b(bSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_static_key_eq(a, b));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_lru_selftest
+Rcpp::IntegerVector impl_dispatch_lru_selftest();
+RcppExport SEXP _pjrt_impl_dispatch_lru_selftest() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_lru_selftest());
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_sentinel
+SEXP impl_dispatch_sentinel();
+RcppExport SEXP _pjrt_impl_dispatch_sentinel() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_sentinel());
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_create
+SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names, std::string engine, bool move_inputs);
+RcppExport SEXP _pjrt_impl_dispatch_create(SEXP capacitySEXP, SEXP miss_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP move_inputsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type capacity(capacitySEXP);
+    Rcpp::traits::input_parameter< SEXP >::type miss_fn(miss_fnSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type static_names(static_namesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type engine(engineSEXP);
+    Rcpp::traits::input_parameter< bool >::type move_inputs(move_inputsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_create(capacity, miss_fn, static_names, engine, move_inputs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_size
+int impl_dispatch_size(SEXP handle);
+RcppExport SEXP _pjrt_impl_dispatch_size(SEXP handleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type handle(handleSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_size(handle));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_dispatch_run
+SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args);
+RcppExport SEXP _pjrt_impl_dispatch_run(SEXP dispatcherSEXP, SEXP argsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type dispatcher(dispatcherSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type args(argsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_run(dispatcher, args));
+    return rcpp_result_gen;
+END_RCPP
+}
 // get_eigh_handler
 SEXP get_eigh_handler();
 RcppExport SEXP _pjrt_get_eigh_handler() {
@@ -907,6 +1011,15 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_pjrt_impl_dispatch_node_selftest", (DL_FUNC) &_pjrt_impl_dispatch_node_selftest, 1},
+    {"_pjrt_impl_dispatch_key_hash", (DL_FUNC) &_pjrt_impl_dispatch_key_hash, 1},
+    {"_pjrt_impl_dispatch_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_key_eq, 2},
+    {"_pjrt_impl_dispatch_static_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_static_key_eq, 2},
+    {"_pjrt_impl_dispatch_lru_selftest", (DL_FUNC) &_pjrt_impl_dispatch_lru_selftest, 0},
+    {"_pjrt_impl_dispatch_sentinel", (DL_FUNC) &_pjrt_impl_dispatch_sentinel, 0},
+    {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 5},
+    {"_pjrt_impl_dispatch_size", (DL_FUNC) &_pjrt_impl_dispatch_size, 1},
+    {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
     {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
     {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},
