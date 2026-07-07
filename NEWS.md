@@ -2,12 +2,12 @@
 
 ## New features
 
-* `pjrt_dump_hlo()` returns the HLO intermediate representations the XLA
+* `inspect_hlo()` returns the HLO intermediate representations the XLA
   compiler produces for a program -- the input (`before_optimizations`) and
   optimized (`after_optimizations`) HLO -- to help debug compilation (#194).
   Enable it by setting the dump flags in `XLA_FLAGS` (e.g.
   `--xla_dump_to=<dir> --xla_dump_hlo_as_text`) at the start of the session,
-  before the first compilation; `pjrt_dump_hlo()` errors with instructions if
+  before the first compilation; `inspect_hlo()` errors with instructions if
   they are not set.
 
 ## Bug fixes

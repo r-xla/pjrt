@@ -12,6 +12,7 @@
 ^man-roxygen/
 ^README.html$
 ^_pkgdown\.yml$
+^specs$
 ^docs$
 ^pkgdown$
 ^codecov.yaml$
