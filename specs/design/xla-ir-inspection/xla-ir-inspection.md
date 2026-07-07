@@ -5,6 +5,33 @@
 **Package:** `pjrt`
 **Related issue:** [r-xla/pjrt#194](https://github.com/r-xla/pjrt/issues/194)
 
+## Update (2026-07-07): scope cut to input+optimized, subprocess removed
+
+The shipped `pjrt_dump_hlo(program, device = NULL)` returns **only the input and
+optimized HLO** (`before_optimizations`, `after_optimizations`), and does so
+**in-process only** — no `callr` subprocess. Removed relative to the design
+below:
+
+- The per-pass feature (`passes` argument, `--xla_dump_hlo_pass_re`, per-pass
+  filename parsing).
+- The `callr` subprocess path and the `flags` argument (with them, the two
+  native accessors `impl_program_code` / `impl_program_format`, and the `callr`
+  dependency).
+
+The user is now responsible for enabling dumping: `pjrt_dump_hlo()` checks that
+`XLA_FLAGS` enables text dumping (`--xla_dump_to=<dir> --xla_dump_hlo_as_text`)
+via `session_dump_dir()`, compiles in-process, and reads the new files. If the
+flags are absent (or were set too late to be parsed — XLA reads `XLA_FLAGS` once,
+before the first compile — so no files appear), it **errors with instructions**
+instead of falling back to a subprocess. Because that once-per-process constraint
+can't be met inside the shared test session, the live-dump test runs in a fresh
+`Rscript` process (no `callr`); the parsing/detection logic is unit-tested
+directly.
+
+The `XLA_FLAGS` analysis, filename parsing, and `PJRTHLODump` return object below
+still hold. References to `passes`, `flags`, and the subprocess are retained for
+historical context.
+
 ## Goal
 
 Let users inspect the intermediate representations the XLA compiler produces for a
@@ -102,9 +129,9 @@ returning non-NULL and on no extra `flags` being requested (see below).
 
 ### R — the single entry point
 
-`pjrt_dump_hlo(program, device = NULL, passes = FALSE, flags = character())` → `PJRTHLODump`
+`pjrt_dump_hlo(program, device = NULL, flags = character())` → `PJRTHLODump`
 
-- **Fast path** (when `length(flags) == 0` and `session_dump_dir(passes)` is
+- **Fast path** (when `length(flags) == 0` and `session_dump_dir()` is
   non-NULL): compile in-process via the exported `pjrt_compile()`, then parse the
   files that appeared in the session's dump dir. Falls back to the subprocess if
   nothing was dumped.

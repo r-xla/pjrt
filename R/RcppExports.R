@@ -61,14 +61,6 @@ impl_program_repr <- function(program, n = 10L) {
     .Call(`_pjrt_impl_program_repr`, program, n)
 }
 
-impl_program_code <- function(program) {
-    .Call(`_pjrt_impl_program_code`, program)
-}
-
-impl_program_format <- function(program) {
-    .Call(`_pjrt_impl_program_format`, program)
-}
-
 impl_build_options_create <- function(num_replicas = 1L, num_partitions = 1L, device_ordinal = -1L) {
     .Call(`_pjrt_impl_build_options_create`, num_replicas, num_partitions, device_ordinal)
 }

@@ -175,28 +175,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_program_code
-Rcpp::RawVector impl_program_code(Rcpp::XPtr<rpjrt::PJRTProgram> program);
-RcppExport SEXP _pjrt_impl_program_code(SEXP programSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTProgram> >::type program(programSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_program_code(program));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_program_format
-std::string impl_program_format(Rcpp::XPtr<rpjrt::PJRTProgram> program);
-RcppExport SEXP _pjrt_impl_program_format(SEXP programSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTProgram> >::type program(programSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_program_format(program));
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_build_options_create
 Rcpp::XPtr<rpjrt::PJRTBuildOptions> impl_build_options_create(const int num_replicas, const int num_partitions, const int device_ordinal);
 RcppExport SEXP _pjrt_impl_build_options_create(SEXP num_replicasSEXP, SEXP num_partitionsSEXP, SEXP device_ordinalSEXP) {
@@ -750,8 +728,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_plugin_client_create", (DL_FUNC) &_pjrt_impl_plugin_client_create, 2},
     {"_pjrt_impl_program_load", (DL_FUNC) &_pjrt_impl_program_load, 2},
     {"_pjrt_impl_program_repr", (DL_FUNC) &_pjrt_impl_program_repr, 2},
-    {"_pjrt_impl_program_code", (DL_FUNC) &_pjrt_impl_program_code, 1},
-    {"_pjrt_impl_program_format", (DL_FUNC) &_pjrt_impl_program_format, 1},
     {"_pjrt_impl_build_options_create", (DL_FUNC) &_pjrt_impl_build_options_create, 3},
     {"_pjrt_impl_compile_options_create", (DL_FUNC) &_pjrt_impl_compile_options_create, 1},
     {"_pjrt_impl_client_program_compile", (DL_FUNC) &_pjrt_impl_client_program_compile, 4},

@@ -67,21 +67,6 @@ std::string impl_program_repr(Rcpp::XPtr<rpjrt::PJRTProgram> program,
   return program->repr(n);
 }
 
-// Raw program code (MLIR text or serialized HloModuleProto). Used to ship a
-// program to a subprocess for out-of-process compilation.
-// [[Rcpp::export()]]
-Rcpp::RawVector impl_program_code(Rcpp::XPtr<rpjrt::PJRTProgram> program) {
-  const std::string &code = program->code;
-  Rcpp::RawVector out(code.size());
-  std::copy(code.begin(), code.end(), out.begin());
-  return out;
-}
-
-// [[Rcpp::export()]]
-std::string impl_program_format(Rcpp::XPtr<rpjrt::PJRTProgram> program) {
-  return program->format() == rpjrt::MLIR ? "mlir" : "hlo";
-}
-
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuildOptions> impl_build_options_create(
     const int num_replicas = 1, const int num_partitions = 1,

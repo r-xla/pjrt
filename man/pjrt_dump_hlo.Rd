@@ -4,63 +4,42 @@
 \alias{pjrt_dump_hlo}
 \title{Inspect the HLO intermediate representations of a program}
 \usage{
-pjrt_dump_hlo(program, device = NULL, passes = FALSE, flags = character())
+pjrt_dump_hlo(program, device = NULL)
 }
 \arguments{
 \item{program}{(\code{PJRTProgram})\cr The program to inspect.}
 
 \item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr Device or platform to
 compile for, as in \code{\link[=pjrt_compile]{pjrt_compile()}}.}
-
-\item{passes}{(\code{logical(1)})\cr If \code{TRUE}, additionally dump the HLO after
-every compiler pass.}
-
-\item{flags}{(\code{character()})\cr Additional XLA compiler flags for the dump
-compilation (the same strings you would put in \code{XLA_FLAGS}, e.g.
-\code{"--xla_dump_hlo_as_proto"}). Appended to any \code{XLA_FLAGS} already set in the
-session. The dump destination is controlled by \code{pjrt_dump_hlo()}, so a
-\code{--xla_dump_to} here is ignored. Supplying any \code{flags} forces the subprocess
-path.}
 }
 \value{
 A \code{PJRTHLODump} object: a named list of HLO text keyed by stage
-(\code{before_optimizations}, \code{after_optimizations}, and one entry per pass when
-\code{passes = TRUE}). Use \code{[[} to extract a stage and \code{\link[=as.character]{as.character()}} for the
-optimized HLO. Carries the dump directory and module name as attributes.
+(\code{before_optimizations}, \code{after_optimizations}). Use \code{[[} to extract a stage
+(e.g. \code{dump[["after_optimizations"]]} for the optimized HLO). Carries the
+dump directory and module name as attributes.
 }
 \description{
 Compiles \code{program} and returns the HLO intermediate representations the XLA
 compiler produced: the input HLO (\code{before_optimizations}) and the optimized
-HLO (\code{after_optimizations}) by default, and one entry per compiler pass when
-\code{passes = TRUE}.
+HLO (\code{after_optimizations}).
 }
-\section{Subprocess vs. in-process}{
+\section{Enabling HLO dumping}{
 
 
-HLO dumping is enabled via the \code{XLA_FLAGS} environment variable, which XLA
-reads only \strong{once, before the first compilation in a process}. So that
-\code{pjrt_dump_hlo()} works regardless of what has already been compiled or
-executed in the session, it compiles \code{program} in a fresh R subprocess with
-\code{XLA_FLAGS} set from the start. This costs a one-off process startup and
-plugin load (roughly a second) per call.
+Dumping is driven by the XLA compiler's own dump mechanism, enabled through
+the \code{XLA_FLAGS} environment variable. XLA reads \code{XLA_FLAGS} \strong{once, before the
+first compilation in an R process}, so it must be set at the very start of a
+fresh session, before any \code{\link[=pjrt_compile]{pjrt_compile()}} or \code{\link[=pjrt_execute]{pjrt_execute()}} call:
 
-To inspect many programs in a session without that per-call cost, set the
-dump flags in \code{XLA_FLAGS} \strong{before your first compilation}. \code{pjrt_dump_hlo()}
-then detects them and compiles in-process, skipping the subprocess:
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Before any pjrt_compile()/pjrt_execute() in the session:
-Sys.setenv(XLA_FLAGS = paste(
-  "--xla_dump_to=/tmp/hlo",
-  "--xla_dump_hlo_as_text",
-  "--xla_dump_hlo_pass_re=.*" # only needed for passes = TRUE
-))
-# ... then, as often as you like, with no per-call subprocess cost:
-pjrt_dump_hlo(prog1)
-pjrt_dump_hlo(prog2)
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{Sys.setenv(XLA_FLAGS = "--xla_dump_to=/tmp/hlo --xla_dump_hlo_as_text")
+library(pjrt)
+# ... build a program ...
+pjrt_dump_hlo(prog)
 }\if{html}{\out{</div>}}
 
-The in-process fast path is taken only when no extra \code{flags} are requested and
-the flags are actually active (set before the first compile); otherwise
-\code{pjrt_dump_hlo()} transparently falls back to the subprocess.
+\code{pjrt_dump_hlo()} compiles \code{program} in-process and reads the files XLA writes
+into the \code{--xla_dump_to} directory. If the required flags are absent, or were
+set too late to take effect, it raises an error explaining what to set rather
+than returning nothing.
 }
 
