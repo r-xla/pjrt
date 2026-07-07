@@ -4,6 +4,8 @@
 
 `pjrt` is the runtime layer of the r-xla stack. It compiles StableHLO/MLIR programs to hardware-specific executables and runs them via the PJRT C API. It supports CPU, CUDA, and Metal backends through dynamically loaded plugins.
 
+Beyond the runtime, pjrt also owns the **Rtree module** (`build_tree()`/`flatten()`/`unflatten()` and the structural tree ops in `src/tree.h`/`src/tree.cpp`/`R/tree.R`); trees are opaque `RTree` external pointers. The Rtree is pjrt's R analog of [JAX's pytree](https://docs.jax.dev/en/latest/pytrees.html), which is where the idea comes from.
+
 ## Core Design
 
 ### Object Hierarchy
@@ -69,6 +71,7 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `device.R` – `pjrt_device()`, device spec parsing ("cpu:0")
 - `program.R` – `pjrt_program()` (MLIR/HLO loading)
 - `format.R` – buffer pretty-printing
+- `tree.R` – Rtree API over the native `RTree` (`build_tree()`, `flatten()`, `unflatten()`, `map_tree()`, ...)
 - `safetensors.R` – safetensors read/write integration
 - `reexports.R` – tengen re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options

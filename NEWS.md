@@ -1,7 +1,9 @@
 # pjrt (development version)
 
-## New features
+## Features
 
+* pjrt now owns the Rtree module (pjrt's R analog of JAX's pytree), which
+  includes functions like `build_tree()`, `flatten()`, `unflatten()`, etc..
 * `inspect_hlo()` returns the HLO intermediate representations the XLA
   compiler produces for a program -- the input (`before_optimizations`) and
   optimized (`after_optimizations`) HLO -- to help debug compilation (#194).
