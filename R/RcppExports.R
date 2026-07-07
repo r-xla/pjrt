@@ -241,6 +241,74 @@ get_svd_handler_cuda <- function() {
     .Call(`_pjrt_get_svd_handler_cuda`)
 }
 
+impl_tree_build <- function(x) {
+    .Call(`_pjrt_impl_tree_build`, x)
+}
+
+impl_tree_flatten <- function(x) {
+    .Call(`_pjrt_impl_tree_flatten`, x)
+}
+
+impl_tree_build_flatten <- function(x) {
+    .Call(`_pjrt_impl_tree_build_flatten`, x)
+}
+
+impl_tree_unflatten <- function(tree, x) {
+    .Call(`_pjrt_impl_tree_unflatten`, tree, x)
+}
+
+impl_tree_size <- function(tree) {
+    .Call(`_pjrt_impl_tree_size`, tree)
+}
+
+impl_tree_equal <- function(a, b) {
+    .Call(`_pjrt_impl_tree_equal`, a, b)
+}
+
+impl_tree_kind <- function(tree) {
+    .Call(`_pjrt_impl_tree_kind`, tree)
+}
+
+impl_tree_names <- function(tree) {
+    .Call(`_pjrt_impl_tree_names`, tree)
+}
+
+impl_tree_child_kinds <- function(tree) {
+    .Call(`_pjrt_impl_tree_child_kinds`, tree)
+}
+
+impl_tree_child_sizes <- function(tree) {
+    .Call(`_pjrt_impl_tree_child_sizes`, tree)
+}
+
+impl_tree_flat_names <- function(tree) {
+    .Call(`_pjrt_impl_tree_flat_names`, tree)
+}
+
+impl_tree_path <- function(tree, i) {
+    .Call(`_pjrt_impl_tree_path`, tree, i)
+}
+
+impl_tree_filter_by_names <- function(tree, names) {
+    .Call(`_pjrt_impl_tree_filter_by_names`, tree, names)
+}
+
+impl_tree_concat <- function(children, names) {
+    .Call(`_pjrt_impl_tree_concat`, children, names)
+}
+
+impl_tree_mask_from_names <- function(tree, names) {
+    .Call(`_pjrt_impl_tree_mask_from_names`, tree, names)
+}
+
+impl_tree_repr <- function(tree) {
+    .Call(`_pjrt_impl_tree_repr`, tree)
+}
+
+impl_tree_diff <- function(a, b) {
+    .Call(`_pjrt_impl_tree_diff`, a, b)
+}
+
 impl_test_xptr_prot <- function(x) {
     .Call(`_pjrt_impl_test_xptr_prot`, x)
 }

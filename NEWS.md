@@ -1,5 +1,15 @@
 # pjrt (development version)
 
+## Features
+
+* pjrt now owns the Rtree module (pjrt's R analog of JAX's pytree):
+  `build_tree()`, `flatten()`, `unflatten()`, `tree_size()`, `tree_equal()`,
+  `tree_root_kind()`, `tree_names()`, `tree_child_kinds()`, `tree_child_sizes()`,
+  `tree_leaf_groups()`, `tree_path()`, `tree_filter_by_names()`, `tree_concat()`,
+  `tree_leaf_mask()`, `tree_repr()`, `tree_diff()`, `map_tree()`,
+  `pmap_tree()`, and `flatten_fun()`. Trees are opaque native objects
+  (`RTree`).
+
 ## Bug fixes
 
 * `check_err()` no longer leaks the underlying `PJRT_Error` when

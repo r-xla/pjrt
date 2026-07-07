@@ -51,6 +51,7 @@ Collate:
     'program.R'
     'reexports.R'
     'safetensors.R'
+    'tree.R'
     'utils.R'
     'zzz.R'
 Config/roxygen2/version: 8.0.0
