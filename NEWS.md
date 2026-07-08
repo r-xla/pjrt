@@ -44,6 +44,9 @@
   `--xla_dump_to=<dir> --xla_dump_hlo_as_text`) at the start of the session,
   before the first compilation; `inspect_hlo()` errors with instructions if
   they are not set.
+* Added various functionality regarding jit-dispatching that are intended to
+  be used in {anvl}. Ideally, this should live in a separate library
+  from {pjrt}, but we have included it here for convenience.
 
 ## Internal
 
