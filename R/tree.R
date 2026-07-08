@@ -104,6 +104,24 @@ tree_equal <- function(a, b) {
   impl_tree_equal(a, b)
 }
 
+#' @title Structural Tree Hash
+#' @description
+#' A hash of a tree's structure -- node kinds, child structure, leaf positions,
+#' and names -- consistent with [tree_equal()]: trees that are [tree_equal()]
+#' hash to the same value. Intended as a cache key for tree-structured
+#' dispatch.
+#' @param x (`RTree`)\cr
+#'   A tree as returned by [build_tree()].
+#' @return `character(1)`, the structural hash.
+#' @seealso [tree_equal()], [build_tree()]
+#' @examples
+#' tree_hash(build_tree(list(a = 1))) == tree_hash(build_tree(list(a = 2)))
+#' tree_hash(build_tree(list(a = 1))) == tree_hash(build_tree(list(b = 1)))
+#' @export
+tree_hash <- function(x) {
+  impl_tree_hash(x)
+}
+
 #' @title Tree Root Node Kind
 #' @description
 #' The kind of a tree's root node: `"leaf"` for a single leaf, `"list"` for a

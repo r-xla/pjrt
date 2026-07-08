@@ -10,12 +10,39 @@
 #include <Rcpp.h>
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
+#include "hash.h"
+
 namespace rpjrt {
+
+// Structural hash of an RTree, consistent with tree_eq (declared in tree.h).
+// Used as dispatch cache-key material: trees that compare equal hash equally.
+std::size_t tree_hash(const RTree& tree) {
+  std::size_t h = static_cast<std::size_t>(tree.kind);
+  switch (tree.kind) {
+    case RTree::NullNode:
+      break;
+    case RTree::LeafNode:
+      hash_combine(h, static_cast<std::size_t>(tree.i));
+      break;
+    case RTree::ListNode:
+      hash_combine(h, tree.children.size());
+      hash_combine(h, tree.has_names ? 1u : 0u);
+      for (const auto& nm : tree.names) {
+        hash_combine(h, std::hash<std::string>{}(nm));
+      }
+      for (const auto& child : tree.children) {
+        hash_combine(h, tree_hash(child));
+      }
+      break;
+  }
+  return h;
+}
 
 // Wrap a heap-allocated RTree in an external pointer handed to R. Ownership
 // transfers to R: `true` registers a delete finalizer, so ~RTree() runs
@@ -235,6 +262,13 @@ int impl_tree_size(SEXP tree) {
 // [[Rcpp::export]]
 bool impl_tree_equal(SEXP a, SEXP b) {
   return rpjrt::tree_eq(rpjrt::as_tree(a), rpjrt::as_tree(b));
+}
+
+// The std::size_t hash is returned as a decimal string: R has no native 64-bit
+// integer, and the value is only ever compared for (in)equality.
+// [[Rcpp::export]]
+std::string impl_tree_hash(SEXP tree) {
+  return std::to_string(rpjrt::tree_hash(rpjrt::as_tree(tree)));
 }
 
 // [[Rcpp::export]]
