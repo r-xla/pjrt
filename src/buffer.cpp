@@ -112,13 +112,9 @@ PJRTBuffer::~PJRTBuffer() {
   check_err(this->api.get(), this->api->PJRT_Buffer_Destroy_(&args));
 }
 
-std::vector<int64_t> PJRTBuffer::dimensions() {
-  PJRT_Buffer_Dimensions_Args args{};
-  args.struct_size = sizeof(PJRT_Buffer_Dimensions_Args);
-  args.buffer = checked_buffer();
-  check_err(this->api.get(), this->api->PJRT_Buffer_Dimensions_(&args));
-
-  return std::vector<int64_t>(args.dims, args.dims + args.num_dims);
+const std::vector<int64_t> &PJRTBuffer::dimensions() {
+  if (!meta_cached_) cache_meta();
+  return cached_dims_;
 }
 
 std::unique_ptr<PJRTMemory> PJRTBuffer::memory() {
@@ -191,12 +187,8 @@ std::vector<int64_t> PJRTBuffer::minor_to_major() {
 }
 
 PJRT_Buffer_Type PJRTBuffer::element_type() {
-  PJRT_Buffer_ElementType_Args args{};
-  args.struct_size = sizeof(PJRT_Buffer_ElementType_Args);
-  args.buffer = checked_buffer();
-  check_err(this->api.get(), this->api->PJRT_Buffer_ElementType_(&args));
-
-  return args.type;
+  if (!meta_cached_) cache_meta();
+  return cached_type_;
 }
 
 std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
@@ -206,6 +198,36 @@ std::unique_ptr<PJRTDevice> PJRTBuffer::device() {
   check_err(this->api.get(), this->api->PJRT_Buffer_Device_(&args));
 
   return std::make_unique<PJRTDevice>(args.device, this->api);
+}
+
+// Populate the immutable-metadata cache with one PJRT C API call each for
+// dtype, shape, and device. Called on the first element_type()/dimensions()/
+// device_ptr() read; the values never change, so it runs at most once.
+void PJRTBuffer::cache_meta() {
+  PJRT_Buffer_ElementType_Args type_args{};
+  type_args.struct_size = sizeof(PJRT_Buffer_ElementType_Args);
+  type_args.buffer = checked_buffer();
+  check_err(this->api.get(), this->api->PJRT_Buffer_ElementType_(&type_args));
+  cached_type_ = type_args.type;
+
+  PJRT_Buffer_Dimensions_Args dim_args{};
+  dim_args.struct_size = sizeof(PJRT_Buffer_Dimensions_Args);
+  dim_args.buffer = checked_buffer();
+  check_err(this->api.get(), this->api->PJRT_Buffer_Dimensions_(&dim_args));
+  cached_dims_.assign(dim_args.dims, dim_args.dims + dim_args.num_dims);
+
+  PJRT_Buffer_Device_Args dev_args{};
+  dev_args.struct_size = sizeof(PJRT_Buffer_Device_Args);
+  dev_args.buffer = checked_buffer();
+  check_err(this->api.get(), this->api->PJRT_Buffer_Device_(&dev_args));
+  cached_device_ = dev_args.device;
+
+  meta_cached_ = true;
+}
+
+PJRT_Device *PJRTBuffer::device_ptr() {
+  if (!meta_cached_) cache_meta();
+  return cached_device_;
 }
 
 std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
