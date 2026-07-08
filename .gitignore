@@ -6,3 +6,4 @@ README.html
 src/Makevars
 docs
 .vscode/
+.claude/settings.local.json
