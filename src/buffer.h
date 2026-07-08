@@ -49,7 +49,7 @@ class PJRTBuffer {
   PJRTBuffer(PJRT_Buffer* buffer, std::shared_ptr<PJRT_Api> api);
   PJRT_Buffer* buffer;
   ~PJRTBuffer();
-  std::vector<int64_t> dimensions();
+  const std::vector<int64_t>& dimensions();
   std::unique_ptr<PJRTMemory> memory();
   std::unique_ptr<PJRTBufferMemoryLayout> memory_layout();
   // The buffer's dense layout as a minor-to-major permutation of logical
@@ -80,8 +80,20 @@ class PJRTBuffer {
   // impl_loaded_executable_execute). A null handle counts as deleted.
   bool is_deleted();
 
+  // The raw addressable PJRT_Device* (unlike device(), which heap-allocates a
+  // PJRTDevice wrapper). dtype, shape, and this device pointer are the buffer's
+  // immutable metadata: element_type(), dimensions(), and device_ptr() read
+  // them through the PJRT C API once and memoize (cache_meta), so repeated
+  // reads on the dispatch hot path skip the C API entirely.
+  PJRT_Device* device_ptr();
+
  private:
   std::shared_ptr<PJRT_Api> api;
+  bool meta_cached_ = false;
+  PJRT_Buffer_Type cached_type_;
+  std::vector<int64_t> cached_dims_;
+  PJRT_Device* cached_device_ = nullptr;
+  void cache_meta();
   PJRTEvent ready_event();
   // Returns this->buffer, raising an R-level error if the underlying
   // PJRT handle has been invalidated by donation. Used by every method

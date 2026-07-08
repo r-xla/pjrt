@@ -12,6 +12,12 @@
   before the first compilation; `inspect_hlo()` errors with instructions if
   they are not set.
 
+## Performance
+
+* A `PJRTBuffer` now memoizes its immutable metadata (dtype, shape, and
+  device) on first access, so repeated `element_type()` / `dimensions()`
+  reads no longer issue a PJRT C API call each time.
+
 ## Bug fixes
 
 * `check_err()` no longer leaks the underlying `PJRT_Error` when
