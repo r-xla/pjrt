@@ -324,16 +324,23 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 
   if (client->is_cpu()) {
     // Copy the raw bytes into a fresh RAWSXP; don't alias the caller's vector.
+    // DATAPTR_RO: the source is only read, and a writable DATAPTR would force
+    // copy-on-write materialization of ALTREP raw vectors (e.g. shared-memory
+    // mappings), doubling the host cost of the upload. NB RAW_RO() is not
+    // equivalent: as of R 4.6 it forces ALTREP payloads like RAW() does.
     size_t total_bytes = static_cast<size_t>(Rf_length(data));
     return make_cpu_buffer(client, total_bytes, dims, byte_strides_opt, dtype,
                            device, [&](void *dst) {
                              if (total_bytes > 0)
-                               std::memcpy(dst, RAW(data), total_bytes);
+                               std::memcpy(dst, DATAPTR_RO(data), total_bytes);
                            });
   }
 
-  auto result = client->buffer_from_host_async(RAW(data), dims,
-                                               byte_strides_opt, dtype, device);
+  // kImmutableUntilTransferCompletes only reads the host bytes; const_cast
+  // because buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result = client->buffer_from_host_async(
+      const_cast<void *>(DATAPTR_RO(data)), dims,
+      byte_strides_opt, dtype, device);
 
   if (result.event) {
     R_PreserveObject(data);

@@ -16,6 +16,14 @@
 * Added CUDA support for Linux ARM.
 * Added supoort for Intel Macs.
 
+## Performance
+
+* Uploading a `raw` vector (`pjrt_buffer(<raw>, dtype = , shape = )`) reads the
+  source through `DATAPTR_RO` instead of `RAW()`. A writable pointer forces
+  copy-on-write materialization of ALTREP raw vectors (for example shared-memory
+  mappings), so every upload from such a source paid for a private duplicate of
+  the payload before the device copy. The source is now read in place.
+
 ## Bug fixes
 
 * Large float buffers now print correctly.
