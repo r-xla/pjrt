@@ -56,6 +56,9 @@ jobs:
       PJRT_PLATFORM: ${{ matrix.config.platform }}
       # Opt in to the test suite (skipped by default, e.g. on CRAN).
       PJRT_TEST: "1"
+      # Compile in the Catch C++ unit tests (disabled by default to keep
+      # end-user binaries lean) so they run here.
+      PJRT_BUILD_CPP_TESTS: "1"
       # Don't prompt for the plugin download in non-interactive CI.
       PJRT_INSTALL: "1"
 
