@@ -19,7 +19,7 @@ jobs:
       matrix:
         config:
           - { os: "macos", r: "release", platform: "cpu" }
-          - { os: "ubuntu", r: "release", platform: "cpu" }
+          - { os: "ubuntu", r: "release", platform: "cpu", build_cpp_tests: true }
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
           - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "ubuntu-arm", r: "release", platform: "cpu"}
@@ -57,8 +57,9 @@ jobs:
       # Opt in to the test suite (skipped by default, e.g. on CRAN).
       PJRT_TEST: "1"
       # Compile in the Catch C++ unit tests (disabled by default to keep
-      # end-user binaries lean) so they run here.
-      PJRT_BUILD_CPP_TESTS: "1"
+      # end-user binaries lean). Enabled on a single job (linux x86 cpu) since
+      # they are platform-independent -- one OS is enough to exercise them.
+      PJRT_BUILD_CPP_TESTS: ${{ matrix.config.build_cpp_tests && '1' || '' }}
       # Don't prompt for the plugin download in non-interactive CI.
       PJRT_INSTALL: "1"
 
