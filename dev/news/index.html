@@ -58,6 +58,10 @@
 <code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> returns the HLO intermediate representations the XLA compiler produces for a program – the input (<code>before_optimizations</code>) and optimized (<code>after_optimizations</code>) HLO – to help debug compilation (<a href="https://github.com/r-xla/pjrt/issues/194" class="external-link">#194</a>). Enable it by setting the dump flags in <code>XLA_FLAGS</code> (e.g. <code>--xla_dump_to=&lt;dir&gt; --xla_dump_hlo_as_text</code>) at the start of the session, before the first compilation; <code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> errors with instructions if they are not set.</li>
 </ul></div>
 <div class="section level3">
+<h3 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h3>
+<ul><li>A <code>PJRTBuffer</code> now memoizes its immutable metadata (dtype, shape, and device) on first access, so repeated <code>element_type()</code> / <code>dimensions()</code> reads no longer issue a PJRT C API call each time.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
 <code>check_err()</code> no longer leaks the underlying <code>PJRT_Error</code> when converting a plugin error into an R exception.</li>
@@ -160,7 +164,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>
