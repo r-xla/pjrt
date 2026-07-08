@@ -15,6 +15,10 @@ namespace rpjrt {
 // (Boost applies boost::hash<T> to `v` first; our callers pass the hash
 // directly).
 // https://github.com/boostorg/container_hash/blob/53c12550fa11221975f58a6c23581b4563153e04/include/boost/container_hash/hash.hpp#L311-L330
+//
+// Copyright 2005-2014 Daniel James.
+// Distributed under the Boost Software License, Version 1.0
+// (https://www.boost.org/LICENSE_1_0.txt); full text in inst/COPYRIGHTS.
 inline void hash_combine(std::size_t& seed, std::size_t v) {
   static_assert(sizeof(std::size_t) == 8,
                 "Boost hash_combine_impl<64> assumes a 64-bit std::size_t");
