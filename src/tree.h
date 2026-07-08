@@ -125,6 +125,11 @@ inline bool tree_eq(const RTree& a, const RTree& b) {
   return false;
 }
 
+// Structural hash of an RTree, consistent with tree_eq: trees that compare
+// equal (same kind, child structure, leaf indices, names) hash equally. Used
+// as dispatch cache-key material; defined out-of-line in tree.cpp.
+std::size_t tree_hash(const RTree& tree);
+
 // Number of leaves under `tree` (== length of the flat list).
 inline int tree_size_rec(const RTree& tree) {
   switch (tree.kind) {

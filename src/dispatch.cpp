@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -19,60 +18,12 @@
 #include "buffer.h"
 #include "client.h"
 #include "device.h"
+#include "hash.h"
 #include "lru_cache.h"
 #include "pjrt_impl.h"
 #include "tree.h"
 
 namespace rpjrt {
-
-// Boost's container_hash combiner. std::size_t is 64-bit on every platform we
-// build for, so this is Boost's 64-bit specialization hash_combine_impl<64>::fn
-// -- a MurmurHash2-style mix. Copied verbatim from Boost's container_hash (the
-// commit pinned below), adapted only to take an already-computed hash `v`
-// (Boost applies boost::hash<T> to `v` first; our callers pass the hash
-// directly).
-// https://github.com/boostorg/container_hash/blob/53c12550fa11221975f58a6c23581b4563153e04/include/boost/container_hash/hash.hpp#L311-L330
-inline void hash_combine(std::size_t& seed, std::size_t v) {
-  static_assert(sizeof(std::size_t) == 8,
-                "Boost hash_combine_impl<64> assumes a 64-bit std::size_t");
-  const std::uint64_t m = (std::uint64_t(0xc6a4a793) << 32) + 0x5bd1e995;
-  const int r = 47;
-  std::uint64_t k = v;
-  std::uint64_t h = seed;
-  k *= m;
-  k ^= k >> r;
-  k *= m;
-  h ^= k;
-  h *= m;
-  h += 0xe6546b64;
-  seed = h;
-}
-
-// Structural hash of an RTree, kept here rather than in tree.h because it is
-// only cache-key material -- the exposed Rtree API needs equality (tree_eq),
-// not hashing. Consistent with tree_eq: trees that compare equal (same kind,
-// child structure, leaf indices, names) hash equally.
-inline std::size_t tree_hash(const RTree& tree) {
-  std::size_t h = static_cast<std::size_t>(tree.kind);
-  switch (tree.kind) {
-    case RTree::NullNode:
-      break;
-    case RTree::LeafNode:
-      hash_combine(h, static_cast<std::size_t>(tree.i));
-      break;
-    case RTree::ListNode:
-      hash_combine(h, tree.children.size());
-      hash_combine(h, tree.has_names ? 1u : 0u);
-      for (const auto& nm : tree.names) {
-        hash_combine(h, std::hash<std::string>{}(nm));
-      }
-      for (const auto& child : tree.children) {
-        hash_combine(h, tree_hash(child));
-      }
-      break;
-  }
-  return h;
-}
 
 // Per-leaf abstract value -- mirrors anvl's nv_aval(dtype, shape, ambiguous).
 // dtype/shape are genuine PJRT_Buffer properties read natively; `ambiguous` is
