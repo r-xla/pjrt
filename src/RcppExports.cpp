@@ -906,6 +906,8 @@ BEGIN_RCPP
 END_RCPP
 }
 
+RcppExport SEXP run_testthat_tests(SEXP);
+
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
     {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
@@ -985,6 +987,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_tree_repr", (DL_FUNC) &_pjrt_impl_tree_repr, 1},
     {"_pjrt_impl_tree_diff", (DL_FUNC) &_pjrt_impl_tree_diff, 2},
     {"_pjrt_impl_test_xptr_prot", (DL_FUNC) &_pjrt_impl_test_xptr_prot, 1},
+    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };
 
