@@ -18,9 +18,7 @@
 #'
 #' flatten(list(1:3, "hello"))
 #' @export
-flatten <- function(x) {
-  impl_tree_flatten(x)
-}
+flatten <- impl_tree_flatten
 
 #' @title Build Tree
 #' @description
@@ -48,9 +46,7 @@ flatten <- function(x) {
 #'
 #' unflatten(tree, flatten(x))
 #' @export
-build_tree <- function(x) {
-  impl_tree_build(x)
-}
+build_tree <- impl_tree_build
 
 #' @title Unflatten
 #' @description
@@ -69,24 +65,20 @@ build_tree <- function(x) {
 #' unflatten(tree, flatten(x))
 #' unflatten(tree, list(10, 20, 30))
 #' @export
-unflatten <- function(tree, x) {
-  impl_tree_unflatten(tree, x)
-}
+unflatten <- impl_tree_unflatten
 
 #' @title Tree Size
 #' @description
 #' Counts the number of leaf nodes in a tree. This equals the length of the
 #' flat list produced by [flatten()] on the original structure.
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `integer(1)`
 #' @seealso [build_tree()], [flatten()]
 #' @examples
 #' tree_size(build_tree(list(a = 1, b = list(c = 2, d = 3))))
 #' @export
-tree_size <- function(x) {
-  impl_tree_size(x)
-}
+tree_size <- impl_tree_size
 
 #' @title Compare Tree Structures
 #' @description
@@ -100,9 +92,7 @@ tree_size <- function(x) {
 #' tree_equal(build_tree(list(a = 1)), build_tree(list(a = 2)))
 #' tree_equal(build_tree(list(a = 1)), build_tree(list(b = 1)))
 #' @export
-tree_equal <- function(a, b) {
-  impl_tree_equal(a, b)
-}
+tree_equal <- impl_tree_equal
 
 #' @title Structural Tree Hash
 #' @description
@@ -110,7 +100,7 @@ tree_equal <- function(a, b) {
 #' and names -- consistent with [tree_equal()]: trees that are [tree_equal()]
 #' hash to the same value. Intended as a cache key for tree-structured
 #' dispatch.
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`, the structural hash.
 #' @seealso [tree_equal()], [build_tree()]
@@ -118,15 +108,13 @@ tree_equal <- function(a, b) {
 #' tree_hash(build_tree(list(a = 1))) == tree_hash(build_tree(list(a = 2)))
 #' tree_hash(build_tree(list(a = 1))) == tree_hash(build_tree(list(b = 1)))
 #' @export
-tree_hash <- function(x) {
-  impl_tree_hash(x)
-}
+tree_hash <- impl_tree_hash
 
 #' @title Tree Root Node Kind
 #' @description
 #' The kind of a tree's root node: `"leaf"` for a single leaf, `"list"` for a
 #' list node, or `"null"` for the empty (`NULL`) node.
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`
 #' @examples
@@ -134,15 +122,13 @@ tree_hash <- function(x) {
 #' tree_root_kind(build_tree(list(1)))
 #' tree_root_kind(build_tree(NULL))
 #' @export
-tree_root_kind <- function(x) {
-  impl_tree_kind(x)
-}
+tree_root_kind <- impl_tree_kind
 
 #' @title Top-Level Child Names
 #' @description
 #' The names of a list tree's top-level children (with `""` for unnamed
 #' slots), or `NULL` if the root is not a list node or carries no names.
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return A `character` vector of child names, or `NULL` when the root is not
 #'   a list node or is an *unnamed* list. An empty but named list
@@ -153,50 +139,42 @@ tree_root_kind <- function(x) {
 #' tree_names(build_tree(list(a = 1, b = 2)))
 #' tree_names(build_tree(list(1, 2)))
 #' @export
-tree_names <- function(x) {
-  impl_tree_names(x)
-}
+tree_names <- impl_tree_names
 
 #' @title Top-Level Child Kinds
 #' @description
 #' The node kind (`"leaf"`, `"list"`, or `"null"`) of each top-level child of
 #' a list tree.
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree whose root is a list node.
 #' @return A `character` vector, one element per top-level child.
 #' @examples
 #' tree_child_kinds(build_tree(list(1, list(2), NULL)))
 #' @export
-tree_child_kinds <- function(x) {
-  impl_tree_child_kinds(x)
-}
+tree_child_kinds <- impl_tree_child_kinds
 
 #' @title Top-Level Child Sizes
 #' @description
 #' The number of leaves under each top-level child of a list tree.
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree whose root is a list node.
 #' @return An `integer` vector, one element per top-level child.
 #' @examples
 #' tree_child_sizes(build_tree(list(a = 1, b = list(2, 3), c = NULL)))
 #' @export
-tree_child_sizes <- function(x) {
-  impl_tree_child_sizes(x)
-}
+tree_child_sizes <- impl_tree_child_sizes
 
 #' @title Per-Leaf Top-Level Group Names
 #' @description
 #' For each leaf (in flat order), the name of the top-level child it sits
 #' under (`""` for unnamed children).
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree whose root is a list node.
-#' @return A `character` vector of length `tree_size(x)`.
+#' @return A `character` vector of length `tree_size(tree)`.
 #' @examples
 #' tree_leaf_groups(build_tree(list(a = 1, b = list(2, 3))))
 #' @export
-tree_leaf_groups <- function(x) {
-  impl_tree_flat_names(x)
-}
+tree_leaf_groups <- impl_tree_flat_names
 
 #' @title Tree Path
 #' @description
@@ -280,15 +258,13 @@ tree_leaf_mask <- function(tree, groups) {
 #' @description
 #' A canonical structural string for a tree: `"*"` for a leaf, `"NULL"` for an
 #' empty node, and `"list(...)"` for list nodes.
-#' @param x (`RTree`)\cr
+#' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`
 #' @examples
 #' tree_repr(build_tree(list(a = 1, b = list(2, NULL))))
 #' @export
-tree_repr <- function(x) {
-  impl_tree_repr(x)
-}
+tree_repr <- impl_tree_repr
 
 #' @title Difference Between Trees
 #' @description
@@ -304,9 +280,7 @@ tree_repr <- function(x) {
 #' @examples
 #' tree_diff(build_tree(list(a = 1)), build_tree(list(a = list(1, 2))))
 #' @export
-tree_diff <- function(a, b) {
-  impl_tree_diff(a, b)
-}
+tree_diff <- impl_tree_diff
 
 #' @title Map Over a Tree
 #' @description

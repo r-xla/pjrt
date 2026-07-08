@@ -4,10 +4,10 @@
 \alias{tree_names}
 \title{Top-Level Child Names}
 \usage{
-tree_names(x)
+tree_names(tree)
 }
 \arguments{
-\item{x}{(\code{RTree})\cr
+\item{tree}{(\code{RTree})\cr
 A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \value{

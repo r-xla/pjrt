@@ -4,10 +4,10 @@
 \alias{tree_hash}
 \title{Structural Tree Hash}
 \usage{
-tree_hash(x)
+tree_hash(tree)
 }
 \arguments{
-\item{x}{(\code{RTree})\cr
+\item{tree}{(\code{RTree})\cr
 A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \value{

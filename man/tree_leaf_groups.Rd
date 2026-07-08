@@ -4,14 +4,14 @@
 \alias{tree_leaf_groups}
 \title{Per-Leaf Top-Level Group Names}
 \usage{
-tree_leaf_groups(x)
+tree_leaf_groups(tree)
 }
 \arguments{
-\item{x}{(\code{RTree})\cr
+\item{tree}{(\code{RTree})\cr
 A tree whose root is a list node.}
 }
 \value{
-A \code{character} vector of length \code{tree_size(x)}.
+A \code{character} vector of length \code{tree_size(tree)}.
 }
 \description{
 For each leaf (in flat order), the name of the top-level child it sits
