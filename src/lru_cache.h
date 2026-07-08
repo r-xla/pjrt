@@ -30,15 +30,29 @@ class LRUCache {
     if (it == index_.end()) return nullptr;
     // move this entry's node to the front, marking it most-recently-used
     // I.e., we move it-> second before order_.begin() within order_
+<<<<<<< Updated upstream
     // We call it->second because it 
+=======
+    // We call it->second because it
+>>>>>>> Stashed changes
     order_.splice(order_.begin(), order_, it->second);
     return &it->second->value;
   }
 
   void set(const K& key, V value) {
-    auto it = index_.find(key); // returns an iterator to a (key, entry) pair
-    // so both it->first is the key and it->second->key is the key. it->second->value is the value
-    if (it != index_.end()) { // key already present: update value and move to front
+<<<<<<< Updated upstream
+    auto it = index_.find(key);  // returns an iterator to a (key, entry) pair
+    // so both it->first is the key and it->second->key is the key.
+    // it->second->value is the value
+    if (it !=
+        index_.end()) {  // key already present: update value and move to front
+=======
+    auto it = index_.find(key);  // returns an iterator to a (key, entry) pair
+    // so both it->first is the key and it->second->key is the key.
+    // it->second->value is the value
+    if (it !=
+        index_.end()) {  // key already present: update value and move to front
+>>>>>>> Stashed changes
       if (on_evict_) on_evict_(it->second->value);
       it->second->value = std::move(value);
       order_.splice(order_.begin(), order_, it->second);
@@ -48,7 +62,11 @@ class LRUCache {
     order_.push_front(Entry{key, std::move(value)});
     // and register it in the hashmap
     index_.emplace(key, order_.begin());
-    if (index_.size() > capacity_) { // remove LRU
+<<<<<<< Updated upstream
+    if (index_.size() > capacity_) {  // remove LRU
+=======
+    if (index_.size() > capacity_) {  // remove LRU
+>>>>>>> Stashed changes
       Entry& victim = order_.back();
       if (on_evict_) on_evict_(victim.value);
       index_.erase(victim.key);
@@ -58,8 +76,13 @@ class LRUCache {
 
   std::size_t size() const { return index_.size(); }
 
-  // Run on_evict over every entry and drop them (used on pjrt_dispatcher teardown so
-  // cached R objects are released, not leaked).
+<<<<<<< Updated upstream
+  // Run on_evict over every entry and drop them (used on pjrt_dispatcher
+  // teardown so cached R objects are released, not leaked).
+=======
+  // Run on_evict over every entry and drop them (used on pjrt_dispatcher
+  // teardown so cached R objects are released, not leaked).
+>>>>>>> Stashed changes
   void clear() {
     if (on_evict_) {
       for (Entry& e : order_) on_evict_(e.value);
@@ -73,7 +96,13 @@ class LRUCache {
     K key;
     V value;
   };
-  // doubly linked list: it's cheap to append to the front (MRU) and pop from the back (LRU)
+<<<<<<< Updated upstream
+  // doubly linked list: it's cheap to append to the front (MRU) and pop from
+  // the back (LRU)
+=======
+  // doubly linked list: it's cheap to append to the front (MRU) and pop from
+  // the back (LRU)
+>>>>>>> Stashed changes
   std::list<Entry> order_;
   // key -> position in `order_`, for O(1) lookup. The four type params are:
   // key type (K), mapped value (a `order_` iterator), hash functor (Hash),
