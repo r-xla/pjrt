@@ -78,6 +78,17 @@ if pkg-config ${PKG_CONFIG_NAME} --atleast-version 3.6; then
 PKG_CFLAGS="$PKG_CFLAGS -DUSENEWAPI"
 fi
 
+# The Catch-based C++ unit tests (src/test-*.cpp) pull the whole Catch header
+# into the shipped library. Compile them out by default so end-user binaries
+# stay lean; opt in by setting PJRT_BUILD_CPP_TESTS=1 at build time (the project
+# CI does this so the tests still run there).
+if [ "$PJRT_BUILD_CPP_TESTS" = "1" ]; then
+  echo "Building with C++ unit tests ENABLED (PJRT_BUILD_CPP_TESTS=1)"
+else
+  echo "Building with C++ unit tests disabled (set PJRT_BUILD_CPP_TESTS=1 to enable)"
+  PKG_CFLAGS="$PKG_CFLAGS -DTESTTHAT_DISABLED"
+fi
+
 # Look for 'protoc' compiler matching the library we found
 PROTOC=""
 if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then

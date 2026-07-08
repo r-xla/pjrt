@@ -26,9 +26,11 @@ Imports:
 Suggests:
     callr,
     stablehlo,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    xml2
 LinkingTo:
-    Rcpp
+    Rcpp,
+    testthat
 Additional_repositories: https://r-xla.r-universe.dev
 Config/build/compilation-database: true
 Config/testthat/edition: 3
@@ -40,6 +42,7 @@ Collate:
     'async.R'
     'client.R'
     'buffer.R'
+    'catch-routine-registration.R'
     'compare.R'
     'custom_call.R'
     'device.R'

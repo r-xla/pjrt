@@ -92,6 +92,12 @@ test_that("tree_equal distinguishes structure, names, and arity", {
     build_tree(list(a = 1, b = list(c = 2))),
     build_tree(list(a = 9, b = list(c = 8)))
   ))
+  # an unnamed empty list differs from a named empty list (has_names is captured
+  # even with zero children)
+  expect_false(tree_equal(
+    build_tree(list()),
+    build_tree(structure(list(), names = character(0)))
+  ))
 })
 
 test_that("tree_root_kind and tree_child_kinds", {
