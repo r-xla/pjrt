@@ -5,6 +5,34 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
+impl_dispatch_key_hash <- function(leaves) {
+    .Call(`_pjrt_impl_dispatch_key_hash`, leaves)
+}
+
+impl_dispatch_key_eq <- function(a, b) {
+    .Call(`_pjrt_impl_dispatch_key_eq`, a, b)
+}
+
+impl_dispatch_static_key_eq <- function(a, b) {
+    .Call(`_pjrt_impl_dispatch_static_key_eq`, a, b)
+}
+
+impl_dispatch_sentinel <- function() {
+    .Call(`_pjrt_impl_dispatch_sentinel`)
+}
+
+impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, move_inputs) {
+    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, move_inputs)
+}
+
+impl_dispatch_size <- function(handle) {
+    .Call(`_pjrt_impl_dispatch_size`, handle)
+}
+
+impl_dispatch_run <- function(dispatcher, args) {
+    .Call(`_pjrt_impl_dispatch_run`, dispatcher, args)
+}
+
 get_eigh_handler <- function() {
     .Call(`_pjrt_get_eigh_handler`)
 }

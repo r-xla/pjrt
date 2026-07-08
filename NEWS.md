@@ -1,16 +1,5 @@
 # pjrt (development version)
 
-## Features
-
-* pjrt now owns the Rtree module (pjrt's R analog of JAX's pytree), which
-  includes functions like `build_tree()`, `flatten()`, `unflatten()`, etc..
-* `inspect_hlo()` returns the HLO intermediate representations the XLA
-  compiler produces for a program -- the input (`before_optimizations`) and
-  optimized (`after_optimizations`) HLO -- to help debug compilation (#194).
-  Enable it by setting the dump flags in `XLA_FLAGS` (e.g.
-  `--xla_dump_to=<dir> --xla_dump_hlo_as_text`) at the start of the session,
-  before the first compilation; `inspect_hlo()` errors with instructions if
-  they are not set.
 
 ## Performance
 
@@ -43,6 +32,18 @@
   always download without asking, or `"0"` to never download.
 * Added an `install_pjrt()` function which is a slight convenience wrapper
   for downloading the plugins.
+* Added the Rtree module (pjrt's R analog of JAX's pytree), which
+  includes functions like `build_tree()`, `flatten()`, `unflatten()`, etc..
+* Added a `dispatcher()` (implemented in C++) which can be used in anvl and
+  also makes use of the C++ Rtree implementation.
+  This is much faster than the R implementation of the dispatcher in anvl.
+* `inspect_hlo()` returns the HLO intermediate representations the XLA
+  compiler produces for a program -- the input (`before_optimizations`) and
+  optimized (`after_optimizations`) HLO -- to help debug compilation (#194).
+  Enable it by setting the dump flags in `XLA_FLAGS` (e.g.
+  `--xla_dump_to=<dir> --xla_dump_hlo_as_text`) at the start of the session,
+  before the first compilation; `inspect_hlo()` errors with instructions if
+  they are not set.
 
 ## Internal
 
@@ -80,7 +81,7 @@
   plugin loads, so handlers can be registered during `.onLoad()`.
 * `pjrt_device()` now returns cached `PJRTDevice` instances, so repeated calls
   for the same device yield objects with stable identity (useful for hashing
-  and caching, e.g. in `{anvil}`'s JIT).
+  and caching, e.g. in `{anvl}`'s JIT).
 
 ## Bug fixes
 

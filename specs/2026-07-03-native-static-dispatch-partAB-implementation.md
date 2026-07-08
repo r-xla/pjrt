@@ -1,0 +1,211 @@
+# Native static dispatch (Part A) + pjrt-owned pytree (Part B) — Implementation
+
+Date: 2026-07-03
+Derived from: `2026-07-03-native-static-dispatch-partA-plan.md` (Part A, followed
+verbatim) and `2026-07-03-native-static-dispatch-and-flatten-exposure-design.md`
+(Part B, made concrete here). Part C is out of scope.
+
+Repos: `pjrt` (branch `feat/native-dispatch`), `anvl` (branch
+`perf/dispatch-overhead`).
+
+## Part A — Native static-arg dispatch (pjrt + anvl)
+
+Implemented exactly per the Part A plan, tasks 1–4:
+
+1. **`identical()` flags + self-test — DEVIATION from the plan.** The plan's
+   claim (40 correct, 16 wrong) was inverted: `R_compute_identical`'s flag
+   bits are USE bits, and R's default `identical()` corresponds to
+   `flags=16` (`IDENT_USE_CLOENV` — compare environments, ignore
+   bytecode/srcref). Verified empirically; **`flags=16` was kept** and the new
+   self-test `impl_dispatch_static_key_eq(a, b)` pins value-, environment-,
+   bytecode-, and srcref-behavior against real `identical()`.
+2. **Plumbing.** `impl_dispatch_create(capacity, miss_fn, static_names)`;
+   `pjrt_dispatcher(capacity, compile, static = character())`;
+   `pjrt_dispatcher::static_names()` (an `std::unordered_set<std::string>`);
+   `CacheEntry::static_key_values` released in `release_entry`.
+3. **Static marking + run handling.** `flatten_rec` gains
+   `std::vector<char>& is_static` + `bool inherited_static`; `impl_dispatch_run`
+   builds the top-level `ListNode` itself, marks children whose name is in
+   `static_names()`, keys static leaves by value, excludes them from execution,
+   takes the device from the first *dynamic* buffer, and returns the sentinel
+   when there is no dynamic buffer (all-static / zero-arg calls keep the R
+   fallback). Static key values are `R_PreserveObject`d into the entry on a
+   miss.
+4. **anvl wiring.** `jit_xla_impl` passes `static = static` to
+   `pjrt::pjrt_dispatcher()`. New test: a static xla jit populates the native
+   cache (`pjrt_dispatch_size`), not the R cache.
+
+## Part B — The pytree module moves to pjrt; `Node` is opaque
+
+### B.1 pjrt C++: `src/tree.h` + `src/tree.cpp`
+
+`src/tree.h` (namespace `rpjrt`): the `Node` struct, `is_bare_list`,
+`flatten_rec` (with the Part-A `is_static`/`inherited_static` parameters),
+`unflatten_rec`, `node_hash`, `node_eq` move here from `dispatch.cpp` —
+**one** traversal encodes the flatten semantics for both the dispatch hot path
+(stack `Node`, no allocation) and the exposed API (heap `Node` behind an
+`Rcpp::XPtr`, S3 class `"PJRTNode"`).
+
+`src/tree.cpp` exposes (all `// [[Rcpp::export]]`, `impl_tree_*`):
+
+| impl | R wrapper | returns |
+|---|---|---|
+| `impl_tree_build(x)` | `build_tree(x)` | `PJRTNode` xptr |
+| `impl_tree_flatten(x)` | `flatten(x)` | list of leaves |
+| `impl_tree_unflatten(node, x)` | `unflatten(node, x)` | rebuilt object |
+| `impl_tree_size(node)` | `tree_size(node)` | int (leaf count) |
+| `impl_tree_equal(a, b)` | `tree_equal(a, b)` | lgl (structural) |
+| `impl_tree_kind(node)` | `tree_kind(node)` | `"leaf" \| "list" \| "null"` |
+| `impl_tree_names(node)` | `tree_names(node)` | top-level child names or `NULL` |
+| `impl_tree_child_kinds(node)` | `child_kinds(node)` | chr of kinds (root must be a list) |
+| `impl_tree_child_sizes(node)` | `child_sizes(node)` | int per top-level child |
+| `impl_tree_flat_names(node)` | `flat_names(node)` | per-leaf top-level name |
+| `impl_tree_path(node, i)` | `tree_path(node, i)` | `"a$b"` / `"[[2]]"` path |
+| `impl_tree_filter_by_names(node, names)` | `filter_by_names(node, names)` | new owned `PJRTNode`, reindexed |
+| `impl_tree_concat(nodes, names)` | `tree_concat(nodes, names)` | new owned parent `PJRTNode`, leaves renumbered contiguously |
+| `impl_tree_mask_from_names(node, names)` | `mask_from_names(node, names)` | lgl per leaf: leaf under a top-level child whose name is in `names` |
+| `impl_tree_repr(node)` | `tree_repr(node)` | canonical string, e.g. `"list(a = *, b = list(*, NULL))"` |
+| `impl_tree_diff(a, b)` | `tree_diff(a, b)` | `NULL` or `list(prefix, a, b)` with `a`/`b` the **repr strings** of the diverging subtrees |
+
+Decisions:
+
+- **No sub-node handles escape to R** (design B.1): `filter_by_names` /
+  `tree_concat` copy into fully-owned result Nodes; `tree_diff` returns repr
+  strings, not Nodes (its only consumer formats them into an error message).
+- **`mask_from_names` is strict:** empty `names` → all-`FALSE`; the "`NULL`
+  means everything" convention of the old `flat_mask_from_names` is handled at
+  the (single) call site that wants it.
+- `tree_repr` reproduces anvl's old `format.ListNode` exactly (`*`, `NULL`,
+  `list(...)`, `name = ` only for non-empty names) — it also serves as the
+  R-fallback cache-key material (an xptr in a `hashtab` key would compare by
+  address and never hit).
+- `print.PJRTNode` / `format.PJRTNode` delegate to `tree_repr` (deterministic,
+  snapshot-friendly).
+
+### B.2 pjrt R layer: `R/tree.R`
+
+Thin wrappers over the impls (with checkmate input checks where cheap), plus
+the leaf-function orchestration that stays in R by design:
+
+- `map_tree(.x, .f, ...)`, `pmap_tree(.l, .f, ...)` — ported from anvl
+  verbatim, but using native `tree_equal` for the structure check and native
+  `tree_diff` for the mismatch message. cli-styled leaf-error context via
+  `tree_path` is preserved.
+- `flatten_fun(f, ..., in_node = NULL)` — ported from anvl (wraps
+  `build_tree`/`unflatten`).
+
+`DESCRIPTION` gains `Collate: 'tree.R'`; docs via roxygen; NAMESPACE via
+`devtools::document()`.
+
+### B.3 pjrt tests
+
+`tests/testthat/test-tree.R`: anvl's `test-flatten.R` moved and adapted
+(round-trip, NULL semantics, structural distinctness, `map_tree`, `pmap_tree`,
+formatting, `tree_diff`, `tree_path`, `flatten_fun`) with snapshots
+regenerated in pjrt, plus new coverage for `tree_equal`, `tree_kind`,
+`tree_names`, `child_kinds`, `child_sizes`, `flat_names`, `filter_by_names`,
+`tree_concat`, `mask_from_names`, `tree_repr`, and a seeded property test:
+random nested structures (lists/names/NULLs/atomics/classed leaves) must
+round-trip `unflatten(build_tree(x), flatten(x)) == x`, with
+`mask_from_names` matching an R-side reference implementation.
+
+### B.4 anvl rewires
+
+- **Delete `R/flatten.R`** (incl. `mark_some`/`MarkedArgs`/`MarkedListNode`,
+  R `Node` constructors, `new_counter`, `reindex_tree`, `filter_list_node`,
+  `flat_mask_from_names`, R `flatten_fun`, `tree_diff*`). Delete
+  `tests/testthat/test-flatten.R` + its snaps (moved to pjrt); add a thin
+  re-export test.
+- **`R/reexports.R`**: re-export from pjrt: `flatten`, `build_tree`,
+  `unflatten`, `tree_size`, `tree_path`, `map_tree`, `pmap_tree`, `tree_diff`
+  (the previously-public anvl names). Internal-only helpers are called with
+  `pjrt::` prefix.
+- **`R/jit.R`** `jit_prepare_args`: drop the flat fast path and the MarkedArgs
+  branch — `in_tree <- pjrt::build_tree(args)`, `args_flat <- pjrt::flatten(args)`,
+  `is_static_flat <- pjrt::mask_from_names(in_tree, static)`.
+- **`R/backend-xla.R`** + **`R/backend-quickr.R`**: the R fallback cache keys
+  replace the `in_tree` component with `pjrt::tree_repr(in_tree)` (a fresh
+  xptr per call would never `identical()`-hit in the hashtab).
+- **`R/reverse.R`**: `prepare_gradient_args` uses `build_tree` +
+  `mask_from_names` (all-`TRUE` when `wrt` is NULL); `filter_list_node` →
+  `pjrt::filter_by_names`; `compute_requirements` uses `mask_from_names`
+  (all-`TRUE` when `wrt` empty) and `pjrt::flat_names` for the error message;
+  the value/grad combine uses `pjrt::tree_concat`.
+- **`R/stablehlo.R:138`**: `flat_mask_from_names` → `pjrt::mask_from_names`
+  (call site already guarded by `length(donate) > 0`).
+- **`R/graph-to-quickr.R`** / **`R/rules-quickr.R`**: `inherits(x, "LeafNode")`
+  → `pjrt::tree_kind(x) == "leaf"`; the nested-list probe uses
+  `child_kinds`; top-level formal names use `tree_names` / `child_sizes`.
+- **`R/graph.R`**: `flatten_fun` now comes from pjrt.
+- `DESCRIPTION` Collate drops `flatten.R`; `devtools::document()` regenerates
+  NAMESPACE/Rd (old flatten Rd files deleted).
+
+### B.5 Semantics preserved (the contract the tests pin down)
+
+- bare list (VECSXP without class) recurses; classed object/atomic/function is
+  a leaf; `NULL` is a NullNode: part of the tree (and cache key), no leaf, no
+  index.
+- `unflatten` restores names exactly (including `""` slots); a leaf root
+  returns the single value; a null root returns `NULL`.
+- `tree_path`: named → `a$b$c`, unnamed → `[[j]]`, root leaf → `""`.
+- `filter_by_names` keeps top-level children by name, reindexes leaves
+  contiguously, errors if the tree has no names, returns the input node when
+  all children are kept.
+
+## Verification
+
+- pjrt: `devtools::document()`; full `testthat` suite green.
+- anvl: `R CMD INSTALL` pjrt first, then full `testthat` suite green
+  (autodiff, jit xla/quickr, graph — they exercise every rewired site).
+- `make format` + `jarl check` in both repos before the final commits.
+
+## Deviations & extra fixes discovered during implementation
+
+- `identical()` flags stayed at 16 (see Part A item 1) — the plan's 40 was wrong.
+- `tree_diff()` returns the diverging subtrees as `tree_repr()` strings, not
+  Nodes (its only consumer formats them; avoids handing out extra handles).
+- anvl `stablehlo()`: region/closure lowerings (`constants_as_inputs = FALSE`)
+  now use a non-"main" func id so stablehlo's build-wide SSA-id counter is not
+  reset mid-build; `prim_reduce`'s reductor lowering joins that path. This was
+  a pre-existing bug (independent of this arc) producing "redefinition of SSA
+  value" parse errors for scatter/reduce with enough inputs.
+- pjrt pjrt_dispatcher: phantom-spec dtypes accept the `bool`/`i1` aliases (a tengen
+  `BooleanType` stringifies as `"bool"`; canonical pjrt name is `"pred"`).
+- `prim_if`/`prim_while` tree-structure checks and one test moved from
+  `identical()` to `tree_equal()` (xptrs compare by address).
+
+## Final state
+
+- pjrt suite: FAIL 0, PASS 1362. anvl suite: FAIL 0, PASS 1935 (CPU sandbox;
+  CUDA/Metal tests skipped).
+- Static-arg xla jits now dispatch natively at hot-path cost; the R fallback
+  cache stays empty for them (asserted in tests).
+
+## Part C (implemented in a follow-up pass): one native engine for everything
+
+The pjrt_dispatcher is now the single cache + dispatch path for both backends:
+
+- **Key leaves** are kinded: `kBuffer` (xla AnvlArray, aval-keyed), `kStatic`
+  (identical()-keyed, excluded from execution), `kRData` (bare R
+  literal/array: keyed by default dtype -- double/f32, integer/i32,
+  logical/pred -- plus shape, ambiguous; uploaded at execute), `kClosureArr`
+  (quickr/plain AnvlArray under the closure engine: keyed by cached `$dtype`
+  via identical() + `$shape` + `$ambiguous`; `$data` is the execute input),
+  and `kOpaque` (anything else: identical()-keyed; the compile callback --
+  the full R validate/trace/compile path -- raises the canonical error).
+- **Engines**: `engine = "pjrt"` executes a PJRT executable (inputs =
+  const_arrays ++ buffers/uploads ++ phantoms); `engine = "closure"` calls
+  the compiled R closure (`r_fun` from the callback) on the flat leaves and
+  returns `list(value = ...)`.
+- **Device policies**: infer (first buffer's device keys the call; conflicts
+  return the sentinel and anvl re-runs `jit_prepare_args()` purely to raise
+  the canonical error) or `move_inputs = TRUE` (fixed/device_arg jits: the
+  key carries no device; buffers are copied to the entry device natively,
+  cross-client detected by comparing plugin API pointers -- clients are
+  per-platform singletons).
+- **Deleted from anvl**: the xla R fallback and its `xlamisc::LRUCache`, the
+  quickr R cache, `jit_call_xla()` (a test-only stand-in lives in
+  `helper-eval-graph.R`), `jit_key_leaves()`, `jit_prepare_call()`.
+  `cache_size()` now reads only `pjrt_dispatch_size()`. All-static /
+  zero-dynamic / literal-only calls dispatch natively (entry device comes
+  from the compile callback).

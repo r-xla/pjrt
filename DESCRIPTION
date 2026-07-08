@@ -46,6 +46,7 @@ Collate:
     'compare.R'
     'custom_call.R'
     'device.R'
+    'dispatch.R'
     'execution_options.R'
     'format.R'
     'hlo.R'
