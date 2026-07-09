@@ -380,15 +380,15 @@ static void release_entry(CacheEntry& e) {
   if (e.out_shapes != R_NilValue) R_ReleaseObject(e.out_shapes);
 }
 
-// Per-jit pjrt_dispatcher: owns the executable cache, the R cache_miss callback
+// Per-jit Dispatcher: owns the executable cache, the R cache_miss callback
 // (compiles on a miss), and a reusable default-options object. R objects held
 // in the cache are R_PreserveObject'd on insert and released on eviction /
 // teardown via the cache's on_evict hook + clear().
-class pjrt_dispatcher {
+class Dispatcher {
  public:
-  pjrt_dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts,
-                  std::unordered_set<std::string> static_names,
-                  bool closure_engine, bool move_inputs)
+  Dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts,
+             std::unordered_set<std::string> static_names, bool closure_engine,
+             bool move_inputs)
       : cache_(capacity, release_entry),
         miss_fn_(miss_fn),
         opts_(opts),
@@ -399,7 +399,7 @@ class pjrt_dispatcher {
     R_PreserveObject(opts_);
   }
 
-  ~pjrt_dispatcher() {
+  ~Dispatcher() {
     cache_.clear();
     R_ReleaseObject(miss_fn_);
     R_ReleaseObject(opts_);
@@ -526,7 +526,7 @@ std::string impl_dispatch_static_key_hash(Rcpp::List vals) {
   return std::to_string(rpjrt::CacheKeyHash{}(rpjrt::build_static_key(vals)));
 }
 
-// ---- pjrt_dispatcher: the native eager-dispatch hot path
+// ---- Dispatcher: the native eager-dispatch hot path
 // -------------------------
 
 // The sentinel returned by impl_dispatch_run() when the call is not handled by
@@ -537,7 +537,7 @@ SEXP impl_dispatch_sentinel() {
   return Rf_install("__pjrt_dispatch_sentinel__");
 }
 
-// Create a pjrt_dispatcher for one jitted function. `miss_fn(args)` is the R
+// Create a Dispatcher for one jitted function. `miss_fn(args)` is the R
 // callback that compiles on a cache miss and returns a list with at least
 // `exec` (a PJRTLoadedExecutable xptr) and optionally `const_arrays` (a list of
 // buffer xptrs prepended to the inputs). `capacity` is the executable-cache
@@ -571,18 +571,18 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
   }
   Rcpp::XPtr<PJRTExecuteOptions> opts =
       impl_execution_options_create(std::vector<int64_t>(), 0);
-  auto* d = new pjrt_dispatcher(static_cast<std::size_t>(capacity), miss_fn,
-                                static_cast<SEXP>(opts), std::move(statics),
-                                closure_engine, move_inputs);
-  Rcpp::XPtr<pjrt_dispatcher> ptr(d, true);
+  auto* d = new Dispatcher(static_cast<std::size_t>(capacity), miss_fn,
+                           static_cast<SEXP>(opts), std::move(statics),
+                           closure_engine, move_inputs);
+  Rcpp::XPtr<Dispatcher> ptr(d, true);
   ptr.attr("class") = "Dispatcher";
   return ptr;
 }
 
-// Number of compiled executables currently cached by the pjrt_dispatcher.
+// Number of compiled executables currently cached by the Dispatcher.
 // [[Rcpp::export]]
 int impl_dispatch_size(SEXP dispatcher) {
-  Rcpp::XPtr<rpjrt::pjrt_dispatcher> d(dispatcher);
+  Rcpp::XPtr<rpjrt::Dispatcher> d(dispatcher);
   return static_cast<int>(d->cache().size());
 }
 
@@ -594,7 +594,7 @@ int impl_dispatch_size(SEXP dispatcher) {
 // [[Rcpp::export]]
 SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   using namespace rpjrt;
-  Rcpp::XPtr<pjrt_dispatcher> d(dispatcher);
+  Rcpp::XPtr<Dispatcher> d(dispatcher);
   const std::unordered_set<std::string>& statics = d->static_names();
 
   // 1. Flatten args into leaves + structure, marking static leaves. Static-ness

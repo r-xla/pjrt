@@ -60,7 +60,7 @@ class LRUCache {
 
   std::size_t size() const { return index_.size(); }
 
-  // Run on_evict over every entry and drop them (used on pjrt_dispatcher
+  // Run on_evict over every entry and drop them (used on Dispatcher
   // teardown so cached R objects are released, not leaked).
   void clear() {
     if (on_evict_) {

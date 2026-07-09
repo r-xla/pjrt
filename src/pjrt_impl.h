@@ -1,5 +1,5 @@
 // Declarations for the pjrt.cpp entry points that are reused directly from C++
-// (not only through their generated R bindings). The pjrt_dispatcher
+// (not only through their generated R bindings). The Dispatcher
 // (dispatch.cpp) calls these to run executables, build execution options,
 // allocate/upload buffers, and copy buffers across devices -- reusing
 // pjrt.cpp's keepalive/donation/options logic instead of duplicating it. The
