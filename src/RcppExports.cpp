@@ -56,6 +56,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_dispatch_static_key_hash
+std::string impl_dispatch_static_key_hash(Rcpp::List vals);
+RcppExport SEXP _pjrt_impl_dispatch_static_key_hash(SEXP valsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type vals(valsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_static_key_hash(vals));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_dispatch_sentinel
 SEXP impl_dispatch_sentinel();
 RcppExport SEXP _pjrt_impl_dispatch_sentinel() {
@@ -995,6 +1006,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_dispatch_key_hash", (DL_FUNC) &_pjrt_impl_dispatch_key_hash, 1},
     {"_pjrt_impl_dispatch_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_key_eq, 2},
     {"_pjrt_impl_dispatch_static_key_eq", (DL_FUNC) &_pjrt_impl_dispatch_static_key_eq, 2},
+    {"_pjrt_impl_dispatch_static_key_hash", (DL_FUNC) &_pjrt_impl_dispatch_static_key_hash, 1},
     {"_pjrt_impl_dispatch_sentinel", (DL_FUNC) &_pjrt_impl_dispatch_sentinel, 0},
     {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 5},
     {"_pjrt_impl_dispatch_size", (DL_FUNC) &_pjrt_impl_dispatch_size, 1},

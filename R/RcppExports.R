@@ -17,6 +17,10 @@ impl_dispatch_static_key_eq <- function(a, b) {
     .Call(`_pjrt_impl_dispatch_static_key_eq`, a, b)
 }
 
+impl_dispatch_static_key_hash <- function(vals) {
+    .Call(`_pjrt_impl_dispatch_static_key_hash`, vals)
+}
+
 impl_dispatch_sentinel <- function() {
     .Call(`_pjrt_impl_dispatch_sentinel`)
 }

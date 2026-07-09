@@ -483,3 +483,51 @@ test_that("closure-array leaves key on their dtype, mapped or not", {
   invisible(impl_dispatch_run(h4$d, list(qarr(c(1, 2), weird(1L)))))
   expect_equal(h4$n(), 1L)
 })
+
+test_that("static/opaque keys hash their atomic value, consistently with identical()", {
+  H <- function(x) impl_dispatch_static_key_hash(list(x))
+  E <- function(a, b) impl_dispatch_static_key_eq(list(a), list(b))
+
+  # The contract: identical() keys MUST hash alike, or the map stores duplicate
+  # entries for the same key. R's identical() uses num.eq and is encoding-aware.
+  utf8 <- "é"
+  latin1 <- iconv(utf8, "UTF-8", "latin1")
+  equal_pairs <- list(
+    list(0, -0), # +0.0 == -0.0
+    list(NaN, 0 / 0), # all non-NA NaNs compare equal
+    list(utf8, latin1), # same string, different bytes
+    list(42L, 42L)
+  )
+  for (p in equal_pairs) {
+    expect_true(E(p[[1]], p[[2]]))
+    expect_identical(H(p[[1]]), H(p[[2]]))
+  }
+
+  # Distinct atomic values now separate in the hash too, so the map does not
+  # fall back on identical() for keys that merely share type and length.
+  distinct_pairs <- list(
+    list(TRUE, FALSE),
+    list(1L, 2L),
+    list("a", "b"),
+    list(NaN, NA_real_), # single.NA keeps these apart
+    list(c(1, 2), c(2, 1)),
+    list(1 + 2i, 1 + 3i),
+    list(as.raw(1), as.raw(2)),
+    list(NA_character_, "NA")
+  )
+  for (p in distinct_pairs) {
+    expect_false(E(p[[1]], p[[2]]))
+    expect_false(H(p[[1]]) == H(p[[2]]))
+  }
+
+  # Different types never collide (type is folded before the contents).
+  expect_false(E(1L, 1))
+  expect_false(H(1L) == H(1))
+
+  # A non-atomic leaf folds nothing: equal hash, identical() does the work.
+  mk <- function() function() NULL
+  f1 <- mk()
+  f2 <- mk()
+  expect_false(E(f1, f2))
+  expect_identical(H(f1), H(f2))
+})

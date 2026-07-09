@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -80,6 +81,100 @@ static bool aval_eq(const aval& a, const aval& b) {
   return a.dtype == b.dtype && a.ambiguous == b.ambiguous && a.shape == b.shape;
 }
 
+// Fold one double the way R's identical() compares them (num.eq = TRUE, so `==`
+// semantics, with NA_real_ pinned apart from the other NaNs). Both sentinels
+// are NaN payloads, which no finite double can collide with.
+static std::uint64_t fold_double(std::uint64_t h, double x) {
+  std::uint64_t bits;
+  if (ISNA(x)) {
+    bits = 0x7ff00000000007a2ULL;  // NA_real_
+  } else if (ISNAN(x)) {
+    bits = 0x7ff8000000000000ULL;  // every other NaN compares equal
+  } else if (x == 0.0) {
+    bits = 0;  // +0.0 == -0.0
+  } else {
+    std::memcpy(&bits, &x, sizeof(bits));
+  }
+  return hash_combine(h, bits);
+}
+
+// Fold an atomic vector's contents into `h`, so that two value-keyed leaves
+// differing only in value land in different buckets and skip the identical()
+// call. Must never split what identical() joins, hence:
+//   * doubles/complex go through fold_double;
+//   * strings are compared encoding-aware by identical() ("e-acute" in UTF-8
+//     and in latin1 are equal with different bytes), so only ASCII elements
+//     fold their bytes; anything else folds to a sentinel and identical()
+//     separates it.
+// Attributes are not folded: they can only make two leaves unequal, never
+// equal, so omitting them keeps the hash conservative. A non-atomic leaf (list,
+// closure, environment) folds nothing and falls back on identical().
+static std::uint64_t hash_atomic(std::uint64_t h, SEXP v) {
+  const R_xlen_t n = Rf_xlength(v);
+  switch (TYPEOF(v)) {
+    case LGLSXP: {
+      const int* p = LOGICAL(v);
+      for (R_xlen_t i = 0; i < n; ++i) {
+        h = hash_combine(h, static_cast<std::uint32_t>(p[i]));
+      }
+      break;
+    }
+    case INTSXP: {
+      const int* p = INTEGER(v);
+      for (R_xlen_t i = 0; i < n; ++i) {
+        h = hash_combine(h, static_cast<std::uint32_t>(p[i]));
+      }
+      break;
+    }
+    case REALSXP: {
+      const double* p = REAL(v);
+      for (R_xlen_t i = 0; i < n; ++i) h = fold_double(h, p[i]);
+      break;
+    }
+    case CPLXSXP: {
+      const Rcomplex* p = COMPLEX(v);
+      for (R_xlen_t i = 0; i < n; ++i) {
+        h = fold_double(h, p[i].r);
+        h = fold_double(h, p[i].i);
+      }
+      break;
+    }
+    case RAWSXP: {
+      const Rbyte* p = RAW(v);
+      for (R_xlen_t i = 0; i < n; ++i) {
+        h = hash_combine(h, static_cast<std::uint64_t>(p[i]));
+      }
+      break;
+    }
+    case STRSXP: {
+      for (R_xlen_t i = 0; i < n; ++i) {
+        SEXP s = STRING_ELT(v, i);
+        if (s == NA_STRING) {
+          h = hash_combine(h, 0x4E41ULL);  // "NA"
+          continue;
+        }
+        const char* c = CHAR(s);
+        bool ascii = true;
+        for (const char* q = c; *q; ++q) {
+          if (static_cast<unsigned char>(*q) >= 0x80) {
+            ascii = false;
+            break;
+          }
+        }
+        if (!ascii) {
+          h = hash_combine(h, 0x8081ULL);  // non-ASCII: identical() decides
+          continue;
+        }
+        h = hash_combine(h, std::hash<std::string>{}(std::string(c)));
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return h;
+}
+
 // CacheKeyHash and CacheKeyEq are functors (types with operator()) rather than
 // plain functions because unordered_map -- and LRUCache, which forwards them --
 // take the Hash and Eq as template *type* parameters. Passing them as types
@@ -108,12 +203,15 @@ struct CacheKeyHash {
           break;
         case KeyLeaf::kStatic:
         case KeyLeaf::kOpaque:
-          // Cheap discriminator only; exact equality falls back to
-          // identical().
+          // Exact equality is identical(); folding an atomic leaf's contents
+          // keeps that call off the common path, where two static values (a
+          // TRUE and a FALSE, say) would otherwise share type, length, and
+          // therefore bucket.
           h = hash_combine(h, 0x57A71Cu);
           h = hash_combine(h, static_cast<std::uint64_t>(TYPEOF(leaf.value)));
           h = hash_combine(h,
                            static_cast<std::uint64_t>(Rf_xlength(leaf.value)));
+          h = hash_atomic(h, leaf.value);
           break;
       }
     }
@@ -483,27 +581,38 @@ bool impl_dispatch_key_eq(Rcpp::List a, Rcpp::List b) {
   return rpjrt::CacheKeyEq{}(ka, kb);
 }
 
-// Self-test for static-arg cache-key equality. Each element of `a`/`b` is
-// treated as a static KeyLeaf value (compared via identical()); the in_tree is
-// a flat ListNode over them. Exercises value- and environment-sensitivity.
+namespace rpjrt {
+
+// Each element of `vals` becomes a static KeyLeaf, under a flat ListNode.
+static CacheKey build_static_key(Rcpp::List vals) {
+  CacheKey key;
+  key.in_tree = flat_leaf_tree(static_cast<std::size_t>(vals.size()));
+  key.leaves.reserve(vals.size());
+  for (R_xlen_t k = 0; k < vals.size(); ++k) {
+    KeyLeaf kl;
+    kl.kind = KeyLeaf::kStatic;
+    kl.value = vals[k];
+    key.leaves.push_back(std::move(kl));
+  }
+  return key;
+}
+
+}  // namespace rpjrt
+
+// Self-test for static-arg cache-key equality. Exercises value- and
+// environment-sensitivity.
 // [[Rcpp::export]]
 bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b) {
-  auto build = [](Rcpp::List vals) {
-    rpjrt::CacheKey key;
-    key.in_tree = rpjrt::flat_leaf_tree(static_cast<std::size_t>(vals.size()));
-    key.leaves.reserve(vals.size());
-    for (R_xlen_t k = 0; k < vals.size(); ++k) {
-      rpjrt::KeyLeaf kl;
-      kl.kind = rpjrt::KeyLeaf::kStatic;
-      SEXP v = vals[k];
-      kl.value = v;
-      key.leaves.push_back(std::move(kl));
-    }
-    return key;
-  };
-  rpjrt::CacheKey ka = build(a);
-  rpjrt::CacheKey kb = build(b);
-  return rpjrt::CacheKeyEq{}(ka, kb);
+  return rpjrt::CacheKeyEq{}(rpjrt::build_static_key(a),
+                             rpjrt::build_static_key(b));
+}
+
+// Self-test for static-arg cache-key hashing (see impl_dispatch_key_hash for
+// why a decimal string). Keys equal under impl_dispatch_static_key_eq() must
+// hash equally; unequal keys should hash apart so the map skips identical().
+// [[Rcpp::export]]
+std::string impl_dispatch_static_key_hash(Rcpp::List vals) {
+  return std::to_string(rpjrt::CacheKeyHash{}(rpjrt::build_static_key(vals)));
 }
 
 // ---- pjrt_dispatcher: the native eager-dispatch hot path
