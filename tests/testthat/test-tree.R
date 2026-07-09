@@ -113,6 +113,35 @@ test_that("NA list names are rejected (would corrupt to \"NA\" and poison tree_e
   expect_equal(tree_child_names(ok), "NA")
 })
 
+test_that("tree_hash is consistent with tree_equal", {
+  # Structurally equal trees (equal under tree_equal, even with differing leaf
+  # values) hash equally.
+  a <- build_tree(list(a = 1, b = list(c = 2, d = NULL)))
+  b <- build_tree(list(a = 9, b = list(c = 8, d = NULL)))
+  expect_true(tree_equal(a, b))
+  expect_identical(tree_hash(a), tree_hash(b))
+
+  # A single string is returned, and hashing is deterministic.
+  expect_type(tree_hash(a), "character")
+  expect_length(tree_hash(a), 1L)
+  expect_identical(tree_hash(a), tree_hash(a))
+})
+
+test_that("tree_hash distinguishes structure, names, arity, and NULL position", {
+  h <- function(x) tree_hash(build_tree(x))
+  # node kind
+  expect_false(h(1) == h(list(1)))
+  expect_false(h(NULL) == h(1))
+  # child names
+  expect_false(h(list(a = 1)) == h(list(b = 1)))
+  # arity
+  expect_false(h(list(1)) == h(list(1, 2)))
+  # NULL position (f(x, NULL) vs f(NULL, x))
+  expect_false(h(list(1, NULL)) == h(list(NULL, 1)))
+  # has_names is captured even with zero children: list() vs a named empty list
+  expect_false(h(list()) == h(structure(list(), names = character(0))))
+})
+
 test_that("tree_root_kind and tree_child_kinds", {
   expect_equal(tree_root_kind(build_tree(1)), "leaf")
   expect_equal(tree_root_kind(build_tree(list(1))), "list")

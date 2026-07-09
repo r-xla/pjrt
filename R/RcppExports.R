@@ -265,6 +265,10 @@ impl_tree_equal <- function(a, b) {
     .Call(`_pjrt_impl_tree_equal`, a, b)
 }
 
+impl_tree_hash <- function(tree) {
+    .Call(`_pjrt_impl_tree_hash`, tree)
+}
+
 impl_tree_kind <- function(tree) {
     .Call(`_pjrt_impl_tree_kind`, tree)
 }

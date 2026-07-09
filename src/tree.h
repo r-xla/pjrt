@@ -10,8 +10,9 @@
 // Representation: a tree is stored as a flat structure-of-arrays, one entry per
 // node in preorder (the flatten / DFS order). This keeps a whole tree in a
 // handful of contiguous vectors -- O(1) heap allocations regardless of node
-// count -- and makes equality a linear, cache-friendly scan. A leaf's index is
-// implicit (its rank in the preorder), so no per-node index is stored.
+// count -- and makes equality and hashing linear, cache-friendly scans. A
+// leaf's index is implicit (its rank in the preorder), so no per-node index is
+// stored.
 //
 // This is the single source of truth for the flatten semantics; tree.cpp
 // exposes it to R behind an external pointer (S3 class "RTree").
@@ -167,5 +168,9 @@ inline bool tree_eq(const RTree& a, const RTree& b) {
   return a.kind == b.kind && a.n_children == b.n_children &&
          a.name_off == b.name_off && a.names == b.names;
 }
+
+// Structural hash of an RTree, consistent with tree_eq: trees that compare
+// equal hash equally. Defined out-of-line in tree.cpp.
+std::uint64_t tree_hash(const RTree& tree);
 
 }  // namespace rpjrt
