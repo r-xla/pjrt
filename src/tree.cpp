@@ -22,21 +22,18 @@ namespace rpjrt {
 
 // Structural hash of an RTree, consistent with tree_eq (declared in tree.h):
 // hashes exactly the fields tree_eq compares -- kinds, child counts, name
-// offsets, and child names -- as flat linear scans.
+// offsets, and child names -- as flat linear scans. Hashing each array's length
+// before its elements keeps the boundaries between them unambiguous.
 std::size_t tree_hash(const RTree& tree) {
-  std::size_t h = tree.kind.size();
-  for (std::uint8_t k : tree.kind) hash_combine(h, static_cast<std::size_t>(k));
-  for (std::int32_t c : tree.n_children) {
-    hash_combine(h, static_cast<std::size_t>(c));
-  }
-  for (std::int32_t off : tree.name_off) {
-    hash_combine(h, static_cast<std::size_t>(off));
-  }
-  hash_combine(h, tree.names.size());
+  std::uint64_t h = tree.kind.size();
+  for (std::uint8_t k : tree.kind) h = hash_combine(h, k);
+  for (std::int32_t c : tree.n_children) h = hash_combine(h, c);
+  for (std::int32_t off : tree.name_off) h = hash_combine(h, off);
+  h = hash_combine(h, tree.names.size());
   for (const std::string& s : tree.names) {
-    hash_combine(h, std::hash<std::string>{}(s));
+    h = hash_combine(h, std::hash<std::string>{}(s));
   }
-  return h;
+  return static_cast<std::size_t>(h);
 }
 
 // Wrap a heap-allocated RTree in an external pointer handed to R. Ownership

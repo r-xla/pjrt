@@ -98,7 +98,7 @@ Authors:
 
 Other contributors:
 \itemize{
-  \item Daniel James (Author of the Boost.ContainerHash hash_combine adapted in src/hash.h (BSL-1.0); see inst/COPYRIGHTS) [copyright holder]
+  \item Daniel James (Author of the Boost.ContainerHash hash_combine copied in src/hash.h (BSL-1.0); see inst/COPYRIGHTS) [copyright holder]
 }
 
 }

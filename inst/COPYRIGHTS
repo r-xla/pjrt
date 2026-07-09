@@ -3,10 +3,9 @@ Bundled third-party code
 
 src/hash.h
 ----------
-The function `rpjrt::hash_combine` in src/hash.h is adapted from the 64-bit
-specialization `hash_combine_impl<64>::fn` of Boost.ContainerHash
-(boost/container_hash/hash.hpp), adapted only to take an already-computed hash
-value directly.
+The function `rpjrt::hash_combine` in src/hash.h is a verbatim copy of the
+64-bit specialization `hash_combine_impl<64>::fn` of Boost.ContainerHash
+(boost/container_hash/hash.hpp), renamed.
 
   Copyright 2005-2014 Daniel James.
   Distributed under the Boost Software License, Version 1.0.
