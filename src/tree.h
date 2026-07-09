@@ -72,7 +72,12 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
     if (has_names) {
       tree.name_off.push_back(static_cast<std::int32_t>(tree.names.size()));
       for (R_xlen_t k = 0; k < n; ++k) {
-        tree.names.push_back(std::string(CHAR(STRING_ELT(nms, k))));
+        SEXP nm = STRING_ELT(nms, k);
+        // NA_STRING would round-trip through CHAR() as the literal "NA",
+        // silently conflating an NA name with a "NA" name (and poisoning
+        // tree_equal); reject it instead.
+        if (nm == NA_STRING) Rcpp::stop("tree names must not be NA");
+        tree.names.push_back(std::string(CHAR(nm)));
       }
     } else {
       tree.name_off.push_back(-1);

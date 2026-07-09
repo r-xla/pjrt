@@ -100,6 +100,19 @@ test_that("tree_equal distinguishes structure, names, and arity", {
   ))
 })
 
+test_that("NA list names are rejected (would corrupt to \"NA\" and poison tree_equal)", {
+  x <- setNames(list(1, 2), c("a", NA))
+  expect_error(build_tree(x), "NA")
+  expect_error(flatten(x), "NA")
+  expect_error(
+    tree_concat(list(build_tree(1), build_tree(2)), names = c("a", NA)),
+    "NA"
+  )
+  # a literal "NA" name is still fine and stays distinct
+  ok <- build_tree(setNames(list(1), "NA"))
+  expect_equal(tree_names(ok), "NA")
+})
+
 test_that("tree_root_kind and tree_child_kinds", {
   expect_equal(tree_root_kind(build_tree(1)), "leaf")
   expect_equal(tree_root_kind(build_tree(list(1))), "list")

@@ -387,6 +387,9 @@ SEXP impl_tree_concat(Rcpp::List children, SEXP names) {
   if (has_names) {
     out->name_off.push_back(0);
     for (R_xlen_t k = 0; k < nms.size(); ++k) {
+      if (STRING_ELT(names, k) == NA_STRING) {
+        Rcpp::stop("tree_concat(): names must not be NA");
+      }
       out->names.push_back(std::string(nms[k]));
     }
   } else {
