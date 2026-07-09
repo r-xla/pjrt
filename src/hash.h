@@ -1,5 +1,5 @@
-// Shared hashing primitive. Used to fold component hashes together for the
-// dispatch cache key (dispatch.cpp) and the structural tree hash (tree.cpp).
+// Shared hashing primitive: folds component hashes together. Used by the
+// structural tree hash (tree.cpp).
 
 #pragma once
 

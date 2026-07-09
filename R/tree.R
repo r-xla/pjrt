@@ -18,7 +18,9 @@
 #'
 #' flatten(list(1:3, "hello"))
 #' @export
-flatten <- impl_tree_flatten
+flatten <- function(x) {
+  impl_tree_build_flatten(x)$leaves
+}
 
 #' @title Build Tree
 #' @description
@@ -136,10 +138,10 @@ tree_root_kind <- impl_tree_kind
 #'   `NULL`: the tree preserves the named/unnamed distinction (see
 #'   [tree_equal()]).
 #' @examples
-#' tree_names(build_tree(list(a = 1, b = 2)))
-#' tree_names(build_tree(list(1, 2)))
+#' tree_child_names(build_tree(list(a = 1, b = 2)))
+#' tree_child_names(build_tree(list(1, 2)))
 #' @export
-tree_names <- impl_tree_names
+tree_child_names <- impl_tree_child_names
 
 #' @title Top-Level Child Kinds
 #' @description
@@ -163,18 +165,6 @@ tree_child_kinds <- impl_tree_child_kinds
 #' tree_child_sizes(build_tree(list(a = 1, b = list(2, 3), c = NULL)))
 #' @export
 tree_child_sizes <- impl_tree_child_sizes
-
-#' @title Per-Leaf Top-Level Group Names
-#' @description
-#' For each leaf (in flat order), the name of the top-level child it sits
-#' under (`""` for unnamed children).
-#' @param tree (`RTree`)\cr
-#'   A tree whose root is a list node.
-#' @return A `character` vector of length `tree_size(tree)`.
-#' @examples
-#' tree_leaf_groups(build_tree(list(a = 1, b = list(2, 3))))
-#' @export
-tree_leaf_groups <- impl_tree_flat_names
 
 #' @title Tree Path
 #' @description
@@ -246,7 +236,7 @@ tree_concat <- function(children, names = NULL) {
 #' @param groups (`character()`)\cr
 #'   Top-level child names to mark.
 #' @return A `logical` vector of length `tree_size(tree)`.
-#' @seealso [tree_leaf_groups()]
+#' @seealso [tree_child_names()]
 #' @examples
 #' tree_leaf_mask(build_tree(list(a = 1, b = list(2, 3))), "b")
 #' @export
