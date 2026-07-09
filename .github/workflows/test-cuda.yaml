@@ -49,7 +49,7 @@ jobs:
             cudnn=9.3.0 \
             cuda-nvrtc
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install R package dependencies and run tests
         shell: bash
