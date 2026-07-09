@@ -491,14 +491,14 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
                                 static_cast<SEXP>(opts), std::move(statics),
                                 closure_engine, move_inputs);
   Rcpp::XPtr<pjrt_dispatcher> ptr(d, true);
-  ptr.attr("class") = "PJRT_dispatcher";
+  ptr.attr("class") = "Dispatcher";
   return ptr;
 }
 
 // Number of compiled executables currently cached by the pjrt_dispatcher.
 // [[Rcpp::export]]
-int impl_dispatch_size(SEXP handle) {
-  Rcpp::XPtr<rpjrt::pjrt_dispatcher> d(handle);
+int impl_dispatch_size(SEXP dispatcher) {
+  Rcpp::XPtr<rpjrt::pjrt_dispatcher> d(dispatcher);
   return static_cast<int>(d->cache().size());
 }
 

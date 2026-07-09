@@ -82,13 +82,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_dispatch_size
-int impl_dispatch_size(SEXP handle);
-RcppExport SEXP _pjrt_impl_dispatch_size(SEXP handleSEXP) {
+int impl_dispatch_size(SEXP dispatcher);
+RcppExport SEXP _pjrt_impl_dispatch_size(SEXP dispatcherSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type handle(handleSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_dispatch_size(handle));
+    Rcpp::traits::input_parameter< SEXP >::type dispatcher(dispatcherSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_size(dispatcher));
     return rcpp_result_gen;
 END_RCPP
 }

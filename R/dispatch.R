@@ -55,7 +55,7 @@
 #'   callback's `device`) and buffer inputs are copied to it at execute time;
 #'   the cache key then carries no device. Default `FALSE`: the first buffer's
 #'   device is the call's device and conflicting inputs yield the sentinel.
-#' @return [`dispatcher()`] returns a `PJRT_dispatcher`.
+#' @return [`dispatcher()`] returns a `Dispatcher`.
 #' @export
 dispatcher <- function(
   capacity,
@@ -84,7 +84,7 @@ dispatcher <- function(
 #' miss. Calls the dispatcher cannot handle natively yield
 #' [`dispatch_sentinel()`], leaving the caller to fall back to R.
 #' @rdname dispatch
-#' @param dispatcher (`PJRT_dispatcher`)\cr A dispatcher from [`dispatcher()`].
+#' @param dispatcher (`Dispatcher`)\cr A dispatcher from [`dispatcher()`].
 #' @param args (`list`)\cr The (already evaluated) argument list of the call.
 #' @return [`dispatch()`] returns, on a handled call with
 #'   `engine = "pjrt"`, a list with `buffers` (the raw output
@@ -104,20 +104,16 @@ dispatch <- impl_dispatch_run
 #' @return [`dispatch_sentinel()`] returns the singleton sentinel value
 #'   that [`dispatch()`] yields for calls it does not handle natively.
 #' @export
-dispatch_sentinel <- function() {
-  impl_dispatch_sentinel()
-}
+dispatch_sentinel <- impl_dispatch_sentinel
 
 #' @rdname dispatch
 #' @return [`dispatch_size()`] returns the number of compiled executables
 #'   the dispatcher currently caches.
 #' @export
-dispatch_size <- function(dispatcher) {
-  impl_dispatch_size(dispatcher)
-}
+dispatch_size <- impl_dispatch_size
 
 #' @export
-print.PJRT_dispatcher <- function(x, ...) {
-  cat("<PJRT_dispatcher>\n")
+print.Dispatcher <- function(x, ...) {
+  cat("<Dispatcher>\n")
   invisible(x)
 }

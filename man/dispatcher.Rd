@@ -46,7 +46,7 @@ the cache key then carries no device. Default \code{FALSE}: the first buffer's
 device is the call's device and conflicting inputs yield the sentinel.}
 }
 \value{
-\code{\link[=dispatcher]{dispatcher()}} returns a \code{PJRT_dispatcher}.
+\code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}.
 }
 \description{
 A native fast path for repeatedly executing a compiled program on inputs of

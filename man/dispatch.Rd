@@ -13,7 +13,7 @@ dispatch_sentinel()
 dispatch_size(dispatcher)
 }
 \arguments{
-\item{dispatcher}{(\code{PJRT_dispatcher})\cr A dispatcher from \code{\link[=dispatcher]{dispatcher()}}.}
+\item{dispatcher}{(\code{Dispatcher})\cr A dispatcher from \code{\link[=dispatcher]{dispatcher()}}.}
 
 \item{args}{(\code{list})\cr The (already evaluated) argument list of the call.}
 }

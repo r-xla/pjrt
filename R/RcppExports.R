@@ -25,8 +25,8 @@ impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, move_i
     .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, move_inputs)
 }
 
-impl_dispatch_size <- function(handle) {
-    .Call(`_pjrt_impl_dispatch_size`, handle)
+impl_dispatch_size <- function(dispatcher) {
+    .Call(`_pjrt_impl_dispatch_size`, dispatcher)
 }
 
 impl_dispatch_run <- function(dispatcher, args) {
