@@ -57,7 +57,7 @@ test_that("native static cache key compares values via identical() (env-sensitiv
   expect_true(E(list(g1), list(g2)))
 })
 
-test_that("native pjrt_dispatcher caches, executes, and falls back", {
+test_that("native dispatcher caches, executes, and falls back", {
   skip_if_not(plugins_downloaded())
   # run() returns list(buffers, out_tree, ambiguous_out); take the first buffer.
   out <- function(res) as.numeric(tengen::as_array(await(res$buffers[[1]])))
@@ -106,7 +106,7 @@ test_that("native pjrt_dispatcher caches, executes, and falls back", {
   expect_true(TRUE) # reached teardown without crashing
 })
 
-test_that("pjrt_dispatcher with static names still dispatches a pure-dynamic call", {
+test_that("dispatcher with static names still dispatches a pure-dynamic call", {
   skip_if_not(plugins_downloaded())
   add_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<2xf32>) -> tensor<2xf32> {
     %0 = "stablehlo.add"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
@@ -120,13 +120,13 @@ test_that("pjrt_dispatcher with static names still dispatches a pure-dynamic cal
   y <- arr(pjrt_buffer(c(3, 4), dtype = "f32"))
 
   # static name "flag" declared, but this call has no such arg -> all dynamic.
-  d <- pjrt_dispatcher(10L, function(args) list(exec = exec2), static = "flag")
-  res <- pjrt_dispatch(d, list(x = x, y = y))
-  expect_false(identical(res, pjrt_dispatch_sentinel()))
+  d <- dispatcher(10L, function(args) list(exec = exec2), static = "flag")
+  res <- dispatch(d, list(x = x, y = y))
+  expect_false(identical(res, dispatch_sentinel()))
   expect_equal(as.numeric(tengen::as_array(await(res$buffers[[1]]))), c(4, 6))
 })
 
-test_that("native pjrt_dispatcher keys static args by value and excludes them from execute", {
+test_that("native dispatcher keys static args by value and excludes them from execute", {
   skip_if_not(plugins_downloaded())
   # Identity executable over ONE f32 input. If a static leaf were ever sent to
   # execute, the input arity (2) would mismatch @main (1) and execution would
@@ -202,7 +202,7 @@ test_that("native pjrt_dispatcher keys static args by value and excludes them fr
   expect_equal(n2, 1L)
 })
 
-test_that("native pjrt_dispatcher uploads bare R literals and arrays (pjrt engine)", {
+test_that("native dispatcher uploads bare R literals and arrays (pjrt engine)", {
   skip_if_not(plugins_downloaded())
   add_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<f32>) -> tensor<2xf32> {
     %0 = "stablehlo.broadcast_in_dim"(%y) { broadcast_dimensions = array<i64> } : (tensor<f32>) -> tensor<2xf32>
@@ -263,7 +263,7 @@ test_that("native pjrt_dispatcher uploads bare R literals and arrays (pjrt engin
   expect_equal(tengen::as_array(await(r3$buffers[[1]])), m)
 })
 
-test_that("native pjrt_dispatcher moves buffers to the target device (move_inputs)", {
+test_that("native dispatcher moves buffers to the target device (move_inputs)", {
   skip_if_not(plugins_downloaded())
   id_src <- 'func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
     "func.return"(%x): (tensor<2xf32>) -> ()
@@ -296,7 +296,7 @@ test_that("native pjrt_dispatcher moves buffers to the target device (move_input
   expect_equal(impl_dispatch_size(d), 1L) # device is not part of the key
 })
 
-test_that("native pjrt_dispatcher sentinels only on a device conflict (infer policy)", {
+test_that("native dispatcher sentinels only on a device conflict (infer policy)", {
   skip_if_not(plugins_downloaded())
   cpus <- devices(pjrt_client("cpu"))
   skip_if(length(cpus) < 2L, "needs a second cpu device")
@@ -317,7 +317,7 @@ test_that("native pjrt_dispatcher sentinels only on a device conflict (infer pol
   }
   x0 <- arr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
   y1 <- arr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
-  expect_identical(impl_dispatch_run(d, list(x0, y1)), pjrt_dispatch_sentinel())
+  expect_identical(impl_dispatch_run(d, list(x0, y1)), dispatch_sentinel())
 })
 
 test_that("closure engine dispatches through a compiled R closure", {

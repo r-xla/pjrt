@@ -5,11 +5,11 @@
 #' inputs' structure and abstract values, calling back into R to compile only on
 #' a cache miss.
 #'
-#' [`pjrt_dispatcher()`] creates a pjrt_dispatcher for one program family;
-#' [`pjrt_dispatch()`] runs a call through it.
+#' [`dispatcher()`] creates a dispatcher for one program family;
+#' [`dispatch()`] runs a call through it.
 #'
 #' @details
-#' On each [`pjrt_dispatch()`] call the inputs are flattened, classified, and
+#' On each [`dispatch()`] call the inputs are flattened, classified, and
 #' turned into a cache key built per leaf from either its dtype/shape (read
 #' natively off buffers, or the R type/dim of a bare literal/array) plus an
 #' `ambiguous` flag, or -- for static and other value-keyed leaves -- the value
@@ -25,7 +25,7 @@
 #'
 #' A leaf no engine can execute (e.g. an `"AnvlArray"` of a foreign backend)
 #' is keyed by value; `compile` is expected to reject it, so such calls error
-#' through the callback. [`pjrt_dispatch_sentinel()`] is returned only for
+#' through the callback. [`dispatch_sentinel()`] is returned only for
 #' inputs spread across devices when no target device is fixed -- the caller
 #' should re-run its own input validation to raise its canonical error.
 #'
@@ -55,9 +55,9 @@
 #'   callback's `device`) and buffer inputs are copied to it at execute time;
 #'   the cache key then carries no device. Default `FALSE`: the first buffer's
 #'   device is the call's device and conflicting inputs yield the sentinel.
-#' @return [`pjrt_dispatcher()`] returns a `PJRT_dispatcher`.
+#' @return [`dispatcher()`] returns a `PJRT_dispatcher`.
 #' @export
-pjrt_dispatcher <- function(
+dispatcher <- function(
   capacity,
   compile,
   static = character(),
@@ -80,40 +80,40 @@ pjrt_dispatcher <- function(
 
 #' @title Native eager-dispatch fast path
 #' @description
-#' Dispatch a call through a [`pjrt_dispatcher()`]'s executable cache, compiling
-#' on a miss. Calls the dispatcher cannot handle natively yield
-#' [`pjrt_dispatch_sentinel()`], leaving the caller to fall back to R.
-#' @rdname pjrt_dispatch
-#' @param pjrt_dispatcher (`PJRT_dispatcher`)\cr A pjrt_dispatcher from [`pjrt_dispatcher()`].
+#' Dispatch a call through a [`dispatcher()`]'s executable cache, compiling on a
+#' miss. Calls the dispatcher cannot handle natively yield
+#' [`dispatch_sentinel()`], leaving the caller to fall back to R.
+#' @rdname dispatch
+#' @param dispatcher (`PJRT_dispatcher`)\cr A dispatcher from [`dispatcher()`].
 #' @param args (`list`)\cr The (already evaluated) argument list of the call.
-#' @return [`pjrt_dispatch()`] returns, on a handled call with
+#' @return [`dispatch()`] returns, on a handled call with
 #'   `engine = "pjrt"`, a list with `buffers` (the raw output
 #'   [`pjrt_buffer`]s), `out_tree` and `ambiguous_out` (the opaque values from
 #'   `compile`), `out_dtypes` and `out_shapes` (each output's dtype string and
 #'   integer shape, read natively), and `device` (the `compile` callback's
 #'   device object). With `engine = "closure"` it returns
 #'   `list(value = <closure result>)`. Otherwise it returns the value of
-#'   [`pjrt_dispatch_sentinel()`].
+#'   [`dispatch_sentinel()`].
 #' @export
 # Bound directly to the generated native entry (RcppExports.R precedes this
-# file in the Collate order): pjrt_dispatch() is on anvl's per-primitive hot
-# path, and a plain forwarding wrapper would add an R call frame per dispatch.
-pjrt_dispatch <- impl_dispatch_run
+# file in the Collate order): dispatch() is on anvl's per-primitive hot path,
+# and a plain forwarding wrapper would add an R call frame per dispatch.
+dispatch <- impl_dispatch_run
 
-#' @rdname pjrt_dispatch
-#' @return [`pjrt_dispatch_sentinel()`] returns the singleton sentinel value
-#'   that [`pjrt_dispatch()`] yields for calls it does not handle natively.
+#' @rdname dispatch
+#' @return [`dispatch_sentinel()`] returns the singleton sentinel value
+#'   that [`dispatch()`] yields for calls it does not handle natively.
 #' @export
-pjrt_dispatch_sentinel <- function() {
+dispatch_sentinel <- function() {
   impl_dispatch_sentinel()
 }
 
-#' @rdname pjrt_dispatch
-#' @return [`pjrt_dispatch_size()`] returns the number of compiled executables
-#'   the pjrt_dispatcher currently caches.
+#' @rdname dispatch
+#' @return [`dispatch_size()`] returns the number of compiled executables
+#'   the dispatcher currently caches.
 #' @export
-pjrt_dispatch_size <- function(pjrt_dispatcher) {
-  impl_dispatch_size(pjrt_dispatcher)
+dispatch_size <- function(dispatcher) {
+  impl_dispatch_size(dispatcher)
 }
 
 #' @export
