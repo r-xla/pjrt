@@ -171,6 +171,6 @@ inline bool tree_eq(const RTree& a, const RTree& b) {
 
 // Structural hash of an RTree, consistent with tree_eq: trees that compare
 // equal hash equally. Defined out-of-line in tree.cpp.
-std::size_t tree_hash(const RTree& tree);
+std::uint64_t tree_hash(const RTree& tree);
 
 }  // namespace rpjrt

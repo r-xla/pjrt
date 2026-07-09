@@ -25,7 +25,7 @@ namespace rpjrt {
 // offsets, and child names -- as flat linear scans. The node count seeds the
 // hash and the name count precedes the names, so that the flat stream of
 // values cannot be regrouped into a different tree.
-std::size_t tree_hash(const RTree& tree) {
+std::uint64_t tree_hash(const RTree& tree) {
   std::uint64_t h = tree.kind.size();
   for (std::uint8_t k : tree.kind) h = hash_combine(h, k);
   for (std::int32_t c : tree.n_children) h = hash_combine(h, c);
@@ -34,7 +34,7 @@ std::size_t tree_hash(const RTree& tree) {
   for (const std::string& s : tree.names) {
     h = hash_combine(h, std::hash<std::string>{}(s));
   }
-  return static_cast<std::size_t>(h);
+  return h;
 }
 
 // Wrap a heap-allocated RTree in an external pointer handed to R. Ownership
@@ -278,7 +278,7 @@ bool impl_tree_equal(SEXP a, SEXP b) {
   return rpjrt::tree_eq(rpjrt::as_tree(a), rpjrt::as_tree(b));
 }
 
-// The std::size_t hash is returned as a decimal string: R has no native 64-bit
+// The 64-bit hash is returned as a decimal string: R has no native 64-bit
 // integer, and the value is only ever compared for (in)equality.
 // [[Rcpp::export]]
 std::string impl_tree_hash(SEXP tree) {
