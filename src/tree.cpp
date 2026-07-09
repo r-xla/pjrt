@@ -22,8 +22,9 @@ namespace rpjrt {
 
 // Structural hash of an RTree, consistent with tree_eq (declared in tree.h):
 // hashes exactly the fields tree_eq compares -- kinds, child counts, name
-// offsets, and child names -- as flat linear scans. Hashing each array's length
-// before its elements keeps the boundaries between them unambiguous.
+// offsets, and child names -- as flat linear scans. The node count seeds the
+// hash and the name count precedes the names, so that the flat stream of
+// values cannot be regrouped into a different tree.
 std::size_t tree_hash(const RTree& tree) {
   std::uint64_t h = tree.kind.size();
   for (std::uint8_t k : tree.kind) h = hash_combine(h, k);
