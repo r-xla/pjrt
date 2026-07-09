@@ -59,14 +59,14 @@ empty node, and <code>"list(...)"</code> for list nodes.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">tree_repr</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">tree_repr</span><span class="op">(</span><span class="va">tree</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
+<dl><dt id="arg-tree">tree<a class="anchor" aria-label="anchor" href="#arg-tree"></a></dt>
 <dd><p>(<code>RTree</code>)<br>
 A tree as returned by <code><a href="build_tree.html">build_tree()</a></code>.</p></dd>
 
@@ -79,7 +79,7 @@ A tree as returned by <code><a href="build_tree.html">build_tree()</a></code>.</
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">tree_repr</span><span class="op">(</span><span class="fu"><a href="build_tree.html">build_tree</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>a <span class="op">=</span> <span class="fl">1</span>, b <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">2</span>, <span class="cn">NULL</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "list(a = *, b = list(*, NULL))"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "list&lt;named&gt;(a = *, b = list(*, NULL))"</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -28,7 +28,7 @@ A `logical` vector of length `tree_size(tree)`.
 
 ## See also
 
-[`tree_leaf_groups()`](https://r-xla.github.io/pjrt/dev/reference/tree_leaf_groups.md)
+[`tree_child_names()`](https://r-xla.github.io/pjrt/dev/reference/tree_child_names.md)
 
 ## Examples
 

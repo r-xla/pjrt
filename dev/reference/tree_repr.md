@@ -6,12 +6,12 @@ an empty node, and `"list(...)"` for list nodes.
 ## Usage
 
 ``` r
-tree_repr(x)
+tree_repr(tree)
 ```
 
 ## Arguments
 
-- x:
+- tree:
 
   (`RTree`)  
   A tree as returned by
@@ -25,5 +25,5 @@ tree_repr(x)
 
 ``` r
 tree_repr(build_tree(list(a = 1, b = list(2, NULL))))
-#> [1] "list(a = *, b = list(*, NULL))"
+#> [1] "list<named>(a = *, b = list(*, NULL))"
 ```

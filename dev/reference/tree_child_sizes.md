@@ -5,12 +5,12 @@ The number of leaves under each top-level child of a list tree.
 ## Usage
 
 ``` r
-tree_child_sizes(x)
+tree_child_sizes(tree)
 ```
 
 ## Arguments
 
-- x:
+- tree:
 
   (`RTree`)  
   A tree whose root is a list node.

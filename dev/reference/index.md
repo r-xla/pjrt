@@ -114,6 +114,9 @@
 - [`tree_child_kinds()`](https://r-xla.github.io/pjrt/dev/reference/tree_child_kinds.md)
   : Top-Level Child Kinds
 
+- [`tree_child_names()`](https://r-xla.github.io/pjrt/dev/reference/tree_child_names.md)
+  : Top-Level Child Names
+
 - [`tree_child_sizes()`](https://r-xla.github.io/pjrt/dev/reference/tree_child_sizes.md)
   : Top-Level Child Sizes
 
@@ -129,14 +132,8 @@
 - [`tree_filter_by_names()`](https://r-xla.github.io/pjrt/dev/reference/tree_filter_by_names.md)
   : Filter a Tree by Top-Level Names
 
-- [`tree_leaf_groups()`](https://r-xla.github.io/pjrt/dev/reference/tree_leaf_groups.md)
-  : Per-Leaf Top-Level Group Names
-
 - [`tree_leaf_mask()`](https://r-xla.github.io/pjrt/dev/reference/tree_leaf_mask.md)
   : Per-Leaf Mask From Top-Level Groups
-
-- [`tree_names()`](https://r-xla.github.io/pjrt/dev/reference/tree_names.md)
-  : Top-Level Child Names
 
 - [`tree_path()`](https://r-xla.github.io/pjrt/dev/reference/tree_path.md)
   : Tree Path

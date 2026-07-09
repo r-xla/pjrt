@@ -41,7 +41,7 @@ f <- function(x) list(sum = x$a + x$b)
 ff <- flatten_fun(f, build_tree(list(list(a = 1, b = 2))))
 ff(3, 4)
 #> [[1]]
-#> list(sum = *)
+#> list<named>(sum = *)
 #> 
 #> [[2]]
 #> [[2]][[1]]

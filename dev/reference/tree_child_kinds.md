@@ -6,12 +6,12 @@ of a list tree.
 ## Usage
 
 ``` r
-tree_child_kinds(x)
+tree_child_kinds(tree)
 ```
 
 ## Arguments
 
-- x:
+- tree:
 
   (`RTree`)  
   A tree whose root is a list node.

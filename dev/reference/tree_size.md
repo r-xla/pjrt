@@ -8,12 +8,12 @@ the original structure.
 ## Usage
 
 ``` r
-tree_size(x)
+tree_size(tree)
 ```
 
 ## Arguments
 
-- x:
+- tree:
 
   (`RTree`)  
   A tree as returned by

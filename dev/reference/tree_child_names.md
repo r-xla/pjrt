@@ -6,12 +6,12 @@ slots), or `NULL` if the root is not a list node or carries no names.
 ## Usage
 
 ``` r
-tree_names(x)
+tree_child_names(tree)
 ```
 
 ## Arguments
 
-- x:
+- tree:
 
   (`RTree`)  
   A tree as returned by
@@ -28,8 +28,8 @@ list node or is an *unnamed* list. An empty but named list
 ## Examples
 
 ``` r
-tree_names(build_tree(list(a = 1, b = 2)))
+tree_child_names(build_tree(list(a = 1, b = 2)))
 #> [1] "a" "b"
-tree_names(build_tree(list(1, 2)))
+tree_child_names(build_tree(list(1, 2)))
 #> NULL
 ```

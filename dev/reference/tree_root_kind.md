@@ -6,12 +6,12 @@ a list node, or `"null"` for the empty (`NULL`) node.
 ## Usage
 
 ``` r
-tree_root_kind(x)
+tree_root_kind(tree)
 ```
 
 ## Arguments
 
-- x:
+- tree:
 
   (`RTree`)  
   A tree as returned by
