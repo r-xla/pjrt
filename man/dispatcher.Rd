@@ -32,8 +32,11 @@ for the caller to wrap the outputs.
 
 \item{static}{(\code{character()})\cr
 Names of top-level arguments that are static (not arrays). Static values
-are part of the cache key (compared with \code{\link[=identical]{identical()}}) and are excluded
-from execution. Defaults to none.}
+are part of the cache key and are excluded from execution. Defaults to
+none. They are compared with \code{identical(num.eq = FALSE)}, i.e. numbers
+compare bitwise: \code{0} and \code{-0} are distinct keys (a redundant compile of the
+same program), which is what keeps a \code{bit64::integer64} \code{NA} -- stored as
+the bit pattern of \code{-0} -- from sharing a cache entry with \code{0}.}
 
 \item{engine}{(\code{character(1)})\cr
 \code{"pjrt"} (default) executes a compiled PJRT executable; \code{"closure"} calls

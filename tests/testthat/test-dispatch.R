@@ -488,28 +488,38 @@ test_that("static/opaque keys hash their atomic value, consistently with identic
   H <- function(x) impl_dispatch_static_key_hash(list(x))
   E <- function(a, b) impl_dispatch_static_key_eq(list(a), list(b))
 
-  # The contract: identical() keys MUST hash alike, or the map stores duplicate
-  # entries for the same key. R's identical() uses num.eq and is encoding-aware.
+  # The contract: keys the dispatcher calls equal MUST hash alike, or the map
+  # stores two entries for one key. Equality is identical() with
+  # IDENT_NUM_AS_BITS: numbers compare bitwise, strings stay encoding-aware.
   utf8 <- "é"
   latin1 <- iconv(utf8, "UTF-8", "latin1")
   equal_pairs <- list(
-    list(0, -0), # +0.0 == -0.0
-    list(NaN, 0 / 0), # all non-NA NaNs compare equal
     list(utf8, latin1), # same string, different bytes
-    list(42L, 42L)
+    list(42L, 42L),
+    list(1.5, 1.5),
+    list(NaN, NaN),
+    list(1:3, c(1L, 2L, 3L)) # ALTREP compact seq vs materialized
   )
   for (p in equal_pairs) {
     expect_true(E(p[[1]], p[[2]]))
     expect_identical(H(p[[1]]), H(p[[2]]))
   }
 
-  # Distinct atomic values now separate in the hash too, so the map does not
-  # fall back on identical() for keys that merely share type and length.
+  # A literal `-0` inside a list() is constant-folded to `+0` by R's byte
+  # compiler, so build negative zero from a variable and check the sign bit --
+  # otherwise this test would quietly compare 0 against 0.
+  zero <- 0
+  neg_zero <- -1 * zero
+  expect_identical(sprintf("%a", neg_zero), "-0x0p+0")
+
+  # Distinct atomic values separate in the hash too, so the map does not fall
+  # back on identical() for keys that merely share type and length.
   distinct_pairs <- list(
     list(TRUE, FALSE),
     list(1L, 2L),
     list("a", "b"),
-    list(NaN, NA_real_), # single.NA keeps these apart
+    list(NaN, NA_real_),
+    list(zero, neg_zero), # bitwise: a finer key, never a wrong one
     list(c(1, 2), c(2, 1)),
     list(1 + 2i, 1 + 3i),
     list(as.raw(1), as.raw(2)),
@@ -530,4 +540,50 @@ test_that("static/opaque keys hash their atomic value, consistently with identic
   f2 <- mk()
   expect_false(E(f1, f2))
   expect_identical(H(f1), H(f2))
+})
+
+test_that("bitwise number comparison keeps NA_integer64_ apart from 0", {
+  skip_if_not_installed("bit64")
+  # bit64 stores NA_integer64_ as the int64 minimum, whose double
+  # reinterpretation is -0.0. Under R's default identical() (num.eq = TRUE)
+  # that compares equal to 0, so the two would share one cache entry and the
+  # NA call would run the executable compiled for 0.
+  zero <- bit64::as.integer64(0)
+  na64 <- bit64::NA_integer64_
+  expect_true(identical(zero, na64)) # R's default: the trap
+  expect_false(impl_dispatch_static_key_eq(list(zero), list(na64)))
+  expect_false(
+    impl_dispatch_static_key_hash(list(zero)) == impl_dispatch_static_key_hash(list(na64))
+  )
+
+  # ...and the cache keeps them apart end to end.
+  n <- 0L
+  d <- impl_dispatch_create(
+    10L,
+    function(args) {
+      n <<- n + 1L
+      list(r_fun = function(flat) list(v = 1))
+    },
+    "flag",
+    "closure",
+    FALSE
+  )
+  invisible(impl_dispatch_run(d, list(flag = zero)))
+  invisible(impl_dispatch_run(d, list(flag = na64)))
+  expect_equal(n, 2L)
+  expect_equal(impl_dispatch_size(d), 2L)
+})
+
+test_that("a capacity below 1 is rejected rather than segfaulting", {
+  # capacity 0 makes the LRU evict each entry as it is inserted, so the compile
+  # path would dereference a null entry.
+  expect_error(
+    impl_dispatch_create(0L, function(args) list(), character(0), "closure", FALSE),
+    "capacity"
+  )
+  expect_error(
+    impl_dispatch_create(-1L, function(args) list(), character(0), "closure", FALSE),
+    "capacity"
+  )
+  expect_error(dispatcher(0L, function(args) list()), "Must be >= 1")
 })

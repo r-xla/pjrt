@@ -29,14 +29,14 @@ inline std::uint64_t hash_combine(std::uint64_t h, std::uint64_t k) {
   return h;
 }
 
-// Fold `x` into `h` the way R's identical() compares doubles (num.eq = TRUE, so
-// `==` semantics, with NA_real_ pinned apart from the other NaNs).
+// Fold `x` into `h` by its bit pattern. Callers compare doubles bitwise too
+// (identical() with IDENT_NUM_AS_BITS), so no value needs canonicalizing: +0.0
+// and -0.0, and NaNs of differing payloads, are distinct values and hash apart.
 std::uint64_t hash_double(std::uint64_t h, double x);
 
 // Fold an atomic vector's contents into `h`, so that two values compared with
 // identical() land in different buckets and skip that call. It must never split
-// what identical() joins, hence:
-//   * doubles and complex parts go through hash_double();
+// what the caller's equality joins, hence:
 //   * identical() compares strings encoding-aware ("e-acute" as UTF-8 and as
 //     latin1 are equal with different bytes), so only ASCII elements fold their
 //     bytes; non-ASCII and NA_STRING fold to sentinels and identical() decides.

@@ -124,12 +124,20 @@ struct CacheKeyHash {
   }
 };
 
-// R's default identical(): R_compute_identical's flag bits are USE bits
-// (identical.c); the default sets only IDENT_USE_CLOENV (16), i.e. compare
-// closure environments but ignore bytecode/srcref. flags=0 would ignore
-// environments and wrongly merge distinct closures.
+// identical(), tightened for use as a cache key.
+//
+// IDENT_USE_CLOENV compares closure environments (R's default); without it two
+// distinct closures with the same body would wrongly merge.
+//
+// IDENT_NUM_AS_BITS compares doubles and complex bitwise rather than with `==`.
+// R's default merges +0.0 with -0.0, and bit64 stores NA_integer64_ as the
+// int64 minimum -- whose double reinterpretation is -0.0 -- so under `==` a
+// static NA_integer64_ and a static 0 are "identical" and would share a cache
+// entry, silently running each other's executable. Comparing bits splits them.
+// The cost is only that +0.0 and -0.0 now compile separate (identical) entries:
+// a finer key can waste a compile, never return the wrong program.
 static inline bool r_identical(SEXP a, SEXP b) {
-  return R_compute_identical(a, b, /*flags=*/16);
+  return R_compute_identical(a, b, IDENT_USE_CLOENV | IDENT_NUM_AS_BITS);
 }
 
 struct CacheKeyEq {
@@ -152,8 +160,6 @@ struct CacheKeyEq {
           break;
         case KeyLeaf::kStatic:
         case KeyLeaf::kOpaque:
-          // Match anvl, which compares static args with R's default
-          // identical().
           if (!r_identical(x.value, y.value)) return false;
           break;
       }
@@ -541,6 +547,9 @@ SEXP impl_dispatch_sentinel() {
 SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
                           std::string engine, bool move_inputs) {
   using namespace rpjrt;
+  // A zero-capacity LRU evicts every entry as it is inserted, so the compile
+  // path would insert and then dereference a null entry.
+  if (capacity < 1) Rcpp::stop("capacity must be at least 1");
   if (TYPEOF(miss_fn) != CLOSXP && TYPEOF(miss_fn) != BUILTINSXP &&
       TYPEOF(miss_fn) != SPECIALSXP) {
     Rcpp::stop("miss_fn must be a function");

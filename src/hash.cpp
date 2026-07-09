@@ -15,16 +15,7 @@ namespace rpjrt {
 
 std::uint64_t hash_double(std::uint64_t h, double x) {
   std::uint64_t bits;
-  if (ISNA(x)) {
-    bits = 0x7ff00000000007a2ULL;  // NA_real_
-  } else if (ISNAN(x)) {
-    bits = 0x7ff8000000000000ULL;  // every other NaN compares equal
-  } else if (x == 0.0) {
-    bits = 0;  // +0.0 == -0.0
-  } else {
-    std::memcpy(&bits, &x, sizeof(bits));
-  }
-  // Both sentinels are NaN payloads, which no finite double can collide with.
+  std::memcpy(&bits, &x, sizeof(bits));
   return hash_combine(h, bits);
 }
 

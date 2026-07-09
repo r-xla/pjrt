@@ -45,8 +45,11 @@
 #'     for the caller to wrap the outputs.
 #' @param static (`character()`)\cr
 #'   Names of top-level arguments that are static (not arrays). Static values
-#'   are part of the cache key (compared with [identical()]) and are excluded
-#'   from execution. Defaults to none.
+#'   are part of the cache key and are excluded from execution. Defaults to
+#'   none. They are compared with `identical(num.eq = FALSE)`, i.e. numbers
+#'   compare bitwise: `0` and `-0` are distinct keys (a redundant compile of the
+#'   same program), which is what keeps a `bit64::integer64` `NA` -- stored as
+#'   the bit pattern of `-0` -- from sharing a cache entry with `0`.
 #' @param engine (`character(1)`)\cr
 #'   `"pjrt"` (default) executes a compiled PJRT executable; `"closure"` calls
 #'   the compiled R closure returned by `compile` on the flat leaves.
