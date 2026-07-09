@@ -37,22 +37,25 @@ struct aval {
 };
 
 // One leaf of the cache key.
-//   kBuffer    device buffer (xla AnvlArray): keyed by its aval.
-//   kStatic    static arg: keyed by value via R's identical().
-//   kRData     bare R literal/array: keyed by (default dtype, shape); it is
-//              uploaded to the entry's device at execute time (pjrt engine)
-//              or passed through as-is (closure engine).
+//   kXlaArray   buffer-backed AnvlArray (pjrt engine): an "xla" AnvlArray whose
+//               $data is a PJRTBuffer. Keyed by its aval; its $data is the
+//               execute-time input. A bare PJRTBuffer is not this -- with no
+//               AnvlArray wrapper it falls through to kOpaque.
+//   kStatic     static arg: keyed by value via R's identical().
+//   kRData      bare R literal/array: keyed by (default dtype, shape); it is
+//               uploaded to the entry's device at execute time (pjrt engine)
+//               or passed through as-is (closure engine).
 //   kClosureArr R-array-backed AnvlArray (closure engine): keyed by its
-//              cached $dtype object (identical()), $shape, and $ambiguous;
-//              its $data is the execute-time input.
-//   kOpaque    anything else: keyed by value via identical(). Never
-//              executable -- the compile callback (the full R prepare +
-//              compile path) raises the canonical error for it, so such a
-//              call errors on every (always-miss or never-valid) attempt.
+//               cached $dtype object (identical()), $shape, and $ambiguous;
+//               its $data is the execute-time input.
+//   kOpaque     anything else: keyed by value via identical(). Never
+//               executable -- the compile callback (the full R prepare +
+//               compile path) raises the canonical error for it, so such a
+//               call errors on every (always-miss or never-valid) attempt.
 struct KeyLeaf {
-  enum Kind { kBuffer, kStatic, kRData, kClosureArr, kOpaque };
-  Kind kind = kBuffer;
-  aval av;                  // kBuffer / kRData / kClosureArr (shape+ambiguous)
+  enum Kind { kXlaArray, kStatic, kRData, kClosureArr, kOpaque };
+  Kind kind = kXlaArray;
+  aval av;  // kXlaArray / kRData / kClosureArr (shape+ambiguous)
   SEXP value = R_NilValue;  // kStatic / kOpaque: the leaf; kClosureArr: $dtype
 };
 
@@ -93,7 +96,7 @@ struct CacheKeyHash {
     for (const KeyLeaf& leaf : k.leaves) {
       h = hash_combine(h, static_cast<std::uint64_t>(leaf.kind));
       switch (leaf.kind) {
-        case KeyLeaf::kBuffer:
+        case KeyLeaf::kXlaArray:
         case KeyLeaf::kRData:
           h = hash_combine(h, aval_hash(leaf.av));
           break;
@@ -136,7 +139,7 @@ struct CacheKeyEq {
       const KeyLeaf& y = b.leaves[k];
       if (x.kind != y.kind) return false;
       switch (x.kind) {
-        case KeyLeaf::kBuffer:
+        case KeyLeaf::kXlaArray:
         case KeyLeaf::kRData:
           if (!aval_eq(x.av, y.av)) return false;
           break;
@@ -394,7 +397,7 @@ static CacheKey build_key_from_leaves(Rcpp::List leaves) {
     bool ambiguous = Rcpp::as<bool>(leaf[1]);
     const void* dev = nullptr;
     KeyLeaf kl;
-    kl.kind = KeyLeaf::kBuffer;
+    kl.kind = KeyLeaf::kXlaArray;
     kl.av = aval_from_buffer(buf, ambiguous, &dev);
     key.leaves.push_back(std::move(kl));
     // device is a single per-call value; take it from the first leaf.
@@ -559,7 +562,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   CacheKey key;
   key.in_tree = in_tree;
   key.leaves.reserve(leaves.size());
-  // Per-leaf execute-time SEXP: the buffer xptr (kBuffer), the backing R
+  // Per-leaf execute-time SEXP: the buffer xptr (kXlaArray), the backing R
   // array `$data` (kClosureArr), or the leaf itself (everything else).
   std::vector<SEXP> exec_sexp(leaves.size());
   bool have_device = false;
@@ -580,7 +583,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
           std::strcmp(af.backend, "xla") == 0 && TYPEOF(af.data) == EXTPTRSXP &&
           Rf_inherits(af.data, "PJRTBuffer")) {
         const void* dev = nullptr;
-        kl.kind = KeyLeaf::kBuffer;
+        kl.kind = KeyLeaf::kXlaArray;
         kl.av = aval_from_buffer(af.data, af.ambiguous, move ? nullptr : &dev);
         if (!move) {
           // Infer policy: the first buffer's device is the call's device;
@@ -601,6 +604,10 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
            std::strcmp(af.backend, "plain") == 0) &&
           af.dtype != R_NilValue && TYPEOF(af.shape) == INTSXP) {
         kl.kind = KeyLeaf::kClosureArr;
+        // The leaf has a dtype, just not a PJRT one: with no PJRTBuffer behind
+        // it there is no PJRT_Buffer_Type to read, and the closure engine never
+        // uploads. av.dtype therefore stays INVALID and the cached $dtype
+        // object is the key material, compared with identical().
         kl.value = af.dtype;
         kl.av.ambiguous = af.ambiguous;
         const R_xlen_t nd = XLENGTH(af.shape);
@@ -749,7 +756,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   }
   std::size_t n_dyn = 0;
   for (const KeyLeaf& kl : key.leaves) {
-    if (kl.kind == KeyLeaf::kBuffer || kl.kind == KeyLeaf::kRData) ++n_dyn;
+    if (kl.kind == KeyLeaf::kXlaArray || kl.kind == KeyLeaf::kRData) ++n_dyn;
   }
   Rcpp::List inputs(entry->const_arrays.size() + n_dyn +
                     entry->phantom_specs.size());
@@ -757,7 +764,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   for (SEXP c : entry->const_arrays) inputs[pos++] = c;
   for (std::size_t k = 0; k < key.leaves.size(); ++k) {
     const KeyLeaf& kl = key.leaves[k];
-    if (kl.kind == KeyLeaf::kBuffer) {
+    if (kl.kind == KeyLeaf::kXlaArray) {
       SEXP b = exec_sexp[k];
       if (move) {
         Rcpp::XPtr<PJRTBuffer> buf(b);
