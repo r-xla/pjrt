@@ -132,6 +132,9 @@
 - [`tree_filter_by_names()`](https://r-xla.github.io/pjrt/dev/reference/tree_filter_by_names.md)
   : Filter a Tree by Top-Level Names
 
+- [`tree_hash()`](https://r-xla.github.io/pjrt/dev/reference/tree_hash.md)
+  : Structural Tree Hash
+
 - [`tree_leaf_mask()`](https://r-xla.github.io/pjrt/dev/reference/tree_leaf_mask.md)
   : Per-Leaf Mask From Top-Level Groups
 
