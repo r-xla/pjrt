@@ -19,7 +19,7 @@
 #' flatten(list(1:3, "hello"))
 #' @export
 flatten <- function(x) {
-  impl_tree_flatten(x)
+  impl_tree_build_flatten(x)$leaves
 }
 
 #' @title Build Tree

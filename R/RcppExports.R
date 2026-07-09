@@ -249,10 +249,6 @@ impl_tree_build <- function(x) {
     .Call(`_pjrt_impl_tree_build`, x)
 }
 
-impl_tree_flatten <- function(x) {
-    .Call(`_pjrt_impl_tree_flatten`, x)
-}
-
 impl_tree_build_flatten <- function(x) {
     .Call(`_pjrt_impl_tree_build_flatten`, x)
 }

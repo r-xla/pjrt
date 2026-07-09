@@ -217,20 +217,10 @@ SEXP impl_tree_build(SEXP x) {
   return tree_xptr(tree.release());
 }
 
-// [[Rcpp::export]]
-Rcpp::List impl_tree_flatten(SEXP x) {
-  using namespace rpjrt;
-  RTree tree;
-  std::vector<SEXP> leaves;
-  flatten_rec(x, leaves, tree);
-  Rcpp::List out(leaves.size());
-  for (std::size_t k = 0; k < leaves.size(); ++k) out[k] = leaves[k];
-  return out;
-}
-
 // Build the tree and extract the leaves in a single traversal; returns
-// `list(tree = <RTree>, leaves = <list>)`. map_tree()/pmap_tree() use this to
-// avoid walking the same object twice (once to build, once to flatten).
+// `list(tree = <RTree>, leaves = <list>)`. This is the only flatten entry point:
+// flatten() keeps just `$leaves`, while map_tree()/pmap_tree() use both -- one
+// walk regardless of which is needed.
 // [[Rcpp::export]]
 Rcpp::List impl_tree_build_flatten(SEXP x) {
   using namespace rpjrt;
