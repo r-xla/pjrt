@@ -124,8 +124,8 @@ static std::string path_suffix(const RTree& t, std::size_t parent, int j,
 //           root).
 //   out     set to the target leaf's path on success; left untouched otherwise.
 //
-// Returns true (and sets `out`) when the target leaf lies in this subtree, false
-// otherwise. A leaf at the root has path "".
+// Returns true (and sets `out`) when the target leaf lies in this subtree,
+// false otherwise. A leaf at the root has path "".
 static bool tree_path_rec(const RTree& t, std::size_t& p, int target, int& next,
                           const std::string& prefix, std::string& out) {
   const std::size_t node = p++;
@@ -218,9 +218,9 @@ SEXP impl_tree_build(SEXP x) {
 }
 
 // Build the tree and extract the leaves in a single traversal; returns
-// `list(tree = <RTree>, leaves = <list>)`. This is the only flatten entry point:
-// flatten() keeps just `$leaves`, while map_tree()/pmap_tree() use both -- one
-// walk regardless of which is needed.
+// `list(tree = <RTree>, leaves = <list>)`. This is the only flatten entry
+// point: flatten() keeps just `$leaves`, while map_tree()/pmap_tree() use both
+// -- one walk regardless of which is needed.
 // [[Rcpp::export]]
 Rcpp::List impl_tree_build_flatten(SEXP x) {
   using namespace rpjrt;

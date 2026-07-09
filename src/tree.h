@@ -37,9 +37,9 @@ struct RTree {
   std::vector<std::int32_t> n_children;     // ListNode: #children; else 0
   std::vector<std::int32_t> subtree_nodes;  // #nodes in this subtree incl. self
   // index into the `names` array, i.e. the start index.
-  // named list of length 0 still has a start index but because n_children==0 the sequence is
-  // empty and hence there are no names.
-  // this is needed to distinguish it from a unnamed list of length 0, which has name_off = -1
+  // named list of length 0 still has a start index but because n_children==0
+  // the sequence is empty and hence there are no names. this is needed to
+  // distinguish it from a unnamed list of length 0, which has name_off = -1
   std::vector<std::int32_t> name_off;
   // All child-name strings, concatenated in node preorder: the names of an
   // earlier (by node index) named list node come before those of a later one.
@@ -85,8 +85,7 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
     for (R_xlen_t k = 0; k < n; ++k) {
       flatten_rec(VECTOR_ELT(x, k), leaves, tree);
     }
-    tree.subtree_nodes[pos] =
-        static_cast<std::int32_t>(tree.kind.size() - pos);
+    tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
     return;
   }
   tree.kind.push_back(RTree::LeafNode);
@@ -147,7 +146,8 @@ inline int tree_size_rec(const RTree& tree) {
 
 // The preorder node indices of node `pos`'s direct children (found by skipping
 // each child's subtree via subtree_nodes).
-inline std::vector<std::size_t> child_nodes(const RTree& tree, std::size_t pos) {
+inline std::vector<std::size_t> child_nodes(const RTree& tree,
+                                            std::size_t pos) {
   std::vector<std::size_t> out;
   out.reserve(static_cast<std::size_t>(tree.n_children[pos]));
   std::size_t c = pos + 1;
