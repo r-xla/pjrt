@@ -109,9 +109,23 @@ static std::string path_suffix(const RTree& t, std::size_t parent, int j,
   return "[[" + std::to_string(j + 1) + "]]";
 }
 
-// Find the path of the leaf with 1-based flat index `target`, counting leaves
-// in preorder (`next` is the index the next leaf seen will take). A leaf at the
-// root has path "". `p` advances as the walk proceeds.
+// Find the human-readable path to the leaf with 1-based flat index `target`
+// (e.g. "a$b", "l[[2]]"); used for error reporting. Walks the subtree in
+// preorder, counting leaves until it reaches `target`.
+//
+//   t       the tree being walked.
+//   p       node cursor: the current node is node `p`, and `p` is advanced past
+//           every node visited (so on return it sits past this subtree, or
+//           wherever the search stopped once the leaf was found).
+//   target  1-based index of the target leaf, in flatten (preorder) order.
+//   next    running count of leaves seen, shared by reference across the whole
+//           recursion; each leaf visited takes index `++next`.
+//   prefix  path accumulated from the root down to the current node ("" at the
+//           root).
+//   out     set to the target leaf's path on success; left untouched otherwise.
+//
+// Returns true (and sets `out`) when the target leaf lies in this subtree, false
+// otherwise. A leaf at the root has path "".
 static bool tree_path_rec(const RTree& t, std::size_t& p, int target, int& next,
                           const std::string& prefix, std::string& out) {
   const std::size_t node = p++;
@@ -181,9 +195,6 @@ static bool tree_diff_rec(const RTree& A, std::size_t& pa, const RTree& B,
 static const RTree& as_tree(SEXP handle) {
   if (TYPEOF(handle) != EXTPTRSXP || !Rf_inherits(handle, "RTree")) {
     Rcpp::stop("expected an `RTree` (as returned by `build_tree()`)");
-  }
-  if (R_ExternalPtrAddr(handle) == nullptr) {
-    Rcpp::stop("`RTree` external pointer is NULL (already released?)");
   }
   Rcpp::XPtr<RTree> ptr(handle);
   return *ptr;
