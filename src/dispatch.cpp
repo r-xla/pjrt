@@ -22,6 +22,7 @@
 #include "lru_cache.h"
 #include "pjrt_impl.h"
 #include "tree.h"
+#include "utils.h"
 
 namespace rpjrt {
 
@@ -69,7 +70,6 @@ struct CacheKey {
 static std::uint64_t aval_hash(const aval& a) {
   std::uint64_t h = static_cast<std::uint64_t>(a.dtype);
   h = hash_combine(h, a.ambiguous ? 1u : 0u);
-  h = hash_combine(h, a.shape.size());
   for (int64_t d : a.shape) {
     h = hash_combine(h, static_cast<std::uint64_t>(d));
   }
@@ -188,6 +188,64 @@ struct AnvlFields {
   bool ambiguous = false;
 };
 
+// Translate a tengen DataType object to a PJRT_Buffer_Type. It is an S3 list
+// classed BooleanType / IntegerType / UIntegerType / FloatType, carrying the
+// bit width in `$value` (BooleanType has none) -- see tengen's
+// as.character.*Type methods, which spell the same mapping as
+// "bool"/"i8"/"ui8"/"f32". Anything unrecognized yields INVALID; the leaf's
+// dtype object is compared with identical() regardless, so an unmapped dtype
+// costs a hash bucket, never a wrong cache hit.
+static PJRT_Buffer_Type pjrt_type_from_dtype(SEXP dtype) {
+  if (TYPEOF(dtype) != VECSXP) return PJRT_Buffer_Type_INVALID;
+  SEXP cls = Rf_getAttrib(dtype, R_ClassSymbol);
+  if (TYPEOF(cls) != STRSXP || XLENGTH(cls) == 0) {
+    return PJRT_Buffer_Type_INVALID;
+  }
+  const char* kind = CHAR(STRING_ELT(cls, 0));
+  if (!std::strcmp(kind, "BooleanType")) return PJRT_Buffer_Type_PRED;
+
+  SEXP nms = Rf_getAttrib(dtype, R_NamesSymbol);
+  if (TYPEOF(nms) != STRSXP) return PJRT_Buffer_Type_INVALID;
+  int bits = 0;
+  for (R_xlen_t k = 0; k < XLENGTH(dtype); ++k) {
+    if (!std::strcmp(CHAR(STRING_ELT(nms, k)), "value")) {
+      bits = Rf_asInteger(VECTOR_ELT(dtype, k));
+      break;
+    }
+  }
+  if (!std::strcmp(kind, "IntegerType")) {
+    switch (bits) {
+      case 8:
+        return PJRT_Buffer_Type_S8;
+      case 16:
+        return PJRT_Buffer_Type_S16;
+      case 32:
+        return PJRT_Buffer_Type_S32;
+      case 64:
+        return PJRT_Buffer_Type_S64;
+    }
+  } else if (!std::strcmp(kind, "UIntegerType")) {
+    switch (bits) {
+      case 8:
+        return PJRT_Buffer_Type_U8;
+      case 16:
+        return PJRT_Buffer_Type_U16;
+      case 32:
+        return PJRT_Buffer_Type_U32;
+      case 64:
+        return PJRT_Buffer_Type_U64;
+    }
+  } else if (!std::strcmp(kind, "FloatType")) {
+    switch (bits) {
+      case 32:
+        return PJRT_Buffer_Type_F32;
+      case 64:
+        return PJRT_Buffer_Type_F64;
+    }
+  }
+  return PJRT_Buffer_Type_INVALID;
+}
+
 static AnvlFields anvl_fields(SEXP leaf) {
   AnvlFields f;
   if (TYPEOF(leaf) != VECSXP || !Rf_inherits(leaf, "AnvlArray")) return f;
@@ -272,7 +330,7 @@ static RDataInfo classify_rdata(SEXP leaf) {
 
 // One output-donation phantom buffer to allocate per call (CPU memory mgmt).
 struct PhantomSpec {
-  std::string dtype;  // pjrt dtype string (e.g. "f32")
+  PJRT_Buffer_Type dtype = PJRT_Buffer_Type_INVALID;
   std::vector<int64_t> shape;
 };
 
@@ -604,11 +662,12 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
            std::strcmp(af.backend, "plain") == 0) &&
           af.dtype != R_NilValue && TYPEOF(af.shape) == INTSXP) {
         kl.kind = KeyLeaf::kClosureArr;
-        // The leaf has a dtype, just not a PJRT one: with no PJRTBuffer behind
-        // it there is no PJRT_Buffer_Type to read, and the closure engine never
-        // uploads. av.dtype therefore stays INVALID and the cached $dtype
-        // object is the key material, compared with identical().
+        // No PJRTBuffer to read an element type off, so the dtype comes from
+        // the leaf's tengen $dtype object. It is kept as key material too: the
+        // aval settles the common case natively, identical() is exact for the
+        // dtypes PJRT has no enumerator for.
         kl.value = af.dtype;
+        kl.av.dtype = pjrt_type_from_dtype(af.dtype);
         kl.av.ambiguous = af.ambiguous;
         const R_xlen_t nd = XLENGTH(af.shape);
         kl.av.shape.reserve(nd);
@@ -678,10 +737,11 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
-        ps.dtype = Rcpp::as<std::string>(spec["dtype"]);
         // Normalize the boolean aliases the R layer also accepts (a tengen
         // BooleanType stringifies as "bool"; pjrt's canonical name is "pred").
-        if (ps.dtype == "bool" || ps.dtype == "i1") ps.dtype = "pred";
+        std::string dt = Rcpp::as<std::string>(spec["dtype"]);
+        if (dt == "bool" || dt == "i1") dt = "pred";
+        ps.dtype = string_to_pjrt_buffer_type(dt);
         ps.shape = Rcpp::as<std::vector<int64_t>>(spec["shape"]);
         e.phantom_specs.push_back(std::move(ps));
       }
@@ -804,8 +864,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     Rcpp::XPtr<rpjrt::PJRTClient> client(entry->client);
     Rcpp::XPtr<rpjrt::PJRTDevice> device(entry->device_xptr);
     for (const PhantomSpec& ps : entry->phantom_specs) {
-      inputs[pos++] =
-          impl_client_buffer_empty(client, device, ps.shape, ps.dtype);
+      inputs[pos++] = client_buffer_empty(client, device, ps.shape, ps.dtype);
     }
   }
 

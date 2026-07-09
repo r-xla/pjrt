@@ -379,3 +379,107 @@ test_that("closure engine dispatches through a compiled R closure", {
   )
   expect_identical(impl_dispatch_run(d2, list(a, 3))$value, c(3, 6))
 })
+
+test_that("phantom_specs allocate donation buffers of the requested dtype", {
+  skip_if_not(plugins_downloaded())
+  client <- pjrt_client("cpu")
+  device <- pjrt_device("cpu:0")
+
+  # An identity executable whose only input is supplied by the phantom spec,
+  # so the call has zero dynamic leaves and the output dtype is the spec's.
+  run <- function(mlir_ty, spec_dtype) {
+    src <- sprintf(
+      'func.func @main(%%x: tensor<2x%s>) -> tensor<2x%s> {
+        "func.return"(%%x): (tensor<2x%s>) -> ()
+      }',
+      mlir_ty,
+      mlir_ty,
+      mlir_ty
+    )
+    d <- impl_dispatch_create(
+      4L,
+      function(args) {
+        list(
+          exec = pjrt_compile(pjrt_program(src = src)),
+          client = client,
+          device = device,
+          phantom_specs = list(list(dtype = spec_dtype, shape = 2L))
+        )
+      },
+      "flag",
+      "pjrt",
+      FALSE
+    )
+    impl_dispatch_run(d, list(flag = TRUE))
+  }
+
+  for (dt in c("f32", "f64", "i32")) {
+    res <- run(dt, dt)
+    expect_equal(res$out_dtypes[[1]], dt)
+    expect_equal(res$out_shapes[[1]], 2L)
+  }
+
+  # A tengen BooleanType stringifies as "bool"; "i1" is the MLIR spelling.
+  # Both must normalize to pjrt's canonical "pred".
+  for (alias in c("bool", "i1", "pred")) {
+    expect_equal(run("i1", alias)$out_dtypes[[1]], "pred")
+  }
+
+  expect_error(run("f32", "nonsense"), "Unsupported type")
+})
+
+test_that("closure-array leaves key on their dtype, mapped or not", {
+  mk <- function() {
+    n <- 0L
+    d <- impl_dispatch_create(
+      20L,
+      function(args) {
+        n <<- n + 1L
+        list(r_fun = function(flat) list(v = flat[[1]]))
+      },
+      character(0),
+      "closure",
+      FALSE
+    )
+    list(d = d, n = function() n)
+  }
+  qarr <- function(v, dtype) {
+    structure(
+      list(
+        data = v,
+        dtype = dtype,
+        shape = as.integer(length(v)),
+        ambiguous = FALSE,
+        backend = "quickr"
+      ),
+      class = "AnvlArray"
+    )
+  }
+
+  # Every dtype pjrt maps natively is its own cache key.
+  dtypes <- c("pred", "i8", "i16", "i32", "i64", "ui8", "ui16", "ui32", "ui64", "f32", "f64")
+  h <- mk()
+  for (s in dtypes) {
+    invisible(impl_dispatch_run(h$d, list(qarr(c(1, 2), tengen::as_dtype(s)))))
+  }
+  expect_equal(h$n(), length(dtypes))
+
+  # Same dtype, different values -> cache hit.
+  h2 <- mk()
+  invisible(impl_dispatch_run(h2$d, list(qarr(c(1, 2), tengen::as_dtype("f64")))))
+  invisible(impl_dispatch_run(h2$d, list(qarr(c(7, 7), tengen::as_dtype("f64")))))
+  expect_equal(h2$n(), 1L)
+
+  # A dtype pjrt has no enumerator for maps to INVALID. Two such dtypes must
+  # still be told apart by identical(), or they would share a cache entry.
+  weird <- function(tag) structure(list(value = tag), class = c("WeirdType", "DataType"))
+  h3 <- mk()
+  invisible(impl_dispatch_run(h3$d, list(qarr(c(1, 2), weird(1L)))))
+  invisible(impl_dispatch_run(h3$d, list(qarr(c(1, 2), weird(2L)))))
+  expect_equal(h3$n(), 2L)
+
+  h4 <- mk()
+  invisible(impl_dispatch_run(h4$d, list(qarr(c(1, 2), weird(1L)))))
+  invisible(impl_dispatch_run(h4$d, list(qarr(c(1, 2), weird(1L)))))
+  expect_equal(h4$n(), 1L)
+})

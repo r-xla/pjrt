@@ -29,6 +29,11 @@ Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     std::vector<int64_t> dims, std::string dtype);
+// As impl_client_buffer_empty(), but taking the dtype already parsed. Callers
+// that hold a PJRT_Buffer_Type skip the per-call string round-trip.
+Rcpp::XPtr<rpjrt::PJRTBuffer> client_buffer_empty(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    std::vector<int64_t> dims, PJRT_Buffer_Type pjrt_dtype);
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype);
