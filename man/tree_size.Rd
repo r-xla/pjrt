@@ -4,10 +4,10 @@
 \alias{tree_size}
 \title{Tree Size}
 \usage{
-tree_size(x)
+tree_size(tree)
 }
 \arguments{
-\item{x}{(\code{RTree})\cr
+\item{tree}{(\code{RTree})\cr
 A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \value{
