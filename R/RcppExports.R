@@ -269,8 +269,8 @@ impl_tree_kind <- function(tree) {
     .Call(`_pjrt_impl_tree_kind`, tree)
 }
 
-impl_tree_names <- function(tree) {
-    .Call(`_pjrt_impl_tree_names`, tree)
+impl_tree_child_names <- function(tree) {
+    .Call(`_pjrt_impl_tree_child_names`, tree)
 }
 
 impl_tree_child_kinds <- function(tree) {

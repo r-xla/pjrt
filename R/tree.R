@@ -132,11 +132,11 @@ tree_root_kind <- function(x) {
 #'   `NULL`: the tree preserves the named/unnamed distinction (see
 #'   [tree_equal()]).
 #' @examples
-#' tree_names(build_tree(list(a = 1, b = 2)))
-#' tree_names(build_tree(list(1, 2)))
+#' tree_child_names(build_tree(list(a = 1, b = 2)))
+#' tree_child_names(build_tree(list(1, 2)))
 #' @export
-tree_names <- function(x) {
-  impl_tree_names(x)
+tree_child_names <- function(x) {
+  impl_tree_child_names(x)
 }
 
 #' @title Top-Level Child Kinds

@@ -265,7 +265,7 @@ std::string impl_tree_kind(SEXP tree) {
 }
 
 // [[Rcpp::export]]
-SEXP impl_tree_names(SEXP tree) {
+SEXP impl_tree_child_names(SEXP tree) {
   using namespace rpjrt;
   const RTree& t = as_tree(tree);
   if (t.kind[0] != RTree::ListNode || !t.is_named(0)) return R_NilValue;

@@ -110,7 +110,7 @@ test_that("NA list names are rejected (would corrupt to \"NA\" and poison tree_e
   )
   # a literal "NA" name is still fine and stays distinct
   ok <- build_tree(setNames(list(1), "NA"))
-  expect_equal(tree_names(ok), "NA")
+  expect_equal(tree_child_names(ok), "NA")
 })
 
 test_that("tree_root_kind and tree_child_kinds", {
@@ -124,12 +124,12 @@ test_that("tree_root_kind and tree_child_kinds", {
   expect_error(tree_child_kinds(build_tree(1)), "list node")
 })
 
-test_that("tree_names, tree_child_sizes, and tree_leaf_groups", {
+test_that("tree_child_names, tree_child_sizes, and tree_leaf_groups", {
   tree <- build_tree(list(a = 1, b = list(2, 3), c = NULL))
-  expect_equal(tree_names(tree), c("a", "b", "c"))
-  expect_null(tree_names(build_tree(list(1, 2))))
-  expect_null(tree_names(build_tree(1)))
-  expect_equal(tree_names(build_tree(list(1, b = 2))), c("", "b"))
+  expect_equal(tree_child_names(tree), c("a", "b", "c"))
+  expect_null(tree_child_names(build_tree(list(1, 2))))
+  expect_null(tree_child_names(build_tree(1)))
+  expect_equal(tree_child_names(build_tree(list(1, b = 2))), c("", "b"))
 
   expect_equal(tree_child_sizes(tree), c(1L, 2L, 0L))
   expect_equal(tree_leaf_groups(tree), c("a", "b", "b"))
