@@ -31,7 +31,7 @@ namespace rpjrt {
 // never interprets it). `device` is NOT per-aval: it is a single per-call value
 // on the cache_key (matching anvl).
 struct aval {
-  int dtype = 0;  // PJRT_Buffer_Type enum
+  PJRT_Buffer_Type dtype = PJRT_Buffer_Type_INVALID;
   std::vector<int64_t> shape;
   bool ambiguous = false;
 };
@@ -164,7 +164,7 @@ static aval aval_from_buffer(SEXP buf_xptr, bool ambiguous,
                              const void** out_device) {
   Rcpp::XPtr<PJRTBuffer> buf(buf_xptr);
   aval a;
-  a.dtype = static_cast<int>(buf->element_type());
+  a.dtype = buf->element_type();
   a.shape = buf->dimensions();
   a.ambiguous = ambiguous;
   if (out_device) {
@@ -621,7 +621,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     RDataInfo rd = classify_rdata(leaf);
     if (rd.ok) {
       kl.kind = KeyLeaf::kRData;
-      kl.av.dtype = static_cast<int>(rd.dtype);
+      kl.av.dtype = rd.dtype;
       kl.av.shape = std::move(rd.shape);
       kl.av.ambiguous = true;  // bare R data is dtype-ambiguous (to_avals)
       if (!closure) needs_upload = true;
