@@ -200,7 +200,11 @@ test_that("tree_repr / format / print render R-idiomatic literals", {
       build_tree(list(a = 1, b = 2)),
       build_tree(list(1, b = 2)),
       build_tree(list(a = list(b = 1, c = 2), d = 3)),
-      build_tree(list(a = 1, b = NULL))
+      build_tree(list(a = 1, b = NULL)),
+      # named lists are tagged "list<named>" so the named/unnamed distinction is
+      # visible even with no children or all-empty names
+      build_tree(structure(list(), names = character(0))),
+      build_tree(structure(list(1, 2), names = c("", "")))
     ),
     tree_repr,
     character(1)
@@ -211,14 +215,16 @@ test_that("tree_repr / format / print render R-idiomatic literals", {
       "*",
       "list()",
       "list(*, *)",
-      "list(a = *, b = *)",
-      "list(*, b = *)",
-      "list(a = list(b = *, c = *), d = *)",
-      "list(a = *, b = NULL)"
+      "list<named>(a = *, b = *)",
+      "list<named>(*, b = *)",
+      "list<named>(a = list<named>(b = *, c = *), d = *)",
+      "list<named>(a = *, b = NULL)",
+      "list<named>()",
+      "list<named>(*, *)"
     )
   )
-  expect_identical(format(build_tree(list(a = 1))), "list(a = *)")
-  expect_output(print(build_tree(list(a = 1))), "list(a = *)", fixed = TRUE)
+  expect_identical(format(build_tree(list(a = 1))), "list<named>(a = *)")
+  expect_output(print(build_tree(list(a = 1))), "list<named>(a = *)", fixed = TRUE)
 })
 
 test_that("tree_path", {
@@ -247,7 +253,7 @@ test_that("tree_diff locates the first divergence", {
   )
   expect_identical(
     d(list(a = 1, b = 2), list(p = 1, q = 2)),
-    list(prefix = "", a = "list(a = *, b = *)", b = "list(p = *, q = *)")
+    list(prefix = "", a = "list<named>(a = *, b = *)", b = "list<named>(p = *, q = *)")
   )
   expect_identical(
     d(list(1, 2), list(1, 2, 3)),
@@ -255,13 +261,20 @@ test_that("tree_diff locates the first divergence", {
   )
   expect_identical(
     d(list(list(a = 1), list(a = 1)), list(list(a = 1), list(a = 1, b = 2))),
-    list(prefix = "[[2]]", a = "list(a = *)", b = "list(a = *, b = *)")
+    list(prefix = "[[2]]", a = "list<named>(a = *)", b = "list<named>(a = *, b = *)")
   )
   expect_identical(
     d(list(pair = list(list(a = 1), 0)), list(pair = list(list(a = 1), list(c = 0)))),
-    list(prefix = "pair[[2]]", a = "*", b = "list(c = *)")
+    list(prefix = "pair[[2]]", a = "*", b = "list<named>(c = *)")
   )
   expect_null(d(list(a = 1, b = 2), list(a = 1, b = 2)))
+
+  # named-ness is now visible in the repr, so tree_diff distinguishes an empty
+  # named list from an unnamed one (both previously rendered "list()")
+  expect_identical(
+    d(structure(list(), names = character(0)), list()),
+    list(prefix = "", a = "list<named>()", b = "list()")
+  )
 })
 
 describe("map_tree", {
@@ -323,7 +336,7 @@ describe("pmap_tree", {
     msg <- cli::ansi_strip(conditionMessage(err))
     expect_match(msg, "must have the same structure")
     expect_match(msg, "First mismatch at `model$bias`", fixed = TRUE)
-    expect_match(msg, "list(z = *)", fixed = TRUE)
+    expect_match(msg, "list<named>(z = *)", fixed = TRUE)
   })
 })
 

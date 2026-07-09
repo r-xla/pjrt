@@ -59,8 +59,10 @@ static void append_subtree(RTree& dst, const RTree& src, std::size_t c) {
 }
 
 // The canonical structural string: "*" for a leaf, "NULL" for a null tree,
-// "list(a = *, list(*, NULL))" for lists ("" names are printed positionally).
-// `p` advances past the rendered subtree.
+// "list(a = *, list(*, NULL))" for lists. A named list is tagged
+// "list<named>(...)" so the named/unnamed distinction stays visible even when
+// the names are empty or the list has no children (individual "" names are
+// otherwise printed positionally). `p` advances past the rendered subtree.
 static void repr_rec(const RTree& t, std::size_t& p, std::string& out) {
   const std::size_t node = p++;
   switch (t.kind[node]) {
@@ -72,13 +74,9 @@ static void repr_rec(const RTree& t, std::size_t& p, std::string& out) {
       return;
     case RTree::ListNode: {
       const int n = t.n_children[node];
-      if (n == 0) {
-        out += "list()";
-        return;
-      }
       const bool named = t.is_named(node);
       const std::int32_t off = named ? t.name_off[node] : 0;
-      out += "list(";
+      out += named ? "list<named>(" : "list(";
       for (int k = 0; k < n; ++k) {
         if (k > 0) out += ", ";
         if (named && !t.names[off + k].empty()) {
