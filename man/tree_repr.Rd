@@ -4,10 +4,10 @@
 \alias{tree_repr}
 \title{Canonical Tree Representation}
 \usage{
-tree_repr(x)
+tree_repr(tree)
 }
 \arguments{
-\item{x}{(\code{RTree})\cr
+\item{tree}{(\code{RTree})\cr
 A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \value{

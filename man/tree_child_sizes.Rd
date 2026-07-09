@@ -4,10 +4,10 @@
 \alias{tree_child_sizes}
 \title{Top-Level Child Sizes}
 \usage{
-tree_child_sizes(x)
+tree_child_sizes(tree)
 }
 \arguments{
-\item{x}{(\code{RTree})\cr
+\item{tree}{(\code{RTree})\cr
 A tree whose root is a list node.}
 }
 \value{

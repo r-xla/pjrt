@@ -804,17 +804,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_tree_flatten
-Rcpp::List impl_tree_flatten(SEXP x);
-RcppExport SEXP _pjrt_impl_tree_flatten(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_tree_flatten(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_tree_build_flatten
 Rcpp::List impl_tree_build_flatten(SEXP x);
 RcppExport SEXP _pjrt_impl_tree_build_flatten(SEXP xSEXP) {
@@ -861,6 +850,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_tree_hash
+std::string impl_tree_hash(SEXP tree);
+RcppExport SEXP _pjrt_impl_tree_hash(SEXP treeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type tree(treeSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_tree_hash(tree));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_tree_kind
 std::string impl_tree_kind(SEXP tree);
 RcppExport SEXP _pjrt_impl_tree_kind(SEXP treeSEXP) {
@@ -872,14 +872,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_tree_names
-SEXP impl_tree_names(SEXP tree);
-RcppExport SEXP _pjrt_impl_tree_names(SEXP treeSEXP) {
+// impl_tree_child_names
+SEXP impl_tree_child_names(SEXP tree);
+RcppExport SEXP _pjrt_impl_tree_child_names(SEXP treeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type tree(treeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_tree_names(tree));
+    rcpp_result_gen = Rcpp::wrap(impl_tree_child_names(tree));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -902,17 +902,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type tree(treeSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_tree_child_sizes(tree));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_tree_flat_names
-Rcpp::CharacterVector impl_tree_flat_names(SEXP tree);
-RcppExport SEXP _pjrt_impl_tree_flat_names(SEXP treeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type tree(treeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_tree_flat_names(tree));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1071,16 +1060,15 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_get_svd_handler", (DL_FUNC) &_pjrt_get_svd_handler, 0},
     {"_pjrt_get_svd_handler_cuda", (DL_FUNC) &_pjrt_get_svd_handler_cuda, 0},
     {"_pjrt_impl_tree_build", (DL_FUNC) &_pjrt_impl_tree_build, 1},
-    {"_pjrt_impl_tree_flatten", (DL_FUNC) &_pjrt_impl_tree_flatten, 1},
     {"_pjrt_impl_tree_build_flatten", (DL_FUNC) &_pjrt_impl_tree_build_flatten, 1},
     {"_pjrt_impl_tree_unflatten", (DL_FUNC) &_pjrt_impl_tree_unflatten, 2},
     {"_pjrt_impl_tree_size", (DL_FUNC) &_pjrt_impl_tree_size, 1},
     {"_pjrt_impl_tree_equal", (DL_FUNC) &_pjrt_impl_tree_equal, 2},
+    {"_pjrt_impl_tree_hash", (DL_FUNC) &_pjrt_impl_tree_hash, 1},
     {"_pjrt_impl_tree_kind", (DL_FUNC) &_pjrt_impl_tree_kind, 1},
-    {"_pjrt_impl_tree_names", (DL_FUNC) &_pjrt_impl_tree_names, 1},
+    {"_pjrt_impl_tree_child_names", (DL_FUNC) &_pjrt_impl_tree_child_names, 1},
     {"_pjrt_impl_tree_child_kinds", (DL_FUNC) &_pjrt_impl_tree_child_kinds, 1},
     {"_pjrt_impl_tree_child_sizes", (DL_FUNC) &_pjrt_impl_tree_child_sizes, 1},
-    {"_pjrt_impl_tree_flat_names", (DL_FUNC) &_pjrt_impl_tree_flat_names, 1},
     {"_pjrt_impl_tree_path", (DL_FUNC) &_pjrt_impl_tree_path, 2},
     {"_pjrt_impl_tree_filter_by_names", (DL_FUNC) &_pjrt_impl_tree_filter_by_names, 2},
     {"_pjrt_impl_tree_concat", (DL_FUNC) &_pjrt_impl_tree_concat, 2},

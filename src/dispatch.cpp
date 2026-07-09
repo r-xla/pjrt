@@ -63,12 +63,12 @@ struct CacheKey {
   const void* device = nullptr;  // canonical device id (PJRT_Device*), or null
 };
 
-static std::size_t aval_hash(const aval& a) {
-  std::size_t h = static_cast<std::size_t>(a.dtype);
-  hash_combine(h, a.ambiguous ? 1u : 0u);
-  hash_combine(h, a.shape.size());
+static std::uint64_t aval_hash(const aval& a) {
+  std::uint64_t h = static_cast<std::uint64_t>(a.dtype);
+  h = hash_combine(h, a.ambiguous ? 1u : 0u);
+  h = hash_combine(h, a.shape.size());
   for (int64_t d : a.shape) {
-    hash_combine(h, static_cast<std::size_t>(d));
+    h = hash_combine(h, static_cast<std::uint64_t>(d));
   }
   return h;
 }
@@ -79,38 +79,42 @@ static bool aval_eq(const aval& a, const aval& b) {
 
 // CacheKeyHash and CacheKeyEq are functors (types with operator()) rather than
 // plain functions because unordered_map -- and LRUCache, which forwards them --
-// take the Hash and Eq as template *type* parameters. Passing them as types lets
-// the map default-construct them and inline each call, with no indirect call
-// through a function pointer.
+// take the Hash and Eq as template *type* parameters. Passing them as types
+// lets the map default-construct them and inline each call, with no indirect
+// call through a function pointer.
 struct CacheKeyHash {
+  // unordered_map's Hash concept requires std::size_t, so the 64-bit
+  // accumulator is narrowed on return (a no-op on the 64-bit platforms we build
+  // for).
   std::size_t operator()(const CacheKey& k) const {
-    std::size_t h = tree_hash(k.in_tree);
-    hash_combine(h, reinterpret_cast<std::size_t>(k.device));
-    hash_combine(h, k.leaves.size());
+    std::uint64_t h = tree_hash(k.in_tree);
+    h = hash_combine(h, reinterpret_cast<std::uintptr_t>(k.device));
+    h = hash_combine(h, k.leaves.size());
     for (const KeyLeaf& leaf : k.leaves) {
-      hash_combine(h, static_cast<std::size_t>(leaf.kind));
+      h = hash_combine(h, static_cast<std::uint64_t>(leaf.kind));
       switch (leaf.kind) {
         case KeyLeaf::kBuffer:
         case KeyLeaf::kRData:
-          hash_combine(h, aval_hash(leaf.av));
+          h = hash_combine(h, aval_hash(leaf.av));
           break;
         case KeyLeaf::kClosureArr:
           // The dtype SEXP gets a cheap discriminator only (exact equality
           // falls back to identical()); shape/ambiguity hash natively.
-          hash_combine(h, static_cast<std::size_t>(TYPEOF(leaf.value)));
-          hash_combine(h, aval_hash(leaf.av));
+          h = hash_combine(h, static_cast<std::uint64_t>(TYPEOF(leaf.value)));
+          h = hash_combine(h, aval_hash(leaf.av));
           break;
         case KeyLeaf::kStatic:
         case KeyLeaf::kOpaque:
           // Cheap discriminator only; exact equality falls back to
           // identical().
-          hash_combine(h, 0x57A71Cu);
-          hash_combine(h, static_cast<std::size_t>(TYPEOF(leaf.value)));
-          hash_combine(h, static_cast<std::size_t>(Rf_xlength(leaf.value)));
+          h = hash_combine(h, 0x57A71Cu);
+          h = hash_combine(h, static_cast<std::uint64_t>(TYPEOF(leaf.value)));
+          h = hash_combine(h,
+                           static_cast<std::uint64_t>(Rf_xlength(leaf.value)));
           break;
       }
     }
-    return h;
+    return static_cast<std::size_t>(h);
   }
 };
 
@@ -313,8 +317,8 @@ static void release_entry(CacheEntry& e) {
 class pjrt_dispatcher {
  public:
   pjrt_dispatcher(std::size_t capacity, SEXP miss_fn, SEXP opts,
-             std::unordered_set<std::string> static_names, bool closure_engine,
-             bool move_inputs)
+                  std::unordered_set<std::string> static_names,
+                  bool closure_engine, bool move_inputs)
       : cache_(capacity, release_entry),
         miss_fn_(miss_fn),
         opts_(opts),
@@ -356,12 +360,33 @@ class pjrt_dispatcher {
   bool move_inputs_;
 };
 
+// An unnamed ListNode over `n` leaf children, in RTree's flat preorder
+// encoding: the root, then one leaf node per child. Leaf indices are implicit
+// (a leaf's rank in the preorder), so nothing per-leaf is stored.
+static RTree flat_leaf_tree(std::size_t n) {
+  RTree t;
+  t.kind.reserve(n + 1);
+  t.n_children.reserve(n + 1);
+  t.subtree_nodes.reserve(n + 1);
+  t.name_off.reserve(n + 1);
+  t.kind.push_back(RTree::ListNode);
+  t.n_children.push_back(static_cast<std::int32_t>(n));
+  t.subtree_nodes.push_back(static_cast<std::int32_t>(n + 1));
+  t.name_off.push_back(-1);
+  for (std::size_t k = 0; k < n; ++k) {
+    t.kind.push_back(RTree::LeafNode);
+    t.n_children.push_back(0);
+    t.subtree_nodes.push_back(1);
+    t.name_off.push_back(-1);
+  }
+  return t;
+}
+
 // Build a CacheKey from a flat list of dynamic leaves, each a
 // list(buffer_xptr, ambiguous), with a flat ListNode in_tree over them.
 static CacheKey build_key_from_leaves(Rcpp::List leaves) {
   CacheKey key;
-  key.in_tree.kind = RTree::ListNode;
-  key.in_tree.children.resize(leaves.size());
+  key.in_tree = flat_leaf_tree(static_cast<std::size_t>(leaves.size()));
   key.leaves.reserve(leaves.size());
   for (R_xlen_t k = 0; k < leaves.size(); ++k) {
     Rcpp::List leaf = leaves[k];
@@ -374,10 +399,6 @@ static CacheKey build_key_from_leaves(Rcpp::List leaves) {
     key.leaves.push_back(std::move(kl));
     // device is a single per-call value; take it from the first leaf.
     if (k == 0) key.device = dev;
-    RTree child;
-    child.kind = RTree::LeafNode;
-    child.i = static_cast<int>(k + 1);
-    key.in_tree.children[k] = child;
   }
   return key;
 }
@@ -408,8 +429,7 @@ bool impl_dispatch_key_eq(Rcpp::List a, Rcpp::List b) {
 bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b) {
   auto build = [](Rcpp::List vals) {
     rpjrt::CacheKey key;
-    key.in_tree.kind = rpjrt::RTree::ListNode;
-    key.in_tree.children.resize(vals.size());
+    key.in_tree = rpjrt::flat_leaf_tree(static_cast<std::size_t>(vals.size()));
     key.leaves.reserve(vals.size());
     for (R_xlen_t k = 0; k < vals.size(); ++k) {
       rpjrt::KeyLeaf kl;
@@ -417,10 +437,6 @@ bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b) {
       SEXP v = vals[k];
       kl.value = v;
       key.leaves.push_back(std::move(kl));
-      rpjrt::RTree child;
-      child.kind = rpjrt::RTree::LeafNode;
-      child.i = static_cast<int>(k + 1);
-      key.in_tree.children[k] = child;
     }
     return key;
   };
@@ -429,7 +445,8 @@ bool impl_dispatch_static_key_eq(Rcpp::List a, Rcpp::List b) {
   return rpjrt::CacheKeyEq{}(ka, kb);
 }
 
-// ---- pjrt_dispatcher: the native eager-dispatch hot path -------------------------
+// ---- pjrt_dispatcher: the native eager-dispatch hot path
+// -------------------------
 
 // The sentinel returned by impl_dispatch_run() when the call is not handled by
 // the native fast path (the R caller must fall back to its slow path). A unique
@@ -471,8 +488,8 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
   Rcpp::XPtr<PJRTExecuteOptions> opts =
       impl_execution_options_create(std::vector<int64_t>(), 0);
   auto* d = new pjrt_dispatcher(static_cast<std::size_t>(capacity), miss_fn,
-                           static_cast<SEXP>(opts), std::move(statics),
-                           closure_engine, move_inputs);
+                                static_cast<SEXP>(opts), std::move(statics),
+                                closure_engine, move_inputs);
   Rcpp::XPtr<pjrt_dispatcher> ptr(d, true);
   ptr.attr("class") = "PJRT_dispatcher";
   return ptr;
@@ -501,29 +518,37 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   // beneath a static arg (mirrors anvl's static-arg marking).
   std::vector<SEXP> leaves;
   std::vector<char> is_static;
-  RTree in_tree;
-  int counter = 0;
-  in_tree.kind = RTree::ListNode;
   const R_xlen_t n_args = args.size();
-  in_tree.children.resize(n_args);
   SEXP arg_nms = Rf_getAttrib(args, R_NamesSymbol);
-  in_tree.has_names = (arg_nms != R_NilValue);
-  if (in_tree.has_names) {
-    in_tree.names.resize(n_args);
+  const bool has_names = (arg_nms != R_NilValue);
+
+  // Emit the root ListNode over the args, then let flatten_rec append each
+  // arg's subtree after it (preorder). The root's names are pushed first, so
+  // the arg names occupy in_tree.names[0, n_args) even once nested named lists
+  // append their own names behind them.
+  RTree in_tree;
+  in_tree.kind.push_back(RTree::ListNode);
+  in_tree.n_children.push_back(static_cast<std::int32_t>(n_args));
+  in_tree.subtree_nodes.push_back(0);  // backpatched once the args are emitted
+  if (has_names) {
+    in_tree.name_off.push_back(0);
     for (R_xlen_t k = 0; k < n_args; ++k) {
-      in_tree.names[k] = std::string(CHAR(STRING_ELT(arg_nms, k)));
+      in_tree.names.push_back(std::string(CHAR(STRING_ELT(arg_nms, k))));
     }
+  } else {
+    in_tree.name_off.push_back(-1);
   }
   for (R_xlen_t k = 0; k < n_args; ++k) {
-    bool child_static = !statics.empty() && in_tree.has_names &&
-                        statics.count(in_tree.names[k]) > 0;
-    flatten_rec(VECTOR_ELT(args, k), leaves, in_tree.children[k], counter);
+    bool child_static =
+        !statics.empty() && has_names && statics.count(in_tree.names[k]) > 0;
+    flatten_rec(VECTOR_ELT(args, k), leaves, in_tree);
     // Static-ness is a dispatch-only per-leaf overlay, not part of the shared
     // Rtree API: mark every leaf this arg just contributed. is_static grows in
     // lockstep with leaves, so resize fills the new tail with child_static
     // (an arg with no leaves -- NULL / empty list -- is a no-op).
     is_static.resize(leaves.size(), child_static ? 1 : 0);
   }
+  in_tree.subtree_nodes[0] = static_cast<std::int32_t>(in_tree.kind.size());
 
   // 2. Classify leaves into key leaves + per-leaf execute material. The only
   // case left to the sentinel is a device conflict under the infer policy

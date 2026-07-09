@@ -78,6 +78,11 @@ pjrt_dispatcher <- function(
   )
 }
 
+#' @title Native eager-dispatch fast path
+#' @description
+#' Dispatch a call through a [`pjrt_dispatcher()`]'s executable cache, compiling
+#' on a miss. Calls the dispatcher cannot handle natively yield
+#' [`pjrt_dispatch_sentinel()`], leaving the caller to fall back to R.
 #' @rdname pjrt_dispatch
 #' @param pjrt_dispatcher (`PJRT_dispatcher`)\cr A pjrt_dispatcher from [`pjrt_dispatcher()`].
 #' @param args (`list`)\cr The (already evaluated) argument list of the call.

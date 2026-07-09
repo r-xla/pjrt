@@ -96,4 +96,9 @@ Authors:
   \item Daniel Falbel \email{daniel@posit.co} (\href{https://orcid.org/0009-0006-0143-2392}{ORCID})
 }
 
+Other contributors:
+\itemize{
+  \item Daniel James (Author of the Boost.ContainerHash hash_combine copied in src/hash.h (BSL-1.0); see inst/COPYRIGHTS) [copyright holder]
+}
+
 }

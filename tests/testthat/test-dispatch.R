@@ -120,9 +120,9 @@ test_that("pjrt_dispatcher with static names still dispatches a pure-dynamic cal
   y <- arr(pjrt_buffer(c(3, 4), dtype = "f32"))
 
   # static name "flag" declared, but this call has no such arg -> all dynamic.
-  d <- dispatcher(10L, function(args) list(exec = exec2), static = "flag")
-  res <- dispatch(d, list(x = x, y = y))
-  expect_false(identical(res, dispatch_sentinel()))
+  d <- pjrt_dispatcher(10L, function(args) list(exec = exec2), static = "flag")
+  res <- pjrt_dispatch(d, list(x = x, y = y))
+  expect_false(identical(res, pjrt_dispatch_sentinel()))
   expect_equal(as.numeric(tengen::as_array(await(res$buffers[[1]]))), c(4, 6))
 })
 
@@ -317,7 +317,7 @@ test_that("native pjrt_dispatcher sentinels only on a device conflict (infer pol
   }
   x0 <- arr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
   y1 <- arr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
-  expect_identical(impl_dispatch_run(d, list(x0, y1)), dispatch_sentinel())
+  expect_identical(impl_dispatch_run(d, list(x0, y1)), pjrt_dispatch_sentinel())
 })
 
 test_that("closure engine dispatches through a compiled R closure", {
