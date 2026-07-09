@@ -25,5 +25,5 @@ leaf sitting under a top-level child whose name is in \code{groups}. An empty
 tree_leaf_mask(build_tree(list(a = 1, b = list(2, 3))), "b")
 }
 \seealso{
-\code{\link[=tree_leaf_groups]{tree_leaf_groups()}}
+\code{\link[=tree_child_names]{tree_child_names()}}
 }

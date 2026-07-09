@@ -4,10 +4,10 @@
 \alias{tree_root_kind}
 \title{Tree Root Node Kind}
 \usage{
-tree_root_kind(x)
+tree_root_kind(tree)
 }
 \arguments{
-\item{x}{(\code{RTree})\cr
+\item{tree}{(\code{RTree})\cr
 A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \value{

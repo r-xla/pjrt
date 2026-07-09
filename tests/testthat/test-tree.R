@@ -124,7 +124,7 @@ test_that("tree_root_kind and tree_child_kinds", {
   expect_error(tree_child_kinds(build_tree(1)), "list node")
 })
 
-test_that("tree_child_names, tree_child_sizes, and tree_leaf_groups", {
+test_that("tree_child_names and tree_child_sizes", {
   tree <- build_tree(list(a = 1, b = list(2, 3), c = NULL))
   expect_equal(tree_child_names(tree), c("a", "b", "c"))
   expect_null(tree_child_names(build_tree(list(1, 2))))
@@ -132,8 +132,6 @@ test_that("tree_child_names, tree_child_sizes, and tree_leaf_groups", {
   expect_equal(tree_child_names(build_tree(list(1, b = 2))), c("", "b"))
 
   expect_equal(tree_child_sizes(tree), c(1L, 2L, 0L))
-  expect_equal(tree_leaf_groups(tree), c("a", "b", "b"))
-  expect_equal(tree_leaf_groups(build_tree(list(1, 2))), c("", ""))
 })
 
 test_that("tree_leaf_mask marks all leaves under matching top-level names", {

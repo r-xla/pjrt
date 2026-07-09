@@ -281,10 +281,6 @@ impl_tree_child_sizes <- function(tree) {
     .Call(`_pjrt_impl_tree_child_sizes`, tree)
 }
 
-impl_tree_flat_names <- function(tree) {
-    .Call(`_pjrt_impl_tree_flat_names`, tree)
-}
-
 impl_tree_path <- function(tree, i) {
     .Call(`_pjrt_impl_tree_path`, tree, i)
 }

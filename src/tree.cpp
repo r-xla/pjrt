@@ -303,23 +303,6 @@ Rcpp::IntegerVector impl_tree_child_sizes(SEXP tree) {
 }
 
 // [[Rcpp::export]]
-Rcpp::CharacterVector impl_tree_flat_names(SEXP tree) {
-  using namespace rpjrt;
-  const RTree& t = as_tree(tree);
-  require_list(t, "flat_names()");
-  const std::vector<std::size_t> kids = child_nodes(t, 0);
-  Rcpp::CharacterVector out(tree_size_rec(t));
-  R_xlen_t pos = 0;
-  for (std::size_t k = 0; k < kids.size(); ++k) {
-    const std::string nm =
-        t.is_named(0) ? t.names[t.name_off[0] + k] : std::string();
-    const int sz = subtree_leaf_count(t, kids[k]);
-    for (int j = 0; j < sz; ++j) out[pos++] = nm;
-  }
-  return out;
-}
-
-// [[Rcpp::export]]
 std::string impl_tree_path(SEXP tree, int i) {
   using namespace rpjrt;
   const RTree& t = as_tree(tree);
