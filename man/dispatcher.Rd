@@ -10,7 +10,8 @@ dispatcher(
   static = character(),
   backend = "xla",
   move_inputs = FALSE,
-  default_device = NULL
+  default_device = NULL,
+  extractor = NULL
 )
 }
 \arguments{
@@ -120,9 +121,17 @@ the session, as \code{\link[=as_pjrt_device]{as_pjrt_device()}} does) is therefo
 it is recommended: an interned device resolves in one pointer comparison,
 and each distinct object a backend hands out stays alive for the
 dispatcher's lifetime.}
-}
-\value{
-\code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}.
+
+\item{extractor}{(\code{function} | \code{NULL})\cr
+Reads a non-\code{"xla"} array leaf's metadata via the backend's accessors,
+called as \code{extractor(leaf)} and returning
+\code{list(aval = list(dtype, shape, ambiguous), device, backend)} -- \code{dtype} a
+tengen \code{DataType}, \code{shape} an \code{integer()}, \code{device} the interned device
+object, \code{backend} the leaf's tag. Required for any backend other than
+\code{"xla"}; ignored for \code{"xla"}, where the dtype/shape/device come off the
+\code{PJRTBuffer} in \verb{$data} directly. Only \verb{$data} is assumed on the leaf; every
+other property is obtained through this function, so a backend need not
+store them as fields (see the \code{AnvlBackend} contract in anvl).}
 }
 \description{
 A native fast path for repeatedly executing a compiled program on inputs of

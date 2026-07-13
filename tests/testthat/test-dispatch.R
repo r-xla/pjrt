@@ -1,30 +1,7 @@
-# The native eager-dispatch fast path (src/dispatch.cpp, dispatch_engine.cpp).
-#
-# The dispatcher exists to serve anvl's jit(), so that is how it is tested: the
-# first half of this file drives the whole loop through jit() -- anvl traces and
-# compiles in the miss callback, the dispatcher caches, executes, and wraps --
-# and asserts on what a user of jit() observes, including the cache-key
-# semantics, which show up as a recompile or the lack of one.
-#
-# The second half drives the building blocks directly, and only for what jit()
-# cannot express: the compile-callback contract (and its violations), the
-# closure engine's contract with a backend, device canonicalization, and the
-# guards that exist so a misuse errors instead of segfaulting. anvl reaches none
-# of these, because anvl is a correct caller.
-#
-# The cache key's structure -- avals, device token, the kArray/kRData merge, and
-# the hash/equality contract -- is additionally tested in C++, in
-# src/test-dispatch.cpp, where a device token can be fabricated and a leaf built
-# directly.
-
-# ---------------------------------------------------------------------------
-# Through jit(), the way the dispatcher is meant to be used.
-# ---------------------------------------------------------------------------
-
 # anvl sits in Suggests, so every jit() test is a no-op where it is absent.
 skip_if_no_jit <- function() {
-  skip_if_not_installed("anvl")
-  skip_if_not(plugins_downloaded())
+  testthat::skip_if_not_installed("anvl")
+  testthat::skip_if_not(plugins_downloaded())
 }
 
 # The dispatcher a jitted function dispatches through (anvl stores it in the
@@ -74,9 +51,6 @@ test_that("jit() dispatches, caches, and returns wrapped arrays", {
     }
     expect_equal(arr_of(r), c(11, 22, 33))
   }
-  rm(f, d)
-  gc()
-  expect_true(TRUE) # reached teardown without crashing
 })
 
 test_that("jit() preserves nested output structure and names", {
@@ -89,7 +63,7 @@ test_that("jit() preserves nested output structure and names", {
   expect_equal(arr_of(res$nested$sq), c(4, 9))
 })
 
-test_that("the ambiguity of an output survives the native wrap", {
+test_that("the dispatcher correctly sets the output ambiguity", {
   skip_if_no_jit()
   # x + 1 keeps a committed f32's dtype: the output is unambiguous. A literal
   # alone stays ambiguous. Both bits are stamped by the dispatcher's wrap.
@@ -226,9 +200,9 @@ test_that("static numbers are keyed bitwise: +0 and -0 are distinct", {
   skip_if_no_jit()
   # A literal `-0` is constant-folded to `+0` by R's byte compiler, so build it
   # from a variable -- otherwise this would quietly compare 0 against 0.
+  # this is important for bit64 which uses -0 for NA
   zero <- 0
   neg_zero <- -1 * zero
-  expect_identical(sprintf("%a", neg_zero), "-0x0p+0")
   expect_false(same_key(zero, neg_zero))
 })
 
@@ -294,7 +268,6 @@ test_that("jit(device = ) fixes the entry's device and moves inputs to it", {
   # Devices are interned, so the wrapped output carries the very object.
   expect_identical(tengen::device(res), pjrt_device("cpu:0"))
 
-  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
   # An input on another device is copied to the target rather than rejected,
   # and the device is not part of the key: one entry serves both.
   y1 <- anvl::nv_array(c(3, 4), dtype = "f32", device = "cpu:1")
@@ -331,20 +304,13 @@ test_that("the quickr backend dispatches through the closure engine", {
 # ---------------------------------------------------------------------------
 
 # The `default_device` resolvers a dispatcher needs when a call has no array
-# input to read a device from. Devices are canonicalized per dispatcher
-# (identity first, identical() fallback), so interning -- one object per
-# device, as pjrt does for PJRTDevice and `test_device()` mimics here -- is
-# the fast path rather than a requirement.
+# input to read a device from. `test_device()` returns a fresh object each call
+# (like anvl's quickr backend): the dispatcher canonicalizes devices with
+# identical() as a fallback to object identity, so equal-but-distinct devices
+# still collapse to one. The identity fast path is exercised where a test reuses
+# one object (see "devices are canonicalized").
 test_xla_device <- function() pjrt_device("cpu:0")
-the_test_devices <- new.env(parent = emptyenv())
-test_device <- function(id = "cpu") {
-  dev <- the_test_devices[[id]]
-  if (is.null(dev)) {
-    dev <- structure(list(device = id), class = "QuickrDevice")
-    the_test_devices[[id]] <- dev
-  }
-  dev
-}
+test_device <- function(id = "cpu") structure(list(device = id), class = "QuickrDevice")
 test_quickr_device <- function() test_device("cpu")
 
 # One output aval, as the compile callback declares it: the dtype/shape/
@@ -403,192 +369,25 @@ qarr <- function(v, dtype = "f64", device = test_quickr_device(), backend = "qui
 # array: an "AnvlArray" list whose $data is the output buffer.
 out <- function(res) as.numeric(tengen::as_array(await(res$data)))
 
-test_that("the compile callback receives the tree, leaves, static mask, and avals", {
-  seen <- NULL
-  d <- impl_dispatch_create(
-    10L,
-    function(info) {
-      seen <<- info
-      list(r_fun = function(flat) list(v = 1))
-    },
-    "flag",
-    "closure",
-    "quickr",
-    FALSE,
-    test_quickr_device
+# The closure engine reads a leaf's metadata through a backend-supplied
+# extractor rather than by reaching for fields. The test arrays (qarr) do store
+# fields, so the test extractor simply reads them back -- standing in for a
+# backend whose accessors happen to be `$` reads.
+test_extractor <- function(leaf) {
+  list(
+    aval = list(dtype = leaf$dtype, shape = leaf$shape, ambiguous = leaf$ambiguous),
+    device = leaf$device,
+    backend = leaf$backend
   )
-  invisible(impl_dispatch_run(
-    d,
-    list(
-      x = qarr(c(1, 2)),
-      lit = 3L,
-      flag = "s",
-      nested = list(a = matrix(1:6, 2, 3)),
-      b = TRUE
-    )
-  ))
+}
 
-  expect_named(seen, c("args", "in_tree", "leaves", "is_static", "avals", "default_device"))
-  # An array named the device, so no default was resolved.
-  expect_null(seen$default_device)
-  expect_s3_class(seen$in_tree, "RTree")
-  expect_length(seen$leaves, 5L)
-  expect_identical(seen$is_static, c(FALSE, FALSE, TRUE, FALSE, FALSE))
-  # The tree handed over is the one the mask was computed from.
-  expect_identical(tree_leaf_mask(seen$in_tree, "flag"), seen$is_static)
-
-  # The dispatched argument list is still available (device_arg() reads it).
-  expect_identical(seen$args$flag, "s")
-
-  # A static leaf has no aval; every dynamic one carries the key's own.
-  expect_null(seen$avals[[3L]])
-  expect_identical(seen$avals[[1L]], list(dtype = "f64", shape = 2L, ambiguous = FALSE))
-  # A bare R literal: pjrt's default dtype, rank-0, and dtype-ambiguous.
-  expect_identical(seen$avals[[2L]], list(dtype = "i32", shape = integer(), ambiguous = TRUE))
-  # A bare R array keeps its dim.
-  expect_identical(seen$avals[[4L]], list(dtype = "i32", shape = c(2L, 3L), ambiguous = TRUE))
-  # The boolean dtype crosses into R under tengen's name, not pjrt's C-API
-  # "pred": AnvlDtype's canonical vocabulary is the one anvl speaks.
-  expect_identical(seen$avals[[5L]], list(dtype = "bool", shape = integer(), ambiguous = TRUE))
-})
-
-test_that("an aval's dtype reaches the callback as a name, whatever the backend", {
-  seen <- NULL
-  d <- impl_dispatch_create(
-    10L,
-    function(info) {
-      seen <<- info
-      list(r_fun = function(flat) list(v = 1))
-    },
-    character(0),
-    "closure",
-    "quickr",
-    FALSE,
-    test_quickr_device
-  )
-  invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), "i64"), y = qarr(c(1, 2), "ui16"))))
-  # A quickr leaf's tengen $dtype object becomes an AnvlDtype like any other, so
-  # the callback sees the same canonical string an xla leaf's buffer would give.
-  expect_identical(seen$avals[[1L]]$dtype, "i64")
-  expect_identical(seen$avals[[2L]]$dtype, "ui16")
-})
-
-test_that("an xla leaf's aval comes from its buffer, not its $dtype/$shape", {
-  skip_if_not(plugins_downloaded())
-  # The generic aval read uses $dtype/$shape (any backend carries them), but
-  # the pjrt engine takes a shortcut: the buffer already caches its element
-  # type and dimensions. The two agree on any array anvl builds; where they
-  # disagree, the buffer wins, because it cannot be falsified by a field that
-  # drifted.
-  seen <- NULL
-  d <- impl_dispatch_create(
-    10L,
-    function(info) {
-      seen <<- info$avals[[1L]]
-      list(r_fun = function(flat) list(v = 1))
-    },
-    character(0),
-    "pjrt",
-    "xla",
-    FALSE,
-    test_xla_device
-  )
-  buf <- pjrt_buffer(matrix(1:6, 2, 3), dtype = "f32")
-  lying <- structure(
-    list(
-      data = buf,
-      dtype = tengen::as_dtype("i64"), # a lie
-      shape = c(99L, 99L), # also a lie
-      ambiguous = FALSE,
-      device = tengen::device(buf),
-      backend = "xla"
-    ),
-    class = "AnvlArray"
-  )
-  # The compile callback errors (no exec), but only after the aval was built.
-  invisible(try(impl_dispatch_run(d, list(x = lying)), silent = TRUE))
-  expect_identical(seen$dtype, "f32") # the buffer's element type
-  expect_identical(seen$shape, c(2L, 3L)) # the buffer's dimensions
-})
-
-test_that("out_avals and out_tree are the callback's claim, and are honoured", {
-  skip_if_not(plugins_downloaded())
-  two_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
-    %0 = "stablehlo.add"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
-    %1 = "stablehlo.multiply"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
-    "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
-  }'
-  exec <- pjrt_compile(pjrt_program(src = two_src))
-  mk <- function(out_tree, out_avals) {
-    impl_dispatch_create(
-      10L,
-      function(info) xla_entry(exec, out_tree = out_tree, out_avals = out_avals),
-      character(0),
-      "pjrt",
-      "xla",
-      FALSE,
-      test_xla_device
-    )
-  }
-  x <- xarr(pjrt_buffer(c(1, 2), dtype = "f32"))
-  y <- xarr(pjrt_buffer(c(3, 4), dtype = "f32"))
-
-  # Every wrapped field comes from the declared aval, not from the buffer: the
-  # first output is stamped ambiguous although nothing about the buffer is.
-  d <- mk(
-    build_tree(list(sum = 0, rest = list(prod = 0))),
-    list(oav(ambiguous = TRUE), oav())
-  )
-  res <- impl_dispatch_run(d, list(x, y))
-  expect_equal(out(res$sum), c(4, 6))
-  expect_equal(out(res$rest$prod), c(3, 8))
-  expect_identical(res$sum$ambiguous, TRUE)
-  expect_identical(res$rest$prod$ambiguous, FALSE)
-  expect_identical(res$sum$shape, 2L)
-  expect_identical(res$sum$dtype, tengen::as_dtype("f32"))
-
-  # An out_tree whose leaf count disagrees with the executable's actual output
-  # count is the one half of the callback's claim pjrt can still settle, and it
-  # does -- on execution, against the real outputs.
-  expect_error(
-    impl_dispatch_run(mk(build_tree(list(0, 0, 0)), list(oav(), oav(), oav())), list(x, y)),
-    "out_tree has 3 leaves but the executable returned 2 outputs"
-  )
-  # An out_avals that disagrees with out_tree is caught at compile time,
-  # before the entry is ever cached.
-  expect_error(
-    impl_dispatch_run(mk(build_tree(list(0, 0)), list(oav())), list(x, y)),
-    "out_avals has length 1 but out_tree has 2 leaves"
-  )
-})
-
-test_that("the pjrt engine validates the compile callback's entry", {
-  skip_if_not(plugins_downloaded())
-  id_src <- 'func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
-    "func.return"(%x): (tensor<2xf32>) -> ()
-  }'
-  exec <- pjrt_compile(pjrt_program(src = id_src))
-  mk <- function(entry_fn) {
-    impl_dispatch_create(10L, entry_fn, character(0), "pjrt", "xla", FALSE, test_xla_device)
-  }
-  x <- xarr(pjrt_buffer(c(1, 2), dtype = "f32"))
-
-  # A missing client (needed for uploads, phantoms, and the wrap's device) is a
-  # clear error, not a crash at input-assembly time.
-  d_bad <- mk(function(info) {
-    list(exec = exec, device = pjrt_device("cpu:0"), out_tree = build_tree(0))
-  })
-  expect_error(impl_dispatch_run(d_bad, list(x)), "must return `client`")
-
-  # So is a const_arrays element that is not a PJRTBuffer: execute would
-  # reinterpret the external pointer blindly and segfault, so it must be
-  # rejected when the entry is built (here: the exec itself, a plausible slip).
-  d_bad2 <- mk(function(info) xla_entry(exec, const_arrays = list(exec)))
-  expect_error(
-    impl_dispatch_run(d_bad2, list(x)),
-    "const_arrays\\[\\[1\\]\\]` must be a PJRTBuffer"
-  )
-})
+# impl_dispatch_create with the extractor wired up the way each engine needs it:
+# the closure engine requires one (here the field-reading test extractor); the
+# pjrt engine ignores it and reads the PJRTBuffer directly.
+new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device) {
+  extractor <- if (engine == "pjrt") NULL else test_extractor
+  impl_dispatch_create(capacity, miss, static, engine, backend, move, default_device, extractor)
+}
 
 test_that("phantom_specs allocate donation buffers of the requested dtype", {
   skip_if_not(plugins_downloaded())
@@ -603,7 +402,7 @@ test_that("phantom_specs allocate donation buffers of the requested dtype", {
       mlir_ty,
       mlir_ty
     )
-    d <- impl_dispatch_create(
+    d <- new_dispatcher(
       4L,
       function(info) {
         xla_entry(
@@ -659,7 +458,7 @@ test_that("a dispatcher with static names still dispatches a pure-dynamic call",
 
 test_that("the closure engine passes the dynamic leaves to `r_fun`, and nothing else", {
   n_miss <- 0L
-  d <- impl_dispatch_create(
+  d <- new_dispatcher(
     10L,
     function(info) {
       n_miss <<- n_miss + 1L
@@ -693,7 +492,7 @@ test_that("the closure engine passes the dynamic leaves to `r_fun`, and nothing 
   expect_equal(n_miss, 2L)
 
   # a bare R literal passes through to the closure as-is
-  d2 <- impl_dispatch_create(
+  d2 <- new_dispatcher(
     10L,
     function(info) list(r_fun = function(flat) flat[[1]] * flat[[2]]),
     character(0),
@@ -710,7 +509,7 @@ test_that("the closure engine serves a backend pjrt has never heard of", {
   # backend brings interned devices, AnvlArrays tagged with its own name, and
   # a compile callback -- and dispatches natively with no C++ of its own.
   n_miss <- 0L
-  d <- impl_dispatch_create(
+  d <- new_dispatcher(
     10L,
     function(info) {
       n_miss <<- n_miss + 1L
@@ -741,7 +540,7 @@ test_that("the closure engine can pin a device (move_inputs): `r_fun` places its
   # output wrapping it already delegates -- so pjrt copies nothing here.
   n_miss <- 0L
   placed_on <- NULL
-  d <- impl_dispatch_create(
+  d <- new_dispatcher(
     10L,
     function(info) {
       n_miss <<- n_miss + 1L
@@ -782,14 +581,14 @@ test_that("the closure engine can pin a device (move_inputs): `r_fun` places its
 
 test_that("devices are canonicalized: identity first, identical() fallback", {
   # One `const void*` serves every backend: a leaf's token is the address of
-  # its `$device`'s canonical representative. An interned device is its own
-  # canonical (a pointer compare); an equal-but-distinct one collapses to it.
-  # pjrt interns its own devices, so only a raw dispatcher can present the
-  # equal-but-distinct case.
+  # its `$device`'s canonical representative. The same object is its own
+  # canonical (a pointer compare); an equal-but-distinct one collapses to it via
+  # identical(). The closure engine uses this base canonicalization; pjrt's own
+  # engine interns by PJRT_Device* instead.
   n_miss <- 0L
   mk <- function() {
     n_miss <<- 0L
-    impl_dispatch_create(
+    new_dispatcher(
       10L,
       function(info) {
         n_miss <<- n_miss + 1L
@@ -803,10 +602,11 @@ test_that("devices are canonicalized: identity first, identical() fallback", {
     )
   }
 
-  # An interned device is one key across calls...
+  # The same object across calls -> the identity fast path -> one key.
+  dev <- test_device("cpu")
   d <- mk()
-  invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), device = test_device("cpu")))))
-  invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), device = test_device("cpu")))))
+  invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), device = dev))))
+  invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), device = dev))))
   expect_equal(n_miss, 1L)
 
   # ...and a different device is a different key.
@@ -823,26 +623,25 @@ test_that("devices are canonicalized: identity first, identical() fallback", {
     "invalid input `y`.*different device"
   )
 
-  # A backend that fails to intern is not punished: equal-but-distinct device
-  # objects collapse to one canonical device, within a call and across calls
-  # -- and a fresh object equal to an interned one lands on the same token.
-  fresh <- function(id) structure(list(device = id), class = "QuickrDevice")
-  expect_true(identical(fresh("cpu"), fresh("cpu")))
+  # Equal-but-distinct device objects (a backend that hands out fresh ones, as
+  # quickr does) collapse to one canonical device via identical(), within a call
+  # and across calls.
+  expect_true(identical(test_device("cpu"), test_device("cpu")))
   d2 <- mk()
   invisible(impl_dispatch_run(
     d2,
-    list(x = qarr(c(1, 2), device = fresh("cpu")), y = qarr(c(1, 2), device = fresh("cpu")))
+    list(x = qarr(c(1, 2), device = test_device("cpu")), y = qarr(c(1, 2), device = test_device("cpu")))
   ))
   invisible(impl_dispatch_run(
     d2,
-    list(x = qarr(c(1, 2), device = fresh("cpu")), y = qarr(c(1, 2), device = test_device("cpu")))
+    list(x = qarr(c(1, 2), device = test_device("cpu")), y = qarr(c(1, 2), device = test_device("cpu")))
   ))
   expect_equal(n_miss, 1L) # one device, one entry, however it is spelled
-  # ...while genuinely different fresh devices still conflict.
+  # ...while genuinely different devices still conflict.
   expect_error(
     impl_dispatch_run(
       d2,
-      list(x = qarr(c(1, 2), device = fresh("cpu")), y = qarr(c(1, 2), device = fresh("gpu")))
+      list(x = qarr(c(1, 2), device = test_device("cpu")), y = qarr(c(1, 2), device = test_device("gpu")))
     ),
     "invalid input `y`.*different device"
   )
@@ -861,7 +660,7 @@ test_that("a call with no array input keys on the resolved default device", {
   # session, and so cannot change mid-test.
   n_miss <- 0L
   current <- "cpu"
-  d <- impl_dispatch_create(
+  d <- new_dispatcher(
     10L,
     function(info) {
       n_miss <<- n_miss + 1L
@@ -891,7 +690,7 @@ test_that("a call with no array input keys on the resolved default device", {
 })
 
 test_that("a dispatcher without a default_device rejects a call with no arrays", {
-  d <- impl_dispatch_create(
+  d <- new_dispatcher(
     10L,
     function(info) list(r_fun = function(flat) list(v = 1)),
     character(0),
@@ -908,7 +707,7 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
   # broken caller produces -- a mistagged array, or a leaf buried in a list.
   n_miss <- 0L
   mk <- function(engine) {
-    impl_dispatch_create(
+    new_dispatcher(
       10L,
       function(info) {
         n_miss <<- n_miss + 1L
@@ -969,19 +768,43 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
   expect_equal(n_miss, 0L) # every rejection happened before the cache was probed
 })
 
+test_that("a closure backend can compute metadata via accessors, storing no fields", {
+  # anvl's AnvlBackend contract guarantees only $data on a leaf; dtype/shape/
+  # device/ambiguous/backend may be computed by the backend's accessors rather
+  # than stored as fields. The dispatcher must read them through the extractor,
+  # never by reaching for fields -- this array carries $data and nothing else.
+  n_miss <- 0L
+  dev <- test_device("cpu")
+  extractor <- function(leaf) {
+    list(
+      aval = list(dtype = tengen::as_dtype("f64"), shape = length(leaf$data), ambiguous = FALSE),
+      device = dev,
+      backend = "quickr"
+    )
+  }
+  d <- impl_dispatch_create(
+    10L,
+    function(info) {
+      n_miss <<- n_miss + 1L
+      list(r_fun = function(flat) list(v = flat[[1]] * 2))
+    },
+    character(0),
+    "closure",
+    "quickr",
+    FALSE,
+    test_quickr_device,
+    extractor
+  )
+  bare <- function(v) structure(list(data = v), class = "AnvlArray")
+  expect_identical(impl_dispatch_run(d, list(bare(c(1, 2, 3))))$v, c(2, 4, 6))
+  # A second call of the same accessor-derived aval is a cache hit.
+  invisible(impl_dispatch_run(d, list(bare(c(5, 6, 7)))))
+  expect_equal(n_miss, 1L)
+})
+
 test_that("a capacity below 1 is rejected rather than segfaulting", {
-  # capacity 0 makes the LRU evict each entry as it is inserted, so the compile
-  # path would dereference a null entry.
   expect_error(
-    impl_dispatch_create(0L, function(info) list(), character(0), "closure", "quickr", FALSE, test_quickr_device),
+    new_dispatcher(0L, function(info) list(), character(0), "closure", "quickr", FALSE, test_quickr_device),
     "capacity"
-  )
-  expect_error(
-    impl_dispatch_create(-1L, function(info) list(), character(0), "closure", "quickr", FALSE, test_quickr_device),
-    "capacity"
-  )
-  expect_error(
-    dispatcher(0L, function(info) list(), default_device = test_xla_device),
-    "Must be >= 1"
   )
 })

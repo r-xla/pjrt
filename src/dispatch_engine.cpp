@@ -5,6 +5,7 @@
 #include "dispatch_engine.h"
 
 #include <cstring>
+#include <unordered_map>
 #include <utility>
 
 #include "buffer.h"
@@ -17,34 +18,30 @@ namespace rpjrt {
 
 // ---- The array-wrapper contract -------------------------------------------
 
-std::optional<AnvlFields> anvl_fields(SEXP leaf) {
-  if (TYPEOF(leaf) != VECSXP || !Rf_inherits(leaf, "AnvlArray")) {
-    return std::nullopt;
-  }
+// The value of a named field of an AnvlArray leaf, or R_NilValue if absent.
+// Only `$data` is guaranteed by anvl's backend contract; an engine reads
+// further fields only for a leaf whose backend layout it owns (PjrtEngine, the
+// xla backend). Other backends' metadata comes through the extractor instead.
+SEXP anvl_field(SEXP leaf, const char* name) {
   SEXP nms = Rf_getAttrib(leaf, R_NamesSymbol);
-  if (nms == R_NilValue) return std::nullopt;
-  AnvlFields f;
-  SEXP amb = R_NilValue;
-  for (R_xlen_t k = 0; k < XLENGTH(leaf); ++k) {
-    const char* nm = CHAR(STRING_ELT(nms, k));
-    if (!std::strcmp(nm, "data"))
-      f.data = VECTOR_ELT(leaf, k);
-    else if (!std::strcmp(nm, "backend"))
-      f.backend = TYPEOF(VECTOR_ELT(leaf, k)) == STRSXP
-                      ? CHAR(STRING_ELT(VECTOR_ELT(leaf, k), 0))
-                      : nullptr;
-    else if (!std::strcmp(nm, "ambiguous"))
-      amb = VECTOR_ELT(leaf, k);
-    else if (!std::strcmp(nm, "dtype"))
-      f.dtype = VECTOR_ELT(leaf, k);
-    else if (!std::strcmp(nm, "shape"))
-      f.shape = VECTOR_ELT(leaf, k);
-    else if (!std::strcmp(nm, "device"))
-      f.device = VECTOR_ELT(leaf, k);
+  if (nms == R_NilValue) return R_NilValue;
+  const R_xlen_t n = XLENGTH(leaf);
+  for (R_xlen_t k = 0; k < n; ++k) {
+    if (!std::strcmp(CHAR(STRING_ELT(nms, k)), name))
+      return VECTOR_ELT(leaf, k);
   }
-  f.ambiguous = (amb != R_NilValue && Rf_asLogical(amb) == TRUE);
-  return f;
+  return R_NilValue;
 }
+
+// The first element of a character field, or "" if it is not a string.
+std::string field_string(SEXP v) {
+  return (TYPEOF(v) == STRSXP && XLENGTH(v) > 0)
+             ? std::string(CHAR(STRING_ELT(v, 0)))
+             : std::string();
+}
+
+// Whether a logical field is TRUE (absent / NA counts as FALSE).
+bool field_true(SEXP v) { return v != R_NilValue && Rf_asLogical(v) == TRUE; }
 
 std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   const SEXPTYPE t = TYPEOF(leaf);
@@ -166,22 +163,23 @@ static void check_dtype_representable(const aval& a, const RTree& in_tree,
   }
 }
 
-aval Engine::array_aval(const AnvlFields& af, const RTree& in_tree,
-                        std::size_t leaf_index) const {
-  if (af.dtype == R_NilValue || TYPEOF(af.shape) != INTSXP) {
+// Build an aval from a backend extractor's outputs: a tengen DataType object,
+// an integer shape, and the ambiguous bit. The values come from the backend's
+// accessors (see ClosureEngine::read_array), not from a fixed field layout.
+static aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
+                             const RTree& in_tree, std::size_t leaf_index) {
+  if (dtype == R_NilValue || TYPEOF(shape) != INTSXP) {
     Rcpp::stop(
-        "invalid %s: an AnvlArray must carry $dtype and an integer "
-        "$shape",
+        "invalid %s: the backend extractor must return an aval with a dtype "
+        "and an integer shape",
         leaf_subject(in_tree, leaf_index));
   }
   aval a;
-  a.dtype = anvl_dtype_from_tengen(af.dtype);
-  a.ambiguous = af.ambiguous;
-  const R_xlen_t nd = XLENGTH(af.shape);
+  a.dtype = anvl_dtype_from_tengen(dtype);
+  a.ambiguous = ambiguous;
+  const R_xlen_t nd = XLENGTH(shape);
   a.shape.reserve(nd);
-  for (R_xlen_t j = 0; j < nd; ++j) {
-    a.shape.push_back(INTEGER(af.shape)[j]);
-  }
+  for (R_xlen_t j = 0; j < nd; ++j) a.shape.push_back(INTEGER(shape)[j]);
   check_dtype_representable(a, in_tree, leaf_index);
   return a;
 }
@@ -204,6 +202,47 @@ struct ClosureEntry : EntryData {
 
 class ClosureEngine : public Engine {
  public:
+  ClosureEngine(std::string backend, SEXP extractor)
+      : backend_(std::move(backend)), extractor_(extractor) {
+    if (TYPEOF(extractor_) != CLOSXP && TYPEOF(extractor_) != BUILTINSXP &&
+        TYPEOF(extractor_) != SPECIALSXP) {
+      Rcpp::stop("the closure engine requires an `extractor` function");
+    }
+    R_PreserveObject(extractor_);
+  }
+  ~ClosureEngine() override { R_ReleaseObject(extractor_); }
+
+  // Read metadata through the backend's accessors: extractor(leaf) returns
+  // list(aval = list(dtype, shape, ambiguous), device, backend). `$data` is the
+  // one field read directly (contract-guaranteed). The aval is built only for a
+  // leaf of this dispatcher's backend; a foreign leaf carries its true tag back
+  // for the core to reject, and its metadata is neither required nor validated.
+  std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
+                                      std::size_t leaf_index) override {
+    if (!Rf_inherits(leaf, "AnvlArray")) return std::nullopt;
+    ArrayLeaf al;
+    al.data = anvl_field(leaf, "data");
+    Rcpp::Function extractor(extractor_);
+    Rcpp::List meta = extractor(leaf);
+    al.backend = field_string(
+        meta.containsElementNamed("backend") ? meta["backend"] : R_NilValue);
+    al.device =
+        meta.containsElementNamed("device") ? meta["device"] : R_NilValue;
+    if (al.backend == backend_) {
+      if (!meta.containsElementNamed("aval")) {
+        Rcpp::stop("invalid %s: the backend extractor must return an `aval`",
+                   leaf_subject(in_tree, leaf_index));
+      }
+      Rcpp::List av = meta["aval"];
+      SEXP dtype = av.containsElementNamed("dtype") ? av["dtype"] : R_NilValue;
+      SEXP shape = av.containsElementNamed("shape") ? av["shape"] : R_NilValue;
+      const bool amb =
+          av.containsElementNamed("ambiguous") && field_true(av["ambiguous"]);
+      al.av = aval_from_tengen(dtype, shape, amb, in_tree, leaf_index);
+    }
+    return al;
+  }
+
   void build_entry(const Rcpp::List& res, CacheEntry& e) const override {
     SEXP r_fun = res.containsElementNamed("r_fun")
                      ? static_cast<SEXP>(res["r_fun"])
@@ -232,6 +271,11 @@ class ClosureEngine : public Engine {
     Rcpp::Function fun(ce->r_fun);
     return fun(flat);
   }
+
+ private:
+  std::string backend_;          // the tag this dispatcher's arrays must carry
+  SEXP extractor_ = R_NilValue;  // reads a leaf's metadata via the backend's
+                                 // accessors; preserved for the engine's life
 };
 
 // ---- PjrtEngine -------------------------------------------------------------
@@ -272,27 +316,51 @@ class PjrtEngine : public Engine {
     R_PreserveObject(opts_);
   }
 
-  ~PjrtEngine() override { R_ReleaseObject(opts_); }
+  ~PjrtEngine() override {
+    R_ReleaseObject(opts_);
+    for (const auto& kv : device_cache_) R_ReleaseObject(kv.second);
+  }
 
-  // The fast aval read: `$data` is a PJRTBuffer that caches its element type
-  // and dimensions natively, so the tengen `$dtype` object is never decoded
-  // on the hot path. The generic read and this one agree by construction; the
-  // buffer is merely cheaper, and it cannot be falsified by a `$dtype` field
-  // that drifted.
-  aval array_aval(const AnvlFields& af, const RTree& in_tree,
-                  std::size_t leaf_index) const override {
-    if (TYPEOF(af.data) != EXTPTRSXP || !Rf_inherits(af.data, "PJRTBuffer")) {
-      Rcpp::stop(
-          "invalid %s: an \"%s\" AnvlArray must hold a PJRTBuffer in $data",
-          leaf_subject(in_tree, leaf_index), backend_.c_str());
+  // Reads the native way: dtype/shape/device all come off the PJRTBuffer in
+  // `$data` (it caches them natively and cannot be falsified by a drifted
+  // field, which this engine never consults). `$ambiguous` is the only R-list
+  // field the aval needs -- the buffer carries no such anvl type-system bit --
+  // and `$backend` the only other, for the reject path. The buffer is
+  // interpreted only once the leaf's tag matches, so a foreign leaf carries its
+  // tag back for the core to reject rather than failing the buffer check here.
+  std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
+                                      std::size_t leaf_index) override {
+    if (!Rf_inherits(leaf, "AnvlArray")) return std::nullopt;
+    ArrayLeaf al;
+    al.data = anvl_field(leaf, "data");
+    al.backend = field_string(anvl_field(leaf, "backend"));
+    if (al.backend == backend_) {
+      if (TYPEOF(al.data) != EXTPTRSXP || !Rf_inherits(al.data, "PJRTBuffer")) {
+        Rcpp::stop(
+            "invalid %s: an \"%s\" AnvlArray must hold a PJRTBuffer in $data",
+            leaf_subject(in_tree, leaf_index), backend_.c_str());
+      }
+      Rcpp::XPtr<PJRTBuffer> buf(al.data);
+      al.av.dtype = anvl_dtype_from_pjrt(buf->element_type());
+      al.av.shape = buf->dimensions();
+      al.av.ambiguous = field_true(anvl_field(leaf, "ambiguous"));
+      check_dtype_representable(al.av, in_tree, leaf_index);
+      // Device from the buffer, not $device: interned by PJRT_Device* (see
+      // canonical_device) so the token still matches a literal-only call's
+      // resolved device, which wraps the same per-client-singleton pointer.
+      al.device = device_for_ptr(buf->device_ptr(), buf->get_api());
     }
-    Rcpp::XPtr<PJRTBuffer> buf(af.data);
-    aval a;
-    a.dtype = anvl_dtype_from_pjrt(buf->element_type());
-    a.shape = buf->dimensions();
-    a.ambiguous = af.ambiguous;
-    check_dtype_representable(a, in_tree, leaf_index);
-    return a;
+    return al;
+  }
+
+  // A device object is one token per underlying PJRT_Device* (a per-client
+  // singleton, stable whether it came from a buffer or from pjrt_device()).
+  // Overrides the base's identical()-interning so a buffer-sourced device and a
+  // resolver-sourced one collapse to the same canonical object -- and thus the
+  // same key token -- letting f(x) and f(1) share an entry on one device.
+  SEXP canonical_device(SEXP device) override {
+    return device_for_ptr(Rcpp::XPtr<PJRTDevice>(device)->device,
+                          Rcpp::XPtr<PJRTDevice>(device)->api);
   }
 
   void build_entry(const Rcpp::List& res, CacheEntry& e) const override {
@@ -478,9 +546,10 @@ class PjrtEngine : public Engine {
  private:
   // One template AnvlArray per output, built on the compile (cold) path from
   // the avals the callback declared: a named list (data = NULL, dtype, shape,
-  // device, ambiguous, backend) of class "AnvlArray" -- the same field
-  // contract anvl_fields() reads. The hot path only shallow-copies a template
-  // and drops the output buffer into its `$data` slot.
+  // device, ambiguous, backend) of class "AnvlArray" -- the wrapper layout an
+  // xla leaf carries, which PjrtEngine::read_array reads back as an input. The
+  // hot path only shallow-copies a template and drops the output buffer into
+  // its `$data` slot.
   //
   // `out_avals[[i]]` is list(dtype = <string>, shape = <integer>, ambiguous =
   // <logical(1)>, the last optional) -- the same shape as the input avals the
@@ -525,8 +594,24 @@ class PjrtEngine : public Engine {
     return templates;
   }
 
+  // The canonical R PJRTDevice for one underlying PJRT_Device*, created on
+  // first sight and preserved for the engine's lifetime. Both read_array (from
+  // a buffer) and canonical_device (from the resolver) intern through it, so a
+  // device resolves to one object -- and one key token -- however it arrived.
+  SEXP device_for_ptr(PJRT_Device* p, std::shared_ptr<PJRT_Api> api) {
+    auto it = device_cache_.find(p);
+    if (it != device_cache_.end()) return it->second;
+    Rcpp::XPtr<PJRTDevice> xptr(new PJRTDevice(p, std::move(api)), true);
+    xptr.attr("class") = "PJRTDevice";
+    SEXP dev = xptr;
+    R_PreserveObject(dev);
+    device_cache_[p] = dev;
+    return dev;
+  }
+
   std::string backend_;
   SEXP opts_ = R_NilValue;  // reusable PJRTExecuteOptions xptr
+  std::unordered_map<PJRT_Device*, SEXP> device_cache_;
   // The pin policy: copy an input to the entry's device when it lives
   // elsewhere. Fixed per dispatcher, so it is state here rather than an
   // argument threaded through every run().
@@ -536,14 +621,16 @@ class PjrtEngine : public Engine {
 }  // namespace
 
 std::unique_ptr<Engine> make_engine(const std::string& engine_name,
-                                    std::string backend, bool move_inputs) {
+                                    std::string backend, bool move_inputs,
+                                    SEXP extractor) {
   if (engine_name == "pjrt") {
     return std::make_unique<PjrtEngine>(std::move(backend), move_inputs);
   }
-  // ClosureEngine needs no policy of its own: under `move_inputs` the backend's
-  // `r_fun` places its own inputs (see its run()).
+  // ClosureEngine needs no device policy of its own (under `move_inputs` the
+  // backend's `r_fun` places its own inputs, see its run()), but it does need
+  // the extractor to read a leaf's metadata via the backend's accessors.
   if (engine_name == "closure") {
-    return std::make_unique<ClosureEngine>();
+    return std::make_unique<ClosureEngine>(std::move(backend), extractor);
   }
   Rcpp::stop("engine must be \"pjrt\" or \"closure\"");
 }

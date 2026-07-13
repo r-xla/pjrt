@@ -123,12 +123,15 @@ inline std::vector<char> static_leaf_mask(
 // callback that compiles on a cache miss and returns the engine's entry
 // material (see ?dispatcher). `capacity` is the executable-cache size.
 // `static_names` are the top-level argument names whose values are static
-// (part of the cache key, excluded from execution). `backend` is the
-// `$backend` tag the call's AnvlArray inputs must carry.
+// (part of the cache key, excluded from execution). `backend` is the tag the
+// call's AnvlArray inputs must carry. `extractor_fn` reads a leaf's metadata
+// via the backend's accessors (required for the closure engine, R_NilValue for
+// pjrt, which reads the PJRTBuffer directly).
 // [[Rcpp::export]]
 SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
                           std::string engine, std::string backend,
-                          bool move_inputs, SEXP default_device_fn) {
+                          bool move_inputs, SEXP default_device_fn,
+                          SEXP extractor_fn) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
@@ -137,7 +140,8 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
     Rcpp::stop("miss_fn must be a function");
   }
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
-  std::unique_ptr<Engine> eng = make_engine(engine, backend, move_inputs);
+  std::unique_ptr<Engine> eng =
+      make_engine(engine, backend, move_inputs, extractor_fn);
   if (default_device_fn != R_NilValue && TYPEOF(default_device_fn) != CLOSXP) {
     Rcpp::stop("default_device must be a function or NULL");
   }
@@ -219,12 +223,12 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       key.leaves.push_back(std::move(kl));
       continue;
     }
-    if (std::optional<AnvlFields> af = anvl_fields(leaf)) {
+    if (std::optional<ArrayLeaf> al = engine.read_array(leaf, in_tree, k)) {
       const char* leaf_backend =
-          af->backend != nullptr ? af->backend : "<none>";
+          al->backend.empty() ? "<none>" : al->backend.c_str();
       // "plain" AnvlArrays capture trace-time constants in a backend-agnostic
       // way; no engine can execute one, whichever engine is asking.
-      if (!std::strcmp(leaf_backend, "plain")) {
+      if (al->backend == "plain") {
         Rcpp::stop(
             "invalid %s: an AnvlArray of the \"plain\" backend captures a "
             "trace-time constant and is not a call argument",
@@ -233,14 +237,14 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       // Every array leaf must carry the dispatcher's backend. Mixing backends
       // in one call can therefore never happen; it is a per-dispatcher
       // property, not a per-leaf one.
-      if (std::strcmp(leaf_backend, call_backend)) {
+      if (al->backend != call_backend) {
         Rcpp::stop(
             "invalid %s: expected an AnvlArray of backend \"%s\"; got \"%s\"",
             leaf_subject(in_tree, k), call_backend, leaf_backend);
       }
       kl.kind = KeyLeaf::kArray;
-      kl.av = engine.array_aval(*af, in_tree, k);
-      if (af->device == R_NilValue) {
+      kl.av = std::move(al->av);
+      if (al->device == R_NilValue) {
         Rcpp::stop("invalid %s: an AnvlArray must carry $device",
                    leaf_subject(in_tree, k));
       }
@@ -253,7 +257,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       // and every later array must agree with it.
       if (!move) {
         const DeviceToken leaf_device =
-            static_cast<DeviceToken>(engine.canonical_device(af->device));
+            static_cast<DeviceToken>(engine.canonical_device(al->device));
         if (!have_device) {
           key.device = leaf_device;
           have_device = true;
@@ -266,7 +270,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         }
       }
       key.leaves.push_back(std::move(kl));
-      exec_inputs.push_back({af->data, &key.leaves.back().av, false});
+      exec_inputs.push_back({al->data, &key.leaves.back().av, false});
       continue;
     }
     std::optional<RDataInfo> rd = classify_rdata(leaf);

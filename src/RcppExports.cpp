@@ -22,8 +22,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_dispatch_create
-SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn);
-RcppExport SEXP _pjrt_impl_dispatch_create(SEXP capacitySEXP, SEXP miss_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP) {
+SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn, SEXP extractor_fn);
+RcppExport SEXP _pjrt_impl_dispatch_create(SEXP capacitySEXP, SEXP miss_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP, SEXP extractor_fnSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -34,7 +34,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string >::type backend(backendSEXP);
     Rcpp::traits::input_parameter< bool >::type move_inputs(move_inputsSEXP);
     Rcpp::traits::input_parameter< SEXP >::type default_device_fn(default_device_fnSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_dispatch_create(capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn));
+    Rcpp::traits::input_parameter< SEXP >::type extractor_fn(extractor_fnSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatch_create(capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -949,7 +950,7 @@ RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_cpp_tests_enabled", (DL_FUNC) &_pjrt_cpp_tests_enabled, 0},
-    {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 7},
+    {"_pjrt_impl_dispatch_create", (DL_FUNC) &_pjrt_impl_dispatch_create, 8},
     {"_pjrt_impl_dispatcher_size", (DL_FUNC) &_pjrt_impl_dispatcher_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},

@@ -176,8 +176,5 @@ These are all outside the dispatcher's core logic. Revisit once it is settled.
 * [ ] Avoid using R_PreserveObject as Rcpp has it's own internal precious list now
 * [ ] is move_inputs really needed per cache entry> I think it should be a global flag.
 
-* clean docs for dispatcher.R
-
-To read:
-* [x] finish reading pjrt dispatch_engine.cpp
-* [ ] dispatcher.cpp
+* [ ] clean docs for dispatcher.R
+* [ ] point agent to modern Rcpp (e.g. armadillo) to clean everything up

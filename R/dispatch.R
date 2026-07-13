@@ -156,7 +156,16 @@
 #'   it is recommended: an interned device resolves in one pointer comparison,
 #'   and each distinct object a backend hands out stays alive for the
 #'   dispatcher's lifetime.
-#' @return [`dispatcher()`] returns a `Dispatcher`.
+#' @param extractor (`function` | `NULL`)\cr
+#'   Reads a non-`"xla"` array leaf's metadata via the backend's accessors,
+#'   called as `extractor(leaf)` and returning
+#'   `list(aval = list(dtype, shape, ambiguous), device, backend)` -- `dtype` a
+#'   tengen `DataType`, `shape` an `integer()`, `device` the interned device
+#'   object, `backend` the leaf's tag. Required for any backend other than
+#'   `"xla"`; ignored for `"xla"`, where the dtype/shape/device come off the
+#'   `PJRTBuffer` in `$data` directly. Only `$data` is assumed on the leaf; every
+#'   other property is obtained through this function, so a backend need not
+#'   store them as fields (see the `AnvlBackend` contract in anvl).
 #' @export
 dispatcher <- function(
   capacity,
@@ -164,7 +173,8 @@ dispatcher <- function(
   static = character(),
   backend = "xla",
   move_inputs = FALSE,
-  default_device = NULL
+  default_device = NULL,
+  extractor = NULL
 ) {
   checkmate::assert_count(capacity, positive = TRUE)
   checkmate::assert_function(compile)
@@ -172,6 +182,7 @@ dispatcher <- function(
   checkmate::assert_string(backend, min.chars = 1L)
   checkmate::assert_flag(move_inputs)
   checkmate::assert_function(default_device, null.ok = TRUE)
+  checkmate::assert_function(extractor, null.ok = TRUE)
   if (!move_inputs && is.null(default_device)) {
     cli::cli_abort(
       "{.arg default_device} is required unless {.code move_inputs = TRUE}."
@@ -180,6 +191,12 @@ dispatcher <- function(
   # The backend fixes the execution engine: "xla" runs a compiled PJRT
   # executable natively; any other backend runs through the compiled R closure.
   engine <- if (backend == "xla") "pjrt" else "closure"
+  if (engine == "closure" && is.null(extractor)) {
+    cli::cli_abort(
+      "{.arg extractor} is required for a non-{.val xla} backend: pass a
+       function that reads a leaf's metadata via the backend's accessors."
+    )
+  }
   impl_dispatch_create(
     as.integer(capacity),
     compile,
@@ -187,7 +204,8 @@ dispatcher <- function(
     engine,
     backend,
     move_inputs,
-    default_device
+    default_device,
+    extractor
   )
 }
 

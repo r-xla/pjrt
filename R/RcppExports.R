@@ -5,8 +5,8 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
-impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn) {
-    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn)
+impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn) {
+    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn)
 }
 
 impl_dispatcher_size <- function(dispatcher) {

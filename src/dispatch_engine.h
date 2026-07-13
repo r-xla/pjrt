@@ -18,10 +18,11 @@
 // finished value, so the backend keeps full control over execution and
 // wrapping. A future native backend would be a third Engine subclass.
 //
-// This header also defines the array-wrapper field contract (AnvlFields): the
-// R list layout of an AnvlArray leaf. pjrt both reads it (classification) and
-// writes it (PjrtEngine's output wrapping); anvl constructs the same layout in
-// its backends. It is documented, in R-facing terms, in ?dispatcher.
+// How an array leaf is read is the engine's business too (Engine::read_array):
+// anvl's AnvlArray contract guarantees only a `$data` field, so the rest of a
+// leaf's metadata is obtained the way each backend permits -- PjrtEngine off
+// the PJRTBuffer, ClosureEngine through a backend-supplied extractor closure.
+// The output-wrapping layout PjrtEngine writes is documented in ?dispatcher.
 
 #pragma once
 
@@ -39,23 +40,18 @@
 
 namespace rpjrt {
 
-// The relevant fields of an AnvlArray leaf -- an R list with class "AnvlArray"
-// from which we read `$data`, `$backend`, `$ambiguous`, `$device`, `$dtype`,
-// and `$shape`. Every array of every backend records all of them, which is
-// what lets the generic aval read and the device token be backend-agnostic.
-struct AnvlFields {
-  SEXP data = R_NilValue;
-  SEXP dtype = R_NilValue;
-  SEXP shape = R_NilValue;
-  SEXP device = R_NilValue;
-  const char* backend = nullptr;
-  bool ambiguous = false;
+// What the dispatcher core needs from one array input, read by the engine that
+// owns the leaf's backend (Engine::read_array). The core applies input policy
+// -- plain-reject, backend-match, the device rules -- to these values; it never
+// parses the array's own fields. Only `$data` is guaranteed by anvl's backend
+// contract, so `av`/`device`/`backend` come from the buffer (PjrtEngine) or an
+// extractor (ClosureEngine), never from a fixed field layout.
+struct ArrayLeaf {
+  aval av;                 // dtype + shape + ambiguous
+  SEXP data = R_NilValue;  // $data: the execute-time input (buffer or R value)
+  SEXP device = R_NilValue;  // the R device object: the key's device token
+  std::string backend;       // the leaf's backend tag (policy + error messages)
 };
-
-// Nullopt for a leaf that is not a readable AnvlArray -- either it does not
-// carry the class, or it is a nameless list from which no field can be read.
-// Such a leaf goes on to classify_rdata() as bare R data.
-std::optional<AnvlFields> anvl_fields(SEXP leaf);
 
 // Classification of a bare (class-less) R value as an uploadable
 // literal/array leaf. Mirrors anvl's is_valid_r_lit / is_valid_r_array and its
@@ -147,13 +143,18 @@ class Engine {
   // a native engine with its own device-identity scheme can replace it.
   virtual SEXP canonical_device(SEXP device);
 
-  // The aval of an AnvlArray leaf of this dispatcher's backend. The default
-  // reads the `$dtype` (a tengen DataType) and integer `$shape` fields that
-  // every AnvlArray carries -- it works for a backend pjrt has never heard
-  // of. An engine with cheaper, authoritative metadata overrides it (see
-  // PjrtEngine). `in_tree` / `leaf_index` only name the leaf on rejection.
-  virtual aval array_aval(const AnvlFields& af, const RTree& in_tree,
-                          std::size_t leaf_index) const;
+  // Read one array input into the material the core needs. Nullopt when `leaf`
+  // is not an AnvlArray this engine can read, so the core falls through to
+  // classify_rdata(). The engine reads only what it uses and only what the
+  // leaf's backend permits: PjrtEngine takes dtype/shape off the PJRTBuffer and
+  // never consults `$dtype`/`$shape`; ClosureEngine defers to the backend's
+  // extractor. Backend-specific structural validation (e.g. "$data must be a
+  // PJRTBuffer") is done only once the leaf's backend tag matches this
+  // engine's, so the core's plain-reject / backend-match policy still reports
+  // first for a foreign leaf. `in_tree`/`leaf_index` name the leaf on
+  // rejection.
+  virtual std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
+                                              std::size_t leaf_index) = 0;
 
   // Build the entry's data from the compile callback's result. Must validate
   // and extract everything that can throw BEFORE the first preserve() (`res`
@@ -182,13 +183,17 @@ class Engine {
 };
 
 // engine_name is the R-facing selector: "pjrt" or "closure"; throws on any
-// other value. `backend` is the `$backend` tag the dispatcher's arrays carry
-// (the engine needs it to stamp the arrays it wraps). `move_inputs` is the
-// dispatcher's device policy, fixed for the engine's lifetime: under it the
-// entry's device is pinned by the compile callback and every engine places its
-// own inputs on it -- PjrtEngine by copying the buffer, ClosureEngine by
-// leaving it to the `r_fun` the backend compiled (see ?dispatcher).
+// other value. `backend` is the tag the dispatcher's arrays carry (the engine
+// needs it to stamp the arrays it wraps and to recognize its own leaves).
+// `move_inputs` is the dispatcher's device policy, fixed for the engine's
+// lifetime: under it the entry's device is pinned by the compile callback and
+// every engine places its own inputs on it -- PjrtEngine by copying the buffer,
+// ClosureEngine by leaving it to the `r_fun` the backend compiled. `extractor`
+// is the R closure ClosureEngine calls to read a leaf's metadata via the
+// backend's accessors (required for "closure"; ignored, pass R_NilValue, for
+// "pjrt", which reads the PJRTBuffer directly). See ?dispatcher.
 std::unique_ptr<Engine> make_engine(const std::string& engine_name,
-                                    std::string backend, bool move_inputs);
+                                    std::string backend, bool move_inputs,
+                                    SEXP extractor);
 
 }  // namespace rpjrt
