@@ -9,12 +9,12 @@ impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, backen
     .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn)
 }
 
-impl_dispatcher_size <- function(dispatcher) {
-    .Call(`_pjrt_impl_dispatcher_size`, dispatcher)
+impl_dispatcher_size <- function(d) {
+    .Call(`_pjrt_impl_dispatcher_size`, d)
 }
 
-impl_dispatch_run <- function(dispatcher, args) {
-    .Call(`_pjrt_impl_dispatch_run`, dispatcher, args)
+impl_dispatch_run <- function(d, args) {
+    .Call(`_pjrt_impl_dispatch_run`, d, args)
 }
 
 get_eigh_handler <- function() {

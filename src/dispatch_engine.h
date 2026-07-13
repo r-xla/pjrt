@@ -46,11 +46,16 @@ namespace rpjrt {
 // parses the array's own fields. Only `$data` is guaranteed by anvl's backend
 // contract, so `av`/`device`/`backend` come from the buffer (PjrtEngine) or an
 // extractor (ClosureEngine), never from a fixed field layout.
+//
+// `device` is an RObject rather than a bare SEXP because an extractor may
+// fabricate it (?dispatcher does not require a backend to intern its devices),
+// in which case nothing else roots it between read_array() returning and
+// Engine::canonical_device() taking its own reference.
 struct ArrayLeaf {
-  aval av;                 // dtype + shape + ambiguous
-  SEXP data = R_NilValue;  // $data: the execute-time input (buffer or R value)
-  SEXP device = R_NilValue;  // the R device object: the key's device token
-  std::string backend;       // the leaf's backend tag (policy + error messages)
+  aval av;               // dtype + shape + ambiguous
+  Rcpp::RObject data;    // $data: the execute-time input (buffer or R value)
+  Rcpp::RObject device;  // the R device object: the key's device token
+  std::string backend;   // the leaf's backend tag (policy + error messages)
 };
 
 // Classification of a bare (class-less) R value as an uploadable
@@ -88,8 +93,9 @@ struct ExecInput {
 };
 
 // An engine's per-entry material -- what the compile callback produced, in the
-// engine's own shape. Owned by the CacheEntry; SEXP members must be rooted via
-// CacheEntry::preserve().
+// engine's own shape. Owned by the CacheEntry. An R object an engine holds is
+// held in an Rcpp type (XPtr, List, Function, RObject), which roots it for as
+// long as the entry lives and drops it when the entry is destroyed.
 struct EntryData {
   // Virtual because CacheEntry deletes the derived entry through this base
   // pointer; a non-virtual destructor would skip the derived one (leaking, for
@@ -97,40 +103,37 @@ struct EntryData {
   virtual ~EntryData() = default;
 };
 
-// One cache entry: the engine's data plus every R object preserved for the
-// entry's lifetime (released on eviction / dispatcher teardown).
+// One cache entry: the engine's data plus the key's own R objects, rooted for
+// the entry's lifetime and released when it is evicted or the dispatcher is
+// torn down.
 //
-// Deliberately no releasing destructor: LRUCache calls release_entry (its
-// on_evict hook) and then destroys the entry, so a destructor would double-
-// release. The flip side is that a stack-local entry leaks its preserves if
-// something throws between the first preserve() and cache().set() -- keep
-// that window free of throwing operations (today only set()'s own
-// std::bad_alloc can fire in it).
+// Everything here roots itself, so there is no preserve/release bookkeeping to
+// get wrong: an entry abandoned mid-construction (because the compile callback
+// threw) releases exactly what it had taken, and a cached one is released by
+// the LRU destroying it.
 struct CacheEntry {
-  std::vector<SEXP> keep;
+  // The key's static leaf values. The engine's own R objects live in `data`
+  // and are rooted by it, not here.
+  std::vector<Rcpp::RObject> keep;
   std::unique_ptr<EntryData> data;
 
   // Root `x` for this entry's lifetime. R_NilValue is a no-op.
-  SEXP preserve(SEXP x) {
-    if (x != R_NilValue) {
-      R_PreserveObject(x);
-      keep.push_back(x);
-    }
-    return x;
+  void keep_alive(SEXP x) {
+    if (x != R_NilValue) keep.emplace_back(x);
   }
 };
-
-inline void release_entry(CacheEntry& e) {
-  for (SEXP s : e.keep) R_ReleaseObject(s);
-  e.keep.clear();
-}
 
 // What a backend implements so the dispatcher core can stay agnostic. One
 // engine instance per Dispatcher (an engine may hold per-dispatcher state,
 // e.g. PjrtEngine's reusable execute options, or the canonical-device table).
 class Engine {
  public:
-  virtual ~Engine();
+  Engine() = default;
+  virtual ~Engine() = default;
+  // An engine owns R objects and is held by one Dispatcher; copying one would
+  // duplicate that ownership for no purpose.
+  Engine(const Engine&) = delete;
+  Engine& operator=(const Engine&) = delete;
 
   // The canonical representative of a device object; its address is the
   // cache key's DeviceToken. Resolution is by object identity first -- free
@@ -156,10 +159,10 @@ class Engine {
   virtual std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
                                               std::size_t leaf_index) = 0;
 
-  // Build the entry's data from the compile callback's result. Must validate
-  // and extract everything that can throw BEFORE the first preserve() (`res`
-  // keeps the SEXPs rooted meanwhile), so a malformed result never leaks a
-  // half-preserved entry.
+  // Build the entry's data from the compile callback's result, validating it
+  // first: a malformed result must throw rather than produce an entry. The
+  // entry's R objects root themselves, so a throw part-way through releases
+  // whatever had been taken.
   virtual void build_entry(const Rcpp::List& res, CacheEntry& e) const = 0;
 
   // Execute one call against a cached entry and return the finished R value.
@@ -171,15 +174,14 @@ class Engine {
   // per-call argument.
   //
   // The entry is const: build_entry() constructs it whole, so execution only
-  // ever reads it. That is what keeps the preserve() rooting discipline off
-  // the hot path -- nothing here can add to the entry's `keep`.
+  // ever reads it.
   virtual SEXP run(const CacheEntry& e,
                    const std::vector<ExecInput>& inputs) const = 0;
 
  private:
-  // The distinct devices this dispatcher has seen, each preserved; owned by
-  // the default canonical_device().
-  std::vector<SEXP> canonical_devices_;
+  // The distinct devices this dispatcher has seen, each rooted for the
+  // engine's lifetime; owned by the default canonical_device().
+  std::vector<Rcpp::RObject> canonical_devices_;
 };
 
 // engine_name is the R-facing selector: "pjrt" or "closure"; throws on any

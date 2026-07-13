@@ -131,24 +131,19 @@ std::string leaf_subject(const RTree& in_tree, std::size_t leaf_index) {
 
 // ---- Engine: device canonicalization and the generic aval read -------------
 
-Engine::~Engine() {
-  for (SEXP c : canonical_devices_) R_ReleaseObject(c);
-}
-
 SEXP Engine::canonical_device(SEXP device) {
   // Identity first: an interning backend's device is already canonical, so
   // this is one pointer compare per known device (usually one).
-  for (SEXP c : canonical_devices_) {
-    if (c == device) return c;
+  for (const Rcpp::RObject& c : canonical_devices_) {
+    if (SEXP(c) == device) return c;
   }
   // Equality fallback: an equal-but-distinct object maps to the canonical
   // one, so a backend that does not intern still gets one token per device.
-  for (SEXP c : canonical_devices_) {
+  for (const Rcpp::RObject& c : canonical_devices_) {
     if (r_identical(c, device)) return c;
   }
-  R_PreserveObject(device);
-  canonical_devices_.push_back(device);
-  return device;
+  canonical_devices_.emplace_back(device);
+  return canonical_devices_.back();
 }
 
 // Reject an aval whose dtype could not be represented: every such leaf would
@@ -197,20 +192,24 @@ static aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
 namespace {
 
 struct ClosureEntry : EntryData {
-  SEXP r_fun = R_NilValue;
+  explicit ClosureEntry(SEXP fun) : r_fun(fun) {}
+  Rcpp::Function r_fun;
 };
+
+// Rcpp::Function's own check would reject a non-function with a message that
+// does not name `extractor`, so the argument is vetted before it is wrapped.
+SEXP require_extractor(SEXP extractor) {
+  if (!Rf_isFunction(extractor)) {
+    Rcpp::stop("the closure engine requires an `extractor` function");
+  }
+  return extractor;
+}
 
 class ClosureEngine : public Engine {
  public:
   ClosureEngine(std::string backend, SEXP extractor)
-      : backend_(std::move(backend)), extractor_(extractor) {
-    if (TYPEOF(extractor_) != CLOSXP && TYPEOF(extractor_) != BUILTINSXP &&
-        TYPEOF(extractor_) != SPECIALSXP) {
-      Rcpp::stop("the closure engine requires an `extractor` function");
-    }
-    R_PreserveObject(extractor_);
-  }
-  ~ClosureEngine() override { R_ReleaseObject(extractor_); }
+      : backend_(std::move(backend)),
+        extractor_(require_extractor(extractor)) {}
 
   // Read metadata through the backend's accessors: extractor(leaf) returns
   // list(aval = list(dtype, shape, ambiguous), device, backend). `$data` is the
@@ -222,8 +221,7 @@ class ClosureEngine : public Engine {
     if (!Rf_inherits(leaf, "AnvlArray")) return std::nullopt;
     ArrayLeaf al;
     al.data = anvl_field(leaf, "data");
-    Rcpp::Function extractor(extractor_);
-    Rcpp::List meta = extractor(leaf);
+    Rcpp::List meta = extractor_(leaf);
     al.backend = field_string(
         meta.containsElementNamed("backend") ? meta["backend"] : R_NilValue);
     al.device =
@@ -252,9 +250,7 @@ class ClosureEngine : public Engine {
           "compile callback must return a function `r_fun` "
           "(engine = \"closure\")");
     }
-    auto data = std::make_unique<ClosureEntry>();
-    data->r_fun = e.preserve(r_fun);
-    e.data = std::move(data);
+    e.data = std::make_unique<ClosureEntry>(r_fun);
   }
 
   // Under the pin policy the entry's device is the one the backend compiled
@@ -268,14 +264,13 @@ class ClosureEngine : public Engine {
     for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
       flat[k] = exec_inputs[k].value;
     }
-    Rcpp::Function fun(ce->r_fun);
-    return fun(flat);
+    return ce->r_fun(flat);
   }
 
  private:
-  std::string backend_;          // the tag this dispatcher's arrays must carry
-  SEXP extractor_ = R_NilValue;  // reads a leaf's metadata via the backend's
-                                 // accessors; preserved for the engine's life
+  std::string backend_;       // the tag this dispatcher's arrays must carry
+  Rcpp::Function extractor_;  // reads a leaf's metadata via the backend's
+                              // accessors
 };
 
 // ---- PjrtEngine -------------------------------------------------------------
@@ -294,13 +289,21 @@ struct PhantomSpec {
 // it first, and the per-call wrap writes the output buffer into that slot of
 // a shallow copy. Keep the two in sync.
 struct PjrtEntry : EntryData {
-  SEXP exec = R_NilValue;          // PJRTLoadedExecutable xptr
-  std::vector<SEXP> const_arrays;  // buffers prepended to the inputs
+  PjrtEntry(SEXP exec, SEXP client, SEXP device, SEXP out_tree,
+            Rcpp::List templates)
+      : exec(exec),
+        client(client),
+        device(device),
+        out_tree(out_tree),
+        templates(std::move(templates)) {}
+
+  Rcpp::XPtr<PJRTLoadedExecutable> exec;
+  Rcpp::XPtr<PJRTClient> client;            // phantoms, uploads, moves
+  Rcpp::XPtr<PJRTDevice> device;            // the entry's device
+  Rcpp::XPtr<RTree> out_tree;               // the outputs' structure
+  Rcpp::List templates;                     // one template AnvlArray per output
+  std::vector<Rcpp::RObject> const_arrays;  // buffers prepended to the inputs
   std::vector<PhantomSpec> phantom_specs;
-  SEXP client = R_NilValue;     // PJRTClient xptr (phantoms, uploads, moves)
-  SEXP device = R_NilValue;     // PJRTDevice xptr: the entry's device
-  SEXP out_tree = R_NilValue;   // RTree xptr: the outputs' structure
-  SEXP templates = R_NilValue;  // VECSXP: one template AnvlArray per output
 };
 
 // The `$data` field's position in a wrap template (see PjrtEntry::templates).
@@ -309,17 +312,9 @@ constexpr int kTemplateDataSlot = 0;
 class PjrtEngine : public Engine {
  public:
   PjrtEngine(std::string backend, bool move_inputs)
-      : backend_(std::move(backend)), move_inputs_(move_inputs) {
-    Rcpp::XPtr<PJRTExecuteOptions> opts =
-        impl_execution_options_create(std::vector<int64_t>(), 0);
-    opts_ = opts;
-    R_PreserveObject(opts_);
-  }
-
-  ~PjrtEngine() override {
-    R_ReleaseObject(opts_);
-    for (const auto& kv : device_cache_) R_ReleaseObject(kv.second);
-  }
+      : backend_(std::move(backend)),
+        opts_(impl_execution_options_create(std::vector<int64_t>(), 0)),
+        move_inputs_(move_inputs) {}
 
   // Reads the native way: dtype/shape/device all come off the PJRTBuffer in
   // `$data` (it caches them natively and cannot be falsified by a drifted
@@ -359,14 +354,11 @@ class PjrtEngine : public Engine {
   // resolver-sourced one collapse to the same canonical object -- and thus the
   // same key token -- letting f(x) and f(1) share an entry on one device.
   SEXP canonical_device(SEXP device) override {
-    return device_for_ptr(Rcpp::XPtr<PJRTDevice>(device)->device,
-                          Rcpp::XPtr<PJRTDevice>(device)->api);
+    Rcpp::XPtr<PJRTDevice> dev(device);
+    return device_for_ptr(dev->device, dev->api);
   }
 
   void build_entry(const Rcpp::List& res, CacheEntry& e) const override {
-    // Extract everything that can throw FIRST (while `res` keeps the SEXPs
-    // rooted), and only then preserve into the entry -- a malformed callback
-    // result must not leak a half-preserved entry.
     auto named = [&](const char* nm) -> SEXP {
       return res.containsElementNamed(nm) ? static_cast<SEXP>(res[nm])
                                           : R_NilValue;
@@ -413,10 +405,13 @@ class PjrtEngine : public Engine {
       }
     }
 
-    auto data = std::make_unique<PjrtEntry>();
+    // The phantom specs are parsed before the templates are built, so a
+    // callback that declares a bad dtype is reported against `phantom_specs`
+    // (pjrt's own dtype table) rather than against `out_avals` (tengen's).
+    std::vector<PhantomSpec> phantom_specs;
     if (res.containsElementNamed("phantom_specs")) {
       Rcpp::List specs = res["phantom_specs"];
-      data->phantom_specs.reserve(specs.size());
+      phantom_specs.reserve(specs.size());
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
@@ -426,25 +421,22 @@ class PjrtEngine : public Engine {
         if (dt == "bool" || dt == "i1") dt = "pred";
         ps.dtype = string_to_pjrt_buffer_type(dt);
         ps.shape = Rcpp::as<std::vector<int64_t>>(spec["shape"]);
-        data->phantom_specs.push_back(std::move(ps));
+        phantom_specs.push_back(std::move(ps));
       }
     }
 
     // The wrap templates, built from the callback's declared output avals --
-    // the last thing that can throw. Rcpp roots `templates` meanwhile.
+    // the last thing that can throw.
     Rcpp::List templates = build_templates(out_avals, device);
 
-    // No throwing operations past this point: preserve the R objects.
-    data->exec = e.preserve(exec);
-    data->client = e.preserve(client);
-    data->device = e.preserve(device);
-    data->out_tree = e.preserve(out_tree);
-    data->templates = e.preserve(templates);
+    auto data = std::make_unique<PjrtEntry>(exec, client, device, out_tree,
+                                            std::move(templates));
+    data->phantom_specs = std::move(phantom_specs);
     if (consts != R_NilValue) {
       Rcpp::List cl(consts);
       data->const_arrays.reserve(cl.size());
       for (R_xlen_t i = 0; i < cl.size(); ++i) {
-        data->const_arrays.push_back(e.preserve(cl[i]));
+        data->const_arrays.emplace_back(cl[i]);
       }
     }
     e.data = std::move(data);
@@ -466,63 +458,56 @@ class PjrtEngine : public Engine {
     Rcpp::List inputs(pe->const_arrays.size() + exec_inputs.size() +
                       pe->phantom_specs.size());
     R_xlen_t pos = 0;
-    for (SEXP c : pe->const_arrays) inputs[pos++] = c;
+    for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
       if (!in.upload) {
         if (move_inputs_) {
           Rcpp::XPtr<PJRTBuffer> buf(in.value);
-          Rcpp::XPtr<PJRTDevice> dev(pe->device);
-          if (buf->device_ptr() != dev->device) {
-            Rcpp::XPtr<PJRTClient> client(pe->client);
+          if (buf->device_ptr() != pe->device->device) {
             // Same plugin <=> same client (clients are per-platform
             // singletons), so a differing API pointer means a cross-client
             // host-roundtrip copy -- mirrors pjrt::copy_buffer().
-            const bool cross = buf->get_api().get() != client->api.get();
-            inputs[pos++] = impl_buffer_copy_to_device(buf, dev, client, cross);
+            const bool cross = buf->get_api().get() != pe->client->api.get();
+            inputs[pos++] =
+                impl_buffer_copy_to_device(buf, pe->device, pe->client, cross);
             continue;
           }
         }
         inputs[pos++] = in.value;
         continue;
       }
-      Rcpp::XPtr<PJRTClient> client(pe->client);
-      Rcpp::XPtr<PJRTDevice> dev(pe->device);
       switch (TYPEOF(in.value)) {
         case REALSXP:
-          inputs[pos++] = impl_client_buffer_from_double(client, dev, in.value,
-                                                         in.av->shape, "f32");
+          inputs[pos++] = impl_client_buffer_from_double(
+              pe->client, pe->device, in.value, in.av->shape, "f32");
           break;
         case INTSXP:
-          inputs[pos++] = impl_client_buffer_from_integer(client, dev, in.value,
-                                                          in.av->shape, "i32");
+          inputs[pos++] = impl_client_buffer_from_integer(
+              pe->client, pe->device, in.value, in.av->shape, "i32");
           break;
         default:
-          inputs[pos++] = impl_client_buffer_from_logical(client, dev, in.value,
-                                                          in.av->shape, "pred");
+          inputs[pos++] = impl_client_buffer_from_logical(
+              pe->client, pe->device, in.value, in.av->shape, "pred");
           break;
       }
     }
-    if (!pe->phantom_specs.empty()) {
-      Rcpp::XPtr<PJRTClient> client(pe->client);
-      Rcpp::XPtr<PJRTDevice> device(pe->device);
-      for (const PhantomSpec& ps : pe->phantom_specs) {
-        inputs[pos++] = client_buffer_empty(client, device, ps.shape, ps.dtype);
-      }
+    for (const PhantomSpec& ps : pe->phantom_specs) {
+      inputs[pos++] =
+          client_buffer_empty(pe->client, pe->device, ps.shape, ps.dtype);
     }
 
-    Rcpp::XPtr<PJRTLoadedExecutable> exec(pe->exec);
-    Rcpp::XPtr<PJRTExecuteOptions> opts(opts_);
-    Rcpp::List out_bufs = impl_loaded_executable_execute(exec, inputs, opts);
+    Rcpp::List out_bufs =
+        impl_loaded_executable_execute(pe->exec, inputs, opts_);
 
     // The declared output count against the real one -- the half of the
     // callback's out_avals claim that only the executable can settle. Cheap,
     // and it keeps a miscounted callback from silently wrapping the wrong
     // buffers.
     const R_xlen_t n_out = out_bufs.size();
-    if (n_out != XLENGTH(pe->templates)) {
+    if (n_out != pe->templates.size()) {
       Rcpp::stop(
           "out_tree has %d leaves but the executable returned %d outputs",
-          static_cast<int>(XLENGTH(pe->templates)), static_cast<int>(n_out));
+          static_cast<int>(pe->templates.size()), static_cast<int>(n_out));
     }
 
     // Wrap each output: a shallow copy of its template with the buffer
@@ -538,9 +523,8 @@ class PjrtEngine : public Engine {
       SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[i]);
       flat[i] = w;
     }
-    Rcpp::XPtr<RTree> tree(pe->out_tree);
     std::size_t p = 0, li = 0;
-    return unflatten_rec(*tree, flat, p, li);
+    return unflatten_rec(*pe->out_tree, flat, p, li);
   }
 
  private:
@@ -595,23 +579,24 @@ class PjrtEngine : public Engine {
   }
 
   // The canonical R PJRTDevice for one underlying PJRT_Device*, created on
-  // first sight and preserved for the engine's lifetime. Both read_array (from
-  // a buffer) and canonical_device (from the resolver) intern through it, so a
+  // first sight and rooted for the engine's lifetime. Both read_array (from a
+  // buffer) and canonical_device (from the resolver) intern through it, so a
   // device resolves to one object -- and one key token -- however it arrived.
-  SEXP device_for_ptr(PJRT_Device* p, std::shared_ptr<PJRT_Api> api) {
+  //
+  // `api` is by const reference: this runs once per array leaf per call, and
+  // the hit path (the common one) never needs a copy of the shared_ptr.
+  SEXP device_for_ptr(PJRT_Device* p, const std::shared_ptr<PJRT_Api>& api) {
     auto it = device_cache_.find(p);
     if (it != device_cache_.end()) return it->second;
-    Rcpp::XPtr<PJRTDevice> xptr(new PJRTDevice(p, std::move(api)), true);
+    auto dev = std::make_unique<PJRTDevice>(p, api);
+    Rcpp::XPtr<PJRTDevice> xptr(dev.release(), true);
     xptr.attr("class") = "PJRTDevice";
-    SEXP dev = xptr;
-    R_PreserveObject(dev);
-    device_cache_[p] = dev;
-    return dev;
+    return device_cache_.emplace(p, xptr).first->second;
   }
 
   std::string backend_;
-  SEXP opts_ = R_NilValue;  // reusable PJRTExecuteOptions xptr
-  std::unordered_map<PJRT_Device*, SEXP> device_cache_;
+  Rcpp::XPtr<PJRTExecuteOptions> opts_;  // reusable, one per engine
+  std::unordered_map<PJRT_Device*, Rcpp::RObject> device_cache_;
   // The pin policy: copy an input to the entry's device when it lives
   // elsewhere. Fixed per dispatcher, so it is state here rather than an
   // argument threaded through every run().

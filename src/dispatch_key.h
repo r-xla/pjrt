@@ -282,16 +282,15 @@ inline bool keyed_by_value(KeyLeaf::Kind kind) {
 // STRSXP is the C-level as.character(): a call yields its deparsed elements, a
 // symbol or a literal body yields itself. Anything else folds nothing.
 inline std::uint64_t hash_closure(std::uint64_t h, SEXP f) {
-  // names() of the formals pairlist: its tags, as a STRSXP.
-  SEXP nms = PROTECT(Rf_getAttrib(R_ClosureFormals(f), R_NamesSymbol));
+  // names() of the formals pairlist: its tags, as a STRSXP. Shield rather than
+  // PROTECT/UNPROTECT: hash_atomic() can throw, and an RAII guard unwinds the
+  // protect stack where a bare UNPROTECT would be skipped.
+  Rcpp::Shield<SEXP> nms(Rf_getAttrib(R_ClosureFormals(f), R_NamesSymbol));
   h = hash_atomic(h, nms);
-  UNPROTECT(1);
   SEXP body = R_ClosureExpr(f);
   if (TYPEOF(body) == LANGSXP || TYPEOF(body) == SYMSXP) {
-    SEXP chars = PROTECT(Rf_coerceVector(body, STRSXP));
-    h = hash_atomic(h, chars);
-    UNPROTECT(1);
-    return h;
+    Rcpp::Shield<SEXP> chars(Rf_coerceVector(body, STRSXP));
+    return hash_atomic(h, chars);
   }
   // A literal body (`function() 1`) is already atomic; anything else folds
   // nothing and identical() decides.

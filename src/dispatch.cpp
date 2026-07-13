@@ -10,6 +10,8 @@
 // this file uses it on the stack to flatten a call's arguments to a leaf list
 // and to use the structure as cache-key material.
 
+#include "dispatch.h"
+
 #include <Rcpp.h>
 
 #include <cstddef>
@@ -28,66 +30,6 @@
 #include "tree.h"
 
 namespace rpjrt {
-
-// Per-jit Dispatcher: the engine, the executable cache, the R compile
-// callback (invoked on a miss), and the dispatch policies. R objects held in
-// the cache are R_PreserveObject'd on insert and released on eviction /
-// teardown via the cache's on_evict hook + clear().
-class Dispatcher {
- public:
-  Dispatcher(std::size_t capacity, SEXP miss_fn,
-             std::unordered_set<std::string> static_names,
-             std::unique_ptr<Engine> engine, std::string backend,
-             bool move_inputs, SEXP default_device_fn)
-      : cache_(capacity, release_entry),
-        miss_fn_(miss_fn),
-        default_device_fn_(default_device_fn),
-        static_names_(std::move(static_names)),
-        engine_(std::move(engine)),
-        backend_(std::move(backend)),
-        move_inputs_(move_inputs) {
-    R_PreserveObject(miss_fn_);
-    R_PreserveObject(default_device_fn_);
-  }
-
-  ~Dispatcher() {
-    cache_.clear();
-    R_ReleaseObject(miss_fn_);
-    R_ReleaseObject(default_device_fn_);
-  }
-
-  // The backend's current default device, as an R object -- the device a call
-  // with no array leaves runs on. Resolved afresh per such call: the default
-  // can change mid-session, and an entry compiled under one must not serve
-  // another. R_NilValue when the dispatcher was given no resolver.
-  SEXP default_device_fn() const { return default_device_fn_; }
-
-  LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq>& cache() {
-    return cache_;
-  }
-  SEXP miss_fn() const { return miss_fn_; }
-  const std::unordered_set<std::string>& static_names() const {
-    return static_names_;
-  }
-  // Non-const: canonical_device() may grow the engine's device table.
-  Engine& engine() { return *engine_; }
-  // The `$backend` tag every AnvlArray input must carry.
-  const std::string& backend() const { return backend_; }
-  // Pin policy: a target device is fixed per entry (jit(device = ) /
-  // device_arg), so the key carries no device and the engine places the
-  // inputs on the entry's device at execute time. The engine holds this too
-  // -- the core needs it for the key, the engine for the placing.
-  bool move_inputs() const { return move_inputs_; }
-
- private:
-  LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq> cache_;
-  SEXP miss_fn_;
-  SEXP default_device_fn_;
-  std::unordered_set<std::string> static_names_;
-  std::unique_ptr<Engine> engine_;
-  std::string backend_;
-  bool move_inputs_;
-};
 
 // The per-leaf static mask for a flattened argument list. Static-ness is a
 // top-level property: an argument named in `statics` marks every leaf in its
@@ -128,10 +70,11 @@ inline std::vector<char> static_leaf_mask(
 // via the backend's accessors (required for the closure engine, R_NilValue for
 // pjrt, which reads the PJRTBuffer directly).
 // [[Rcpp::export]]
-SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
-                          std::string engine, std::string backend,
-                          bool move_inputs, SEXP default_device_fn,
-                          SEXP extractor_fn) {
+Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatch_create(
+    int capacity, SEXP miss_fn,
+    Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
+    std::string backend, bool move_inputs, SEXP default_device_fn,
+    SEXP extractor_fn) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
@@ -145,25 +88,25 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
   if (default_device_fn != R_NilValue && TYPEOF(default_device_fn) != CLOSXP) {
     Rcpp::stop("default_device must be a function or NULL");
   }
+  std::optional<Rcpp::Function> resolver;
+  if (default_device_fn != R_NilValue) resolver.emplace(default_device_fn);
   std::unordered_set<std::string> statics;
-  if (static_names != R_NilValue && TYPEOF(static_names) == STRSXP) {
-    const R_xlen_t n = XLENGTH(static_names);
-    for (R_xlen_t k = 0; k < n; ++k) {
-      statics.insert(std::string(CHAR(STRING_ELT(static_names, k))));
+  if (static_names.isNotNull()) {
+    for (const auto& nm : Rcpp::CharacterVector(static_names)) {
+      statics.insert(Rcpp::as<std::string>(nm));
     }
   }
-  auto* d = new Dispatcher(static_cast<std::size_t>(capacity), miss_fn,
-                           std::move(statics), std::move(eng),
-                           std::move(backend), move_inputs, default_device_fn);
-  Rcpp::XPtr<Dispatcher> ptr(d, true);
+  auto d = std::make_unique<Dispatcher>(
+      static_cast<std::size_t>(capacity), miss_fn, std::move(statics),
+      std::move(eng), std::move(backend), move_inputs, std::move(resolver));
+  Rcpp::XPtr<Dispatcher> ptr(d.release(), true);
   ptr.attr("class") = "Dispatcher";
   return ptr;
 }
 
 // Number of compiled executables currently cached by the Dispatcher.
 // [[Rcpp::export]]
-int impl_dispatcher_size(SEXP dispatcher) {
-  Rcpp::XPtr<rpjrt::Dispatcher> d(dispatcher);
+int impl_dispatcher_size(Rcpp::XPtr<rpjrt::Dispatcher> d) {
   return static_cast<int>(d->cache().size());
 }
 
@@ -171,9 +114,8 @@ int impl_dispatcher_size(SEXP dispatcher) {
 // call) and return the call's finished result. Every input is validated here,
 // by name; a call that returns has been dispatched.
 // [[Rcpp::export]]
-SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
+SEXP impl_dispatch_run(Rcpp::XPtr<rpjrt::Dispatcher> d, Rcpp::List args) {
   using namespace rpjrt;
-  Rcpp::XPtr<Dispatcher> d(dispatcher);
   const std::unordered_set<std::string>& statics = d->static_names();
   Engine& engine = d->engine();
 
@@ -244,7 +186,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       }
       kl.kind = KeyLeaf::kArray;
       kl.av = std::move(al->av);
-      if (al->device == R_NilValue) {
+      if (al->device.isNULL()) {
         Rcpp::stop("invalid %s: an AnvlArray must carry $device",
                    leaf_subject(in_tree, k));
       }
@@ -270,7 +212,8 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         }
       }
       key.leaves.push_back(std::move(kl));
-      exec_inputs.push_back({al->data, &key.leaves.back().av, false});
+      // `$data` is a field of a leaf of `args`, which roots it for the call.
+      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().av, false});
       continue;
     }
     std::optional<RDataInfo> rd = classify_rdata(leaf);
@@ -298,15 +241,15 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   // of the key.
   Rcpp::RObject default_device;  // the resolved object, for the callback
   if (!move && !have_device) {
-    if (d->default_device_fn() == R_NilValue) {
+    const std::optional<Rcpp::Function>& resolve = d->default_device_fn();
+    if (!resolve) {
       Rcpp::stop(
           "this dispatcher cannot dispatch a call with no array inputs: it was "
           "created without a `default_device` resolver");
     }
-    Rcpp::Function resolve(d->default_device_fn());
     // Canonicalized like a leaf's device, so a resolver that returns a fresh
     // (equal) object per call still lands on the entry it compiled.
-    default_device = engine.canonical_device(resolve());
+    default_device = engine.canonical_device((*resolve)());
     key.device = static_cast<DeviceToken>(SEXP(default_device));
   }
 
@@ -327,10 +270,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       static_mask[i] = is_static[i] ? TRUE : FALSE;
       const KeyLeaf& kl = key.leaves[i];
       if (kl.kind == KeyLeaf::kStatic) continue;
-      Rcpp::IntegerVector shp(kl.av.shape.size());
-      for (std::size_t j = 0; j < kl.av.shape.size(); ++j) {
-        shp[j] = static_cast<int>(kl.av.shape[j]);
-      }
+      Rcpp::IntegerVector shp(kl.av.shape.begin(), kl.av.shape.end());
       // Every dtype has a canonical name -- a leaf with none was rejected -- so
       // the callback always sees a string, whichever backend the leaf is from.
       avals[i] = Rcpp::List::create(
@@ -340,7 +280,8 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     }
     Rcpp::List info = Rcpp::List::create(
         Rcpp::Named("args") = args,
-        Rcpp::Named("in_tree") = tree_xptr(new RTree(in_tree)),
+        Rcpp::Named("in_tree") =
+            tree_xptr(std::make_unique<RTree>(in_tree).release()),
         Rcpp::Named("leaves") = leaf_list,
         Rcpp::Named("is_static") = static_mask, Rcpp::Named("avals") = avals,
         // The device this call resolved when no array named one -- the device
@@ -349,19 +290,17 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         // or under the move policy.
         Rcpp::Named("default_device") = default_device);
 
-    Rcpp::Function miss(d->miss_fn());
-    Rcpp::List res = miss(info);
+    Rcpp::List res = d->miss_fn()(info);
 
-    // The engine validates the result and builds its entry material; entry
-    // SEXPs are preserved only after everything that can throw has thrown.
+    // The engine validates the result and builds its entry material.
     CacheEntry e;
     engine.build_entry(res, e);
 
-    // Preserve every SEXP the inserted key holds, so it outlives this call;
-    // released in release_entry on eviction/teardown. The key's device token
-    // needs no preserving here: it is the address of a canonical device
-    // object the engine keeps alive for the dispatcher's lifetime.
-    for (KeyLeaf& kl : key.leaves) e.preserve(kl.value);
+    // Root every SEXP the inserted key holds, so it outlives this call; the
+    // entry drops them when it is evicted. The key's device token needs no
+    // rooting here: it is the address of a canonical device object the engine
+    // keeps alive for the dispatcher's lifetime.
+    for (KeyLeaf& kl : key.leaves) e.keep_alive(kl.value);
 
     d->cache().set(key, std::move(e));
     entry = d->cache().get(key);
