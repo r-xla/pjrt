@@ -36,8 +36,8 @@
 #'
 #' Inputs are validated natively, before the cache is probed, and a rejection
 #' names the offending argument by its path in the argument tree. An input must
-#' be an `"AnvlArray"` of the dispatcher's `backend` carrying a `$device`, a
-#' length-1 atomic scalar, or an [`is.array()`] value; anything else errors, as
+#' be an `"AnvlArray"` of the dispatcher's `backend`, a length-1 atomic scalar,
+#' or an [`is.array()`] value; anything else errors, as
 #' does a static argument that is an `"AnvlArray"`, an `"AnvlArray"` of the
 #' `"plain"` backend (those capture trace-time constants and are never call
 #' arguments), and -- when no target device is fixed -- inputs spread across
@@ -46,18 +46,22 @@
 #' to produce the cache entry.
 #'
 #' @section Array leaves and output wrapping:
-#' An array input is an R list of class `"AnvlArray"` with fields `$data` (the
-#' backing buffer or R array), `$dtype` (a tengen `DataType`), `$shape`
-#' (`integer()`), `$device` (an interned device object), `$ambiguous`
-#' (`logical(1)`), and `$backend` (`character(1)`). The dispatcher reads this
-#' contract when classifying inputs -- `$dtype`/`$shape` for any backend, the
-#' `PJRTBuffer` in `$data` directly under `backend = "xla"` -- and writes it
-#' when wrapping outputs: with `backend = "xla"`, [`dispatch()`] returns the
-#' output buffers wrapped in this very layout (`$dtype`/`$shape`/`$ambiguous`
-#' from the `compile` callback's `out_avals`, `$device` the entry's device,
-#' `$backend` the dispatcher's `backend`), re-nested via `out_tree`. The
-#' wrappers are built once, when the entry is compiled, so a call only
-#' shallow-copies one per output and drops the buffer into its `$data`.
+#' An array input is an R list of class `"AnvlArray"`. Only `$data` (the backing
+#' buffer or R array) is assumed of it: the dispatcher never classifies an input
+#' by reaching for a fixed field layout. Under `backend = "xla"` the dtype,
+#' shape and device are read off the `PJRTBuffer` in `$data` directly, so they
+#' cannot drift from it; for any other backend they come from `extractor`, which
+#' obtains them through the backend's own accessors. A backend is therefore free
+#' to store them as fields or to compute them on demand.
+#'
+#' The wrapping side is a fixed layout, because pjrt writes it: with
+#' `backend = "xla"`, [`dispatch()`] returns each output buffer wrapped as an
+#' `"AnvlArray"` list of `$data`, `$dtype`, `$shape`, `$device`, `$ambiguous`
+#' and `$backend` (`$dtype`/`$shape`/`$ambiguous` from the `compile` callback's
+#' `out_avals`, `$device` the entry's device, `$backend` the dispatcher's
+#' `backend`), re-nested via `out_tree`. The wrappers are built once, when the
+#' entry is compiled, so a call only shallow-copies one per output and drops the
+#' buffer into its `$data`.
 #'
 #' @param capacity (`integer(1)`)\cr
 #'   Maximum number of compiled executables to cache.
@@ -166,6 +170,7 @@
 #'   `PJRTBuffer` in `$data` directly. Only `$data` is assumed on the leaf; every
 #'   other property is obtained through this function, so a backend need not
 #'   store them as fields (see the `AnvlBackend` contract in anvl).
+#' @return [`dispatcher()`] returns a `Dispatcher`.
 #' @export
 dispatcher <- function(
   capacity,

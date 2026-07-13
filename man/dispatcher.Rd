@@ -133,6 +133,9 @@ object, \code{backend} the leaf's tag. Required for any backend other than
 other property is obtained through this function, so a backend need not
 store them as fields (see the \code{AnvlBackend} contract in anvl).}
 }
+\value{
+\code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}.
+}
 \description{
 A native fast path for repeatedly executing a compiled program on inputs of
 the same signature, intended to be used in anvl. It owns an executable cache
@@ -171,8 +174,8 @@ anvl's \code{"quickr"}).
 
 Inputs are validated natively, before the cache is probed, and a rejection
 names the offending argument by its path in the argument tree. An input must
-be an \code{"AnvlArray"} of the dispatcher's \code{backend} carrying a \verb{$device}, a
-length-1 atomic scalar, or an \code{\link[=is.array]{is.array()}} value; anything else errors, as
+be an \code{"AnvlArray"} of the dispatcher's \code{backend}, a length-1 atomic scalar,
+or an \code{\link[=is.array]{is.array()}} value; anything else errors, as
 does a static argument that is an \code{"AnvlArray"}, an \code{"AnvlArray"} of the
 \code{"plain"} backend (those capture trace-time constants and are never call
 arguments), and -- when no target device is fixed -- inputs spread across
@@ -182,17 +185,21 @@ to produce the cache entry.
 }
 \section{Array leaves and output wrapping}{
 
-An array input is an R list of class \code{"AnvlArray"} with fields \verb{$data} (the
-backing buffer or R array), \verb{$dtype} (a tengen \code{DataType}), \verb{$shape}
-(\code{integer()}), \verb{$device} (an interned device object), \verb{$ambiguous}
-(\code{logical(1)}), and \verb{$backend} (\code{character(1)}). The dispatcher reads this
-contract when classifying inputs -- \verb{$dtype}/\verb{$shape} for any backend, the
-\code{PJRTBuffer} in \verb{$data} directly under \code{backend = "xla"} -- and writes it
-when wrapping outputs: with \code{backend = "xla"}, \code{\link[=dispatch]{dispatch()}} returns the
-output buffers wrapped in this very layout (\verb{$dtype}/\verb{$shape}/\verb{$ambiguous}
-from the \code{compile} callback's \code{out_avals}, \verb{$device} the entry's device,
-\verb{$backend} the dispatcher's \code{backend}), re-nested via \code{out_tree}. The
-wrappers are built once, when the entry is compiled, so a call only
-shallow-copies one per output and drops the buffer into its \verb{$data}.
+An array input is an R list of class \code{"AnvlArray"}. Only \verb{$data} (the backing
+buffer or R array) is assumed of it: the dispatcher never classifies an input
+by reaching for a fixed field layout. Under \code{backend = "xla"} the dtype,
+shape and device are read off the \code{PJRTBuffer} in \verb{$data} directly, so they
+cannot drift from it; for any other backend they come from \code{extractor}, which
+obtains them through the backend's own accessors. A backend is therefore free
+to store them as fields or to compute them on demand.
+
+The wrapping side is a fixed layout, because pjrt writes it: with
+\code{backend = "xla"}, \code{\link[=dispatch]{dispatch()}} returns each output buffer wrapped as an
+\code{"AnvlArray"} list of \verb{$data}, \verb{$dtype}, \verb{$shape}, \verb{$device}, \verb{$ambiguous}
+and \verb{$backend} (\verb{$dtype}/\verb{$shape}/\verb{$ambiguous} from the \code{compile} callback's
+\code{out_avals}, \verb{$device} the entry's device, \verb{$backend} the dispatcher's
+\code{backend}), re-nested via \code{out_tree}. The wrappers are built once, when the
+entry is compiled, so a call only shallow-copies one per output and drops the
+buffer into its \verb{$data}.
 }
 

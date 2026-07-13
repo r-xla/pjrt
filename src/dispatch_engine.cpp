@@ -33,6 +33,16 @@ SEXP anvl_field(SEXP leaf, const char* name) {
   return R_NilValue;
 }
 
+// An array leaf this engine can read: an AnvlArray is a list, and anvl_field()
+// reads it with VECTOR_ELT. A value carrying the class but not the type is not
+// one an engine can read, so it falls through to the core's documented
+// rejection ("expected an AnvlArray, a length-1 atomic scalar, or ...") rather
+// than reaching VECTOR_ELT and raising R's low-level type error from the hot
+// path.
+bool is_anvl_array(SEXP leaf) {
+  return TYPEOF(leaf) == VECSXP && Rf_inherits(leaf, "AnvlArray");
+}
+
 // The first element of a character field, or "" if it is not a string.
 std::string field_string(SEXP v) {
   return (TYPEOF(v) == STRSXP && XLENGTH(v) > 0)
@@ -218,7 +228,7 @@ class ClosureEngine : public Engine {
   // for the core to reject, and its metadata is neither required nor validated.
   std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
                                       std::size_t leaf_index) override {
-    if (!Rf_inherits(leaf, "AnvlArray")) return std::nullopt;
+    if (!is_anvl_array(leaf)) return std::nullopt;
     ArrayLeaf al;
     al.data = anvl_field(leaf, "data");
     Rcpp::List meta = extractor_(leaf);
@@ -325,7 +335,7 @@ class PjrtEngine : public Engine {
   // tag back for the core to reject rather than failing the buffer check here.
   std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
                                       std::size_t leaf_index) override {
-    if (!Rf_inherits(leaf, "AnvlArray")) return std::nullopt;
+    if (!is_anvl_array(leaf)) return std::nullopt;
     ArrayLeaf al;
     al.data = anvl_field(leaf, "data");
     al.backend = field_string(anvl_field(leaf, "backend"));
@@ -354,6 +364,15 @@ class PjrtEngine : public Engine {
   // resolver-sourced one collapse to the same canonical object -- and thus the
   // same key token -- letting f(x) and f(1) share an entry on one device.
   SEXP canonical_device(SEXP device) override {
+    // Unlike the base implementation, this one dereferences the object. A
+    // leaf's device always comes from device_for_ptr() below, but the
+    // `default_device` resolver is the backend's own R code and can hand back
+    // anything: without this check a foreign external pointer would be
+    // reinterpreted as a PJRTDevice, and its garbage PJRT_Device* cached and
+    // handed to uploads and execution.
+    if (TYPEOF(device) != EXTPTRSXP || !Rf_inherits(device, "PJRTDevice")) {
+      Rcpp::stop("the `default_device` resolver must return a PJRTDevice");
+    }
     Rcpp::XPtr<PJRTDevice> dev(device);
     return device_for_ptr(dev->device, dev->api);
   }

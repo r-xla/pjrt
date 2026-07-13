@@ -57,6 +57,19 @@ inline std::vector<char> static_leaf_mask(
   return mask;
 }
 
+// The Dispatcher an R-side handle points at. Rcpp's XPtr conversion checks
+// only that the SEXP is an external pointer, never what it points at, so a
+// handle of any other class -- a PJRTBuffer, an RTree -- would be reinterpreted
+// as a Dispatcher* and dereferenced: undefined behaviour that reads arbitrary
+// memory rather than erroring. Mirrors as_tree() in tree.cpp.
+Dispatcher& as_dispatcher(SEXP handle) {
+  if (TYPEOF(handle) != EXTPTRSXP || !Rf_inherits(handle, "Dispatcher")) {
+    Rcpp::stop("expected a `Dispatcher` (as returned by `dispatcher()`)");
+  }
+  Rcpp::XPtr<Dispatcher> ptr(handle);
+  return *ptr;
+}
+
 }  // namespace rpjrt
 
 // ---- Dispatcher: the native eager-dispatch hot path ------------------------
@@ -106,18 +119,19 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatch_create(
 
 // Number of compiled executables currently cached by the Dispatcher.
 // [[Rcpp::export]]
-int impl_dispatcher_size(Rcpp::XPtr<rpjrt::Dispatcher> d) {
-  return static_cast<int>(d->cache().size());
+int impl_dispatcher_size(SEXP dispatcher) {
+  return static_cast<int>(rpjrt::as_dispatcher(dispatcher).cache().size());
 }
 
 // Run the native dispatch for `args` (the evaluated argument list of the
 // call) and return the call's finished result. Every input is validated here,
 // by name; a call that returns has been dispatched.
 // [[Rcpp::export]]
-SEXP impl_dispatch_run(Rcpp::XPtr<rpjrt::Dispatcher> d, Rcpp::List args) {
+SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   using namespace rpjrt;
-  const std::unordered_set<std::string>& statics = d->static_names();
-  Engine& engine = d->engine();
+  Dispatcher& d = as_dispatcher(dispatcher);
+  const std::unordered_set<std::string>& statics = d.static_names();
+  Engine& engine = d.engine();
 
   // 1. Flatten args into leaves + structure, and mark the static leaves.
   // flatten_rec encodes the argument list as the root ListNode, so its children
@@ -133,8 +147,8 @@ SEXP impl_dispatch_run(Rcpp::XPtr<rpjrt::Dispatcher> d, Rcpp::List args) {
   // material. Every rejection happens here, named after the offending argument:
   // an input that survives this loop is one the engine can execute, so the
   // compile callback is only ever asked to compile, never to validate.
-  const bool move = d->move_inputs();
-  const char* call_backend = d->backend().c_str();
+  const bool move = d.move_inputs();
+  const char* call_backend = d.backend().c_str();
   CacheKey key;
   key.in_tree = in_tree;
   // Reserved to the exact leaf count and never grown past it, which is what
@@ -241,7 +255,7 @@ SEXP impl_dispatch_run(Rcpp::XPtr<rpjrt::Dispatcher> d, Rcpp::List args) {
   // of the key.
   Rcpp::RObject default_device;  // the resolved object, for the callback
   if (!move && !have_device) {
-    const std::optional<Rcpp::Function>& resolve = d->default_device_fn();
+    const std::optional<Rcpp::Function>& resolve = d.default_device_fn();
     if (!resolve) {
       Rcpp::stop(
           "this dispatcher cannot dispatch a call with no array inputs: it was "
@@ -254,7 +268,7 @@ SEXP impl_dispatch_run(Rcpp::XPtr<rpjrt::Dispatcher> d, Rcpp::List args) {
   }
 
   // 4. Probe the cache; compile via the R miss callback on a miss.
-  CacheEntry* entry = d->cache().get(key);
+  CacheEntry* entry = d.cache().get(key);
   if (entry == nullptr) {
     // Hand the callback the material this call already derived -- the tree, the
     // flat leaves, the static mask, and each dynamic leaf's aval -- rather than
@@ -290,7 +304,7 @@ SEXP impl_dispatch_run(Rcpp::XPtr<rpjrt::Dispatcher> d, Rcpp::List args) {
         // or under the move policy.
         Rcpp::Named("default_device") = default_device);
 
-    Rcpp::List res = d->miss_fn()(info);
+    Rcpp::List res = d.miss_fn()(info);
 
     // The engine validates the result and builds its entry material.
     CacheEntry e;
@@ -302,8 +316,8 @@ SEXP impl_dispatch_run(Rcpp::XPtr<rpjrt::Dispatcher> d, Rcpp::List args) {
     // keeps alive for the dispatcher's lifetime.
     for (KeyLeaf& kl : key.leaves) e.keep_alive(kl.value);
 
-    d->cache().set(key, std::move(e));
-    entry = d->cache().get(key);
+    d.cache().set(key, std::move(e));
+    entry = d.cache().get(key);
   }
 
   // 5. The engine runs the call and returns the finished value.

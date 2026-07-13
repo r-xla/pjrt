@@ -261,6 +261,7 @@ test_that("jit() rejects inputs spread across devices, naming the input", {
 
 test_that("jit(device = ) fixes the entry's device and moves inputs to it", {
   skip_if_no_jit()
+  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
   f <- anvl::jit(function(x) x + 1, device = "cpu:0")
   x0 <- anvl::nv_array(c(1, 2), dtype = "f32", device = "cpu:0")
   res <- f(x0)
@@ -807,4 +808,133 @@ test_that("a capacity below 1 is rejected rather than segfaulting", {
     new_dispatcher(0L, function(info) list(), character(0), "closure", "quickr", FALSE, test_quickr_device),
     "capacity"
   )
+})
+
+test_that("out_avals and out_tree are the callback's claim, and are honoured", {
+  skip_if_not(plugins_downloaded())
+  two_src <- 'func.func @main(%x: tensor<2xf32>, %y: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
+    %0 = "stablehlo.add"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    %1 = "stablehlo.multiply"(%x, %y) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = two_src))
+  mk <- function(out_tree, out_avals) {
+    new_dispatcher(
+      10L,
+      function(info) xla_entry(exec, out_tree = out_tree, out_avals = out_avals),
+      character(0),
+      "pjrt",
+      "xla",
+      FALSE,
+      test_xla_device
+    )
+  }
+  x <- xarr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  y <- xarr(pjrt_buffer(c(3, 4), dtype = "f32"))
+
+  # Every wrapped field comes from the declared aval, not from the buffer: the
+  # first output is stamped ambiguous although nothing about the buffer is.
+  d <- mk(
+    build_tree(list(sum = 0, rest = list(prod = 0))),
+    list(oav(ambiguous = TRUE), oav())
+  )
+  res <- impl_dispatch_run(d, list(x, y))
+  expect_equal(out(res$sum), c(4, 6))
+  expect_equal(out(res$rest$prod), c(3, 8))
+  expect_identical(res$sum$ambiguous, TRUE)
+  expect_identical(res$rest$prod$ambiguous, FALSE)
+  expect_identical(res$sum$shape, 2L)
+  expect_identical(res$sum$dtype, tengen::as_dtype("f32"))
+
+  # An out_tree whose leaf count disagrees with the executable's actual output
+  # count is the one half of the callback's claim pjrt can still settle, and it
+  # does -- on execution, against the real outputs.
+  expect_error(
+    impl_dispatch_run(mk(build_tree(list(0, 0, 0)), list(oav(), oav(), oav())), list(x, y)),
+    "out_tree has 3 leaves but the executable returned 2 outputs"
+  )
+  # An out_avals that disagrees with out_tree is caught at compile time,
+  # before the entry is ever cached.
+  expect_error(
+    impl_dispatch_run(mk(build_tree(list(0, 0)), list(oav())), list(x, y)),
+    "out_avals has length 1 but out_tree has 2 leaves"
+  )
+})
+
+test_that("the pjrt engine validates the compile callback's entry", {
+  skip_if_not(plugins_downloaded())
+  id_src <- 'func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
+    "func.return"(%x): (tensor<2xf32>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = id_src))
+  mk <- function(entry_fn) {
+    new_dispatcher(10L, entry_fn, character(0), "pjrt", "xla", FALSE, test_xla_device)
+  }
+  x <- xarr(pjrt_buffer(c(1, 2), dtype = "f32"))
+
+  # A missing client (needed for uploads, phantoms, and the wrap's device) is a
+  # clear error, not a crash at input-assembly time.
+  d_bad <- mk(function(info) {
+    list(exec = exec, device = pjrt_device("cpu:0"), out_tree = build_tree(0))
+  })
+  expect_error(impl_dispatch_run(d_bad, list(x)), "must return `client`")
+
+  # So is a const_arrays element that is not a PJRTBuffer: execute would
+  # reinterpret the external pointer blindly and segfault, so it must be
+  # rejected when the entry is built (here: the exec itself, a plausible slip).
+  d_bad2 <- mk(function(info) xla_entry(exec, const_arrays = list(exec)))
+  expect_error(
+    impl_dispatch_run(d_bad2, list(x)),
+    "const_arrays\\[\\[1\\]\\]` must be a PJRTBuffer"
+  )
+})
+
+test_that("a handle that is not a Dispatcher is rejected, not reinterpreted", {
+  skip_if_not(plugins_downloaded())
+  # Rcpp's XPtr conversion checks only that the SEXP is an external pointer, so
+  # without an explicit class check these would reinterpret a PJRTBuffer as a
+  # Dispatcher* and read arbitrary memory -- returning a plausible wrong answer
+  # rather than erroring.
+  buf <- pjrt_buffer(c(1, 2), dtype = "f32")
+  expect_error(dispatcher_size(buf), "expected a `Dispatcher`")
+  expect_error(dispatch(buf, list(1)), "expected a `Dispatcher`")
+  expect_error(dispatcher_size(build_tree(0)), "expected a `Dispatcher`")
+})
+
+test_that("a default_device resolver must return a PJRTDevice", {
+  skip_if_not(plugins_downloaded())
+  # The resolver is the backend's own R code, and its result is dereferenced as
+  # a PJRTDevice. A foreign external pointer would otherwise have its garbage
+  # PJRT_Device* cached and handed to uploads and execution.
+  d <- new_dispatcher(
+    4L,
+    function(info) stop("must not reach the compile callback"),
+    character(0),
+    "pjrt",
+    "xla",
+    FALSE,
+    function() pjrt_client("cpu") # a PJRTClient, not a PJRTDevice
+  )
+  expect_error(
+    impl_dispatch_run(d, list(1)),
+    "`default_device` resolver must return a PJRTDevice"
+  )
+})
+
+test_that("an AnvlArray that is not a list is rejected, naming the argument", {
+  skip_if_not(plugins_downloaded())
+  # anvl_field() reads a leaf with VECTOR_ELT, so a value carrying the class but
+  # not the type must fall through to the core's documented rejection rather
+  # than reaching VECTOR_ELT and raising R's low-level type error.
+  d <- new_dispatcher(
+    4L,
+    function(info) stop("must not reach the compile callback"),
+    character(0),
+    "pjrt",
+    "xla",
+    FALSE,
+    test_xla_device
+  )
+  bad <- structure(c(data = 1), class = "AnvlArray")
+  expect_error(impl_dispatch_run(d, list(x = bad)), "invalid input `x`")
 })

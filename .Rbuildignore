@@ -27,3 +27,4 @@ Makefile
 ^CLAUDE\.md$
 ^AGENTS\.md$
 ^jarl.toml$
+^todos\.md$
