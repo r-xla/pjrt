@@ -179,5 +179,5 @@ These are all outside the dispatcher's core logic. Revisit once it is settled.
 * clean docs for dispatcher.R
 
 To read:
-* [ ] finish reading pjrt dispatch_engine.cpp
+* [x] finish reading pjrt dispatch_engine.cpp
 * [ ] dispatcher.cpp

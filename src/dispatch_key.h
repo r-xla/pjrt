@@ -283,7 +283,7 @@ inline bool keyed_by_value(KeyLeaf::Kind kind) {
 // symbol or a literal body yields itself. Anything else folds nothing.
 inline std::uint64_t hash_closure(std::uint64_t h, SEXP f) {
   // names() of the formals pairlist: its tags, as a STRSXP.
-  SEXP nms = PROTECT(Rf_getAttrib(FORMALS(f), R_NamesSymbol));
+  SEXP nms = PROTECT(Rf_getAttrib(R_ClosureFormals(f), R_NamesSymbol));
   h = hash_atomic(h, nms);
   UNPROTECT(1);
   SEXP body = R_ClosureExpr(f);

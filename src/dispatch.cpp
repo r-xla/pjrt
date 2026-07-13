@@ -89,6 +89,32 @@ class Dispatcher {
   bool move_inputs_;
 };
 
+// The per-leaf static mask for a flattened argument list. Static-ness is a
+// top-level property: an argument named in `statics` marks every leaf in its
+// subtree. `tree` is the one flatten_rec builds for the whole args list, so its
+// root's children are the call's arguments. Walk those children and append each
+// one's flag once per leaf it contributed -- a leaf is a LeafNode, appended by
+// flatten_rec in this same preorder, so the mask lines up with the leaf list
+// one-to-one. (A nested list or a NULL is a node but not a leaf, which is why
+// leaves are counted rather than nodes.)
+inline std::vector<char> static_leaf_mask(
+    const RTree& tree, const std::unordered_set<std::string>& statics) {
+  std::vector<char> mask;
+  const std::int32_t n_args = tree.n_children[0];
+  const bool named = tree.is_named(0);
+  std::size_t node = 1;  // node 0 is the root; its children start here
+  for (std::int32_t k = 0; k < n_args; ++k) {
+    const std::int32_t span = tree.subtree_nodes[node];
+    const char flag =
+        named && statics.count(tree.names[tree.name_off[0] + k]) > 0 ? 1 : 0;
+    for (std::int32_t j = 0; j < span; ++j) {
+      if (tree.kind[node + j] == RTree::LeafNode) mask.push_back(flag);
+    }
+    node += span;
+  }
+  return mask;
+}
+
 }  // namespace rpjrt
 
 // ---- Dispatcher: the native eager-dispatch hot path ------------------------
@@ -112,9 +138,7 @@ SEXP impl_dispatch_create(int capacity, SEXP miss_fn, SEXP static_names,
   }
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
   std::unique_ptr<Engine> eng = make_engine(engine, backend, move_inputs);
-  if (default_device_fn != R_NilValue && TYPEOF(default_device_fn) != CLOSXP &&
-      TYPEOF(default_device_fn) != BUILTINSXP &&
-      TYPEOF(default_device_fn) != SPECIALSXP) {
+  if (default_device_fn != R_NilValue && TYPEOF(default_device_fn) != CLOSXP) {
     Rcpp::stop("default_device must be a function or NULL");
   }
   std::unordered_set<std::string> statics;
@@ -149,42 +173,15 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   const std::unordered_set<std::string>& statics = d->static_names();
   Engine& engine = d->engine();
 
-  // 1. Flatten args into leaves + structure, marking static leaves. Static-ness
-  // is decided at the top level by argument name and propagated to every leaf
-  // beneath a static arg (mirrors anvl's static-arg marking).
+  // 1. Flatten args into leaves + structure, and mark the static leaves.
+  // flatten_rec encodes the argument list as the root ListNode, so its children
+  // are the call's arguments; static_leaf_mask overlays the dispatch-only
+  // static bit on the leaves each static-named argument contributed (this
+  // overlay is not part of the shared Rtree API).
   std::vector<SEXP> leaves;
-  std::vector<char> is_static;
-  const R_xlen_t n_args = args.size();
-  SEXP arg_nms = Rf_getAttrib(args, R_NamesSymbol);
-  const bool has_names = (arg_nms != R_NilValue);
-
-  // Emit the root ListNode over the args, then let flatten_rec append each
-  // arg's subtree after it (preorder). The root's names are pushed first, so
-  // the arg names occupy in_tree.names[0, n_args) even once nested named lists
-  // append their own names behind them.
   RTree in_tree;
-  in_tree.kind.push_back(RTree::ListNode);
-  in_tree.n_children.push_back(static_cast<std::int32_t>(n_args));
-  in_tree.subtree_nodes.push_back(0);  // backpatched once the args are emitted
-  if (has_names) {
-    in_tree.name_off.push_back(0);
-    for (R_xlen_t k = 0; k < n_args; ++k) {
-      in_tree.names.push_back(std::string(CHAR(STRING_ELT(arg_nms, k))));
-    }
-  } else {
-    in_tree.name_off.push_back(-1);
-  }
-  for (R_xlen_t k = 0; k < n_args; ++k) {
-    bool child_static =
-        !statics.empty() && has_names && statics.count(in_tree.names[k]) > 0;
-    flatten_rec(VECTOR_ELT(args, k), leaves, in_tree);
-    // Static-ness is a dispatch-only per-leaf overlay, not part of the shared
-    // Rtree API: mark every leaf this arg just contributed. is_static grows in
-    // lockstep with leaves, so resize fills the new tail with child_static
-    // (an arg with no leaves -- NULL / empty list -- is a no-op).
-    is_static.resize(leaves.size(), child_static ? 1 : 0);
-  }
-  in_tree.subtree_nodes[0] = static_cast<std::int32_t>(in_tree.kind.size());
+  flatten_rec(args, leaves, in_tree);
+  const std::vector<char> is_static = static_leaf_mask(in_tree, statics);
 
   // 2. Validate and classify leaves into key leaves + per-leaf execute
   // material. Every rejection happens here, named after the offending argument:
