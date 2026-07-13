@@ -52,8 +52,11 @@ class LRUCache {
     index_.emplace(key, order_.begin());
     if (index_.size() > capacity_) {  // remove LRU
       Entry& victim = order_.back();
-      if (on_evict_) on_evict_(victim.value);
+      // Erase from the index BEFORE on_evict: erasing re-hashes and compares
+      // the key, and on_evict may release resources the key's hash/equality
+      // read (the dispatcher's on_evict R_ReleaseObject's the key's SEXPs).
       index_.erase(victim.key);
+      if (on_evict_) on_evict_(victim.value);
       order_.pop_back();
     }
   }

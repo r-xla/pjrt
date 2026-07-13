@@ -26,6 +26,7 @@ Imports:
     withr,
     tengen (>= 0.2.0)
 Suggests:
+    anvl,
     callr,
     stablehlo,
     testthat (>= 3.0.0),

@@ -14,6 +14,7 @@
 namespace rpjrt {
 
 std::uint64_t hash_double(std::uint64_t h, double x) {
+  // Hash the raw bit pattern, not the numeric value.
   std::uint64_t bits;
   std::memcpy(&bits, &x, sizeof(bits));
   return hash_combine(h, bits);
@@ -21,9 +22,16 @@ std::uint64_t hash_double(std::uint64_t h, double x) {
 
 std::uint64_t hash_atomic(std::uint64_t h, SEXP v) {
   const R_xlen_t n = Rf_xlength(v);
+  // Contents only: TYPEOF/dtype is not folded here. The caller's key already
+  // carries the leaf's type/shape, and omitting it can at worst cause a
+  // collision (identical() still decides), never split identical() values.
   switch (TYPEOF(v)) {
     case LGLSXP: {
       const int* p = LOGICAL(v);
+      // R stores logicals as 32-bit; We reinterprete them as uint32_t
+      // (bijection) hash_combine() then auto-casts to uint64_t (this does
+      // zero-extension) It would also be possible to directly cast to uint64_t,
+      // doing sign-extension
       for (R_xlen_t i = 0; i < n; ++i) {
         h = hash_combine(h, static_cast<std::uint32_t>(p[i]));
       }
@@ -41,7 +49,7 @@ std::uint64_t hash_atomic(std::uint64_t h, SEXP v) {
       for (R_xlen_t i = 0; i < n; ++i) h = hash_double(h, p[i]);
       break;
     }
-    case CPLXSXP: {
+    case CPLXSXP: {  // complex
       const Rcomplex* p = COMPLEX(v);
       for (R_xlen_t i = 0; i < n; ++i) {
         h = hash_double(h, p[i].r);
@@ -52,6 +60,7 @@ std::uint64_t hash_atomic(std::uint64_t h, SEXP v) {
     case RAWSXP: {
       const Rbyte* p = RAW(v);
       for (R_xlen_t i = 0; i < n; ++i) {
+        // No uint_32t because there is no sign-bit
         h = hash_combine(h, static_cast<std::uint64_t>(p[i]));
       }
       break;
@@ -60,22 +69,29 @@ std::uint64_t hash_atomic(std::uint64_t h, SEXP v) {
       for (R_xlen_t i = 0; i < n; ++i) {
         SEXP s = STRING_ELT(v, i);
         if (s == NA_STRING) {
-          h = hash_combine(h, 0x4E41ULL);  // "NA"
+          // NA is a sentinel, not a translatable string, so fold a fixed
+          // constant: all that matters is every NA_character_ folds alike. The
+          // value is arbitrary; 0x4E41 spells the bytes 'N','A' as a mnemonic.
+          h = hash_combine(h, 0x4E41ULL);
           continue;
         }
-        const char* c = CHAR(s);
-        bool ascii = true;
-        for (const char* q = c; *q; ++q) {
-          if (static_cast<unsigned char>(*q) >= 0x80) {
-            ascii = false;
-            break;
-          }
-        }
-        if (!ascii) {
-          h = hash_combine(h, 0x8081ULL);  // non-ASCII: identical() decides
-          continue;
-        }
+        // Fold the UTF-8 bytes, not the stored bytes. identical() compares
+        // strings after translating to UTF-8 (src/main/unique.c: Seql), so the
+        // same text held as latin1 and as UTF-8 -- one value to identical() --
+        // must fold alike; this mirrors R's own shash(). A "bytes"-encoded
+        // string cannot be translated and needs no normalization (its raw bytes
+        // are its identity), so fold those directly.
+        //
+        // translateCharUTF8() may R_alloc a conversion buffer on R's transient
+        // (vmax) stack, which R frees only when the enclosing .Call returns.
+        // Over a long vector those buffers would pile up for the whole call, so
+        // vmaxget() snapshots the stack top and vmaxset() rewinds it each
+        // iteration -- releasing the buffer immediately, keeping memory flat.
+        const void* vmax = vmaxget();
+        const char* c =
+            Rf_getCharCE(s) == CE_BYTES ? CHAR(s) : Rf_translateCharUTF8(s);
         h = hash_combine(h, std::hash<std::string>{}(std::string(c)));
+        vmaxset(vmax);
       }
       break;
     }

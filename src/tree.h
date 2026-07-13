@@ -173,4 +173,15 @@ inline bool tree_eq(const RTree& a, const RTree& b) {
 // equal hash equally. Defined out-of-line in tree.cpp.
 std::uint64_t tree_hash(const RTree& tree);
 
+// The R accessor path of the `i`-th leaf (1-based, in preorder): "x$w[[2]]" and
+// the like, or "" for a leaf at the root. Used to name the offending argument
+// when the dispatcher rejects an input. Errors if `i` is out of range. Defined
+// out-of-line in tree.cpp.
+std::string tree_path(const RTree& tree, int i);
+
+// Hand a heap-allocated RTree to R as a classed external pointer, transferring
+// ownership (a finalizer deletes it on GC). The dispatcher uses this to pass
+// the tree it already built to its compile callback. Defined in tree.cpp.
+SEXP tree_xptr(RTree* n);
+
 }  // namespace rpjrt

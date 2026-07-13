@@ -34,9 +34,7 @@
   for downloading the plugins.
 * Added the Rtree module (pjrt's R analog of JAX's pytree), which
   includes functions like `build_tree()`, `flatten()`, `unflatten()`, etc..
-* Added a `dispatcher()` (implemented in C++) which can be used in anvl and
-  also makes use of the C++ Rtree implementation.
-  This is much faster than the R implementation of the dispatcher in anvl.
+* Added a `dispatcher()` (implemented in C++) which can be used in anvl.
 * `inspect_hlo()` returns the HLO intermediate representations the XLA
   compiler produces for a program -- the input (`before_optimizations`) and
   optimized (`after_optimizations`) HLO -- to help debug compilation (#194).

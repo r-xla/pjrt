@@ -13,6 +13,7 @@
 ^README.html$
 ^_pkgdown\.yml$
 ^specs$
+^benchmarks$
 ^docs$
 ^pkgdown$
 ^codecov.yaml$

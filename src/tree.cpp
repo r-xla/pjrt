@@ -40,7 +40,7 @@ std::uint64_t tree_hash(const RTree& tree) {
 // Wrap a heap-allocated RTree in an external pointer handed to R. Ownership
 // transfers to R: `true` registers a delete finalizer, so ~RTree() runs
 // (freeing the arrays) when the handle is garbage-collected.
-static SEXP tree_xptr(RTree* n) {
+SEXP tree_xptr(RTree* n) {
   Rcpp::XPtr<RTree> ptr(n, true);  // true: delete `n` on GC
   ptr.attr("class") = "RTree";     // tag with the S3 class R dispatches on
   return ptr;
@@ -329,10 +329,9 @@ Rcpp::IntegerVector impl_tree_child_sizes(SEXP tree) {
   return out;
 }
 
-// [[Rcpp::export]]
-std::string impl_tree_path(SEXP tree, int i) {
-  using namespace rpjrt;
-  const RTree& t = as_tree(tree);
+namespace rpjrt {
+
+std::string tree_path(const RTree& t, int i) {
   std::string out;
   std::size_t p = 0;
   int next = 0;
@@ -340,6 +339,13 @@ std::string impl_tree_path(SEXP tree, int i) {
     Rcpp::stop("tree_path(): no leaf with index %d in the tree", i);
   }
   return out;
+}
+
+}  // namespace rpjrt
+
+// [[Rcpp::export]]
+std::string impl_tree_path(SEXP tree, int i) {
+  return rpjrt::tree_path(rpjrt::as_tree(tree), i);
 }
 
 // [[Rcpp::export]]

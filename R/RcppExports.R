@@ -5,32 +5,12 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
-impl_dispatch_key_hash <- function(leaves) {
-    .Call(`_pjrt_impl_dispatch_key_hash`, leaves)
+impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn) {
+    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, backend, move_inputs, default_device_fn)
 }
 
-impl_dispatch_key_eq <- function(a, b) {
-    .Call(`_pjrt_impl_dispatch_key_eq`, a, b)
-}
-
-impl_dispatch_static_key_eq <- function(a, b) {
-    .Call(`_pjrt_impl_dispatch_static_key_eq`, a, b)
-}
-
-impl_dispatch_static_key_hash <- function(vals) {
-    .Call(`_pjrt_impl_dispatch_static_key_hash`, vals)
-}
-
-impl_dispatch_sentinel <- function() {
-    .Call(`_pjrt_impl_dispatch_sentinel`)
-}
-
-impl_dispatch_create <- function(capacity, miss_fn, static_names, engine, move_inputs) {
-    .Call(`_pjrt_impl_dispatch_create`, capacity, miss_fn, static_names, engine, move_inputs)
-}
-
-impl_dispatch_size <- function(dispatcher) {
-    .Call(`_pjrt_impl_dispatch_size`, dispatcher)
+impl_dispatcher_size <- function(dispatcher) {
+    .Call(`_pjrt_impl_dispatcher_size`, dispatcher)
 }
 
 impl_dispatch_run <- function(dispatcher, args) {

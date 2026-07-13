@@ -2,15 +2,12 @@
 % Please edit documentation in R/dispatch.R
 \name{dispatch}
 \alias{dispatch}
-\alias{dispatch_sentinel}
-\alias{dispatch_size}
+\alias{dispatcher_size}
 \title{Native eager-dispatch fast path}
 \usage{
 dispatch(dispatcher, args)
 
-dispatch_sentinel()
-
-dispatch_size(dispatcher)
+dispatcher_size(dispatcher)
 }
 \arguments{
 \item{dispatcher}{(\code{Dispatcher})\cr A dispatcher from \code{\link[=dispatcher]{dispatcher()}}.}
@@ -18,23 +15,17 @@ dispatch_size(dispatcher)
 \item{args}{(\code{list})\cr The (already evaluated) argument list of the call.}
 }
 \value{
-\code{\link[=dispatch]{dispatch()}} returns, on a handled call with
-\code{engine = "pjrt"}, a list with \code{buffers} (the raw output
-\code{\link{pjrt_buffer}}s), \code{out_tree} and \code{ambiguous_out} (the opaque values from
-\code{compile}), \code{out_dtypes} and \code{out_shapes} (each output's dtype string and
-integer shape, read natively), and \code{device} (the \code{compile} callback's
-device object). With \code{engine = "closure"} it returns
-\verb{list(value = <closure result>)}. Otherwise it returns the value of
-\code{\link[=dispatch_sentinel]{dispatch_sentinel()}}.
+\code{\link[=dispatch]{dispatch()}} returns the call's finished result. With
+\code{backend = "xla"} that is the output buffers wrapped into \code{"AnvlArray"}s
+and re-nested by the \code{compile} callback's \code{out_tree} (see
+\code{\link[=dispatcher]{dispatcher()}}); with any other backend it is whatever the compiled
+closure returned.
 
-\code{\link[=dispatch_sentinel]{dispatch_sentinel()}} returns the singleton sentinel value
-that \code{\link[=dispatch]{dispatch()}} yields for calls it does not handle natively.
-
-\code{\link[=dispatch_size]{dispatch_size()}} returns the number of compiled executables
+\code{\link[=dispatcher_size]{dispatcher_size()}} returns the number of compiled executables
 the dispatcher currently caches.
 }
 \description{
 Dispatch a call through a \code{\link[=dispatcher]{dispatcher()}}'s executable cache, compiling on a
-miss. Calls the dispatcher cannot handle natively yield
-\code{\link[=dispatch_sentinel]{dispatch_sentinel()}}, leaving the caller to fall back to R.
+miss. An input the dispatcher cannot execute is an error, named after the
+offending argument; there is no fallback for the caller to take.
 }
