@@ -108,9 +108,13 @@ time_us <- function(f, reps, drain = function(x) NULL) {
   for (b in seq_len(blocks_for(reps))) {
     gc()
     t0 <- Sys.time()
-    for (i in seq_len(reps)) outs[[i]] <- f()
+    for (i in seq_len(reps)) {
+      outs[[i]] <- f()
+    }
     elapsed <- as.numeric(Sys.time() - t0, units = "secs")
-    for (out in outs) drain(out)
+    for (out in outs) {
+      drain(out)
+    }
     best <- min(best, elapsed / reps)
   }
   best * 1e6
@@ -131,7 +135,11 @@ add_exec <- function(n, device) {
        %%0 = stablehlo.add %%a, %%b : %s
        return %%0 : %s
      }",
-    t, t, t, t, t
+    t,
+    t,
+    t,
+    t,
+    t
   )
   pjrt_compile(pjrt_program(src, format = "mlir"), device = device)
 }
@@ -211,15 +219,23 @@ cat("device:", format(device), "\n\n")
 
 invisible(measure(4L, device)) # warm the process
 
-res <- do.call(rbind, lapply(sizes, function(n) {
-  message("n = ", n)
-  measure(n, device)
-}))
+res <- do.call(
+  rbind,
+  lapply(sizes, function(n) {
+    message("n = ", n)
+    measure(n, device)
+  })
+)
 res$overhead_frac <- res$launch_us / res$roundtrip_us
 
 cat("==== where a cache-hit jit() call spends its launch, per call (us) ====\n\n")
 decomp <- c(
-  "n", "execute_us", "machinery_us", "capture_us", "launch_us", "pjrt_execute_us"
+  "n",
+  "execute_us",
+  "machinery_us",
+  "capture_us",
+  "launch_us",
+  "pjrt_execute_us"
 )
 print(round_cols(res[res$n < decompose_below, decomp]), row.names = FALSE)
 
@@ -232,7 +248,12 @@ cat("pjrt_execute_us = comparison: R-level pjrt_execute() on the same floor exec
 
 cat("\n==== launch overhead against the compute it precedes (us) ====\n\n")
 amort <- c(
-  "n", "launch_us", "await_us", "compute_us", "roundtrip_us", "overhead_frac"
+  "n",
+  "launch_us",
+  "await_us",
+  "compute_us",
+  "roundtrip_us",
+  "overhead_frac"
 )
 out <- round_cols(res[amort])
 out$overhead_frac <- round(res$overhead_frac, 3L)
