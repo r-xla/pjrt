@@ -16,6 +16,13 @@ trees are opaque `RTree` external pointers. The Rtree is pjrt’s R analog
 of [JAX’s pytree](https://docs.jax.dev/en/latest/pytrees.html), which is
 where the idea comes from.
 
+It also owns the **Dispatcher**
+([`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)/[`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)),
+the native eager-dispatch engine behind anvl’s `jit()`: an executable
+cache keyed on the inputs’ structure and abstract values, which calls
+back into R to compile only on a miss. See
+`specs/design/dispatch/dispatch.md`.
+
 ## Core Design
 
 ### Object Hierarchy
@@ -115,6 +122,10 @@ buffers.
   [`unflatten()`](https://r-xla.github.io/pjrt/dev/reference/unflatten.md),
   [`map_tree()`](https://r-xla.github.io/pjrt/dev/reference/map_tree.md),
   …)
+- `dispatch.R` –
+  [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md),
+  [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md);
+  the engine itself is C++ (`src/dispatch*.{h,cpp}`)
 - `safetensors.R` – safetensors read/write integration
 - `reexports.R` – tengen re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for

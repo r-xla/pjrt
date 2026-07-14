@@ -19,6 +19,8 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/build_tree.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/copy_buffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/devices.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/dev/reference/dispatch.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/dev/reference/dispatcher.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/elt_type.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/flatten.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/flatten_fun.html</loc></url>
@@ -61,5 +63,6 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/tree_size.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/unflatten.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/value.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/dev/todos.html</loc></url>
 </urlset>
 

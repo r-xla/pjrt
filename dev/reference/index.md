@@ -34,6 +34,13 @@
 - [`devices()`](https://r-xla.github.io/pjrt/dev/reference/devices.md) :
   Devices
 
+- [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)
+  [`dispatcher_size()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)
+  : Native eager-dispatch fast path
+
+- [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)
+  : Dispatcher
+
 - [`elt_type()`](https://r-xla.github.io/pjrt/dev/reference/elt_type.md)
   : Element Type
 

@@ -55,6 +55,7 @@
 <h2 id="package-overview">Package Overview<a class="anchor" aria-label="anchor" href="#package-overview"></a></h2>
 <p><code>pjrt</code> is the runtime layer of the r-xla stack. It compiles StableHLO/MLIR programs to hardware-specific executables and runs them via the PJRT C API. It supports CPU, CUDA, and Metal backends through dynamically loaded plugins.</p>
 <p>Beyond the runtime, pjrt also owns the <strong>Rtree module</strong> (<code><a href="reference/build_tree.html">build_tree()</a></code>/<code><a href="reference/flatten.html">flatten()</a></code>/<code><a href="reference/unflatten.html">unflatten()</a></code> and the structural tree ops in <code>src/tree.h</code>/<code>src/tree.cpp</code>/<code>R/tree.R</code>); trees are opaque <code>RTree</code> external pointers. The Rtree is pjrt’s R analog of <a href="https://docs.jax.dev/en/latest/pytrees.html" class="external-link">JAX’s pytree</a>, which is where the idea comes from.</p>
+<p>It also owns the <strong>Dispatcher</strong> (<code><a href="reference/dispatcher.html">dispatcher()</a></code>/<code><a href="reference/dispatch.html">dispatch()</a></code>), the native eager-dispatch engine behind anvl’s <code>jit()</code>: an executable cache keyed on the inputs’ structure and abstract values, which calls back into R to compile only on a miss. See <code>specs/design/dispatch/dispatch.md</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="core-design">Core Design<a class="anchor" aria-label="anchor" href="#core-design"></a></h2>
@@ -126,6 +127,8 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 <code>format.R</code> – buffer pretty-printing</li>
 <li>
 <code>tree.R</code> – Rtree API over the native <code>RTree</code> (<code><a href="reference/build_tree.html">build_tree()</a></code>, <code><a href="reference/flatten.html">flatten()</a></code>, <code><a href="reference/unflatten.html">unflatten()</a></code>, <code><a href="reference/map_tree.html">map_tree()</a></code>, …)</li>
+<li>
+<code>dispatch.R</code> – <code><a href="reference/dispatcher.html">dispatcher()</a></code>, <code><a href="reference/dispatch.html">dispatch()</a></code>; the engine itself is C++ (<code>src/dispatch*.{h,cpp}</code>)</li>
 <li>
 <code>safetensors.R</code> – safetensors read/write integration</li>
 <li>

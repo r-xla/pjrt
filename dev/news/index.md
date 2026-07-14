@@ -2,25 +2,6 @@
 
 ## pjrt (development version)
 
-### Features
-
-- pjrt now owns the Rtree module (pjrt’s R analog of JAX’s pytree),
-  which includes functions like
-  [`build_tree()`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md),
-  [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md),
-  [`unflatten()`](https://r-xla.github.io/pjrt/dev/reference/unflatten.md),
-  etc..
-- [`inspect_hlo()`](https://r-xla.github.io/pjrt/dev/reference/inspect_hlo.md)
-  returns the HLO intermediate representations the XLA compiler produces
-  for a program – the input (`before_optimizations`) and optimized
-  (`after_optimizations`) HLO – to help debug compilation
-  ([\#194](https://github.com/r-xla/pjrt/issues/194)). Enable it by
-  setting the dump flags in `XLA_FLAGS` (e.g.
-  `--xla_dump_to=<dir> --xla_dump_hlo_as_text`) at the start of the
-  session, before the first compilation;
-  [`inspect_hlo()`](https://r-xla.github.io/pjrt/dev/reference/inspect_hlo.md)
-  errors with instructions if they are not set.
-
 ### Performance
 
 - A `PJRTBuffer` now memoizes its immutable metadata (dtype, shape, and
@@ -58,6 +39,31 @@
   [`install_pjrt()`](https://r-xla.github.io/pjrt/dev/reference/install_pjrt.md)
   function which is a slight convenience wrapper for downloading the
   plugins.
+- Added the Rtree module (pjrt’s R analog of JAX’s pytree), which
+  includes functions like
+  [`build_tree()`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md),
+  [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md),
+  [`unflatten()`](https://r-xla.github.io/pjrt/dev/reference/unflatten.md),
+  etc..
+- Added
+  [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)
+  and
+  [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md),
+  a native (C++) eager-dispatch engine: an executable cache keyed on the
+  inputs’ structure and abstract values, which calls back into R to
+  compile only on a cache miss. It is intended to be used in {anvl}.
+  Ideally this would live in a library of its own, but we have included
+  it here for convenience.
+- [`inspect_hlo()`](https://r-xla.github.io/pjrt/dev/reference/inspect_hlo.md)
+  returns the HLO intermediate representations the XLA compiler produces
+  for a program – the input (`before_optimizations`) and optimized
+  (`after_optimizations`) HLO – to help debug compilation
+  ([\#194](https://github.com/r-xla/pjrt/issues/194)). Enable it by
+  setting the dump flags in `XLA_FLAGS` (e.g.
+  `--xla_dump_to=<dir> --xla_dump_hlo_as_text`) at the start of the
+  session, before the first compilation;
+  [`inspect_hlo()`](https://r-xla.github.io/pjrt/dev/reference/inspect_hlo.md)
+  errors with instructions if they are not set.
 
 ### Internal
 
@@ -103,7 +109,7 @@
 - [`pjrt_device()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_device.md)
   now returns cached `PJRTDevice` instances, so repeated calls for the
   same device yield objects with stable identity (useful for hashing and
-  caching, e.g. in `{anvil}`’s JIT).
+  caching, e.g. in [anvl](https://r-xla.github.io/anvl/)’s JIT).
 
 ### Bug fixes
 

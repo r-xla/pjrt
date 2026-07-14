@@ -52,12 +52,6 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
 <div class="section level3">
-<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
-<ul><li>pjrt now owns the Rtree module (pjrt’s R analog of JAX’s pytree), which includes functions like <code><a href="../reference/build_tree.html">build_tree()</a></code>, <code><a href="../reference/flatten.html">flatten()</a></code>, <code><a href="../reference/unflatten.html">unflatten()</a></code>, etc..</li>
-<li>
-<code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> returns the HLO intermediate representations the XLA compiler produces for a program – the input (<code>before_optimizations</code>) and optimized (<code>after_optimizations</code>) HLO – to help debug compilation (<a href="https://github.com/r-xla/pjrt/issues/194" class="external-link">#194</a>). Enable it by setting the dump flags in <code>XLA_FLAGS</code> (e.g. <code>--xla_dump_to=&lt;dir&gt; --xla_dump_hlo_as_text</code>) at the start of the session, before the first compilation; <code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> errors with instructions if they are not set.</li>
-</ul></div>
-<div class="section level3">
 <h3 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h3>
 <ul><li>A <code>PJRTBuffer</code> now memoizes its immutable metadata (dtype, shape, and device) on first access, so repeated <code>element_type()</code> / <code>dimensions()</code> reads no longer issue a PJRT C API call each time.</li>
 </ul></div>
@@ -68,11 +62,15 @@
 <li>Reading a buffer back to the host now respects the device buffer’s actual memory layout. A non-row-major (but untiled) executable output — e.g. one pinned to a column-major layout via <code>mhlo.layout_mode</code> — is reordered correctly instead of being returned transposed. A layout the readback cannot faithfully reorder (strided, tiled, or rank-mismatched) now raises a clear error rather than silently returning wrong data.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="features-development-version-1">Features<a class="anchor" aria-label="anchor" href="#features-development-version-1"></a></h3>
+<h3 id="features-development-version">Features<a class="anchor" aria-label="anchor" href="#features-development-version"></a></h3>
 <ul><li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>, <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code>, and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> now call R’s garbage collector and retry once when the plugin reports <code>RESOURCE_EXHAUSTED</code>. Unreferenced <code>PJRTBuffer</code> external pointers are finalized between attempts so their device memory is released before the retry.</li>
 <li>The first time a PJRT plugin needs to be downloaded, interactive sessions now ask for confirmation before downloading (similar to <code>torch</code>). Non-interactive sessions no longer download automatically. The <code>PJRT_INSTALL</code> environment variable overrides this: set it to <code>"1"</code> to always download without asking, or <code>"0"</code> to never download.</li>
 <li>Added an <code><a href="../reference/install_pjrt.html">install_pjrt()</a></code> function which is a slight convenience wrapper for downloading the plugins.</li>
+<li>Added the Rtree module (pjrt’s R analog of JAX’s pytree), which includes functions like <code><a href="../reference/build_tree.html">build_tree()</a></code>, <code><a href="../reference/flatten.html">flatten()</a></code>, <code><a href="../reference/unflatten.html">unflatten()</a></code>, etc..</li>
+<li>Added <code><a href="../reference/dispatcher.html">dispatcher()</a></code> and <code><a href="../reference/dispatch.html">dispatch()</a></code>, a native (C++) eager-dispatch engine: an executable cache keyed on the inputs’ structure and abstract values, which calls back into R to compile only on a cache miss. It is intended to be used in {anvl}. Ideally this would live in a library of its own, but we have included it here for convenience.</li>
+<li>
+<code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> returns the HLO intermediate representations the XLA compiler produces for a program – the input (<code>before_optimizations</code>) and optimized (<code>after_optimizations</code>) HLO – to help debug compilation (<a href="https://github.com/r-xla/pjrt/issues/194" class="external-link">#194</a>). Enable it by setting the dump flags in <code>XLA_FLAGS</code> (e.g. <code>--xla_dump_to=&lt;dir&gt; --xla_dump_hlo_as_text</code>) at the start of the session, before the first compilation; <code><a href="../reference/inspect_hlo.html">inspect_hlo()</a></code> errors with instructions if they are not set.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="internal-development-version">Internal<a class="anchor" aria-label="anchor" href="#internal-development-version"></a></h3>
@@ -99,7 +97,7 @@
 <ul><li>Added <code>buffer_copy()</code> function to copy buffer between devices.</li>
 <li>New <code><a href="../reference/pjrt_register_custom_call.html">pjrt_register_custom_call()</a></code> allows external packages to register C/C++ XLA FFI handlers with the PJRT plugin. Registration is deferred until the plugin loads, so handlers can be registered during <code>.onLoad()</code>.</li>
 <li>
-<code><a href="../reference/pjrt_device.html">pjrt_device()</a></code> now returns cached <code>PJRTDevice</code> instances, so repeated calls for the same device yield objects with stable identity (useful for hashing and caching, e.g. in <code>{anvil}</code>’s JIT).</li>
+<code><a href="../reference/pjrt_device.html">pjrt_device()</a></code> now returns cached <code>PJRTDevice</code> instances, so repeated calls for the same device yield objects with stable identity (useful for hashing and caching, e.g. in <a href="https://r-xla.github.io/anvl/" class="external-link">anvl</a>’s JIT).</li>
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-0-3-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-3-0"></a></h3>
