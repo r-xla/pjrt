@@ -31,6 +31,8 @@ Suggests:
     stablehlo,
     testthat (>= 3.0.0),
     xml2
+Remotes:
+    anvl@perf/dispatch-overhead
 LinkingTo:
     Rcpp,
     testthat
