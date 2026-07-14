@@ -28,10 +28,9 @@ std::uint64_t hash_atomic(std::uint64_t h, SEXP v) {
   switch (TYPEOF(v)) {
     case LGLSXP: {
       const int* p = LOGICAL(v);
-      // R stores logicals as 32-bit; We reinterprete them as uint32_t
-      // (bijection) hash_combine() then auto-casts to uint64_t (this does
-      // zero-extension) It would also be possible to directly cast to uint64_t,
-      // doing sign-extension
+      // R stores logicals as 32-bit ints (NA included). Reinterpreting them as
+      // uint32_t is a bijection, so no two values collide; hash_combine() then
+      // zero-extends to uint64_t.
       for (R_xlen_t i = 0; i < n; ++i) {
         h = hash_combine(h, static_cast<std::uint32_t>(p[i]));
       }
@@ -60,7 +59,7 @@ std::uint64_t hash_atomic(std::uint64_t h, SEXP v) {
     case RAWSXP: {
       const Rbyte* p = RAW(v);
       for (R_xlen_t i = 0; i < n; ++i) {
-        // No uint_32t because there is no sign-bit
+        // Unsigned already, so it widens without a sign bit to worry about.
         h = hash_combine(h, static_cast<std::uint64_t>(p[i]));
       }
       break;

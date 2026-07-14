@@ -10,10 +10,10 @@
       "auto" -- by the time it runs, the backend is fixed.
 * [x] move also the output wrapping functionality into dispatcher.cpp
       Done as part of the backend-abstraction refactor (see
-      specs/2026-07-10-dispatcher-backend-abstraction-design.md): the pjrt
-      engine wraps output buffers into AnvlArrays from per-entry templates and
-      re-nests them natively via out_tree; `dispatch()` now returns the call's
-      finished result and anvl's `jit_wrap_outputs_native()` is deleted.
+      specs/design/dispatch/dispatch.md): the pjrt engine wraps output buffers
+      into AnvlArrays from per-entry templates and re-nests them natively via
+      out_tree; `dispatch()` now returns the call's finished result and anvl's
+      `jit_wrap_outputs_native()` is deleted.
 * [x] ensure the benchmark shows we are now reasonably fast
       benchmarks/jit-launch-overhead.R updated to the new layering (the wrap
       is inside `dispatch()` now, and the old keyhash self-test hook is gone).

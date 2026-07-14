@@ -19,119 +19,95 @@ dispatcher(
 Maximum number of compiled executables to cache.}
 
 \item{compile}{(\code{function})\cr
-Cache-miss callback. Called as \code{compile(info)}, where \code{info} carries
-everything the dispatch already derived from the call, so that the callback
-never re-classifies the inputs:
+Cache-miss callback, called as \code{compile(info)}. \code{info} carries what the
+dispatch already derived from the call, so that the callback need not
+classify the inputs a second time:
 \itemize{
 \item \code{args}: the dispatched argument list,
 \item \code{in_tree}: its \code{RTree} (see \code{\link{build_tree}}),
 \item \code{leaves}: the flat leaf list (see \code{\link{flatten}}),
 \item \code{is_static}: a \code{logical()} mask over \code{leaves},
-\item \code{avals}: per leaf, \code{NULL} if static, else the \code{list(dtype, shape, ambiguous)} the cache key was built from. \code{dtype} is the canonical dtype
-string (\code{"f32"}, \code{"i64"}, ...), whichever backend the leaf came from;
-\code{shape} is an \code{integer()}, empty for a scalar,
-\item \code{default_device}: the device resolved for this call because no array
-input named one -- the device the cache key was built on, so \code{compile}
-must compile for it rather than resolve a default of its own. \code{NULL} when
-an array named the device, or under \code{move_inputs}.
+\item \code{avals}: per leaf, \code{NULL} if static, else the \code{list(dtype, shape, ambiguous)} the cache key was built from. \code{dtype} is a canonical dtype
+string (\code{"f32"}, \code{"i64"}, ...), \code{shape} an \code{integer()}, empty for a
+scalar,
+\item \code{default_device}: the device this call resolved because no array input
+named one -- the device the cache key was built on, so \code{compile} must
+compile for it rather than resolve a default of its own. \code{NULL} when an
+array named the device, or under \code{move_inputs}.
 }
 
 For \code{backend = "xla"} it must return a named list with:
 \itemize{
 \item \code{exec}: a \code{\link{pjrt_compile}}d executable,
 \item \code{client}, \code{device}: the \code{\link{pjrt_client}} and the device the entry is
-compiled for (used for R-data uploads, device moves, phantom
-allocation, and stamped on the wrapped outputs),
-\item \code{out_tree}: the \code{RTree} of the outputs (see \code{\link{build_tree}}), used to
-re-nest the wrapped output arrays,
+compiled for,
+\item \code{out_tree}: the \code{RTree} of the outputs (see \code{\link{build_tree}}),
 \item \code{out_avals}: one aval per output leaf of \code{out_tree}, each a
-\verb{list(dtype = <string>, shape = <integer>, ambiguous = <logical(1)>)} --
-the same shape as the input avals the callback receives in \code{info$avals}
-(\code{ambiguous} is optional and defaults to \code{FALSE}). The callback traced
-and compiled the program, so it is the one that knows these; pjrt uses
-them to build the output wrappers once, at compile time,
+\verb{list(dtype = <string>, shape = <integer>, ambiguous = <logical(1)>)}
+(\code{ambiguous} is optional and defaults to \code{FALSE}). The outputs are
+wrapped from these.
 \item \code{const_arrays} (optional): buffers prepended to the inputs,
 \item \code{phantom_specs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)} donation-output buffers to allocate fresh per call.
 }
 
 For any other \code{backend} it must return a named list with:
 \itemize{
-\item \code{r_fun}: a function called on the call's inputs -- the dynamic leaves
-only, in order, with an array leaf contributing its \verb{$data} -- returning
-the call's finished value. Static leaves are \emph{not} passed: they are
-constants of the closure \code{compile} just built, and a cache hit already
-proves the call's statics are \code{identical()} to the ones it was built
-from.
+\item \code{r_fun}: a function called with the list of the call's dynamic leaves, in
+order and with an array leaf contributing its \verb{$data}, returning the
+call's finished value. Static leaves are \emph{not} passed: they are constants
+of the closure \code{compile} just built, and a cache hit already proves the
+call's statics are \code{identical()} to the ones it was built from.
 }}
 
 \item{static}{(\code{character()})\cr
 Names of top-level arguments that are static (not arrays). Static values
 are part of the cache key and are excluded from execution. Defaults to
 none. They are compared with \code{identical(num.eq = FALSE)}, i.e. numbers
-compare bitwise: \code{0} and \code{-0} are distinct keys (a redundant compile of the
-same program), which is what keeps a \code{bit64::integer64} \code{NA} -- stored as
+compare bitwise, which is what keeps a \code{bit64::integer64} \code{NA} -- stored as
 the bit pattern of \code{-0} -- from sharing a cache entry with \code{0}.}
 
 \item{backend}{(\code{character(1)})\cr
 The \verb{$backend} tag every \code{"AnvlArray"} input must carry, and the tag
-stamped on wrapped outputs. It also selects the execution engine:
-\code{"xla"} (the default) executes a compiled PJRT executable natively; any
-other value calls the compiled R closure returned by \code{compile} on the flat
-leaves (anvl's quickr backend passes \code{"quickr"}).}
+stamped on wrapped outputs. It also selects the execution engine (see
+\emph{Backends}); anvl's quickr backend passes \code{"quickr"}.}
 
 \item{move_inputs}{(\code{logical(1)})\cr
-If \code{TRUE}, a target device is fixed per cache entry and the engine places
-each input on it at execute time; the cache key then carries no device, so
-inputs may arrive from any device. Default \code{FALSE}: the first array's
-device is the call's device, and a conflicting input is an error.
+If \code{TRUE}, each cache entry has a target device -- the \code{device} its
+\code{compile} call returned -- and the engine places every input on it at
+execute time; the cache key then carries no device, so inputs may arrive
+from any device. Default \code{FALSE}: the first array's device is the call's
+device, and a conflicting input is an error.
 
-It is a per-dispatcher \emph{policy} flag, not a device: it selects only
-\emph{whether} inputs are relocated. \emph{Which} device an entry targets is the
-\code{compile} callback's returned \code{device}, read off the entry at execute time
--- the dispatcher core never resolves or owns a device. That target need
-not be constant across entries: when the backend fixes it up front (anvl's
-\code{jit(device = "cuda")}) every entry compiles for the same device, but when
-the backend derives it from a static argument (anvl's \code{device_arg()}) each
-value keys a separate entry compiled for a different device. That is why
-the target lives per entry rather than as a single device on the
-dispatcher, and why this parameter is a boolean and not a device.
+It is a policy flag, not a device: \emph{which} device an entry targets is the
+\code{compile} callback's business, and need not be the same for every entry
+(anvl's \code{jit(device = )} fixes one up front, its \code{device_arg()} derives one
+per static argument value).
 
-Placing an input is the engine's own business, since only it knows what
-\verb{$data} holds. With \code{backend = "xla"} the entry's device is the \code{compile}
-callback's \code{device} and an input living elsewhere is copied to it. With
-any other backend pjrt does nothing: the entry's device is whichever one
-the backend compiled \code{r_fun} for, and \strong{\code{r_fun} must ensure its inputs are
-on that device} -- it receives only their \verb{$data}, not their \verb{$device}, so
-the placing has to be idempotent. Forgetting it means the backend runs on
-inputs it did not place; nothing in pjrt can detect that, because the
-device deliberately left the cache key.}
+Placing an input is the engine's business, since only it knows what \verb{$data}
+holds. With \code{backend = "xla"} an input living elsewhere is copied to the
+entry's device. With any other backend pjrt does nothing, so \strong{\code{r_fun} must
+place its own inputs} -- it receives only their \verb{$data}, not their
+\verb{$device}, so the placing has to be idempotent.}
 
 \item{default_device}{(\code{function} | \code{NULL})\cr
 Called with no arguments to get the backend's \emph{current} default device,
-whenever a call has no array input to read a device from. Its result is part
-of the cache key, so an entry compiled under one default device is never
-served after the default changes. Required unless \code{move_inputs = TRUE},
-which fixes the device per entry.
+whenever a call has no array input to read a device from. Its result is
+part of the cache key, so an entry compiled under one default device is
+never served after the default changes. Required unless
+\code{move_inputs = TRUE}, which fixes the device per entry.
 
-A device is identified by its object -- an array's \verb{$device}, or whatever
-this returns -- canonicalized per dispatcher: object identity first, and
-\code{\link[=identical]{identical()}} as a fallback, so equal-but-distinct device objects count
-as one device. Interning device objects (one object per device, alive for
-the session, as \code{\link[=as_pjrt_device]{as_pjrt_device()}} does) is therefore not required, but
-it is recommended: an interned device resolves in one pointer comparison,
-and each distinct object a backend hands out stays alive for the
-dispatcher's lifetime.}
+Devices are compared by object identity first and by \code{\link[=identical]{identical()}} as a
+fallback, so equal-but-distinct device objects count as one device.
+Interning them (one object per device, alive for the session, as
+\code{\link[=as_pjrt_device]{as_pjrt_device()}} does) is therefore not required, but is recommended:
+an interned device resolves in one pointer comparison, and every distinct
+object a backend hands out stays alive for the dispatcher's lifetime.}
 
 \item{extractor}{(\code{function} | \code{NULL})\cr
-Reads a non-\code{"xla"} array leaf's metadata via the backend's accessors,
-called as \code{extractor(leaf)} and returning
-\code{list(aval = list(dtype, shape, ambiguous), device, backend)} -- \code{dtype} a
-tengen \code{DataType}, \code{shape} an \code{integer()}, \code{device} the interned device
-object, \code{backend} the leaf's tag. Required for any backend other than
-\code{"xla"}; ignored for \code{"xla"}, where the dtype/shape/device come off the
-\code{PJRTBuffer} in \verb{$data} directly. Only \verb{$data} is assumed on the leaf; every
-other property is obtained through this function, so a backend need not
-store them as fields (see the \code{AnvlBackend} contract in anvl).}
+Reads a non-\code{"xla"} array's metadata via the backend's accessors, called as
+\code{extractor(leaf)} and returning \code{list(aval = list(dtype, shape, ambiguous), device, backend)} -- \code{dtype} a tengen \code{DataType}, \code{shape} an \code{integer()}.
+Required for any backend other than \code{"xla"}; ignored for \code{"xla"} (see
+\emph{Backends}).}
 }
 \value{
 \code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}.
@@ -143,63 +119,42 @@ keyed on the inputs' structure and abstract values, calling back into R to
 compile only on a cache miss.
 
 \code{\link[=dispatcher]{dispatcher()}} creates a dispatcher for one program family;
-\code{\link[=dispatch]{dispatch()}} runs a call through it and returns the call's finished
-result.
+\code{\link[=dispatch]{dispatch()}} runs a call through it and returns the call's result.
 }
 \details{
-On each \code{\link[=dispatch]{dispatch()}} call the inputs are flattened, classified, and
-turned into a cache key built per leaf from either its dtype/shape (read
-natively off buffers, or the R type/dim of a bare literal/array) plus an
-\code{ambiguous} flag, or -- for static and other value-keyed leaves -- the value
-itself (compared with \code{\link[=identical]{identical()}}). On a hit the cached artifact runs
-immediately; on a miss \code{compile} is invoked.
+Each \code{\link[=dispatch]{dispatch()}} call flattens the inputs and builds a cache key: a
+dynamic leaf contributes its dtype, shape and \code{ambiguous} flag, a static leaf
+its value (compared with \code{\link[=identical]{identical()}}). On a hit the cached executable runs
+immediately; on a miss \code{compile} is called to produce a new cache entry.
 
-The dispatcher core is backend-agnostic; the \code{backend} selects one of two
-execution engines, and everything backend-specific sits behind it:
+Inputs are validated before the cache is probed, and a rejection names the
+offending argument by its path in the argument tree. An input must be an
+\code{"AnvlArray"} of the dispatcher's \code{backend}, a length-1 atomic scalar, or an
+\code{\link[=is.array]{is.array()}} value. \code{compile} is therefore never asked to validate: it is
+called only on a cache miss, and only for inputs already known to be
+executable.
+}
+\section{Backends}{
+
+The \code{backend} selects the execution engine, and everything backend-specific
+sits behind it:
 \itemize{
 \item \code{backend = "xla"} executes a compiled PJRT executable natively: array
-leaves contribute their \verb{$data} buffer (copied to the entry's device
-under \code{move_inputs = TRUE}), bare R literals/arrays are uploaded with the
-same dtype defaults as \code{\link[=pjrt_scalar]{pjrt_scalar()}}/\code{\link[=pjrt_buffer]{pjrt_buffer()}}, and the
-output buffers are wrapped back into arrays (see \emph{Array leaves and
-output wrapping}) and re-nested via the \code{compile} callback's \code{out_tree}
--- all without leaving C++.
-\item any other \code{backend} calls the compiled R closure returned by \code{compile}
-on the call's inputs, with array leaves contributing their \verb{$data}. The
-closure returns the call's finished value, so execution, output wrapping,
-and -- under \code{move_inputs = TRUE} -- input placement stay entirely under
-the backend's control. This is the path for any non-PJRT backend (e.g.
-anvl's \code{"quickr"}).
+inputs contribute their \verb{$data} buffer, bare R literals and arrays are
+uploaded with the same dtype defaults as
+\code{\link[=pjrt_scalar]{pjrt_scalar()}}/\code{\link[=pjrt_buffer]{pjrt_buffer()}}, and the outputs are wrapped back into
+\code{"AnvlArray"}s -- lists of \verb{$data}, \verb{$dtype}, \verb{$shape}, \verb{$device},
+\verb{$ambiguous} and \verb{$backend} -- and re-nested via \code{out_tree}, all without
+leaving C++.
+\item any other \code{backend} calls the compiled R closure \code{compile} returned, which
+returns the call's finished value. Execution, output wrapping and input
+placement therefore stay under the backend's control. This is the path for
+any non-PJRT backend (e.g. anvl's \code{"quickr"}).
 }
 
-Inputs are validated natively, before the cache is probed, and a rejection
-names the offending argument by its path in the argument tree. An input must
-be an \code{"AnvlArray"} of the dispatcher's \code{backend}, a length-1 atomic scalar,
-or an \code{\link[=is.array]{is.array()}} value; anything else errors, as
-does a static argument that is an \code{"AnvlArray"}, an \code{"AnvlArray"} of the
-\code{"plain"} backend (those capture trace-time constants and are never call
-arguments), and -- when no target device is fixed -- inputs spread across
-devices. \code{compile} is therefore never asked to validate: it is called only
-on a cache miss, only for inputs already known to be executable, and only
-to produce the cache entry.
-}
-\section{Array leaves and output wrapping}{
-
-An array input is an R list of class \code{"AnvlArray"}. Only \verb{$data} (the backing
-buffer or R array) is assumed of it: the dispatcher never classifies an input
-by reaching for a fixed field layout. Under \code{backend = "xla"} the dtype,
-shape and device are read off the \code{PJRTBuffer} in \verb{$data} directly, so they
-cannot drift from it; for any other backend they come from \code{extractor}, which
-obtains them through the backend's own accessors. A backend is therefore free
-to store them as fields or to compute them on demand.
-
-The wrapping side is a fixed layout, because pjrt writes it: with
-\code{backend = "xla"}, \code{\link[=dispatch]{dispatch()}} returns each output buffer wrapped as an
-\code{"AnvlArray"} list of \verb{$data}, \verb{$dtype}, \verb{$shape}, \verb{$device}, \verb{$ambiguous}
-and \verb{$backend} (\verb{$dtype}/\verb{$shape}/\verb{$ambiguous} from the \code{compile} callback's
-\code{out_avals}, \verb{$device} the entry's device, \verb{$backend} the dispatcher's
-\code{backend}), re-nested via \code{out_tree}. The wrappers are built once, when the
-entry is compiled, so a call only shallow-copies one per output and drops the
-buffer into its \verb{$data}.
+Of an array input, only \verb{$data} is ever assumed: for \code{"xla"} its dtype, shape
+and device are read off the \code{PJRTBuffer} directly, and for any other backend
+they come from \code{extractor}. A backend is free to store them as fields or to
+compute them on demand.
 }
 

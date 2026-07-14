@@ -1,14 +1,10 @@
 // The dispatcher core: the backend-agnostic half of the native eager-dispatch
 // hot path. It flattens a call's arguments, validates and classifies the
 // leaves, builds the cache key, and drives the LRU cache + compile protocol.
-// Everything backend-specific -- reading an aval off an array, what a cache
+// Everything backend-specific -- reading an Aval off an array, what a cache
 // entry holds, executing a call, wrapping its outputs -- lives behind the
 // Engine interface (dispatch_engine.h); the key material lives in
 // dispatch_key.h.
-//
-// The RTree lives in tree.h (shared with the exposed Rtree API in tree.cpp);
-// this file uses it on the stack to flatten a call's arguments to a leaf list
-// and to use the structure as cache-key material.
 
 #include "dispatch.h"
 
@@ -35,10 +31,10 @@ namespace rpjrt {
 // top-level property: an argument named in `statics` marks every leaf in its
 // subtree. `tree` is the one flatten_rec builds for the whole args list, so its
 // root's children are the call's arguments. Walk those children and append each
-// one's flag once per leaf it contributed -- a leaf is a LeafNode, appended by
-// flatten_rec in this same preorder, so the mask lines up with the leaf list
-// one-to-one. (A nested list or a NULL is a node but not a leaf, which is why
-// leaves are counted rather than nodes.)
+// one's flag once per leaf it contributed -- flatten_rec appends leaves in this
+// same preorder, so the mask lines up with the leaf list one-to-one. (A nested
+// list or a NULL is a node but not a leaf, which is why leaves are counted
+// rather than nodes.)
 inline std::vector<char> static_leaf_mask(
     const RTree& tree, const std::unordered_set<std::string>& statics) {
   std::vector<char> mask;
@@ -57,11 +53,11 @@ inline std::vector<char> static_leaf_mask(
   return mask;
 }
 
-// The Dispatcher an R-side handle points at. Rcpp's XPtr conversion checks
-// only that the SEXP is an external pointer, never what it points at, so a
-// handle of any other class -- a PJRTBuffer, an RTree -- would be reinterpreted
-// as a Dispatcher* and dereferenced: undefined behaviour that reads arbitrary
-// memory rather than erroring. Mirrors as_tree() in tree.cpp.
+// The Dispatcher an R-side handle points at. Rcpp's XPtr conversion checks only
+// that the SEXP is an external pointer, never what it points at, so a handle of
+// any other class -- a PJRTBuffer, an RTree -- would be reinterpreted as a
+// Dispatcher* and dereferenced: undefined behaviour that reads arbitrary memory
+// rather than erroring. Mirrors as_tree() in tree.cpp.
 Dispatcher& as_dispatcher(SEXP handle) {
   if (TYPEOF(handle) != EXTPTRSXP || !Rf_inherits(handle, "Dispatcher")) {
     Rcpp::stop("expected a `Dispatcher` (as returned by `dispatcher()`)");
@@ -74,17 +70,12 @@ Dispatcher& as_dispatcher(SEXP handle) {
 
 // ---- Dispatcher: the native eager-dispatch hot path ------------------------
 
-// Create a Dispatcher for one jitted function. `miss_fn(info)` is the R
-// callback that compiles on a cache miss and returns the engine's entry
-// material (see ?dispatcher). `capacity` is the executable-cache size.
-// `static_names` are the top-level argument names whose values are static
-// (part of the cache key, excluded from execution). `backend` is the tag the
-// call's AnvlArray inputs must carry. `extractor_fn` reads a leaf's metadata
-// via the backend's accessors (required for the closure engine, R_NilValue for
-// pjrt, which reads the PJRTBuffer directly).
+// Create a Dispatcher for one jitted function. See ?dispatcher for the
+// arguments; `engine` is the R-side selector ("pjrt" or "closure") the backend
+// maps to.
 // [[Rcpp::export]]
-Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatch_create(
-    int capacity, SEXP miss_fn,
+Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
+    int capacity, SEXP compile_fn,
     Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
     std::string backend, bool move_inputs, SEXP default_device_fn,
     SEXP extractor_fn) {
@@ -92,8 +83,8 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatch_create(
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
   if (capacity < 1) Rcpp::stop("capacity must be at least 1");
-  if (TYPEOF(miss_fn) != CLOSXP) {
-    Rcpp::stop("miss_fn must be a function");
+  if (TYPEOF(compile_fn) != CLOSXP) {
+    Rcpp::stop("compile must be a function");
   }
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
   std::unique_ptr<Engine> eng =
@@ -110,7 +101,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatch_create(
     }
   }
   auto d = std::make_unique<Dispatcher>(
-      static_cast<std::size_t>(capacity), miss_fn, std::move(statics),
+      static_cast<std::size_t>(capacity), compile_fn, std::move(statics),
       std::move(eng), std::move(backend), move_inputs, std::move(resolver));
   Rcpp::XPtr<Dispatcher> ptr(d.release(), true);
   ptr.attr("class") = "Dispatcher";
@@ -123,9 +114,9 @@ int impl_dispatcher_size(SEXP dispatcher) {
   return static_cast<int>(rpjrt::as_dispatcher(dispatcher).cache().size());
 }
 
-// Run the native dispatch for `args` (the evaluated argument list of the
-// call) and return the call's finished result. Every input is validated here,
-// by name; a call that returns has been dispatched.
+// Run the native dispatch for `args` (the evaluated argument list of the call)
+// and return the call's finished result. Every input is validated here, by
+// name; a call that returns has been dispatched.
 // [[Rcpp::export]]
 SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   using namespace rpjrt;
@@ -152,12 +143,12 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   CacheKey key;
   key.in_tree = in_tree;
   // Reserved to the exact leaf count and never grown past it, which is what
-  // keeps the `&key.leaves.back().av` pointers in exec_inputs valid: no
+  // keeps the `&key.leaves.back().aval` pointers in exec_inputs valid: no
   // reallocation can happen while the two are built side by side.
   key.leaves.reserve(leaves.size());
-  // The call's execute-time inputs, in program order. A static leaf
-  // contributes a key leaf but no input -- it is a constant in the compiled
-  // program -- so the engine is handed only what it must actually supply.
+  // The call's execute-time inputs, in program order. A static leaf contributes
+  // a key leaf but no input -- it is a constant in the compiled program -- so
+  // the engine is handed only what it must actually supply.
   std::vector<ExecInput> exec_inputs;
   exec_inputs.reserve(leaves.size());
   bool have_device = false;
@@ -199,18 +190,17 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             leaf_subject(in_tree, k), call_backend, leaf_backend);
       }
       kl.kind = KeyLeaf::kArray;
-      kl.av = std::move(al->av);
+      kl.aval = std::move(al->aval);
       if (al->device.isNULL()) {
         Rcpp::stop("invalid %s: an AnvlArray must carry $device",
                    leaf_subject(in_tree, k));
       }
-      // Under the pin policy the entry's device is fixed and the engine
-      // places the inputs on it, so no leaf's device reaches the key and
-      // inputs may be spread across devices. Otherwise the leaf's `$device`
-      // is canonicalized by the engine -- equal-but-distinct device objects
-      // collapse to one token, whose object the engine keeps alive -- and the
-      // infer policy applies: the first array's device is the call's device,
-      // and every later array must agree with it.
+      // Under `move_inputs` the entry's device is fixed and the engine places
+      // the inputs on it, so no leaf's device reaches the key and inputs may be
+      // spread across devices. Otherwise the leaf's `$device` is canonicalized
+      // by the engine -- equal-but-distinct device objects collapse to one
+      // token -- and the first array's device is the call's device, which every
+      // later array must agree with.
       if (!move) {
         const DeviceToken leaf_device =
             static_cast<DeviceToken>(engine.canonical_device(al->device));
@@ -227,7 +217,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       }
       key.leaves.push_back(std::move(kl));
       // `$data` is a field of a leaf of `args`, which roots it for the call.
-      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().av, false});
+      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval, false});
       continue;
     }
     std::optional<RDataInfo> rd = classify_rdata(leaf);
@@ -239,20 +229,19 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
           static_cast<long long>(Rf_xlength(leaf)));
     }
     kl.kind = KeyLeaf::kRData;
-    kl.av.dtype = rd->dtype;
-    kl.av.shape = std::move(rd->shape);
-    kl.av.ambiguous = true;  // bare R data is dtype-ambiguous (to_avals)
+    kl.aval.dtype = rd->dtype;
+    kl.aval.shape = std::move(rd->shape);
+    kl.aval.ambiguous = true;  // bare R data is dtype-ambiguous (to_avals)
     key.leaves.push_back(std::move(kl));
-    exec_inputs.push_back({leaf, &key.leaves.back().av, true});
+    exec_inputs.push_back({leaf, &key.leaves.back().aval, true});
   }
 
   // 3. No array leaf named a device, so the call runs on the backend's
   // *current* default. That device still binds the entry the callback will
   // compile, so the key must name it: without this, `f(1)` compiled under one
   // default device would be served back after the default changed. Resolved per
-  // call, since the default can change mid-session, and never under the move
-  // policy, where the entry's device is fixed and the call's own must stay out
-  // of the key.
+  // call, and never under `move_inputs`, where the entry's device is fixed and
+  // the call's own must stay out of the key.
   Rcpp::RObject default_device;  // the resolved object, for the callback
   if (!move && !have_device) {
     const std::optional<Rcpp::Function>& resolve = d.default_device_fn();
@@ -267,30 +256,30 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     key.device = static_cast<DeviceToken>(SEXP(default_device));
   }
 
-  // 4. Probe the cache; compile via the R miss callback on a miss.
+  // 4. Probe the cache; compile via the R callback on a miss.
   CacheEntry* entry = d.cache().get(key);
   if (entry == nullptr) {
     // Hand the callback the material this call already derived -- the tree, the
-    // flat leaves, the static mask, and each dynamic leaf's aval -- rather than
+    // flat leaves, the static mask, and each dynamic leaf's Aval -- rather than
     // the bare `args` for it to classify a second time. The avals here are the
     // ones the cache key was built from, so the program the callback compiles
     // cannot disagree with the key it gets filed under.
     const R_xlen_t n_leaves = static_cast<R_xlen_t>(leaves.size());
     Rcpp::List leaf_list(n_leaves);
     Rcpp::LogicalVector static_mask(n_leaves);
-    Rcpp::List avals(n_leaves);  // NULL at a static leaf: it has no aval
+    Rcpp::List avals(n_leaves);  // NULL at a static leaf: it has no Aval
     for (R_xlen_t i = 0; i < n_leaves; ++i) {
       leaf_list[i] = leaves[i];
       static_mask[i] = is_static[i] ? TRUE : FALSE;
       const KeyLeaf& kl = key.leaves[i];
       if (kl.kind == KeyLeaf::kStatic) continue;
-      Rcpp::IntegerVector shp(kl.av.shape.begin(), kl.av.shape.end());
+      Rcpp::IntegerVector shp(kl.aval.shape.begin(), kl.aval.shape.end());
       // Every dtype has a canonical name -- a leaf with none was rejected -- so
       // the callback always sees a string, whichever backend the leaf is from.
       avals[i] = Rcpp::List::create(
-          Rcpp::Named("dtype") = anvl_dtype_name(kl.av.dtype),
+          Rcpp::Named("dtype") = anvl_dtype_name(kl.aval.dtype),
           Rcpp::Named("shape") = shp,
-          Rcpp::Named("ambiguous") = kl.av.ambiguous);
+          Rcpp::Named("ambiguous") = kl.aval.ambiguous);
     }
     Rcpp::List info = Rcpp::List::create(
         Rcpp::Named("args") = args,
@@ -300,11 +289,10 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         Rcpp::Named("is_static") = static_mask, Rcpp::Named("avals") = avals,
         // The device this call resolved when no array named one -- the device
         // the key was built on, so the callback compiles for it rather than
-        // resolving a default of its own. NULL when the leaves named a device,
-        // or under the move policy.
+        // resolving a default of its own. NULL otherwise.
         Rcpp::Named("default_device") = default_device);
 
-    Rcpp::List res = d.miss_fn()(info);
+    Rcpp::List res = d.compile_fn()(info);
 
     // The engine validates the result and builds its entry material.
     CacheEntry e;
@@ -312,8 +300,8 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
 
     // Root every SEXP the inserted key holds, so it outlives this call; the
     // entry drops them when it is evicted. The key's device token needs no
-    // rooting here: it is the address of a canonical device object the engine
-    // keeps alive for the dispatcher's lifetime.
+    // rooting: it is the address of a canonical device object the engine keeps
+    // alive for the dispatcher's lifetime.
     for (KeyLeaf& kl : key.leaves) e.keep_alive(kl.value);
 
     d.cache().set(key, std::move(e));

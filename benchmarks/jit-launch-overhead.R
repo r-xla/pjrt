@@ -30,9 +30,8 @@
 #   compute_us   = roundtrip - (2) - await_us  the device work, alone
 #
 # `pjrt_execute_us` times the R-level pjrt_execute() on the same floor
-# executable. It is not a floor -- it is a comparison. The dispatcher replaced
-# an R-level call path, and the point of the column is that a plain R wrapper
-# around the same execute costs about what the entire native dispatcher costs.
+# executable. It is not a floor but a comparison: a plain R wrapper around the
+# same execute costs about what the entire native dispatcher costs.
 #
 # Layer 0 and `pjrt_execute_us` drive a hand-written add compiled here; layers
 # 1-2 drive the equivalent program anvl traced. Both are one stablehlo.add over

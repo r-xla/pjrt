@@ -139,7 +139,7 @@ std::string leaf_subject(const RTree& in_tree, std::size_t leaf_index) {
   return "input `" + tree_path(in_tree, static_cast<int>(leaf_index) + 1) + "`";
 }
 
-// ---- Engine: device canonicalization and the generic aval read -------------
+// ---- Engine: device canonicalization and the generic Aval read -------------
 
 SEXP Engine::canonical_device(SEXP device) {
   // Identity first: an interning backend's device is already canonical, so
@@ -156,11 +156,11 @@ SEXP Engine::canonical_device(SEXP device) {
   return canonical_devices_.back();
 }
 
-// Reject an aval whose dtype could not be represented: every such leaf would
-// share one aval, and two calls on different dtypes would then run each
-// other's program. Neither tengen nor pjrt's own dtype table can produce one
-// (both are closed over AnvlDtype), so this is a guard, not a path.
-static void check_dtype_representable(const aval& a, const RTree& in_tree,
+// Reject an Aval whose dtype could not be represented: every such leaf would
+// share one Aval, and two calls on different dtypes would then run each other's
+// program. Neither tengen nor pjrt's own dtype table can produce one, so this
+// is a guard, not a path.
+static void check_dtype_representable(const Aval& a, const RTree& in_tree,
                                       std::size_t leaf_index) {
   if (a.dtype == AnvlDtype::kInvalid) {
     Rcpp::stop("invalid %s: its dtype is not one anvl can represent",
@@ -168,10 +168,9 @@ static void check_dtype_representable(const aval& a, const RTree& in_tree,
   }
 }
 
-// Build an aval from a backend extractor's outputs: a tengen DataType object,
-// an integer shape, and the ambiguous bit. The values come from the backend's
-// accessors (see ClosureEngine::read_array), not from a fixed field layout.
-static aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
+// Build an Aval from a backend extractor's outputs: a tengen DataType object,
+// an integer shape, and the ambiguous bit.
+static Aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
                              const RTree& in_tree, std::size_t leaf_index) {
   if (dtype == R_NilValue || TYPEOF(shape) != INTSXP) {
     Rcpp::stop(
@@ -179,7 +178,7 @@ static aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
         "and an integer shape",
         leaf_subject(in_tree, leaf_index));
   }
-  aval a;
+  Aval a;
   a.dtype = anvl_dtype_from_tengen(dtype);
   a.ambiguous = ambiguous;
   const R_xlen_t nd = XLENGTH(shape);
@@ -191,11 +190,10 @@ static aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
 
 // ---- ClosureEngine ----------------------------------------------------------
 
-// The entry is a compiled R closure. It receives the call's execute-time
-// inputs -- array leaves contribute their `$data`, bare R data passes through
-// as-is, and statics do not appear at all (they are constants of the compiled
-// closure, and a cache hit already proves they match) -- and returns the
-// finished, wrapped value. Execution, wrapping, and unwrapping are all the
+// The entry is a compiled R closure. It receives the call's execute-time inputs
+// -- array leaves contribute their `$data`, bare R data passes through as-is,
+// and statics do not appear at all (they are constants of the compiled closure)
+// -- and returns the finished, wrapped value. Execution and wrapping are the
 // backend's business, which is what makes this engine serve a backend pjrt
 // knows nothing about.
 
@@ -223,7 +221,7 @@ class ClosureEngine : public Engine {
 
   // Read metadata through the backend's accessors: extractor(leaf) returns
   // list(aval = list(dtype, shape, ambiguous), device, backend). `$data` is the
-  // one field read directly (contract-guaranteed). The aval is built only for a
+  // one field read directly (contract-guaranteed). The Aval is built only for a
   // leaf of this dispatcher's backend; a foreign leaf carries its true tag back
   // for the core to reject, and its metadata is neither required nor validated.
   std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
@@ -246,7 +244,7 @@ class ClosureEngine : public Engine {
       SEXP shape = av.containsElementNamed("shape") ? av["shape"] : R_NilValue;
       const bool amb =
           av.containsElementNamed("ambiguous") && field_true(av["ambiguous"]);
-      al.av = aval_from_tengen(dtype, shape, amb, in_tree, leaf_index);
+      al.aval = aval_from_tengen(dtype, shape, amb, in_tree, leaf_index);
     }
     return al;
   }
@@ -263,7 +261,7 @@ class ClosureEngine : public Engine {
     e.data = std::make_unique<ClosureEntry>(r_fun);
   }
 
-  // Under the pin policy the entry's device is the one the backend compiled
+  // Under `move_inputs` the entry's device is the one the backend compiled
   // `r_fun` for, and `r_fun` is what places the inputs on it -- pjrt cannot,
   // since `$data` is the backend's own array type. So there is nothing to do
   // here either way: the inputs go to the closure exactly as they arrived.
@@ -295,9 +293,9 @@ struct PhantomSpec {
 // output wrap is built from. Every field is set by build_entry() and read-only
 // thereafter, which is what lets run() take the entry by const reference.
 //
-// A template's slot 0 is `$data` (kTemplateDataSlot): build_templates() puts
-// it first, and the per-call wrap writes the output buffer into that slot of
-// a shallow copy. Keep the two in sync.
+// A template's slot 0 is `$data` (kTemplateDataSlot): build_templates() puts it
+// first, and the per-call wrap writes the output buffer into that slot of a
+// shallow copy. Keep the two in sync.
 struct PjrtEntry : EntryData {
   PjrtEntry(SEXP exec, SEXP client, SEXP device, SEXP out_tree,
             Rcpp::List templates)
@@ -327,10 +325,10 @@ class PjrtEngine : public Engine {
         move_inputs_(move_inputs) {}
 
   // Reads the native way: dtype/shape/device all come off the PJRTBuffer in
-  // `$data` (it caches them natively and cannot be falsified by a drifted
-  // field, which this engine never consults). `$ambiguous` is the only R-list
-  // field the aval needs -- the buffer carries no such anvl type-system bit --
-  // and `$backend` the only other, for the reject path. The buffer is
+  // `$data`, which caches them natively and so cannot drift from the array's
+  // own fields (this engine never consults them). `$ambiguous` is the only
+  // R-list field the Aval needs -- the buffer carries no such anvl type-system
+  // bit -- and `$backend` the only other, for the reject path. The buffer is
   // interpreted only once the leaf's tag matches, so a foreign leaf carries its
   // tag back for the core to reject rather than failing the buffer check here.
   std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
@@ -346,10 +344,10 @@ class PjrtEngine : public Engine {
             leaf_subject(in_tree, leaf_index), backend_.c_str());
       }
       Rcpp::XPtr<PJRTBuffer> buf(al.data);
-      al.av.dtype = anvl_dtype_from_pjrt(buf->element_type());
-      al.av.shape = buf->dimensions();
-      al.av.ambiguous = field_true(anvl_field(leaf, "ambiguous"));
-      check_dtype_representable(al.av, in_tree, leaf_index);
+      al.aval.dtype = anvl_dtype_from_pjrt(buf->element_type());
+      al.aval.shape = buf->dimensions();
+      al.aval.ambiguous = field_true(anvl_field(leaf, "ambiguous"));
+      check_dtype_representable(al.aval, in_tree, leaf_index);
       // Device from the buffer, not $device: interned by PJRT_Device* (see
       // canonical_device) so the token still matches a literal-only call's
       // resolved device, which wraps the same per-client-singleton pointer.
@@ -466,14 +464,13 @@ class PjrtEngine : public Engine {
     const auto* pe = static_cast<const PjrtEntry*>(e.data.get());
 
     // Assemble the executable's inputs: const_arrays ++ the call's inputs ++
-    // freshly allocated phantom donation buffers. A buffer input passes
-    // through -- or, under the pin policy, is copied to the entry's device
-    // when it lives elsewhere; a bare R literal/array is uploaded to the
-    // entry's device (same impls and dtype defaults as pjrt_scalar() /
-    // pjrt_buffer()). The GC-rooted `inputs` list is built first and each
-    // allocated buffer (copy, upload, phantom) written straight into its
-    // slot: it is reachable only through `inputs` (the R GC does not scan C++
-    // locals across the next allocation).
+    // freshly allocated phantom donation buffers. A buffer input passes through
+    // -- or, under `move_inputs`, is copied to the entry's device when it lives
+    // elsewhere; a bare R literal/array is uploaded to the entry's device (same
+    // impls and dtype defaults as pjrt_scalar() / pjrt_buffer()). The GC-rooted
+    // `inputs` list is built first and each allocated buffer (copy, upload,
+    // phantom) written straight into its slot: it is reachable only through
+    // `inputs` (the R GC does not scan C++ locals across the next allocation).
     Rcpp::List inputs(pe->const_arrays.size() + exec_inputs.size() +
                       pe->phantom_specs.size());
     R_xlen_t pos = 0;
@@ -498,15 +495,15 @@ class PjrtEngine : public Engine {
       switch (TYPEOF(in.value)) {
         case REALSXP:
           inputs[pos++] = impl_client_buffer_from_double(
-              pe->client, pe->device, in.value, in.av->shape, "f32");
+              pe->client, pe->device, in.value, in.aval->shape, "f32");
           break;
         case INTSXP:
           inputs[pos++] = impl_client_buffer_from_integer(
-              pe->client, pe->device, in.value, in.av->shape, "i32");
+              pe->client, pe->device, in.value, in.aval->shape, "i32");
           break;
         default:
           inputs[pos++] = impl_client_buffer_from_logical(
-              pe->client, pe->device, in.value, in.av->shape, "pred");
+              pe->client, pe->device, in.value, in.aval->shape, "pred");
           break;
       }
     }
@@ -519,9 +516,8 @@ class PjrtEngine : public Engine {
         impl_loaded_executable_execute(pe->exec, inputs, opts_);
 
     // The declared output count against the real one -- the half of the
-    // callback's out_avals claim that only the executable can settle. Cheap,
-    // and it keeps a miscounted callback from silently wrapping the wrong
-    // buffers.
+    // callback's out_avals claim that only the executable can settle. It keeps
+    // a miscounted callback from silently wrapping the wrong buffers.
     const R_xlen_t n_out = out_bufs.size();
     if (n_out != pe->templates.size()) {
       Rcpp::stop(
@@ -529,21 +525,21 @@ class PjrtEngine : public Engine {
           static_cast<int>(pe->templates.size()), static_cast<int>(n_out));
     }
 
-    // Wrap each output: a shallow copy of its template with the buffer
-    // written into `$data`, then rebuild the caller's structure from the
-    // entry's out_tree. Everything but the buffer is fixed per entry.
-    Rcpp::List out_flat(n_out);
-    std::vector<SEXP> flat(n_out);
+    // Wrap each output: a shallow copy of its template with the buffer written
+    // into `$data`, then rebuild the caller's structure from the entry's
+    // out_tree. Everything but the buffer is fixed per entry.
+    Rcpp::List rooted(n_out);
+    std::vector<SEXP> wrapped(n_out);
     for (R_xlen_t i = 0; i < n_out; ++i) {
       SEXP w = Rf_shallow_duplicate(VECTOR_ELT(pe->templates, i));
       // No PROTECT needed: no allocation happens between duplicating `w` and
-      // storing it into the already-protected `out_flat`, which then roots it.
-      SET_VECTOR_ELT(out_flat, i, w);
+      // storing it into the already-protected `rooted`, which then roots it.
+      SET_VECTOR_ELT(rooted, i, w);
       SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[i]);
-      flat[i] = w;
+      wrapped[i] = w;
     }
     std::size_t p = 0, li = 0;
-    return unflatten_rec(*pe->out_tree, flat, p, li);
+    return unflatten_rec(*pe->out_tree, wrapped, p, li);
   }
 
  private:
@@ -555,10 +551,7 @@ class PjrtEngine : public Engine {
   // its `$data` slot.
   //
   // `out_avals[[i]]` is list(dtype = <string>, shape = <integer>, ambiguous =
-  // <logical(1)>, the last optional) -- the same shape as the input avals the
-  // callback receives in `info$avals`. The dtype name is the canonical one
-  // ("f32", "i64", ...); the boolean aliases the R layer also accepts are
-  // normalized, as in phantom_specs.
+  // <logical(1)>, the last optional). See ?dispatcher.
   Rcpp::List build_templates(SEXP out_avals, SEXP device) const {
     const R_xlen_t n_out = XLENGTH(out_avals);
     Rcpp::Environment tengen = Rcpp::Environment::namespace_env("tengen");
@@ -616,9 +609,9 @@ class PjrtEngine : public Engine {
   std::string backend_;
   Rcpp::XPtr<PJRTExecuteOptions> opts_;  // reusable, one per engine
   std::unordered_map<PJRT_Device*, Rcpp::RObject> device_cache_;
-  // The pin policy: copy an input to the entry's device when it lives
-  // elsewhere. Fixed per dispatcher, so it is state here rather than an
-  // argument threaded through every run().
+  // Copy an input to the entry's device when it lives elsewhere. Fixed per
+  // dispatcher, so it is state here rather than an argument threaded through
+  // every run().
   bool move_inputs_ = false;
 };
 
@@ -630,9 +623,9 @@ std::unique_ptr<Engine> make_engine(const std::string& engine_name,
   if (engine_name == "pjrt") {
     return std::make_unique<PjrtEngine>(std::move(backend), move_inputs);
   }
-  // ClosureEngine needs no device policy of its own (under `move_inputs` the
-  // backend's `r_fun` places its own inputs, see its run()), but it does need
-  // the extractor to read a leaf's metadata via the backend's accessors.
+  // ClosureEngine takes no `move_inputs`: under it the backend's `r_fun` places
+  // its own inputs (see its run()). It does need the extractor to read a leaf's
+  // metadata via the backend's accessors.
   if (engine_name == "closure") {
     return std::make_unique<ClosureEngine>(std::move(backend), extractor);
   }

@@ -1,6 +1,5 @@
 # pjrt (development version)
 
-
 ## Performance
 
 * A `PJRTBuffer` now memoizes its immutable metadata (dtype, shape, and
@@ -34,7 +33,11 @@
   for downloading the plugins.
 * Added the Rtree module (pjrt's R analog of JAX's pytree), which
   includes functions like `build_tree()`, `flatten()`, `unflatten()`, etc..
-* Added a `dispatcher()` (implemented in C++) which can be used in anvl.
+* Added `dispatcher()` and `dispatch()`, a native (C++) eager-dispatch engine:
+  an executable cache keyed on the inputs' structure and abstract values, which
+  calls back into R to compile only on a cache miss. It is intended to be used
+  in {anvl}. Ideally this would live in a library of its own, but we have
+  included it here for convenience.
 * `inspect_hlo()` returns the HLO intermediate representations the XLA
   compiler produces for a program -- the input (`before_optimizations`) and
   optimized (`after_optimizations`) HLO -- to help debug compilation (#194).
@@ -42,9 +45,6 @@
   `--xla_dump_to=<dir> --xla_dump_hlo_as_text`) at the start of the session,
   before the first compilation; `inspect_hlo()` errors with instructions if
   they are not set.
-* Added various functionality regarding jit-dispatching that are intended to
-  be used in {anvl}. Ideally, this should live in a separate library
-  from {pjrt}, but we have included it here for convenience.
 
 ## Internal
 

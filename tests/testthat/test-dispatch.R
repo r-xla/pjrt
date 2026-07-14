@@ -382,12 +382,12 @@ test_extractor <- function(leaf) {
   )
 }
 
-# impl_dispatch_create with the extractor wired up the way each engine needs it:
+# impl_dispatcher_create with the extractor wired up the way each engine needs it:
 # the closure engine requires one (here the field-reading test extractor); the
 # pjrt engine ignores it and reads the PJRTBuffer directly.
 new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device) {
   extractor <- if (engine == "pjrt") NULL else test_extractor
-  impl_dispatch_create(capacity, miss, static, engine, backend, move, default_device, extractor)
+  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor)
 }
 
 test_that("phantom_specs allocate donation buffers of the requested dtype", {
@@ -558,10 +558,10 @@ test_that("the closure engine can pin a device (move_inputs): `r_fun` places its
     "closure",
     "quickr",
     TRUE,
-    NULL # pinned: no `default_device` resolver needed
+    NULL # move_inputs: no `default_device` resolver needed
   )
 
-  # inputs spread across devices: an error under the infer policy, fine here
+  # inputs spread across devices: an error without move_inputs, fine here
   r1 <- impl_dispatch_run(
     d,
     list(x = qarr(1, device = test_device("cpu")), y = qarr(2, device = test_device("gpu")))
@@ -783,7 +783,7 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
       backend = "quickr"
     )
   }
-  d <- impl_dispatch_create(
+  d <- impl_dispatcher_create(
     10L,
     function(info) {
       n_miss <<- n_miss + 1L

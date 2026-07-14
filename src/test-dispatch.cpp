@@ -9,8 +9,8 @@
 // The dispatcher's cache key decides which compiled program a call runs. A
 // mistake here does not error -- it silently returns someone else's executable.
 // So these tests live next to the key rather than behind an R self-test hook:
-// they can fabricate a device token, set the backend, and build a kRData leaf,
-// none of which an R fixture over PJRTBuffers could express.
+// they can fabricate a device token and build a kRData leaf directly, neither
+// of which an R fixture over PJRTBuffers could express.
 
 namespace {
 
@@ -18,7 +18,7 @@ using rpjrt::anvl_dtype_from_pjrt;
 using rpjrt::anvl_dtype_from_tengen;
 using rpjrt::anvl_dtype_name;
 using rpjrt::AnvlDtype;
-using rpjrt::aval;
+using rpjrt::Aval;
 using rpjrt::CacheKey;
 using rpjrt::CacheKeyEq;
 using rpjrt::CacheKeyHash;
@@ -45,25 +45,25 @@ RTree flat_tree(std::size_t n) {
   return t;
 }
 
-aval mk_aval(AnvlDtype dtype, std::vector<int64_t> shape, bool ambiguous) {
-  aval a;
+Aval mk_aval(AnvlDtype dtype, std::vector<int64_t> shape, bool ambiguous) {
+  Aval a;
   a.dtype = dtype;
   a.shape = std::move(shape);
   a.ambiguous = ambiguous;
   return a;
 }
 
-KeyLeaf array_leaf(aval a) {
+KeyLeaf array_leaf(Aval a) {
   KeyLeaf kl;
   kl.kind = KeyLeaf::kArray;
-  kl.av = std::move(a);
+  kl.aval = std::move(a);
   return kl;
 }
 
-KeyLeaf rdata_leaf(aval a) {
+KeyLeaf rdata_leaf(Aval a) {
   KeyLeaf kl;
   kl.kind = KeyLeaf::kRData;
-  kl.av = std::move(a);
+  kl.aval = std::move(a);
   return kl;
 }
 
@@ -166,7 +166,7 @@ context("AnvlDtype") {
 }
 
 context("CacheKey: aval-keyed leaves") {
-  const aval f32_2x3 = mk_aval(AnvlDtype::kF32, {2, 3}, false);
+  const Aval f32_2x3 = mk_aval(AnvlDtype::kF32, {2, 3}, false);
 
   test_that("equal signatures compare equal and hash alike") {
     CacheKey a = key_of({array_leaf(f32_2x3), array_leaf(f32_2x3)});
@@ -222,7 +222,7 @@ context("CacheKey: aval-keyed leaves") {
 }
 
 context("CacheKey: device and tree") {
-  const aval f32 = mk_aval(AnvlDtype::kF32, {2}, false);
+  const Aval f32 = mk_aval(AnvlDtype::kF32, {2}, false);
 
   test_that("the device token splits the key and is folded into the hash") {
     CacheKey a = key_of({array_leaf(f32)});
@@ -360,9 +360,8 @@ context("CacheKey: value-keyed (static) leaves") {
 
   test_that("strings key on their UTF-8 content, across encodings") {
     // identical() compares strings after translating to UTF-8, so the same text
-    // in latin1 and in UTF-8 is one value and must share a key -- and two
-    // *distinct* non-ASCII strings must land in different buckets. Folding a
-    // single sentinel for all non-ASCII collapsed the latter together.
+    // in latin1 and in UTF-8 is one value and must share a key -- while two
+    // *distinct* non-ASCII strings must land in different buckets.
     Rcpp::CharacterVector cafe_utf8 =
         str_ce("caf\xC3\xA9", 5, CE_UTF8);  // café
     Rcpp::CharacterVector cafe_latin1 =

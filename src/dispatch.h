@@ -30,12 +30,12 @@ namespace rpjrt {
 // that ends. There is nothing to release by hand.
 class Dispatcher {
  public:
-  Dispatcher(std::size_t capacity, SEXP miss_fn,
+  Dispatcher(std::size_t capacity, SEXP compile_fn,
              std::unordered_set<std::string> static_names,
              std::unique_ptr<Engine> engine, std::string backend,
              bool move_inputs, std::optional<Rcpp::Function> default_device_fn)
       : cache_(capacity),
-        miss_fn_(miss_fn),
+        compile_fn_(compile_fn),
         default_device_fn_(std::move(default_device_fn)),
         static_names_(std::move(static_names)),
         engine_(std::move(engine)),
@@ -57,7 +57,9 @@ class Dispatcher {
   LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq>& cache() {
     return cache_;
   }
-  const Rcpp::Function& miss_fn() const { return miss_fn_; }
+  // The R callback that turns a cache miss into a cache entry (?dispatcher's
+  // `compile`).
+  const Rcpp::Function& compile_fn() const { return compile_fn_; }
   const std::unordered_set<std::string>& static_names() const {
     return static_names_;
   }
@@ -65,15 +67,15 @@ class Dispatcher {
   Engine& engine() { return *engine_; }
   // The `$backend` tag every AnvlArray input must carry.
   const std::string& backend() const { return backend_; }
-  // Pin policy: a target device is fixed per entry (jit(device = ) /
-  // device_arg), so the key carries no device and the engine places the
-  // inputs on the entry's device at execute time. The engine holds this too
-  // -- the core needs it for the key, the engine for the placing.
+  // Whether each entry has a target device the engine places the inputs on
+  // (?dispatcher's `move_inputs`). The key then carries no device. The engine
+  // holds this too -- the core needs it for the key, the engine for the
+  // placing.
   bool move_inputs() const { return move_inputs_; }
 
  private:
   LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq> cache_;
-  Rcpp::Function miss_fn_;
+  Rcpp::Function compile_fn_;
   std::optional<Rcpp::Function> default_device_fn_;
   std::unordered_set<std::string> static_names_;
   std::unique_ptr<Engine> engine_;
