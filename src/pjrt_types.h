@@ -5,6 +5,7 @@
 // IWYU pragma: begin_exports
 #include "buffer.h"
 #include "client.h"
+#include "dispatch.h"
 #include "pjrt.h"
 #include "plugin.h"
 #include "program.h"

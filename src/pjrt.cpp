@@ -8,6 +8,7 @@
 #include "buffer_printer.h"
 #include "client.h"
 #include "deferred_release.h"
+#include "pjrt_impl.h"
 #include "pjrt_types.h"
 #include "plugin.h"
 #include "utils.h"
@@ -369,11 +370,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
 // bytes alive for the buffer's lifetime and counts the memory. On other
 // platforms, allocates a host vector, transfers, and releases it when the
 // transfer completes.
-// [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
+Rcpp::XPtr<rpjrt::PJRTBuffer> client_buffer_empty(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    std::vector<int64_t> dims, std::string dtype) {
-  const PJRT_Buffer_Type pjrt_dtype = string_to_pjrt_buffer_type(dtype);
+    std::vector<int64_t> dims, PJRT_Buffer_Type pjrt_dtype) {
   const size_t element_size = sizeof_pjrt_buffer_type(pjrt_dtype);
   const int64_t numel = number_of_elements(dims);
   const size_t total_bytes = static_cast<size_t>(numel) * element_size;
@@ -395,6 +394,14 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
   Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
   buffer_xptr.attr("class") = "PJRTBuffer";
   return buffer_xptr;
+}
+
+// [[Rcpp::export()]]
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    std::vector<int64_t> dims, std::string dtype) {
+  return client_buffer_empty(client, device, std::move(dims),
+                             string_to_pjrt_buffer_type(dtype));
 }
 
 // Core conversion: raw bytes (row-major) -> R array (column-major) with type
@@ -909,7 +916,7 @@ Rcpp::List impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
   rpjrt::process_pending_releases();
   auto api = executable->api;
-  auto exec_devices = executable->addressable_devices();
+  const auto &exec_devices = executable->addressable_devices();
 
   std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
   for (auto i = 0; i < input.size(); i++) {
@@ -917,16 +924,16 @@ Rcpp::List impl_loaded_executable_execute(
     auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
     inputs[i] = buffer.get();
 
-    auto buf_device = buffer->device();
+    PJRT_Device *buf_device = buffer->device_ptr();
     bool on_exec_device = false;
     for (auto *dev : exec_devices) {
-      if (buf_device->device == dev) {
+      if (buf_device == dev) {
         on_exec_device = true;
         break;
       }
     }
     if (!on_exec_device) {
-      auto buf_dev_str = device_to_string(buf_device->device, api.get());
+      auto buf_dev_str = device_to_string(buf_device, api.get());
       auto exec_dev_str = device_to_string(exec_devices[0], api.get());
       Rcpp::stop(
           "Input %d is on device '%s', but the executable was "

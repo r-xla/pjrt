@@ -26,10 +26,13 @@ Imports:
     withr,
     tengen (>= 0.2.0)
 Suggests:
+    anvl,
     callr,
     stablehlo,
     testthat (>= 3.0.0),
     xml2
+Remotes:
+    r-xla/anvl@perf/dispatch-overhead
 LinkingTo:
     Rcpp,
     testthat
@@ -48,6 +51,7 @@ Collate:
     'compare.R'
     'custom_call.R'
     'device.R'
+    'dispatch.R'
     'execution_options.R'
     'format.R'
     'hlo.R'

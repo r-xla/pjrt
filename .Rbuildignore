@@ -13,6 +13,7 @@
 ^README.html$
 ^_pkgdown\.yml$
 ^specs$
+^benchmarks$
 ^docs$
 ^pkgdown$
 ^codecov.yaml$
@@ -26,3 +27,4 @@ Makefile
 ^CLAUDE\.md$
 ^AGENTS\.md$
 ^jarl.toml$
+^todos\.md$

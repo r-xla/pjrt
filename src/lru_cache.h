@@ -52,16 +52,18 @@ class LRUCache {
     index_.emplace(key, order_.begin());
     if (index_.size() > capacity_) {  // remove LRU
       Entry& victim = order_.back();
-      if (on_evict_) on_evict_(victim.value);
+      // Erase from the index BEFORE on_evict: erasing re-hashes and compares
+      // the key, and on_evict may release resources the key's hash/equality
+      // read.
       index_.erase(victim.key);
+      if (on_evict_) on_evict_(victim.value);
       order_.pop_back();
     }
   }
 
   std::size_t size() const { return index_.size(); }
 
-  // Run on_evict over every entry and drop them (used on pjrt_dispatcher
-  // teardown so cached R objects are released, not leaked).
+  // Run on_evict over every entry and drop them.
   void clear() {
     if (on_evict_) {
       for (Entry& e : order_) on_evict_(e.value);
