@@ -36,11 +36,9 @@ struct StderrCapture {
 // (saved_fd == -1) and the real stderr is left untouched.
 StderrCapture begin_stderr_capture();
 
-// Restore stderr. If `replay` is true the captured bytes are then replayed
-// through REprintf — R's message stream, so non-OOM diagnostics are never
-// hidden, reach GUI consoles, and honor sink(). Otherwise they are discarded.
-// Replay happens on the calling (main R) thread; REprintf is not safe
-// elsewhere.
+// Restore stderr. If `replay` is true the captured bytes are written back to
+// the real stderr first (so non-OOM diagnostics are never hidden); otherwise
+// they are discarded.
 void end_stderr_capture(StderrCapture &cap, bool replay);
 
 // Write `msg` (followed by a newline) to R's stderr, but only when the

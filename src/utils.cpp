@@ -133,12 +133,12 @@ void end_stderr_capture(StderrCapture &cap, bool replay) {
     char buf[4096];
     ssize_t n;
     while ((n = read(g_sink_fd, buf, sizeof(buf))) > 0) {
-      // Replay through REprintf rather than raw fd-2 writes: package output
-      // must go through R's connections so it reaches GUI consoles and honors
-      // sink(). Requires fd 2 to already be restored (done above), since in
-      // terminal R REprintf itself writes to stderr. %.*s stops at an embedded
-      // NUL, which is fine for log text.
-      REprintf("%.*s", static_cast<int>(n), buf);
+      ssize_t off = 0;
+      while (off < n) {
+        ssize_t w = write(STDERR_FILENO, buf + off, n - off);
+        if (w <= 0) break;
+        off += w;
+      }
     }
   }
   // The sink is left open for reuse; it is reset on the next begin.
