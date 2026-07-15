@@ -562,8 +562,132 @@ module {
     expect_equal(impl_pending_release_count(), 0L)
   })
 
+  # With in-place donation the aliased output is *written into* the migrated
+  # keepalive's memory: the buffer's device pointer must lie inside the RAWSXP
+  # that migrated onto the output's XPtr. This is what makes the keepalive
+  # lifetime a correctness matter (not just accounting): freeing the RAWSXP
+  # before the async execution has written the output is a use-after-free.
+  it("writes the aliased output in place into the migrated keepalive (1-D)", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @square_into_phantom {
+  func.func @main(
+      %arg0: tensor<1024xf32>,
+      %p: tensor<1024xf32> {tf.aliasing_output = 0 : i32}
+  ) -> tensor<1024xf32> {
+    %out = stablehlo.multiply %arg0, %arg0 : tensor<1024xf32>
+    return %out : tensor<1024xf32>
+  }
+}
+'
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"), device = "cpu")
+    x <- pjrt_buffer(as.numeric(1:1024), dtype = "f32")
+    # every CPU creation path must produce a genuinely zero-copy buffer: its
+    # device memory lives inside the prot-slot RAWSXP (64-byte-aligned there)
+    expect_true(impl_test_buffer_aliases_prot(x))
+    p <- pjrt_empty(dtype = "f32", shape = 1024L)
+    expect_true(impl_test_buffer_aliases_prot(p))
+
+    out <- pjrt_execute(exec, x, p)
+    await(out)
+    # donation reused the phantom's storage: the output lives in the migrated
+    # RAWSXP, and reading it back yields the computed values
+    expect_true(impl_test_buffer_aliases_prot(out))
+    expect_equal(as.numeric(as_array(out)), (1:1024)^2, tolerance = 1e-6)
+  })
+
+  # Same invariant beyond rank 1: an empty (phantom) buffer must not carry
+  # column-major strides, which would make XLA refuse the zero-copy import and
+  # silently copy -- the aliased output would then land in PJRT pool memory
+  # invisible to R's GC instead of the RAWSXP.
+  it("writes the aliased output in place into the migrated keepalive (2-D)", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @square_into_phantom_2d {
+  func.func @main(
+      %arg0: tensor<16x8xf32>,
+      %p: tensor<16x8xf32> {tf.aliasing_output = 0 : i32}
+  ) -> tensor<16x8xf32> {
+    %out = stablehlo.multiply %arg0, %arg0 : tensor<16x8xf32>
+    return %out : tensor<16x8xf32>
+  }
+}
+'
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"), device = "cpu")
+    m <- matrix(as.numeric(1:128), nrow = 16L, ncol = 8L)
+    x <- pjrt_buffer(m, dtype = "f32")
+    p <- pjrt_empty(dtype = "f32", shape = c(16L, 8L))
+    expect_true(impl_test_buffer_aliases_prot(p))
+
+    out <- pjrt_execute(exec, x, p)
+    await(out)
+    expect_true(impl_test_buffer_aliases_prot(out))
+    expect_equal(as_array(out), m^2, tolerance = 1e-6)
+  })
+
+  # Regression test for a stochastic segfault (anvl's faq.Rmd vignette): the
+  # migrated keepalive's only root is the output XPtr, which -- unlike the
+  # inputs -- was not pinned for the duration of the async execution. A caller
+  # that discards an un-awaited output chain lets the GC free the RAWSXP that
+  # the still-queued execution will WRITE the output into; the XLA worker
+  # thread then stores into unmapped memory and the process dies. The failure
+  # mode is a crash, so run in a throwaway subprocess.
+  it("survives discarding an un-awaited donated-output chain", {
+    skip_if(!is_cpu())
+    skip_on_cran()
+    skip_if_not_installed("callr")
+    res <- callr::r(
+      function() {
+        library(pjrt)
+        n <- 10000000L # 40MB f32; 1-D so the phantom is zero-copy + reused
+        t <- sprintf("tensor<%dxf32>", n)
+        src <- paste0(
+          "func.func @main(%x: ",
+          t,
+          ", %p: ",
+          t,
+          " {tf.aliasing_output = 0 : i32}) -> ",
+          t,
+          " {\n",
+          "  %0 = \"stablehlo.multiply\"(%x, %x) : (",
+          t,
+          ", ",
+          t,
+          ") -> ",
+          t,
+          "\n",
+          "  \"func.return\"(%0) : (",
+          t,
+          ") -> ()\n}\n"
+        )
+        exec <- pjrt_compile(pjrt_program(src = src), device = "cpu")
+        x <- pjrt_buffer(rep(1, n), dtype = "f32")
+        await(x)
+        for (attempt in 1:2) {
+          y <- x
+          for (i in 1:20) {
+            y <- pjrt_execute(exec, y, pjrt_empty(dtype = "f32", shape = n))
+          }
+          # discard the whole un-awaited chain, then collect while its tail is
+          # still queued: the executions must still be able to write their
+          # outputs (this segfaulted before the keepalive was pinned)
+          rm(y)
+          gc(full = TRUE)
+          gc(full = TRUE)
+          gc(full = TRUE)
+          Sys.sleep(2) # let the queue drain into the (formerly freed) memory
+        }
+        "survived"
+      },
+      timeout = 300
+    )
+    expect_identical(res, "survived")
+  })
+
   # Note: the use-after-free where a dropped zero-copy CPU input is collected
   # while its async execution is still reading it is exercised by Invariant 5 of
-  # tools/stress-cpu-memory.R (it needs a fresh, isolated R process to observe
-  # the keepalive deterministically, so it is not a unit test).
+  # tools/stress-cpu-memory.R; the matching output-side lifetime (a migrated
+  # keepalive must survive until the execution has written it, and be reclaimed
+  # afterwards) is Invariant 6 there. Both need a fresh, isolated R process to
+  # observe the keepalive deterministically, so they are not unit tests.
 })

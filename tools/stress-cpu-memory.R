@@ -392,7 +392,131 @@ if (!isTRUE(all.equal(ka_res, rep(2.0, ka_n), tolerance = 1e-4))) {
 }
 cat("  result is correct (input bytes intact)\n")
 
+# ---------------------------------------------------------------------------
+# Invariant 6: a donating pjrt_execute() must keep the migrated keepalive (the
+# donated storage the aliased OUTPUT is written into) alive until the (async)
+# execution has finished writing it -- even when the caller discards the output
+# without awaiting it -- and release it afterwards. This is the output-side
+# counterpart of Invariant 5: there the execution READS a dropped input's
+# RAWSXP; here it WRITES a dropped output's. Freeing early is a use-after-free
+# that segfaults once the allocator unmaps the block (this is the stochastic
+# anvl faq.Rmd vignette crash); never freeing is a leak.
+#
+# Observed via R's own heap accounting (the RAWSXP is a Vcells allocation, and
+# a weak reference cannot key a RAWSXP): while the execution is pending the
+# keepalive's megabytes must still be resident after a full collection, and
+# once the execution completes and the deferred releases drain, they must be
+# reclaimed. The program computes a long runtime-dependent chain so the
+# execution is reliably still pending when the GC runs, and returns a second,
+# non-aliased marker output we can await.
+# ---------------------------------------------------------------------------
+cat("\nDonated-output keepalive across a discarded, un-awaited execute:\n")
+
+impl_process_pending_releases <- getFromNamespace(
+  "impl_process_pending_releases",
+  "pjrt"
+)
+
+ph_n <- 8388608L # 32MB f32: big enough that Vcells deltas are unambiguous
+# tanh is expensive per element and the chain is runtime-dependent, so the
+# fused kernel reliably outlives the GCs below (a mul/sqrt chain fuses into a
+# single pass that finishes in well under the measurement's ~0.3s).
+ph_reps <- 256L
+ph_t <- sprintf("tensor<%dxf32>", ph_n)
+ph_body <- paste(
+  sprintf(
+    "    %%c%d = stablehlo.tanh %%c%d : %s",
+    seq_len(ph_reps), seq_len(ph_reps) - 1L, ph_t
+  ),
+  collapse = "\n"
+)
+# The marker output is a slice of the chain's final value, so its buffer only
+# becomes ready once the whole chain has run: awaiting it awaits the
+# execution, and is_ready() on it is a valid "still pending" probe. (A
+# constant marker would become ready almost immediately, long before the
+# chain.)
+ph_mlir <- sprintf(
+  '
+module @slow_chain_into_phantom {
+  func.func @main(
+      %%arg0: %s,
+      %%p: %s {tf.aliasing_output = 0 : i32}
+  ) -> (%s, tensor<1xf32>) {
+    %%c0 = stablehlo.multiply %%arg0, %%arg0 : %s
+%s
+    %%marker = "stablehlo.slice"(%%c%d) {
+      start_indices = array<i64: 0>,
+      limit_indices = array<i64: 1>,
+      strides = array<i64: 1>
+    } : (%s) -> tensor<1xf32>
+    return %%c%d, %%marker : %s, tensor<1xf32>
+  }
+}
+',
+  ph_t, ph_t, ph_t, ph_t, ph_body, ph_reps, ph_t, ph_reps, ph_t
+)
+ph_exec <- pjrt_compile(pjrt_program(ph_mlir), device = device)
+
+ph_chunk <- ph_n * 4 / 2^20 # MB of one f32 buffer
+ph_base <- vcells_mb() # nothing of this invariant allocated yet
+
+ph_x <- pjrt_buffer(rep(1.0, ph_n), dtype = "f32", device = device)
+await(ph_x)
+ph_phantom <- pjrt_empty(dtype = "f32", shape = ph_n, device = device)
+if (!is.raw(impl_test_xptr_prot(ph_phantom))) {
+  stop("expected the phantom to carry a RAWSXP keepalive")
+}
+ph_outs <- pjrt_execute(ph_exec, ph_x, ph_phantom, simplify = FALSE)
+if (!is.raw(impl_test_xptr_prot(ph_outs[[1L]]))) {
+  stop("expected the aliased output to carry the migrated keepalive")
+}
+ph_marker <- ph_outs[[2L]]
+
+# Discard the aliased output (and the phantom) while the execution is pending.
+# Live now: ph_x (one chunk) and the migrated keepalive (one chunk) -- the
+# latter only if pjrt pins it, which is the invariant: the execution is about
+# to WRITE the output into those bytes.
+rm(ph_outs, ph_phantom)
+ph_mid <- vcells_mb() - ph_base
+# The measurement is only meaningful while the execution is still running: a
+# finished execution has (correctly) released its pins already. If this
+# fires, the chain finished too fast -- raise ph_reps.
+if (is_ready(ph_marker)) {
+  stop("execution finished before the mid-flight measurement; increase ph_reps")
+}
+if (ph_mid < 1.8 * ph_chunk) {
+  stop(sprintf(
+    "migrated keepalive was collected while its execution was still pending (resident %+.0f MB, expected >= %.0f MB) -- use-after-free: the XLA worker will write the output into freed memory",
+    ph_mid,
+    1.8 * ph_chunk
+  ))
+}
+cat(sprintf(
+  "  keepalive stayed alive across GC while the execution was pending (resident %+.0f MB)\n",
+  ph_mid
+))
+
+# After completion the pin must be released again: drain the deferred-release
+# queue and collect -- the RAWSXP must now be reclaimed (no leak).
+await(ph_marker)
+Sys.sleep(0.5) # the completion callback enqueues from a PJRT thread
+impl_process_pending_releases()
+ph_after <- vcells_mb() - ph_base
+if (ph_after > ph_mid - 0.8 * ph_chunk) {
+  stop(sprintf(
+    "migrated keepalive still resident after completion + drain (%+.0f MB, was %+.0f MB) -- it leaks",
+    ph_after,
+    ph_mid
+  ))
+}
+cat(sprintf(
+  "  keepalive reclaimed after the execution completed (resident %+.0f MB, no leak)\n",
+  ph_after
+))
+
 cat("\nCPU host-memory management verified: keepalive pins live buffers,\n")
 cat("ordinary GC reclaims discarded ones, donation migrates the backing RAWSXP\n")
-cat("from input to output, and a non-donating execute keeps its input alive for\n")
-cat("the duration of the async computation -- without leaking or freeing early.\n")
+cat("from input to output, a non-donating execute keeps its input alive for\n")
+cat("the duration of the async computation, and a donating execute keeps the\n")
+cat("migrated keepalive alive until the output is written -- without leaking\n")
+cat("or freeing early.\n")
