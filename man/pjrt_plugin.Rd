@@ -8,7 +8,7 @@ pjrt_plugin(platform)
 }
 \arguments{
 \item{platform}{(\code{character(1)})\cr
-Platform name (e.g., "cpu", "cuda", "metal").}
+Platform name (e.g., "cpu", "cuda", "mps").}
 }
 \value{
 \code{PJRTPlugin}

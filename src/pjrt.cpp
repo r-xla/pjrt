@@ -948,7 +948,7 @@ Rcpp::List impl_loaded_executable_execute(
   // those bytes on a background thread, but nothing else keeps a *dropped*
   // input alive until the computation finishes with it. Pinning the whole XPtr
   // keeps the buffer -- and transitively its RAWSXP -- reachable, so an
-  // un-awaited Execute can't read freed memory. Device inputs (CUDA/Metal) are
+  // un-awaited Execute can't read freed memory. Device inputs (CUDA/MPS) are
   // PJRT-owned and carry a NilValue prot slot, so they are skipped: PJRT
   // already defers their device-memory free until pending ops complete.
   std::vector<SEXP> input_keepalives;

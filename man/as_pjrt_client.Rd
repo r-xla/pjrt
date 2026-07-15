@@ -8,7 +8,7 @@ as_pjrt_client(x)
 }
 \arguments{
 \item{x}{(\code{PJRTClient} | \code{character(1)})\cr
-Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "metal").}
+Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "mps").}
 }
 \value{
 \code{PJRTClient}

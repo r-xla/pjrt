@@ -1,6 +1,6 @@
-skip_if_metal <- function(msg = "") {
-  if (is_metal()) {
-    testthat::skip(sprintf("Skipping test on Metal device: %s", msg))
+skip_if_mps <- function(msg = "") {
+  if (is_mps()) {
+    testthat::skip(sprintf("Skipping test on MPS device: %s", msg))
   }
 }
 
@@ -8,8 +8,8 @@ is_cpu <- function() {
   Sys.getenv("PJRT_PLATFORM", "cpu") == "cpu"
 }
 
-is_metal <- function() {
-  Sys.getenv("PJRT_PLATFORM") == "metal"
+is_mps <- function() {
+  Sys.getenv("PJRT_PLATFORM") == "mps"
 }
 
 is_cuda <- function() {

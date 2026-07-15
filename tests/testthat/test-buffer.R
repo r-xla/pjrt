@@ -495,7 +495,7 @@ test_that("dtype returns correct data types", {
 })
 
 test_that("R layout and PJRT layout (2D)", {
-  skip_if_metal("-:20:28: error: expected ')' in inline location")
+  skip_if_mps("-:20:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
@@ -515,7 +515,7 @@ test_that("R layout and PJRT layout (2D)", {
 })
 
 test_that("R layout and PJRT layout (3D)", {
-  skip_if_metal("-:26:28: error: expected ')' in inline location")
+  skip_if_mps("-:26:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-3d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
@@ -636,7 +636,7 @@ test_that("buffer <-> raw: row_major parameter", {
 test_that("device works", {
   buf <- pjrt_buffer(1)
   expect_class(device(buf), "PJRTDevice")
-  skip_if(is_metal() || is_cuda())
+  skip_if(is_mps() || is_cuda())
   expect_snapshot(as.character(device(buf)))
 })
 
@@ -655,12 +655,12 @@ test_that("tests can compare buffers", {
 })
 
 test_that("No dim with pjrt_buffer", {
-  skip_if(is_cuda() || is_metal())
+  skip_if(is_cuda() || is_mps())
   expect_equal(shape(pjrt_buffer(1)), 1L)
 })
 
 test_that("device print", {
-  skip_if(is_cuda() || is_metal())
+  skip_if(is_cuda() || is_mps())
   expect_snapshot(print(device(pjrt_buffer(1))))
 })
 
@@ -669,8 +669,8 @@ test_that("dim is integer", {
 })
 
 test_that("can move back buffer without specifying client", {
-  skip_if(!(is_metal() || is_cuda()))
-  device_name <- if (is_metal()) "metal" else "cuda"
+  skip_if(!(is_mps() || is_cuda()))
+  device_name <- if (is_mps()) "mps" else "cuda"
   x <- pjrt_buffer(1, device = device_name)
   expect_equal(as_array(x), array(1))
   y <- pjrt_scalar(1, device = device_name)
@@ -757,7 +757,7 @@ test_that("pjrt_empty allocates an uninitialized buffer of the requested shape",
 })
 
 test_that("identity of buffer", {
-  skip_if(is_metal() | is_cuda())
+  skip_if(is_mps() | is_cuda())
   x <- pjrt_buffer(1, device = "cpu")
   expect_equal(pjrt_buffer(x), x)
   expect_error(pjrt_buffer(x, dtype = "i32"), "Must use the same data type as the data")
@@ -784,9 +784,9 @@ test_that("can create dtype 'pred' from double", {
 })
 
 test_that("pjrt_buffer identity when working on a different client", {
-  skip_if(!(is_metal() || is_cuda()))
+  skip_if(!(is_mps() || is_cuda()))
   x <- pjrt_buffer(1, device = "cpu")
-  device <- if (is_metal()) "metal" else "cuda"
+  device <- if (is_mps()) "mps" else "cuda"
   expect_equal(x, pjrt_buffer(x, device = NULL))
   x <- pjrt_scalar(1, device = "cpu")
   expect_equal(x, pjrt_scalar(x, device = NULL))
@@ -957,7 +957,7 @@ test_that("await works for PJRTBuffer", {
 })
 
 test_that("pjrt_memory returns a PJRTMemory", {
-  skip_if_metal("PJRT_Buffer_Memory not implemented")
+  skip_if_mps("PJRT_Buffer_Memory not implemented")
   buf <- pjrt_buffer(1, dtype = "f32")
   mem <- pjrt_memory(buf)
   expect_class(mem, "PJRTMemory")
