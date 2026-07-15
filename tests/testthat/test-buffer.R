@@ -1086,21 +1086,30 @@ describe("CPU buffer memory management", {
     g["Vcells", "(Mb)"]
   }
 
+  # The backing RAWSXP holds the payload plus up to 63 bytes of padding so the
+  # data PJRT aliases can be 64-byte aligned (XLA's CPU client refuses the
+  # zero-copy import below cpu::MinAlign()). The aliasing check proves the
+  # buffer's device memory genuinely lives inside the RAWSXP -- i.e. the
+  # zero-copy path was actually taken, not a silent copy into pool memory.
+  expect_raw_backing <- function(buf, bytes) {
+    p <- impl_test_xptr_prot(buf)
+    expect_true(is.raw(p))
+    expect_gte(length(p), bytes)
+    expect_lt(length(p), bytes + 64L)
+    expect_true(impl_test_buffer_aliases_prot(buf))
+  }
+
   it("keeps pjrt_buffer's backing RAWSXP in the XPtr's prot slot", {
     skip_if(!is_cpu())
     nfloats <- 1024L * 256L
     b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), nfloats * 4L)
+    expect_raw_backing(b, nfloats * 4L)
   })
 
   it("keeps pjrt_empty's backing RAWSXP in the XPtr's prot slot", {
     skip_if(!is_cpu())
     e <- pjrt_empty("f32", c(256L, 256L))
-    p <- impl_test_xptr_prot(e)
-    expect_true(is.raw(p))
-    expect_equal(length(p), 256L * 256L * 4L)
+    expect_raw_backing(e, 256L * 256L * 4L)
   })
 
   # Every CPU buffer must be backed by a prot-slot RAWSXP, including the
@@ -1111,35 +1120,27 @@ describe("CPU buffer memory management", {
     skip_if(!is_cpu())
     n <- 4096L
     b <- pjrt_buffer(as.double(seq_len(n)), dtype = "f64")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), n * 8L)
+    expect_raw_backing(b, n * 8L)
   })
 
   it("keeps the backing RAWSXP for a no-conversion i32 buffer", {
     skip_if(!is_cpu())
     n <- 4096L
     b <- pjrt_buffer(seq_len(n), dtype = "i32")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), n * 4L)
+    expect_raw_backing(b, n * 4L)
   })
 
   it("keeps the backing RAWSXP for an integer64 buffer", {
     skip_if(!is_cpu())
     n <- 4096L
     b <- pjrt_buffer(bit64::as.integer64(seq_len(n)), dtype = "i64")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), n * 8L)
+    expect_raw_backing(b, n * 8L)
   })
 
   it("keeps the backing RAWSXP for a raw buffer", {
     skip_if(!is_cpu())
     b <- pjrt_buffer(raw(4096L * 4L), dtype = "f32", shape = 4096L, row_major = FALSE)
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), 4096L * 4L)
+    expect_raw_backing(b, 4096L * 4L)
   })
 
   it("reports the backing RAWSXP size via object.size, not just the pointer", {
