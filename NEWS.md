@@ -1,22 +1,5 @@
 # pjrt (development version)
 
-## Bug fixes
-
-* Fixed a use-after-free that could segfault the process (stochastically,
-  under GC pressure): with in-place donation the async execution writes the
-  aliased output into the keepalive RAWSXP that `pjrt_execute()` migrates
-  onto the output buffer, but nothing pinned that memory for the duration of
-  the execution. Discarding an un-awaited output let the GC free the bytes
-  the XLA worker thread was about to write. The migrated keepalive is now
-  pinned until the execution's completion event, like the input keepalives.
-* CPU host buffers are now 64-byte aligned inside their backing RAWSXP, and
-  empty buffers (`pjrt_empty()`, donated phantom outputs) no longer carry
-  column-major strides. Both previously made XLA silently refuse the
-  zero-copy import and copy at creation — the buffer's real storage was then
-  PJRT pool memory invisible to R's GC, and a donated phantom's storage
-  could never be reused for the aliased output (defeating the purpose of
-  phantom donation beyond rank 1).
-
 ## Performance
 
 * A `PJRTBuffer` now memoizes its immutable metadata (dtype, shape, and

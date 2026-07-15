@@ -992,20 +992,23 @@ Rcpp::List impl_loaded_executable_execute(
     }
   }
 
-  // Collect the input buffer XPtrs that need to stay alive for the duration of
-  // the async Execute. A CPU buffer's bytes live in a RAWSXP parked in the
+  // Everything that must stay alive for the duration of the async Execute:
+  // seeded here with the input buffer XPtrs, and extended after Execute with
+  // the migrated donation keepalives that back the aliased *outputs* (see the
+  // alias loop below). A CPU buffer's bytes live in a RAWSXP parked in the
   // XPtr's prot slot, which PJRT only aliases (zero-copy); the Execute reads
-  // those bytes on a background thread, but nothing else keeps a *dropped*
-  // input alive until the computation finishes with it. Pinning the whole XPtr
-  // keeps the buffer -- and transitively its RAWSXP -- reachable, so an
-  // un-awaited Execute can't read freed memory. Device inputs (CUDA/Metal) are
-  // PJRT-owned and carry a NilValue prot slot, so they are skipped: PJRT
-  // already defers their device-memory free until pending ops complete.
-  std::vector<SEXP> input_keepalives;
+  // input bytes and writes donated-output bytes on a background thread, but
+  // nothing else keeps a *dropped* buffer alive until the computation finishes
+  // with it. Pinning the XPtr keeps the buffer -- and transitively its RAWSXP
+  // -- reachable, so an un-awaited Execute can't touch freed memory. Device
+  // inputs (CUDA/Metal) are PJRT-owned and carry a NilValue prot slot, so they
+  // are skipped: PJRT already defers their device-memory free until pending
+  // ops complete.
+  std::vector<SEXP> keepalives;
   for (auto i = 0; i < input.size(); ++i) {
     SEXP xptr = VECTOR_ELT(input, i);
     if (R_ExternalPtrProtected(xptr) != R_NilValue) {
-      input_keepalives.push_back(xptr);
+      keepalives.push_back(xptr);
     }
   }
 
@@ -1014,13 +1017,13 @@ Rcpp::List impl_loaded_executable_execute(
   // host bytes. R_PreserveObject runs here on the main thread; the matching
   // release is deferred to the completion event below. If Execute itself
   // throws, unpin first so the objects don't leak.
-  for (SEXP k : input_keepalives) R_PreserveObject(k);
+  for (SEXP k : keepalives) R_PreserveObject(k);
 
   rpjrt::AsyncExecuteResult result;
   try {
     result = executable->execute_async(inputs, *execution_options);
   } catch (...) {
-    for (SEXP k : input_keepalives) R_ReleaseObject(k);
+    for (SEXP k : keepalives) R_ReleaseObject(k);
     throw;
   }
 
@@ -1072,7 +1075,7 @@ Rcpp::List impl_loaded_executable_execute(
     // input keepalives.
     if (keepalive != R_NilValue) {
       R_PreserveObject(keepalive);
-      input_keepalives.push_back(keepalive);
+      keepalives.push_back(keepalive);
     }
   }
 
@@ -1085,16 +1088,16 @@ Rcpp::List impl_loaded_executable_execute(
   // R_ReleaseObject runs later on the main thread via the deferred-release
   // queue. The PJRTEvent wrapper is destroyed when `result` goes out of scope,
   // but the registered callback still fires (see PJRTEvent::on_ready).
-  if (!input_keepalives.empty()) {
+  if (!keepalives.empty()) {
     if (result.complete_event) {
       result.complete_event->on_ready(
-          [keepalives = std::move(input_keepalives)](PJRT_Error * /*error*/) {
+          [keepalives = std::move(keepalives)](PJRT_Error * /*error*/) {
             for (SEXP k : keepalives) rpjrt::queue_release(k);
           });
     } else {
       // No completion event means nothing will signal when Execute is done with
       // the inputs; release the keepalives now so they don't leak.
-      for (SEXP k : input_keepalives) rpjrt::queue_release(k);
+      for (SEXP k : keepalives) rpjrt::queue_release(k);
     }
   }
 

@@ -641,25 +641,13 @@ module @square_into_phantom_2d {
         library(pjrt)
         n <- 10000000L # 40MB f32; 1-D so the phantom is zero-copy + reused
         t <- sprintf("tensor<%dxf32>", n)
-        src <- paste0(
-          "func.func @main(%x: ",
-          t,
-          ", %p: ",
-          t,
-          " {tf.aliasing_output = 0 : i32}) -> ",
-          t,
-          " {\n",
-          "  %0 = \"stablehlo.multiply\"(%x, %x) : (",
-          t,
-          ", ",
-          t,
-          ") -> ",
-          t,
-          "\n",
-          "  \"func.return\"(%0) : (",
-          t,
-          ") -> ()\n}\n"
-        )
+        template <- '
+func.func @main(%x: T, %p: T {tf.aliasing_output = 0 : i32}) -> T {
+  %0 = "stablehlo.multiply"(%x, %x) : (T, T) -> T
+  "func.return"(%0) : (T) -> ()
+}
+'
+        src <- gsub("T", t, template, fixed = TRUE)
         exec <- pjrt_compile(pjrt_program(src = src), device = "cpu")
         x <- pjrt_buffer(rep(1, n), dtype = "f32")
         await(x)
