@@ -196,6 +196,16 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> make_cpu_buffer(
     PJRT_Buffer_Type dtype, PJRT_Device *device, Fill fill) {
   // PROTECT across buffer_from_host_async: PJRT allocation may trigger R's GC.
   // Once the XPtr holds raw_sexp in its prot slot it stays reachable.
+  //
+  // R only guarantees ~16-byte alignment for vector data, and cannot be asked
+  // for more, so the alignment is produced inside the allocation: allocate
+  // kCpuBufferAlign - 1 spare bytes and round the data pointer up to the next
+  // kCpuBufferAlign boundary — the standard (x + a-1) & ~(a-1) idiom, valid
+  // because the alignment is a power of two. The skip is 0..63 bytes, so
+  // `total_bytes` always fit behind the aligned pointer. Everything downstream
+  // (`fill`, PJRT's alias) uses only that interior pointer; the RAWSXP as a
+  // whole is the GC-owned keepalive and its leading slack bytes are never
+  // touched.
   SEXP raw_sexp =
       PROTECT(Rf_allocVector(RAWSXP, total_bytes + kCpuBufferAlign - 1));
   const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(raw_sexp));
