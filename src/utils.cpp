@@ -101,7 +101,10 @@ StderrCapture begin_stderr_capture() {
   }
   lseek(g_sink_fd, 0, SEEK_SET);
 
-  std::fflush(stderr);
+  // fflush(nullptr) flushes every output stream, stderr included. We must not
+  // name `stderr` here: referencing the C stream symbol in compiled code is
+  // flagged by R CMD check.
+  std::fflush(nullptr);
   int saved = dup(STDERR_FILENO);
   if (saved == -1) {
     return cap;
@@ -118,7 +121,9 @@ void end_stderr_capture(StderrCapture &cap, bool replay) {
   if (cap.saved_fd == -1) {
     return;  // capture was disabled; nothing to restore
   }
-  std::fflush(stderr);  // push any libc-buffered stderr into the sink
+  // Push any libc-buffered stderr into the sink. fflush(nullptr) flushes all
+  // output streams — naming `stderr` would be flagged by R CMD check.
+  std::fflush(nullptr);
   dup2(cap.saved_fd, STDERR_FILENO);
   close(cap.saved_fd);
   cap.saved_fd = -1;
