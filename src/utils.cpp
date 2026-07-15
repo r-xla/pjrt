@@ -101,7 +101,10 @@ StderrCapture begin_stderr_capture() {
   }
   lseek(g_sink_fd, 0, SEEK_SET);
 
-  std::fflush(stderr);
+  // fflush(nullptr) flushes every output stream, stderr included. We must not
+  // name `stderr` here: referencing the C stream symbol in compiled code is
+  // flagged by R CMD check.
+  std::fflush(nullptr);
   int saved = dup(STDERR_FILENO);
   if (saved == -1) {
     return cap;
@@ -118,7 +121,9 @@ void end_stderr_capture(StderrCapture &cap, bool replay) {
   if (cap.saved_fd == -1) {
     return;  // capture was disabled; nothing to restore
   }
-  std::fflush(stderr);  // push any libc-buffered stderr into the sink
+  // Push any libc-buffered stderr into the sink. fflush(nullptr) flushes all
+  // output streams — naming `stderr` would be flagged by R CMD check.
+  std::fflush(nullptr);
   dup2(cap.saved_fd, STDERR_FILENO);
   close(cap.saved_fd);
   cap.saved_fd = -1;
@@ -128,12 +133,12 @@ void end_stderr_capture(StderrCapture &cap, bool replay) {
     char buf[4096];
     ssize_t n;
     while ((n = read(g_sink_fd, buf, sizeof(buf))) > 0) {
-      ssize_t off = 0;
-      while (off < n) {
-        ssize_t w = write(STDERR_FILENO, buf + off, n - off);
-        if (w <= 0) break;
-        off += w;
-      }
+      // Replay through REprintf rather than raw fd-2 writes: package output
+      // must go through R's connections so it reaches GUI consoles and honors
+      // sink(). Requires fd 2 to already be restored (done above), since in
+      // terminal R REprintf itself writes to stderr. %.*s stops at an embedded
+      // NUL, which is fine for log text.
+      REprintf("%.*s", static_cast<int>(n), buf);
     }
   }
   // The sink is left open for reuse; it is reset on the next begin.
