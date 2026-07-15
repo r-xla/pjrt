@@ -295,7 +295,7 @@ void reject_hlo_aliases(const std::string &code) {
 // compiled. We read them from the program source we already hold rather than
 // from the plugin's optimized executable: the aliasing is part of the program
 // (XLA preserves caller-specified donation), so this needs no plugin support
-// and works identically on CPU, CUDA, and Metal. Only the MLIR path extracts
+// and works identically on CPU, CUDA, and MPS. Only the MLIR path extracts
 // aliases; the HLO path rejects them (see reject_hlo_aliases).
 void PJRTLoadedExecutable::load_input_output_aliases_(
     const std::string &program_code, PJRTProgramFormat program_format) {

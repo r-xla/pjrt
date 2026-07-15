@@ -33,24 +33,24 @@ install.packages("pjrt", repos = c("https://r-xla.r-universe.dev", getOption("re
 
 ### Plugin download
 
-`pjrt` relies on a backend-specific PJRT *plugin* (a shared library) that is
-not bundled with the package. The first time you create a client or compile a
-program for a platform, the matching plugin is downloaded and cached in
-`tools::R_user_dir("pjrt", "cache")`.
+`pjrt` relies on a backend-specific PJRT *plugin* (a shared library)
+that is not bundled with the package. The first time you create a client
+or compile a program for a platform, the matching plugin is downloaded
+and cached in `tools::R_user_dir("pjrt", "cache")`.
 
-In an interactive session you are asked for confirmation before the download.
-The `PJRT_INSTALL` environment variable controls this:
+In an interactive session you are asked for confirmation before the
+download. The `PJRT_INSTALL` environment variable controls this:
 
-- `PJRT_INSTALL=1`: always download without asking (e.g. in CI, scripts, or
-  Docker builds).
+- `PJRT_INSTALL=1`: always download without asking (e.g. in CI, scripts,
+  or Docker builds).
 - `PJRT_INSTALL=0`: never download; an error with instructions is raised
   instead.
 
-In a non-interactive session the plugin is **not** downloaded automatically
-unless `PJRT_INSTALL=1` is set. Alternatively, set
-`PJRT_PLUGIN_PATH_<PLATFORM>` (e.g. `PJRT_PLUGIN_PATH_CPU`) to a local plugin
-file to skip the download entirely. See `?pjrt` for the full list of
-environment variables.
+In a non-interactive session the plugin is **not** downloaded
+automatically unless `PJRT_INSTALL=1` is set. Alternatively, set
+`PJRT_PLUGIN_PATH_<PLATFORM>` (e.g. `PJRT_PLUGIN_PATH_CPU`) to a local
+plugin file to skip the download entirely. See `?pjrt` for the full list
+of environment variables.
 
 ### CUDA
 
@@ -159,8 +159,18 @@ pjrt_execute(executable, x, y)
     (WSL2).
 - **macOS**
   - :white_check_mark: CPU backend is supported.
-  - :warning: Metal (Apple GPU) backend is available but not fully
+  - :warning: MPS (Apple GPU) backend is available but not fully
     functional.
+
+## Versions
+
+The versions below are queried from the CPU plugin:
+
+| Component                     | Version |
+|:------------------------------|:--------|
+| PJRT C API                    | 0.81    |
+| StableHLO (current)           | 1.13.3  |
+| StableHLO (minimum supported) | 0.9.0   |
 
 ## Acknowledgements
 
@@ -178,5 +188,5 @@ pjrt_execute(executable, x, y)
   - Various protobuf files, see `./tools/copy-proto.R` for which ones.
   - Plugin implementations for CPU and CUDA (we are using the builds
     from [zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts/)).
-- For Metal, we are using the plugin implementation from
-  [jax-metal](https://pypi.org/project/jax-metal/).
+- For MPS (Apple GPU), we are using the plugin implementation from
+  [jax-mps](https://github.com/tillahoffmann/jax-mps).

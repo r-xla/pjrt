@@ -129,7 +129,30 @@ pjrt_execute(executable, x, y)
   * :warning: GPU is only supported via Windows Subsystem for Linux (WSL2).
 * **macOS**
   * :white_check_mark: CPU backend is supported.
-  * :warning: Metal (Apple GPU) backend is available but not fully functional.
+  * :warning: MPS (Apple GPU) backend is available but not fully functional.
+
+## Versions
+
+The versions below are queried from the CPU plugin:
+
+```{r, echo = FALSE}
+plugin <- pjrt_plugin("cpu")
+attrs <- plugin_attributes(plugin)
+api <- pjrt_api_version(plugin)
+ver <- function(x) paste(x, collapse = ".")
+knitr::kable(data.frame(
+  Component = c(
+    "PJRT C API",
+    "StableHLO (current)",
+    "StableHLO (minimum supported)"
+  ),
+  Version = c(
+    ver(unlist(api)),
+    ver(attrs$stablehlo_current_version),
+    ver(attrs$stablehlo_minimum_version)
+  )
+))
+```
 
 ## Acknowledgements
 
@@ -141,4 +164,4 @@ pjrt_execute(executable, x, y)
   * [PJRT C API FFI Extension](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api_ffi_extension.h).
   * Various protobuf files, see `./tools/copy-proto.R` for which ones.
   * Plugin implementations for CPU and CUDA (we are using the builds from [zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts/)).
-* For Metal, we are using the plugin implementation from [jax-metal](https://pypi.org/project/jax-metal/).
+* For MPS (Apple GPU), we are using the plugin implementation from [jax-mps](https://github.com/tillahoffmann/jax-mps).
