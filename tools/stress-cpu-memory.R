@@ -426,7 +426,9 @@ ph_t <- sprintf("tensor<%dxf32>", ph_n)
 ph_body <- paste(
   sprintf(
     "    %%c%d = stablehlo.tanh %%c%d : %s",
-    seq_len(ph_reps), seq_len(ph_reps) - 1L, ph_t
+    seq_len(ph_reps),
+    seq_len(ph_reps) - 1L,
+    ph_t
   ),
   collapse = "\n"
 )
@@ -453,7 +455,15 @@ module @slow_chain_into_phantom {
   }
 }
 ',
-  ph_t, ph_t, ph_t, ph_t, ph_body, ph_reps, ph_t, ph_reps, ph_t
+  ph_t,
+  ph_t,
+  ph_t,
+  ph_t,
+  ph_body,
+  ph_reps,
+  ph_t,
+  ph_reps,
+  ph_t
 )
 ph_exec <- pjrt_compile(pjrt_program(ph_mlir), device = device)
 
