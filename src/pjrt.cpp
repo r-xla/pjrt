@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "buffer.h"
+#include "half/half.hpp"
 #include "buffer_printer.h"
 #include "client.h"
 #include "deferred_release.h"
@@ -116,11 +117,34 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
   return xptr;
 }
 
+// F16 buffers are packed binary16 on both sides of the PJRT boundary; the
+// reinterpret_casts between raw bytes and half rely on the type being exactly
+// two bytes with no extra state.
+static_assert(sizeof(half_float::half) == 2,
+              "half_float::half must be exactly 2 bytes");
+
 // Copy R data into a pre-allocated typed destination buffer, performing
 // type conversion as needed. T is the PJRT-side element type.
 template <typename T>
 void convert_r_data_to_typed(SEXP data, T *dst, int len) {
-  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+  if constexpr (std::is_same_v<T, half_float::half>) {
+    // half_cast<> rounds the double (or int) directly to binary16, to nearest
+    // with ties to even. The implicit half(float) constructor must not be used
+    // with R doubles: rounding double->float->half double-rounds (e.g.
+    // 65519.999 lands on the float 65520, which then ties up to Inf, where the
+    // correctly rounded result is 65504).
+    if (TYPEOF(data) == REALSXP) {
+      for (int i = 0; i < len; ++i) {
+        dst[i] = half_float::half_cast<half_float::half>(REAL(data)[i]);
+      }
+    } else if (TYPEOF(data) == INTSXP) {
+      for (int i = 0; i < len; ++i) {
+        dst[i] = half_float::half_cast<half_float::half>(INTEGER(data)[i]);
+      }
+    } else {
+      Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
+    }
+  } else if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     if (TYPEOF(data) == REALSXP) {
       std::copy(REAL(data), REAL(data) + len, dst);
     } else if (TYPEOF(data) == INTSXP) {
@@ -351,7 +375,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype,
     bool row_major = false) {
-  if (dtype == "f32") {
+  if (dtype == "f16") {
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F16,
+                                  row_major, device->device);
+  } else if (dtype == "f32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
                                   row_major, device->device);
   } else if (dtype == "f64") {
@@ -563,6 +590,9 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
   };
 
   switch (element_type) {
+    case PJRT_Buffer_Type_F16:
+      handle_transpose(half_float::half{});
+      break;
     case PJRT_Buffer_Type_F32:
       handle_transpose(float{});
       break;
@@ -854,7 +884,11 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
     raw_data = host_data->data().data();
   }
 
-  if (dtype == "f32") {
+  if (dtype == "f16") {
+    // Every binary16 value is exactly representable as a double.
+    return raw_to_array_impl<half_float::half>(raw_data, dimensions, REALSXP,
+                                               m2m);
+  } else if (dtype == "f32") {
     return raw_to_array_impl<float>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "f64") {
     return raw_to_array_impl<double>(raw_data, dimensions, REALSXP, m2m);
@@ -1136,6 +1170,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else if (dtype == "ui64") {
     return create_buffer_from_array_async<uint64_t>(
         client, data, dims, PJRT_Buffer_Type_U64, false, device->device);
+  } else if (dtype == "f16") {
+    return create_buffer_from_array_async<half_float::half>(
+        client, data, dims, PJRT_Buffer_Type_F16, false, device->device);
   } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
@@ -1187,7 +1224,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype) {
-  if (dtype == "f32") {
+  if (dtype == "f16") {
+    return create_buffer_from_array_async<half_float::half>(
+        client, data, dims, PJRT_Buffer_Type_F16, false, device->device);
+  } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
   } else if (dtype == "f64") {

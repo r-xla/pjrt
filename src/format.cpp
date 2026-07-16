@@ -5,27 +5,41 @@
 #include <sstream>
 #include <vector>
 
+#include "half/half.hpp"
+
 using namespace Rcpp;
 
 std::string format_float_value(double value, int precision) {
   // stablehlo format for NaN and infinity
   if (R_IsNaN(value)) {
-    return (precision == 64) ? "0x7FF8000000000000" : "0x7FC00000";
+    if (precision == 64) return "0x7FF8000000000000";
+    if (precision == 16) return "0x7E00";
+    return "0x7FC00000";
   } else if (!R_finite(value)) {
     if (precision == 64) {
       return (value > 0) ? "0x7FF0000000000000" : "0xFFF0000000000000";
     }
+    if (precision == 16) {
+      return (value > 0) ? "0x7C00" : "0xFC00";
+    }
     return (value > 0) ? "0x7F800000" : "0xFF800000";
   }
   std::ostringstream oss;
-  oss << std::scientific << std::setprecision(precision == 32 ? 8 : 16);
+  // scientific setprecision(n) prints 1 + n significant digits; 17, 9 and 5
+  // digits round-trip f64, f32 and f16 respectively.
+  oss << std::scientific
+      << std::setprecision(precision == 16 ? 4 : (precision == 32 ? 8 : 16));
   oss << value;
   return oss.str();
 }
 
 std::string format_element(const unsigned char *ptr, std::string dtype) {
   std::ostringstream oss;
-  if (dtype == "f32") {
+  if (dtype == "f16") {
+    half_float::half val;
+    std::memcpy(&val, ptr, 2);
+    return format_float_value(static_cast<double>(val), 16);
+  } else if (dtype == "f32") {
     float val;
     std::memcpy(&val, ptr, 4);
     return format_float_value((double)val, 32);
@@ -74,7 +88,7 @@ std::string format_element(const unsigned char *ptr, std::string dtype) {
 int get_element_size(std::string dtype) {
   if (dtype == "f64" || dtype == "i64" || dtype == "ui64") return 8;
   if (dtype == "f32" || dtype == "i32" || dtype == "ui32") return 4;
-  if (dtype == "i16" || dtype == "ui16") return 2;
+  if (dtype == "f16" || dtype == "i16" || dtype == "ui16") return 2;
   return 1;
 }
 

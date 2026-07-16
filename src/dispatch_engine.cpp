@@ -158,8 +158,9 @@ SEXP Engine::canonical_device(SEXP device) {
 
 // Reject an Aval whose dtype could not be represented: every such leaf would
 // share one Aval, and two calls on different dtypes would then run each other's
-// program. Neither tengen nor pjrt's own dtype table can produce one, so this
-// is a guard, not a path.
+// program. tengen cannot produce one, but pjrt's buffer layer can -- an f16
+// buffer is supported for storage and IO before tengen can express the dtype
+// -- so for such buffers this is a real path, not just a guard.
 static void check_dtype_representable(const Aval& a, const RTree& in_tree,
                                       std::size_t leaf_index) {
   if (a.dtype == AnvlDtype::kInvalid) {
