@@ -48,7 +48,8 @@ is_buffer <- function(x) {
 #'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
 #'   - `"f{16,32,64}"`: Floating point (for `double` or `integer` data).
 #'     For `"f16"`, values are rounded to the nearest binary16 value (ties to
-#'     even); values beyond the finite range (65504) become `Inf`.
+#'     even); the largest finite value is 65504, and magnitudes at or above
+#'     the overflow midpoint 65520 round to `Inf`.
 #'     [`as_array()`] returns the exactly representable values as `double`.
 #'   The default (`NULL`) depends on the method:
 #'   - `logical` -> `"pred"`

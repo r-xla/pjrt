@@ -31,7 +31,8 @@ Currently supported types are:
 \item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
 \item \code{"f{16,32,64}"}: Floating point (for \code{double} or \code{integer} data).
 For \code{"f16"}, values are rounded to the nearest binary16 value (ties to
-even); values beyond the finite range (65504) become \code{Inf}.
+even); the largest finite value is 65504, and magnitudes at or above
+the overflow midpoint 65520 round to \code{Inf}.
 \code{\link[=as_array]{as_array()}} returns the exactly representable values as \code{double}.
 The default (\code{NULL}) depends on the method:
 \item \code{logical} -> \code{"pred"}

@@ -8,6 +8,9 @@
 
 ## Bug fixes
 
+* Printing a buffer whose element type tengen cannot express no longer
+  errors at the footer: the footer name now derives from `elt_type()`
+  (with `pred` shown as `bool`, unchanged for all existing dtypes).
 * `check_err()` no longer leaks the underlying `PJRT_Error` when
   converting a plugin error into an R exception.
 * Reading a buffer back to the host now respects the device buffer's
@@ -19,6 +22,13 @@
 
 ## Features
 
+* `pjrt_buffer()` supports `dtype = "f16"` (IEEE 754 binary16): construction
+  from doubles/integers rounds to nearest, ties to even (largest finite value
+  65504; magnitudes at or above the overflow midpoint 65520 round to `Inf`),
+  `as_array()` returns the exactly representable values as doubles, and f16
+  buffers print, format as stablehlo literals, and load raw from F16
+  safetensors payloads. `elt_type()` reports `"f16"`; `dtype()` errors until
+  tengen can express the type.
 * `pjrt_buffer()`, `pjrt_scalar()`, and `pjrt_execute()` now call R's
   garbage collector and retry once when the plugin reports
   `RESOURCE_EXHAUSTED`. Unreferenced `PJRTBuffer` external pointers are
