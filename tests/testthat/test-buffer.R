@@ -193,6 +193,86 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
   test_pjrt_buffer(data_matrix, "f32", tolerance = 1e-6)
 })
 
+test_that("pjrt_buffer roundtrip works for f16 data", {
+  # exactly representable in binary16, so no tolerance is needed
+  test_pjrt_buffer(c(1.0, -1.0, 0.0, 0.5, 0.25), "f16")
+  test_pjrt_buffer(matrix(c(1.5, 2.5, -3.5, 4.75), nrow = 2), "f16")
+  test_pjrt_scalar(0.5, "f16")
+})
+
+test_that("f16 buffers materialize the exactly representable doubles", {
+  # binary16 targets computed independently: 1/3 -> 0x3555 = 0.333251953125,
+  # 0.1 -> 0x2E66 = 0.0999755859375, 65504 = largest finite value, 65520 is
+  # the overflow midpoint and rounds (ties to even) to Inf, 2^-24 = smallest
+  # subnormal
+  input <- c(1, 0.5, 1 / 3, 0.1, 65504, 65520, 2^-24, -2.5, 0)
+  expected <- c(
+    1,
+    0.5,
+    0.333251953125,
+    0.0999755859375,
+    65504,
+    Inf,
+    2^-24,
+    -2.5,
+    0
+  )
+  buf <- pjrt_buffer(input, dtype = "f16")
+  expect_equal(as.character(elt_type(buf)), "f16")
+  expect_identical(as_array(buf), array(expected))
+
+  # integer data is accepted like for the other float dtypes
+  buf_int <- pjrt_buffer(matrix(1:6, nrow = 2), dtype = "f16")
+  expect_equal(as.character(elt_type(buf_int)), "f16")
+  expect_identical(as_array(buf_int), matrix(as.double(1:6), nrow = 2))
+
+  s <- pjrt_scalar(3.14159, dtype = "f16")
+  expect_identical(shape(s), integer())
+  expect_identical(as_array(s), 3.140625)
+})
+
+test_that("doubles round to f16 to nearest, ties to even, not via float", {
+  # 65519.999: rounding the double directly to binary16 gives 65504, but
+  # rounding through float first lands exactly on 65520 (a float), which then
+  # ties up to Inf -- the classic double-rounding failure this test pins.
+  expect_identical(as_array(pjrt_buffer(65519.999, dtype = "f16")), array(65504))
+
+  # ties to even at the subnormal boundary: 2^-25 is midway between 0 and
+  # 2^-24 and rounds to the even neighbour 0; 1.5 * 2^-24 is midway between
+  # 2^-24 and 2^-23 and rounds to 2^-23.
+  buf <- pjrt_buffer(c(2^-25, 1.5 * 2^-24), dtype = "f16")
+  expect_identical(as_array(buf), array(c(0, 2^-23)))
+})
+
+test_that("f16 raw and empty buffers work", {
+  empty <- pjrt_empty(dtype = "f16", shape = c(0, 2))
+  expect_identical(shape(empty), c(0L, 2L))
+  expect_equal(as.character(elt_type(empty)), "f16")
+
+  # 0x3C00 = 1.0 and 0xB800 = -0.5, as little-endian byte pairs
+  raw_bytes <- as.raw(c(0x00, 0x3c, 0x00, 0xb8))
+  buf <- pjrt_buffer(raw_bytes, dtype = "f16", shape = 2L, row_major = TRUE)
+  expect_identical(as_array(buf), array(c(1, -0.5)))
+  expect_identical(as_raw(buf, row_major = TRUE), raw_bytes)
+
+  expect_error(
+    pjrt_buffer(as.raw(c(0, 0, 0)), dtype = "f16", shape = 2L, row_major = TRUE),
+    "requires 4 bytes"
+  )
+})
+
+test_that("f16 rejects logical input like the other float dtypes", {
+  expect_error(pjrt_buffer(TRUE, dtype = "f16"), "Unsupported type")
+})
+
+test_that("dtype() on an f16 buffer errors until tengen can express it", {
+  # elt_type() reports the buffer-level dtype; dtype() returns a
+  # tengen::DataType, which has no f16 representation yet.
+  buf <- pjrt_buffer(1.5, dtype = "f16")
+  expect_equal(as.character(elt_type(buf)), "f16")
+  expect_error(dtype(buf), "Unsupported dtype")
+})
+
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
   expect_error(pjrt_buffer(logical(0), shape = c(1, 4)), "but specified shape is")
