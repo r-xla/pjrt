@@ -8,7 +8,7 @@ dispatcher(
   capacity,
   compile,
   static = character(),
-  backend = "xla",
+  backend = "pjrt",
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL
@@ -36,7 +36,7 @@ compile for it rather than resolve a default of its own. \code{NULL} when an
 array named the device, or under \code{move_inputs}.
 }
 
-For \code{backend = "xla"} it must return a named list with:
+For \code{backend = "pjrt"} it must return a named list with:
 \itemize{
 \item \code{exec}: a \code{\link{pjrt_compile}}d executable,
 \item \code{client}, \code{device}: the \code{\link{pjrt_client}} and the device the entry is
@@ -84,7 +84,7 @@ It is a policy flag, not a device: \emph{which} device an entry targets is the
 per static argument value).
 
 Placing an input is the engine's business, since only it knows what \verb{$data}
-holds. With \code{backend = "xla"} an input living elsewhere is copied to the
+holds. With \code{backend = "pjrt"} an input living elsewhere is copied to the
 entry's device. With any other backend pjrt does nothing, so \strong{\code{r_fun} must
 place its own inputs} -- it receives only their \verb{$data}, not their
 \verb{$device}, so the placing has to be idempotent.}
@@ -104,9 +104,9 @@ an interned device resolves in one pointer comparison, and every distinct
 object a backend hands out stays alive for the dispatcher's lifetime.}
 
 \item{extractor}{(\code{function} | \code{NULL})\cr
-Reads a non-\code{"xla"} array's metadata via the backend's accessors, called as
+Reads a non-\code{"pjrt"} array's metadata via the backend's accessors, called as
 \code{extractor(leaf)} and returning \code{list(aval = list(dtype, shape, ambiguous), device, backend)} -- \code{dtype} a tengen \code{DataType}, \code{shape} an \code{integer()}.
-Required for any backend other than \code{"xla"}; ignored for \code{"xla"} (see
+Required for any backend other than \code{"pjrt"}; ignored for \code{"pjrt"} (see
 \emph{Backends}).}
 }
 \value{
@@ -139,7 +139,7 @@ executable.
 The \code{backend} selects the execution engine, and everything backend-specific
 sits behind it:
 \itemize{
-\item \code{backend = "xla"} executes a compiled PJRT executable natively: array
+\item \code{backend = "pjrt"} executes a compiled PJRT executable natively: array
 inputs contribute their \verb{$data} buffer, bare R literals and arrays are
 uploaded with the same dtype defaults as
 \code{\link[=pjrt_scalar]{pjrt_scalar()}}/\code{\link[=pjrt_buffer]{pjrt_buffer()}}, and the outputs are wrapped back into
@@ -152,7 +152,7 @@ placement therefore stay under the backend's control. This is the path for
 any non-PJRT backend (e.g. anvl's \code{"quickr"}).
 }
 
-Of an array input, only \verb{$data} is ever assumed: for \code{"xla"} its dtype, shape
+Of an array input, only \verb{$data} is ever assumed: for \code{"pjrt"} its dtype, shape
 and device are read off the \code{PJRTBuffer} directly, and for any other backend
 they come from \code{extractor}. A backend is free to store them as fields or to
 compute them on demand.

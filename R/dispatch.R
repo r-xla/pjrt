@@ -25,7 +25,7 @@
 #' The `backend` selects the execution engine, and everything backend-specific
 #' sits behind it:
 #'
-#' * `backend = "xla"` executes a compiled PJRT executable natively: array
+#' * `backend = "pjrt"` executes a compiled PJRT executable natively: array
 #'   inputs contribute their `$data` buffer, bare R literals and arrays are
 #'   uploaded with the same dtype defaults as
 #'   [`pjrt_scalar()`]/[`pjrt_buffer()`], and the outputs are wrapped back into
@@ -37,7 +37,7 @@
 #'   placement therefore stay under the backend's control. This is the path for
 #'   any non-PJRT backend (e.g. anvl's `"quickr"`).
 #'
-#' Of an array input, only `$data` is ever assumed: for `"xla"` its dtype, shape
+#' Of an array input, only `$data` is ever assumed: for `"pjrt"` its dtype, shape
 #' and device are read off the `PJRTBuffer` directly, and for any other backend
 #' they come from `extractor`. A backend is free to store them as fields or to
 #' compute them on demand.
@@ -61,7 +61,7 @@
 #'     compile for it rather than resolve a default of its own. `NULL` when an
 #'     array named the device, or under `move_inputs`.
 #'
-#'   For `backend = "xla"` it must return a named list with:
+#'   For `backend = "pjrt"` it must return a named list with:
 #'   * `exec`: a [`pjrt_compile`]d executable,
 #'   * `client`, `device`: the [`pjrt_client`] and the device the entry is
 #'     compiled for,
@@ -103,7 +103,7 @@
 #'   per static argument value).
 #'
 #'   Placing an input is the engine's business, since only it knows what `$data`
-#'   holds. With `backend = "xla"` an input living elsewhere is copied to the
+#'   holds. With `backend = "pjrt"` an input living elsewhere is copied to the
 #'   entry's device. With any other backend pjrt does nothing, so **`r_fun` must
 #'   place its own inputs** -- it receives only their `$data`, not their
 #'   `$device`, so the placing has to be idempotent.
@@ -121,10 +121,10 @@
 #'   an interned device resolves in one pointer comparison, and every distinct
 #'   object a backend hands out stays alive for the dispatcher's lifetime.
 #' @param extractor (`function` | `NULL`)\cr
-#'   Reads a non-`"xla"` array's metadata via the backend's accessors, called as
+#'   Reads a non-`"pjrt"` array's metadata via the backend's accessors, called as
 #'   `extractor(leaf)` and returning `list(aval = list(dtype, shape, ambiguous),
 #'   device, backend)` -- `dtype` a tengen `DataType`, `shape` an `integer()`.
-#'   Required for any backend other than `"xla"`; ignored for `"xla"` (see
+#'   Required for any backend other than `"pjrt"`; ignored for `"pjrt"` (see
 #'   *Backends*).
 #' @return [`dispatcher()`] returns a `Dispatcher`.
 #' @export
@@ -132,7 +132,7 @@ dispatcher <- function(
   capacity,
   compile,
   static = character(),
-  backend = "xla",
+  backend = "pjrt",
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL
@@ -149,12 +149,12 @@ dispatcher <- function(
       "{.arg default_device} is required unless {.code move_inputs = TRUE}."
     )
   }
-  # The backend fixes the execution engine: "xla" runs a compiled PJRT
+  # The backend fixes the execution engine: "pjrt" runs a compiled PJRT
   # executable natively; any other backend runs through the compiled R closure.
-  engine <- if (backend == "xla") "pjrt" else "closure"
+  engine <- if (backend == "pjrt") "pjrt" else "closure"
   if (engine == "closure" && is.null(extractor)) {
     cli::cli_abort(
-      "{.arg extractor} is required for a non-{.val xla} backend: pass a
+      "{.arg extractor} is required for a non-{.val pjrt} backend: pass a
        function that reads a leaf's metadata via the backend's accessors."
     )
   }
@@ -178,7 +178,7 @@ dispatcher <- function(
 #' @rdname dispatch
 #' @param dispatcher (`Dispatcher`)\cr A dispatcher from [`dispatcher()`].
 #' @param args (`list`)\cr The (already evaluated) argument list of the call.
-#' @return [`dispatch()`] returns the call's result. With `backend = "xla"` that
+#' @return [`dispatch()`] returns the call's result. With `backend = "pjrt"` that
 #'   is the output buffers wrapped into `"AnvlArray"`s and re-nested by the
 #'   `compile` callback's `out_tree` (see [`dispatcher()`]); with any other
 #'   backend it is whatever the compiled closure returned.

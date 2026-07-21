@@ -83,7 +83,7 @@ The core is backend-agnostic. Everything a backend has an opinion about — how 
 executes, how its outputs are wrapped — sits behind `Engine`. The core never
 branches on the engine; it calls the hooks.
 
-**`PjrtEngine`** (`backend = "xla"`) is the native fast path. `read_array()`
+**`PjrtEngine`** (`backend = "pjrt"`) is the native fast path. `read_array()`
 takes dtype, shape and device off the `PJRTBuffer` in `$data`, which caches them
 natively and so cannot drift from the array's R-level fields (this engine never
 consults them). `run()` assembles the executable's inputs — const arrays, the
@@ -116,7 +116,7 @@ reads directly. Everything else comes from the engine: `PjrtEngine` off the
 buffer, `ClosureEngine` through the `extractor` closure the backend supplies
 (built on its own accessors).
 
-The asymmetry is intended: routing the xla path through an R extractor would
+The asymmetry is intended: routing the pjrt path through an R extractor would
 defeat the native fast path, and pjrt's engine is co-developed with pjrt's own
 backend.
 
@@ -182,7 +182,7 @@ exactly what it had taken, and a cached one is released by the LRU destroying it
 
 ## Consumer
 
-anvl's `jit()` is the only consumer: `R/backend-xla.R` creates a dispatcher with
-the default `"xla"` backend, and `R/backend-quickr.R` one with
+anvl's `jit()` is the only consumer: its PJRT backend creates a dispatcher with
+the default `"pjrt"` backend, and `R/backend-quickr.R` one with
 `backend = "quickr"` plus an accessor-based `extractor`. Both then call
 `pjrt::dispatch()` on the evaluated argument list and return its result directly.
