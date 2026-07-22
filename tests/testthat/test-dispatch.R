@@ -26,7 +26,7 @@ test_that("jit() dispatches, caches, and returns wrapped arrays", {
   expect_identical(tengen::shape(r1), 3L)
   expect_s3_class(r1$data, "PJRTBuffer")
   expect_s3_class(tengen::device(r1), "PJRTDevice")
-  expect_identical(r1$backend, "xla")
+  expect_identical(r1$backend, "pjrt")
   expect_equal(arr_of(r1), c(11, 22, 33))
 
   # A second call of the same signature is a cache hit...
@@ -310,7 +310,7 @@ test_that("the quickr backend dispatches through the closure engine", {
 # identical() as a fallback to object identity, so equal-but-distinct devices
 # still collapse to one. The identity fast path is exercised where a test reuses
 # one object (see "devices are canonicalized").
-test_xla_device <- function() pjrt_device("cpu:0")
+test_pjrt_device <- function() pjrt_device("cpu:0")
 test_device <- function(id = "cpu") structure(list(device = id), class = "QuickrDevice")
 test_quickr_device <- function() test_device("cpu")
 
@@ -326,7 +326,7 @@ oav <- function(dtype = "f32", shape = 2L, ambiguous = FALSE) {
 # outputs' $device), a leaf out_tree (a single un-nested output), and the
 # out_avals the outputs are wrapped from. The default is the tests' most common
 # program: one f32 output of shape 2.
-xla_entry <- function(
+pjrt_entry <- function(
   exec,
   ...,
   out_tree = build_tree(0),
@@ -343,10 +343,10 @@ xla_entry <- function(
   )
 }
 
-# An xla array leaf, as anvl builds them: an "AnvlArray" whose $data is a buffer.
-xarr <- function(buf) {
+# A pjrt array leaf, as anvl builds them: an "AnvlArray" whose $data is a buffer.
+parr <- function(buf) {
   structure(
-    list(data = buf, ambiguous = FALSE, device = tengen::device(buf), backend = "xla"),
+    list(data = buf, ambiguous = FALSE, device = tengen::device(buf), backend = "pjrt"),
     class = "AnvlArray"
   )
 }
@@ -406,7 +406,7 @@ test_that("phantom_specs allocate donation buffers of the requested dtype", {
     d <- new_dispatcher(
       4L,
       function(info) {
-        xla_entry(
+        pjrt_entry(
           pjrt_compile(pjrt_program(src = src)),
           out_avals = list(oav(dtype = spec_dtype)),
           phantom_specs = list(list(dtype = spec_dtype, shape = 2L))
@@ -414,9 +414,9 @@ test_that("phantom_specs allocate donation buffers of the requested dtype", {
       },
       "flag",
       "pjrt",
-      "xla",
+      "pjrt",
       FALSE,
-      test_xla_device
+      test_pjrt_device
     )
     impl_dispatch_run(d, list(flag = TRUE))
   }
@@ -448,13 +448,39 @@ test_that("a dispatcher with static names still dispatches a pure-dynamic call",
   exec <- pjrt_compile(pjrt_program(src = add_src))
   d <- dispatcher(
     10L,
-    function(info) xla_entry(exec),
+    function(info) pjrt_entry(exec),
     static = "flag",
-    default_device = test_xla_device
+    default_device = test_pjrt_device
   )
-  x <- xarr(pjrt_buffer(c(1, 2), dtype = "f32"))
-  y <- xarr(pjrt_buffer(c(3, 4), dtype = "f32"))
+  x <- parr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  y <- parr(pjrt_buffer(c(3, 4), dtype = "f32"))
   expect_equal(out(dispatch(d, list(x = x, y = y))), c(4, 6))
+})
+
+test_that("`dispatcher()` picks the engine from the backend", {
+  cb <- function(info) stop("must not reach the compile callback")
+  # The default backend is the native PJRT fast path, which reads a leaf's
+  # metadata off its buffer and so needs no extractor.
+  expect_s3_class(
+    dispatcher(10L, cb, default_device = test_pjrt_device),
+    "Dispatcher"
+  )
+  # Any other backend runs through the closure engine, which has nothing to read
+  # a leaf's metadata with unless it is given an extractor.
+  expect_error(
+    dispatcher(10L, cb, backend = "quickr", default_device = test_quickr_device),
+    "is required for a non-.*pjrt.* backend"
+  )
+  expect_s3_class(
+    dispatcher(
+      10L,
+      cb,
+      backend = "quickr",
+      default_device = test_quickr_device,
+      extractor = test_extractor
+    ),
+    "Dispatcher"
+  )
 })
 
 test_that("the closure engine passes the dynamic leaves to `r_fun`, and nothing else", {
@@ -716,20 +742,20 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
       },
       character(0),
       engine,
-      if (engine == "pjrt") "xla" else "quickr",
+      if (engine == "pjrt") "pjrt" else "quickr",
       FALSE,
-      test_xla_device
+      test_pjrt_device
     )
   }
 
   # An AnvlArray of the wrong backend for the dispatcher.
   expect_error(
-    impl_dispatch_run(mk("closure"), list(x = qarr(c(1, 2), backend = "xla"))),
+    impl_dispatch_run(mk("closure"), list(x = qarr(c(1, 2), backend = "pjrt"))),
     "invalid input `x`.*\"quickr\""
   )
   expect_error(
     impl_dispatch_run(mk("pjrt"), list(x = qarr(c(1, 2)))),
-    "invalid input `x`.*\"xla\""
+    "invalid input `x`.*\"pjrt\""
   )
 
   # anvl's "plain" backend captures trace-time constants; never a call argument.
@@ -821,16 +847,16 @@ test_that("out_avals and out_tree are the callback's claim, and are honoured", {
   mk <- function(out_tree, out_avals) {
     new_dispatcher(
       10L,
-      function(info) xla_entry(exec, out_tree = out_tree, out_avals = out_avals),
+      function(info) pjrt_entry(exec, out_tree = out_tree, out_avals = out_avals),
       character(0),
       "pjrt",
-      "xla",
+      "pjrt",
       FALSE,
-      test_xla_device
+      test_pjrt_device
     )
   }
-  x <- xarr(pjrt_buffer(c(1, 2), dtype = "f32"))
-  y <- xarr(pjrt_buffer(c(3, 4), dtype = "f32"))
+  x <- parr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  y <- parr(pjrt_buffer(c(3, 4), dtype = "f32"))
 
   # Every wrapped field comes from the declared aval, not from the buffer: the
   # first output is stamped ambiguous although nothing about the buffer is.
@@ -868,9 +894,9 @@ test_that("the pjrt engine validates the compile callback's entry", {
   }'
   exec <- pjrt_compile(pjrt_program(src = id_src))
   mk <- function(entry_fn) {
-    new_dispatcher(10L, entry_fn, character(0), "pjrt", "xla", FALSE, test_xla_device)
+    new_dispatcher(10L, entry_fn, character(0), "pjrt", "pjrt", FALSE, test_pjrt_device)
   }
-  x <- xarr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  x <- parr(pjrt_buffer(c(1, 2), dtype = "f32"))
 
   # A missing client (needed for uploads, phantoms, and the wrap's device) is a
   # clear error, not a crash at input-assembly time.
@@ -882,7 +908,7 @@ test_that("the pjrt engine validates the compile callback's entry", {
   # So is a const_arrays element that is not a PJRTBuffer: execute would
   # reinterpret the external pointer blindly and segfault, so it must be
   # rejected when the entry is built (here: the exec itself, a plausible slip).
-  d_bad2 <- mk(function(info) xla_entry(exec, const_arrays = list(exec)))
+  d_bad2 <- mk(function(info) pjrt_entry(exec, const_arrays = list(exec)))
   expect_error(
     impl_dispatch_run(d_bad2, list(x)),
     "const_arrays\\[\\[1\\]\\]` must be a PJRTBuffer"
@@ -911,7 +937,7 @@ test_that("a default_device resolver must return a PJRTDevice", {
     function(info) stop("must not reach the compile callback"),
     character(0),
     "pjrt",
-    "xla",
+    "pjrt",
     FALSE,
     function() pjrt_client("cpu") # a PJRTClient, not a PJRTDevice
   )
@@ -931,9 +957,9 @@ test_that("an AnvlArray that is not a list is rejected, naming the argument", {
     function(info) stop("must not reach the compile callback"),
     character(0),
     "pjrt",
-    "xla",
+    "pjrt",
     FALSE,
-    test_xla_device
+    test_pjrt_device
   )
   bad <- structure(c(data = 1), class = "AnvlArray")
   expect_error(impl_dispatch_run(d, list(x = bad)), "invalid input `x`")
