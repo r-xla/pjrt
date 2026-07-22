@@ -21,18 +21,19 @@ jobs:
           - { os: "macos", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cpu", build_cpp_tests: true }
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
-          - { os: "ubuntu", r: "release", platform: "cuda"}
+          # Disabled: the self-hosted GPU runner is currently unavailable.
+          # - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "ubuntu-arm", r: "release", platform: "cpu"}
           - { os: "windows", r: "release", platform: "cpu"}
           # - { os: "macos", r: "release", platform: "metal"}
 
         include:
-          - config: {os: "ubuntu", platform: "cuda"}
-            container: {image: 'nvidia/cuda:12.8.1-base-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
-            runner: ['self-hosted', 'gpu']
-            extra-packages: "any::rcmdcheck, cuda12.8"
-            extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
-            as-cran: 'false'
+          # - config: {os: "ubuntu", platform: "cuda"}
+          #   container: {image: 'nvidia/cuda:12.8.1-base-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
+          #   runner: ['self-hosted', 'gpu']
+          #   extra-packages: "any::rcmdcheck, cuda12.8"
+          #   extra-repositories: "https://r-xla.r-universe.dev, https://mlverse.r-universe.dev"
+          #   as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}
             runner: 'ubuntu-latest'
           - config: {os: "ubuntu-arm", platform: "cpu"}
