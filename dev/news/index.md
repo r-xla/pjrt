@@ -51,9 +51,11 @@
   [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md),
   a native (C++) eager-dispatch engine: an executable cache keyed on the
   inputs’ structure and abstract values, which calls back into R to
-  compile only on a cache miss. It is intended to be used in {anvl}.
-  Ideally this would live in a library of its own, but we have included
-  it here for convenience.
+  compile only on a cache miss. Its default `backend = "pjrt"` runs a
+  compiled PJRT executable natively; any other backend runs through a
+  compiled R closure. It is intended to be used in {anvl}. Ideally this
+  would live in a library of its own, but we have included it here for
+  convenience.
 - [`inspect_hlo()`](https://r-xla.github.io/pjrt/dev/reference/inspect_hlo.md)
   returns the HLO intermediate representations the XLA compiler produces
   for a program – the input (`before_optimizations`) and optimized

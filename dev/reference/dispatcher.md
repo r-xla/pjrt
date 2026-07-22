@@ -16,7 +16,7 @@ dispatcher(
   capacity,
   compile,
   static = character(),
-  backend = "xla",
+  backend = "pjrt",
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL
@@ -59,7 +59,7 @@ dispatcher(
     `compile` must compile for it rather than resolve a default of its
     own. `NULL` when an array named the device, or under `move_inputs`.
 
-  For `backend = "xla"` it must return a named list with:
+  For `backend = "pjrt"` it must return a named list with:
 
   - `exec`: a
     [`pjrt_compile`](https://r-xla.github.io/pjrt/dev/reference/pjrt_compile.md)d
@@ -126,7 +126,7 @@ dispatcher(
   derives one per static argument value).
 
   Placing an input is the engine's business, since only it knows what
-  `$data` holds. With `backend = "xla"` an input living elsewhere is
+  `$data` holds. With `backend = "pjrt"` an input living elsewhere is
   copied to the entry's device. With any other backend pjrt does
   nothing, so **`r_fun` must place its own inputs** – it receives only
   their `$data`, not their `$device`, so the placing has to be
@@ -153,12 +153,12 @@ dispatcher(
 - extractor:
 
   (`function` \| `NULL`)  
-  Reads a non-`"xla"` array's metadata via the backend's accessors,
+  Reads a non-`"pjrt"` array's metadata via the backend's accessors,
   called as `extractor(leaf)` and returning
   `list(aval = list(dtype, shape, ambiguous), device, backend)` –
   `dtype` a tengen `DataType`, `shape` an
   [`integer()`](https://rdrr.io/r/base/integer.html). Required for any
-  backend other than `"xla"`; ignored for `"xla"` (see *Backends*).
+  backend other than `"pjrt"`; ignored for `"pjrt"` (see *Backends*).
 
 ## Value
 
@@ -187,7 +187,7 @@ cache miss, and only for inputs already known to be executable.
 The `backend` selects the execution engine, and everything
 backend-specific sits behind it:
 
-- `backend = "xla"` executes a compiled PJRT executable natively: array
+- `backend = "pjrt"` executes a compiled PJRT executable natively: array
   inputs contribute their `$data` buffer, bare R literals and arrays are
   uploaded with the same dtype defaults as
   [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)/[`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
@@ -200,7 +200,7 @@ backend-specific sits behind it:
   and input placement therefore stay under the backend's control. This
   is the path for any non-PJRT backend (e.g. anvl's `"quickr"`).
 
-Of an array input, only `$data` is ever assumed: for `"xla"` its dtype,
+Of an array input, only `$data` is ever assumed: for `"pjrt"` its dtype,
 shape and device are read off the `PJRTBuffer` directly, and for any
 other backend they come from `extractor`. A backend is free to store
 them as fields or to compute them on demand.

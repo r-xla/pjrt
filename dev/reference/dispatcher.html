@@ -75,7 +75,7 @@ compile only on a cache miss.</p>
 <span>  <span class="va">capacity</span>,</span>
 <span>  <span class="va">compile</span>,</span>
 <span>  static <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"xla"</span>,</span>
+<span>  backend <span class="op">=</span> <span class="st">"pjrt"</span>,</span>
 <span>  move_inputs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  default_device <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  extractor <span class="op">=</span> <span class="cn">NULL</span></span>
@@ -106,7 +106,7 @@ scalar,</p></li>
 named one – the device the cache key was built on, so <code>compile</code> must
 compile for it rather than resolve a default of its own. <code>NULL</code> when an
 array named the device, or under <code>move_inputs</code>.</p></li>
-</ul><p>For <code>backend = "xla"</code> it must return a named list with:</p><ul><li><p><code>exec</code>: a <code><a href="pjrt_compile.html">pjrt_compile</a></code>d executable,</p></li>
+</ul><p>For <code>backend = "pjrt"</code> it must return a named list with:</p><ul><li><p><code>exec</code>: a <code><a href="pjrt_compile.html">pjrt_compile</a></code>d executable,</p></li>
 <li><p><code>client</code>, <code>device</code>: the <code><a href="pjrt_client.html">pjrt_client</a></code> and the device the entry is
 compiled for,</p></li>
 <li><p><code>out_tree</code>: the <code>RTree</code> of the outputs (see <code><a href="build_tree.html">build_tree</a></code>),</p></li>
@@ -152,7 +152,7 @@ device, and a conflicting input is an error.</p>
 (anvl's <code>jit(device = )</code> fixes one up front, its <code>device_arg()</code> derives one
 per static argument value).</p>
 <p>Placing an input is the engine's business, since only it knows what <code>$data</code>
-holds. With <code>backend = "xla"</code> an input living elsewhere is copied to the
+holds. With <code>backend = "pjrt"</code> an input living elsewhere is copied to the
 entry's device. With any other backend pjrt does nothing, so <strong><code>r_fun</code> must
 place its own inputs</strong> – it receives only their <code>$data</code>, not their
 <code>$device</code>, so the placing has to be idempotent.</p></dd>
@@ -175,9 +175,9 @@ object a backend hands out stays alive for the dispatcher's lifetime.</p></dd>
 
 <dt id="arg-extractor">extractor<a class="anchor" aria-label="anchor" href="#arg-extractor"></a></dt>
 <dd><p>(<code>function</code> | <code>NULL</code>)<br>
-Reads a non-<code>"xla"</code> array's metadata via the backend's accessors, called as
+Reads a non-<code>"pjrt"</code> array's metadata via the backend's accessors, called as
 <code>extractor(leaf)</code> and returning <code>list(aval = list(dtype, shape, ambiguous), device, backend)</code> – <code>dtype</code> a tengen <code>DataType</code>, <code>shape</code> an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>.
-Required for any backend other than <code>"xla"</code>; ignored for <code>"xla"</code> (see
+Required for any backend other than <code>"pjrt"</code>; ignored for <code>"pjrt"</code> (see
 <em>Backends</em>).</p></dd>
 
 </dl></div>
@@ -203,7 +203,7 @@ executable.</p>
 
 
 <p>The <code>backend</code> selects the execution engine, and everything backend-specific
-sits behind it:</p><ul><li><p><code>backend = "xla"</code> executes a compiled PJRT executable natively: array
+sits behind it:</p><ul><li><p><code>backend = "pjrt"</code> executes a compiled PJRT executable natively: array
 inputs contribute their <code>$data</code> buffer, bare R literals and arrays are
 uploaded with the same dtype defaults as
 <code><a href="pjrt_buffer.html">pjrt_scalar()</a></code>/<code><a href="pjrt_buffer.html">pjrt_buffer()</a></code>, and the outputs are wrapped back into
@@ -214,7 +214,7 @@ leaving C++.</p></li>
 returns the call's finished value. Execution, output wrapping and input
 placement therefore stay under the backend's control. This is the path for
 any non-PJRT backend (e.g. anvl's <code>"quickr"</code>).</p></li>
-</ul><p>Of an array input, only <code>$data</code> is ever assumed: for <code>"xla"</code> its dtype, shape
+</ul><p>Of an array input, only <code>$data</code> is ever assumed: for <code>"pjrt"</code> its dtype, shape
 and device are read off the <code>PJRTBuffer</code> directly, and for any other backend
 they come from <code>extractor</code>. A backend is free to store them as fields or to
 compute them on demand.</p>

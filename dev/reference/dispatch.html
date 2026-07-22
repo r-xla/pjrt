@@ -81,7 +81,7 @@ offending argument; there is no fallback for the caller to take.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>dispatch()</code> returns the call's result. With <code>backend = "xla"</code> that
+    <p><code>dispatch()</code> returns the call's result. With <code>backend = "pjrt"</code> that
 is the output buffers wrapped into <code>"AnvlArray"</code>s and re-nested by the
 <code>compile</code> callback's <code>out_tree</code> (see <code><a href="dispatcher.html">dispatcher()</a></code>); with any other
 backend it is whatever the compiled closure returned.</p>

@@ -29,7 +29,7 @@ dispatcher_size(dispatcher)
 
 ## Value
 
-`dispatch()` returns the call's result. With `backend = "xla"` that is
+`dispatch()` returns the call's result. With `backend = "pjrt"` that is
 the output buffers wrapped into `"AnvlArray"`s and re-nested by the
 `compile` callback's `out_tree` (see
 [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md));
