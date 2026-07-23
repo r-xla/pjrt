@@ -46,7 +46,11 @@ is_buffer <- function(x) {
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
 #'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
-#'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
+#'   - `"f{16,32,64}"`: Floating point (for `double` or `integer` data).
+#'     For `"f16"`, values are rounded to the nearest binary16 value (ties to
+#'     even); the largest finite value is 65504, and magnitudes at or above
+#'     the overflow midpoint 65520 round to `Inf`.
+#'     [`as_array()`] returns the exactly representable values as `double`.
 #'   The default (`NULL`) depends on the method:
 #'   - `logical` -> `"pred"`
 #'   - `integer` -> `"i32"`
@@ -672,7 +676,7 @@ print.PJRTBuffer <- function(
     max_rows_slice = max_rows_slice
   )
   if (is.null(footer)) {
-    footer <- sprintf("[ %s%s{%s} ]", toupper(platform(x)), as.character(dtype(x)), shape_str)
+    footer <- sprintf("[ %s%s{%s} ]", toupper(platform(x)), dtype_display_name(x), shape_str)
   }
   if (nzchar(footer)) {
     cat(footer, "\n")
@@ -683,6 +687,19 @@ print.PJRTBuffer <- function(
 #' @export
 dtype.PJRTBuffer <- function(x, ...) {
   as_dtype(as.character(elt_type(x)))
+}
+
+# The dtype name shown in the print footer. Same rule as dtype_display_name()
+# in src/ffi.cpp: pjrt's element-type strings, with the boolean type shown
+# under tengen's spelling ("bool", not "pred"). Derived from elt_type() rather
+# than dtype() because the buffer layer may support dtypes tengen cannot
+# express yet (e.g. "f16"), and the footer must still print for those.
+dtype_display_name <- function(x) {
+  name <- as.character(elt_type(x))
+  if (name == "pred") {
+    return("bool")
+  }
+  name
 }
 
 #' @export

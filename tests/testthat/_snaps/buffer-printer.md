@@ -217,6 +217,47 @@
        1.0000e-10
       [ CPUf32{2} ] 
 
+# printer for f16
+
+    Code
+      pjrt_buffer(1:10, "f16")
+    Output
+      PJRTBuffer 
+        1
+        2
+        3
+        4
+        5
+        6
+        7
+        8
+        9
+       10
+      [ CPUf16{10} ] 
+
+---
+
+    Code
+      pjrt_buffer(c(1.5, -0.25, 3.140625), dtype = "f16")
+    Output
+      PJRTBuffer 
+        1.5000
+       -0.2500
+        3.1406
+      [ CPUf16{3} ] 
+
+---
+
+    Code
+      pjrt_buffer(c(65504, Inf, NaN, 2^(-24)), dtype = "f16")
+    Output
+      PJRTBuffer 
+       6.5504e+04
+              inf
+              nan
+       5.9605e-08
+      [ CPUf16{4} ] 
+
 # integer-valued floats with truncation
 
     Code

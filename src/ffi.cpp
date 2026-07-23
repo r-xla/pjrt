@@ -38,6 +38,8 @@ PJRT_FFI_Extension *get_pjrt_ffi_extension(PJRTPlugin *plugin) {
 
 PJRT_Buffer_Type to_pjrt_type(xla::ffi::DataType dtype) {
   switch (dtype) {
+    case xla::ffi::DataType::F16:
+      return PJRT_Buffer_Type_F16;
     case xla::ffi::DataType::F32:
       return PJRT_Buffer_Type_F32;
     case xla::ffi::DataType::F64:

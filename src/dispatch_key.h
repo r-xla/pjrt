@@ -24,10 +24,14 @@ namespace rpjrt {
 // never went near PJRT just as readily as a PJRT buffer.
 //
 // The set is exactly what tengen's DataType hierarchy can express (it rejects
-// FloatType(16) and the like), which is also exactly what pjrt's
-// string_to_pjrt_buffer_type() accepts. Conversions in either direction are
-// explicit switches rather than casts, so a PJRT type outside this set maps to
-// kInvalid rather than silently becoming a neighbouring dtype.
+// FloatType(16) and the like). pjrt's buffer layer is allowed to run ahead of
+// it: string_to_pjrt_buffer_type() also accepts "f16", which tengen cannot
+// express yet, so an f16 buffer reaching the dispatcher maps to kInvalid and
+// is rejected by check_dtype_representable() rather than keyed approximately.
+// When tengen grows f16, add kF16 here and to both switches below.
+// Conversions in either direction are explicit switches rather than casts, so
+// a PJRT type outside this set maps to kInvalid rather than silently becoming
+// a neighbouring dtype.
 enum class AnvlDtype {
   kInvalid,
   kBool,

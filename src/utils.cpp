@@ -190,6 +190,7 @@ PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err) {
 }
 
 PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
+  if (dtype == "f16") return PJRT_Buffer_Type_F16;
   if (dtype == "f32") return PJRT_Buffer_Type_F32;
   if (dtype == "f64") return PJRT_Buffer_Type_F64;
   if (dtype == "i8") return PJRT_Buffer_Type_S8;
@@ -206,6 +207,8 @@ PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {
   switch (type) {
+    case PJRT_Buffer_Type_F16:
+      return 2;
     case PJRT_Buffer_Type_F32:
       return 4;
     case PJRT_Buffer_Type_F64:

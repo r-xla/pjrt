@@ -12,6 +12,17 @@ test_that("format_buffer works for floats", {
   expect_equal(format_buffer(pjrt_scalar(-Inf, "f64")), "0xFFF0000000000000")
 })
 
+test_that("format_buffer works for f16", {
+  # 5 significant digits round-trip binary16
+  expect_equal(format_buffer(pjrt_scalar(1.5, "f16")), "1.5000e+00")
+  # 1/3 rounds to the binary16 value 0.333251953125
+  expect_equal(format_buffer(pjrt_scalar(1 / 3, "f16")), "3.3325e-01")
+
+  expect_equal(format_buffer(pjrt_scalar(NaN, "f16")), "0x7E00")
+  expect_equal(format_buffer(pjrt_scalar(Inf, "f16")), "0x7C00")
+  expect_equal(format_buffer(pjrt_scalar(-Inf, "f16")), "0xFC00")
+})
+
 test_that("format_buffer works for integers", {
   check <- function(x, dtype) {
     buf <- pjrt_buffer(x, dtype = dtype)

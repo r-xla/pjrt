@@ -51,6 +51,14 @@ test_that("printer for doubles", {
   expect_snapshot(pjrt_buffer(c(1e10, 1e-10)))
 })
 
+test_that("printer for f16", {
+  skip_if(is_metal() | is_cuda())
+  # integer-valued halfs print without decimals, like the other floats
+  expect_snapshot(pjrt_buffer(1:10, "f16"))
+  expect_snapshot(pjrt_buffer(c(1.5, -0.25, 3.140625), dtype = "f16"))
+  expect_snapshot(pjrt_buffer(c(65504, Inf, NaN, 2^-24), dtype = "f16"))
+})
+
 test_that("integer-valued floats with truncation", {
   skip_if(is_metal() | is_cuda())
   # > 30 rows triggers row truncation

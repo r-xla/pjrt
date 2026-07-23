@@ -38,6 +38,8 @@ std::string PJRTElementType::as_string() const {
       return "ui32";
     case PJRT_Buffer_Type_U64:
       return "ui64";
+    case PJRT_Buffer_Type_F16:
+      return "f16";
     case PJRT_Buffer_Type_F32:
       return "f32";
     case PJRT_Buffer_Type_F64:
