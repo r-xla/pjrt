@@ -34,7 +34,7 @@ Suggests:
     testthat (>= 3.0.0),
     xml2
 Remotes:
-    r-xla/anvl
+    r-xla/anvl#406
 LinkingTo:
     Rcpp,
     testthat
