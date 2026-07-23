@@ -26,7 +26,7 @@ Imports:
     rlang,
     safetensors(>= 0.2.0),
     withr,
-    tengen (>= 0.2.0)
+    tengen (>= 0.3.0)
 Suggests:
     anvl,
     callr,
