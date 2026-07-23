@@ -23,11 +23,13 @@ namespace rpjrt {
 // our own rather than PJRT_Buffer_Type: an Aval describes a plain R array that
 // never went near PJRT just as readily as a PJRT buffer.
 //
-// The set is exactly what tengen's DataType hierarchy can express (it rejects
-// FloatType(16) and the like), which is also exactly what pjrt's
-// string_to_pjrt_buffer_type() accepts. Conversions in either direction are
-// explicit switches rather than casts, so a PJRT type outside this set maps to
-// kInvalid rather than silently becoming a neighbouring dtype.
+// The set is what the dispatcher can represent, which is also exactly what
+// pjrt's string_to_pjrt_buffer_type() accepts. tengen now names more dtypes
+// than this (f16, bf16, f8*, complex, sub-byte ints); those are rejected by
+// anvl_dtype_from_tengen() below rather than keyed approximately. Conversions
+// in either direction are explicit switches rather than casts, so a PJRT type
+// outside this set maps to kInvalid rather than silently becoming a
+// neighbouring dtype.
 enum class AnvlDtype {
   kInvalid,
   kBool,
@@ -107,57 +109,30 @@ inline const char* anvl_dtype_name(AnvlDtype d) {
   return "invalid";
 }
 
-// Translate a tengen DataType object to an AnvlDtype. It is an S3 list classed
-// BooleanType / IntegerType / UIntegerType / FloatType, carrying the bit width
-// in `$value` (BooleanType has none). tengen's constructors reject any width
-// outside this table, so a leaf yielding kInvalid did not come from tengen; the
-// caller rejects it rather than keying it approximately.
+// Translate a tengen DataType object to an AnvlDtype. It is a length-1
+// character vector classed "DataType" whose string is the canonical dtype
+// name. tengen names more dtypes than the dispatcher supports (f16, bf16,
+// f8*, complex, sub-byte ints); those yield kInvalid and the caller rejects
+// them rather than keying approximately.
 inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
-  if (TYPEOF(dtype) != VECSXP) return AnvlDtype::kInvalid;
-  SEXP cls = Rf_getAttrib(dtype, R_ClassSymbol);
-  if (TYPEOF(cls) != STRSXP || XLENGTH(cls) == 0) return AnvlDtype::kInvalid;
-  const char* kind = CHAR(STRING_ELT(cls, 0));
-  if (!std::strcmp(kind, "BooleanType")) return AnvlDtype::kBool;
-
-  SEXP nms = Rf_getAttrib(dtype, R_NamesSymbol);
-  if (TYPEOF(nms) != STRSXP) return AnvlDtype::kInvalid;
-  int bits = 0;
-  for (R_xlen_t k = 0; k < XLENGTH(dtype); ++k) {
-    if (!std::strcmp(CHAR(STRING_ELT(nms, k)), "value")) {
-      bits = Rf_asInteger(VECTOR_ELT(dtype, k));
-      break;
-    }
+  if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
+    return AnvlDtype::kInvalid;
   }
-  if (!std::strcmp(kind, "IntegerType")) {
-    switch (bits) {
-      case 8:
-        return AnvlDtype::kI8;
-      case 16:
-        return AnvlDtype::kI16;
-      case 32:
-        return AnvlDtype::kI32;
-      case 64:
-        return AnvlDtype::kI64;
-    }
-  } else if (!std::strcmp(kind, "UIntegerType")) {
-    switch (bits) {
-      case 8:
-        return AnvlDtype::kU8;
-      case 16:
-        return AnvlDtype::kU16;
-      case 32:
-        return AnvlDtype::kU32;
-      case 64:
-        return AnvlDtype::kU64;
-    }
-  } else if (!std::strcmp(kind, "FloatType")) {
-    switch (bits) {
-      case 32:
-        return AnvlDtype::kF32;
-      case 64:
-        return AnvlDtype::kF64;
-    }
+  if (!Rf_inherits(dtype, "DataType")) {
+    return AnvlDtype::kInvalid;
   }
+  const char* name = CHAR(STRING_ELT(dtype, 0));
+  if (!std::strcmp(name, "bool")) return AnvlDtype::kBool;
+  if (!std::strcmp(name, "i8")) return AnvlDtype::kI8;
+  if (!std::strcmp(name, "i16")) return AnvlDtype::kI16;
+  if (!std::strcmp(name, "i32")) return AnvlDtype::kI32;
+  if (!std::strcmp(name, "i64")) return AnvlDtype::kI64;
+  if (!std::strcmp(name, "ui8")) return AnvlDtype::kU8;
+  if (!std::strcmp(name, "ui16")) return AnvlDtype::kU16;
+  if (!std::strcmp(name, "ui32")) return AnvlDtype::kU32;
+  if (!std::strcmp(name, "ui64")) return AnvlDtype::kU64;
+  if (!std::strcmp(name, "f32")) return AnvlDtype::kF32;
+  if (!std::strcmp(name, "f64")) return AnvlDtype::kF64;
   return AnvlDtype::kInvalid;
 }
 

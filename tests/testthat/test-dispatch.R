@@ -785,8 +785,9 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
 
   # A dtype object AnvlDtype cannot name is rejected, not keyed approximately:
   # two such dtypes would otherwise share an aval and run each other's program.
-  # tengen builds none of these, so this is a guard rather than a path.
-  weird <- structure(list(value = 1L), class = c("WeirdType", "DataType"))
+  # tengen names more dtypes than the dispatcher can represent; this is a real
+  # one it cannot key.
+  weird <- tengen::as_dtype("f16")
   expect_error(
     impl_dispatch_run(mk("closure"), list(x = qarr(c(1, 2), dtype = weird))),
     "invalid input `x`.*dtype is not one anvl can represent"

@@ -89,17 +89,12 @@ const int kDeviceB = 0;
 const rpjrt::DeviceToken kDevA = &kDeviceA;
 const rpjrt::DeviceToken kDevB = &kDeviceB;
 
-// A tengen DataType object: an S3 list with `$value` bits and a class.
-Rcpp::List tengen_dtype(const char* cls, int bits) {
-  Rcpp::List d = Rcpp::List::create(Rcpp::Named("value") = bits);
-  d.attr("class") = Rcpp::CharacterVector::create(cls, "DataType");
-  return d;
-}
-
-Rcpp::List tengen_bool() {
-  Rcpp::List d = Rcpp::List::create();
-  d.attr("class") = Rcpp::CharacterVector::create("BooleanType", "DataType");
-  return d;
+// A tengen DataType: length-1 STRSXP classed "DataType".
+inline Rcpp::CharacterVector tengen_dtype(const char* name) {
+  Rcpp::CharacterVector s(1);
+  s[0] = name;
+  s.attr("class") = "DataType";
+  return s;
 }
 
 // A length-1 character vector holding `bytes` under a chosen encoding, so a
@@ -116,36 +111,37 @@ context("AnvlDtype") {
   test_that("every tengen dtype maps to a distinct AnvlDtype") {
     // A fall-through here would key two dtypes alike and run one's program for
     // the other. It has happened; hence one assertion per width.
-    expect_true(anvl_dtype_from_tengen(tengen_bool()) == AnvlDtype::kBool);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 8)) ==
-                AnvlDtype::kI8);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 16)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("bool")) ==
+                AnvlDtype::kBool);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("i8")) == AnvlDtype::kI8);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("i16")) ==
                 AnvlDtype::kI16);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 32)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("i32")) ==
                 AnvlDtype::kI32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 64)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("i64")) ==
                 AnvlDtype::kI64);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 8)) ==
-                AnvlDtype::kU8);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 16)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui8")) == AnvlDtype::kU8);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui16")) ==
                 AnvlDtype::kU16);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 32)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui32")) ==
                 AnvlDtype::kU32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 64)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui64")) ==
                 AnvlDtype::kU64);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("FloatType", 32)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("f32")) ==
                 AnvlDtype::kF32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("FloatType", 64)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("f64")) ==
                 AnvlDtype::kF64);
   }
 
   test_that(
       "a dtype AnvlDtype cannot name yields kInvalid, never a neighbour") {
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("FloatType", 16)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("f16")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 128)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("bf16")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("WeirdType", 32)) ==
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("c64")) ==
+                AnvlDtype::kInvalid);
+    expect_true(anvl_dtype_from_tengen(Rcpp::CharacterVector::create("f32")) ==
                 AnvlDtype::kInvalid);
     expect_true(anvl_dtype_from_tengen(Rcpp::IntegerVector::create(32)) ==
                 AnvlDtype::kInvalid);

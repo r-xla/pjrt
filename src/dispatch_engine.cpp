@@ -432,8 +432,8 @@ class PjrtEngine : public Engine {
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
-        // Normalize the boolean aliases the R layer also accepts (a tengen
-        // BooleanType stringifies as "bool"; pjrt's canonical name is "pred").
+        // Normalize the boolean aliases the R layer also accepts (tengen's
+        // canonical name is "bool"; pjrt's canonical name is "pred").
         std::string dt = Rcpp::as<std::string>(spec["dtype"]);
         if (dt == "bool" || dt == "i1") dt = "pred";
         ps.dtype = string_to_pjrt_buffer_type(dt);
