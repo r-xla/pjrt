@@ -50,9 +50,6 @@
 
 ## Internal
 
-* The dispatcher reads tengen's new enum-style `DataType` (a classed
-  string); dtypes tengen can now name but the dispatcher cannot represent
-  (e.g. `f16`) are rejected as before.
 * The test suite now only runs when the `PJRT_TEST` environment variable is
   set to `"1"`, so it is skipped on CRAN (where the required PJRT plugin
   cannot be downloaded). CI sets `PJRT_TEST=1`.
