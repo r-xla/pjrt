@@ -12,6 +12,11 @@
   Author of the Boost.ContainerHash hash_combine copied in src/hash.h
   (BSL-1.0); see inst/COPYRIGHTS
 
+- **The OpenXLA Authors**. Copyright holder.  
+  Authors of the PJRT C API and XLA FFI headers in inst/include and the
+  XLA protobuf definitions in inst/proto (Apache-2.0); see
+  inst/COPYRIGHTS
+
 ## Citation
 
 Source:
