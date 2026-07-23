@@ -114,12 +114,9 @@ context("AnvlDtype") {
     expect_true(anvl_dtype_from_tengen(tengen_dtype("bool")) ==
                 AnvlDtype::kBool);
     expect_true(anvl_dtype_from_tengen(tengen_dtype("i8")) == AnvlDtype::kI8);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("i16")) ==
-                AnvlDtype::kI16);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("i32")) ==
-                AnvlDtype::kI32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("i64")) ==
-                AnvlDtype::kI64);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("i16")) == AnvlDtype::kI16);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("i32")) == AnvlDtype::kI32);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("i64")) == AnvlDtype::kI64);
     expect_true(anvl_dtype_from_tengen(tengen_dtype("ui8")) == AnvlDtype::kU8);
     expect_true(anvl_dtype_from_tengen(tengen_dtype("ui16")) ==
                 AnvlDtype::kU16);
@@ -127,10 +124,8 @@ context("AnvlDtype") {
                 AnvlDtype::kU32);
     expect_true(anvl_dtype_from_tengen(tengen_dtype("ui64")) ==
                 AnvlDtype::kU64);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("f32")) ==
-                AnvlDtype::kF32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("f64")) ==
-                AnvlDtype::kF64);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("f32")) == AnvlDtype::kF32);
+    expect_true(anvl_dtype_from_tengen(tengen_dtype("f64")) == AnvlDtype::kF64);
   }
 
   test_that(
