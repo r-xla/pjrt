@@ -23,7 +23,6 @@ jobs:
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
           - { os: "ubuntu", r: "oldrel-1", platform: "cpu" }
           - { os: "ubuntu", r: "oldrel-2", platform: "cpu" }
-          - { os: "ubuntu", r: "oldrel-3", platform: "cpu" }
           # Disabled: the self-hosted GPU runner is currently unavailable.
           # - { os: "ubuntu", r: "release", platform: "cuda"}
           - { os: "ubuntu-arm", r: "release", platform: "cpu"}

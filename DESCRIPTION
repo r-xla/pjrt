@@ -18,7 +18,7 @@ License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
 BugReports: https://github.com/r-xla/pjrt/issues
 Depends:
-    R (>= 4.3.0)
+    R (>= 4.4.0)
 Imports:
     bit64,
     checkmate,
