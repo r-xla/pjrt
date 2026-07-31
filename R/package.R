@@ -7,6 +7,7 @@
 #' @importFrom utils hashtab
 #' @importFrom cli cli_abort
 #' @importFrom bit64 integer64
+#' @importFrom rlang %||%
 ## usethis namespace: end
 NULL
 
