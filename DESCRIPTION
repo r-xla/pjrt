@@ -63,6 +63,7 @@ Collate:
     'hlo.R'
     'install.R'
     'loaded_executable.R'
+    'optimize.R'
     'package.R'
     'pjrt-package.R'
     'plugin.R'
