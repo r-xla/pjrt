@@ -44,7 +44,7 @@ pjrt_compile <- function(
 #' * [`devices()`] for a `list` of `PJRTDevice` objects.
 #'
 #' @param platform (`character(1)` | `NULL`)\cr
-#'   Platform name (e.g., "cpu", "cuda", "metal").
+#'   Platform name (e.g., "cpu", "cuda", "mps").
 #'   If `NULL`, use `PJRT_PLATFORM` environment variable or default to "cpu".
 #' @param ... Additional options passed to the PJRT client creation.
 #'   For CPU clients, you can pass `cpu_device_count` to specify the number of CPU devices.
@@ -72,7 +72,7 @@ default_client_options <- function(platform) {
 #' Convert a platform name to a PJRT client or verify that an object is already a client.
 #'
 #' @param x (`PJRTClient` | `character(1)`)\cr
-#'   Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "metal").
+#'   Either a PJRT client object or a platform name (e.g., "cpu", "cuda", "mps").
 #' @return `PJRTClient`
 #' @examplesIf plugins_downloaded()
 #' # Convert from platform name
@@ -150,7 +150,7 @@ devices.PJRTClient <- function(x, ...) {
 #' Convert a platform name or device to a PJRT device object.
 #'
 #' @param x (`PJRTDevice` | `character(1)` | `NULL`)\cr
-#'   Either a PJRT device object, a platform name (e.g., "cpu", "cuda", "metal"),
+#'   Either a PJRT device object, a platform name (e.g., "cpu", "cuda", "mps"),
 #'   a device specification with index (e.g., "cpu:0", "cuda:1" for 0-based indexing),
 #'   or NULL (defaults to first CPU device).
 #' @return `PJRTDevice`

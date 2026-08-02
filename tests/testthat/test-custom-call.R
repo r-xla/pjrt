@@ -38,7 +38,7 @@ test_that("duplicate registration overwrites", {
 })
 
 test_that("PJRT API silently overwrites when registering the same handler name twice", {
-  skip_if_metal("FFI extension not available on metal")
+  skip_if_mps("FFI extension not available on mps")
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
   plugin <- pjrt_plugin(platform)
   pjrt_platform <- ifelse(platform != "cuda", "host", "cuda")

@@ -8,7 +8,7 @@ pjrt_client(platform = NULL, ...)
 }
 \arguments{
 \item{platform}{(\code{character(1)} | \code{NULL})\cr
-Platform name (e.g., "cpu", "cuda", "metal").
+Platform name (e.g., "cpu", "cuda", "mps").
 If \code{NULL}, use \code{PJRT_PLATFORM} environment variable or default to "cpu".}
 
 \item{...}{Additional options passed to the PJRT client creation.

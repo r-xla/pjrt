@@ -41,11 +41,11 @@ at the start of a fresh R session, e.g.
 \item \code{PJRT_PLATFORM}: Default platform to use, falls back to \code{"cpu"}.
 \item \verb{PJRT_PLUGIN_PATH_<PLATFORM>}: Path to custom plugin library file for a specific
 platform (e.g., \code{PJRT_PLUGIN_PATH_CPU}, \code{PJRT_PLUGIN_PATH_CUDA},
-\code{PJRT_PLUGIN_PATH_METAL}). If set, the package will use this path instead
+\code{PJRT_PLUGIN_PATH_MPS}). If set, the package will use this path instead
 of downloading the plugin.
 \item \verb{PJRT_PLUGIN_URL_<PLATFORM>}: URL to download plugin from for a specific
 platform (e.g., \code{PJRT_PLUGIN_URL_CPU}, \code{PJRT_PLUGIN_URL_CUDA},
-\code{PJRT_PLUGIN_URL_METAL}). If set, overrides the default plugin download URL.
+\code{PJRT_PLUGIN_URL_MPS}). If set, overrides the default plugin download URL.
 \item \code{PJRT_INSTALL}: Controls whether plugins may be downloaded automatically.
 Set this to \code{"1"} to always download without asking (e.g. in CI, scripts,
 or Docker builds), or to \code{"0"} to never download (the call errors with
