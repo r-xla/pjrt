@@ -42,12 +42,19 @@ NULL
 #' * `PJRT_PLUGIN_URL_<PLATFORM>`: URL to download plugin from for a specific
 #'   platform (e.g., `PJRT_PLUGIN_URL_CPU`, `PJRT_PLUGIN_URL_CUDA`,
 #'   `PJRT_PLUGIN_URL_METAL`). If set, overrides the default plugin download URL.
-#' * `PJRT_INSTALL`: Controls whether plugins may be downloaded automatically.
+#' * `PJRT_INSTALL`: Controls whether plugins and the `stablehlo-opt` binary
+#'   may be downloaded automatically.
 #'   Set this to `"1"` to always download without asking (e.g. in CI, scripts,
 #'   or Docker builds), or to `"0"` to never download (the call errors with
 #'   instructions instead). When unset, the package asks for confirmation in an
 #'   interactive session and errors in a non-interactive one, so a script never
 #'   triggers a surprise download.
+#' * `PJRT_STABLEHLO_OPT_PATH`: Path to a local `stablehlo-opt` binary. If set,
+#'   the package uses this binary instead of downloading one.
+#' * `PJRT_STABLEHLO_OPT_URL`: URL of the archive to download the
+#'   `stablehlo-opt` binary from. If set, overrides the default download URL.
+#' * `PJRT_STABLEHLO_OPT_VERSION`: Version of the `stablehlo-opt` binary to
+#'   download. Defaults to `"main"`.
 #' * `PJRT_ZML_ARTIFACT_VERSION`: Version of ZML artifacts to download.
 #'   Only used when downloading plugins from zml/pjrt-artifacts.
 #' * `PJRT_CPU_DEVICE_COUNT`: The number of CPU devices to use. Defaults to 1.
