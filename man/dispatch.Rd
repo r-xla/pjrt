@@ -15,7 +15,7 @@ dispatcher_size(dispatcher)
 \item{args}{(\code{list})\cr The (already evaluated) argument list of the call.}
 }
 \value{
-\code{\link[=dispatch]{dispatch()}} returns the call's result. With \code{backend = "xla"} that
+\code{\link[=dispatch]{dispatch()}} returns the call's result. With \code{backend = "pjrt"} that
 is the output buffers wrapped into \code{"AnvlArray"}s and re-nested by the
 \code{compile} callback's \code{out_tree} (see \code{\link[=dispatcher]{dispatcher()}}); with any other
 backend it is whatever the compiled closure returned.

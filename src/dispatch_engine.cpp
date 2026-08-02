@@ -21,7 +21,7 @@ namespace rpjrt {
 // The value of a named field of an AnvlArray leaf, or R_NilValue if absent.
 // Only `$data` is guaranteed by anvl's backend contract; an engine reads
 // further fields only for a leaf whose backend layout it owns (PjrtEngine, the
-// xla backend). Other backends' metadata comes through the extractor instead.
+// pjrt backend). Other backends' metadata comes through the extractor instead.
 SEXP anvl_field(SEXP leaf, const char* name) {
   SEXP nms = Rf_getAttrib(leaf, R_NamesSymbol);
   if (nms == R_NilValue) return R_NilValue;
@@ -432,8 +432,8 @@ class PjrtEngine : public Engine {
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
-        // Normalize the boolean aliases the R layer also accepts (a tengen
-        // BooleanType stringifies as "bool"; pjrt's canonical name is "pred").
+        // Normalize the boolean aliases the R layer also accepts (tengen's
+        // canonical name is "bool"; pjrt's canonical name is "pred").
         std::string dt = Rcpp::as<std::string>(spec["dtype"]);
         if (dt == "bool" || dt == "i1") dt = "pred";
         ps.dtype = string_to_pjrt_buffer_type(dt);
@@ -546,7 +546,7 @@ class PjrtEngine : public Engine {
   // One template AnvlArray per output, built on the compile (cold) path from
   // the avals the callback declared: a named list (data = NULL, dtype, shape,
   // device, ambiguous, backend) of class "AnvlArray" -- the wrapper layout an
-  // xla leaf carries, which PjrtEngine::read_array reads back as an input. The
+  // pjrt leaf carries, which PjrtEngine::read_array reads back as an input. The
   // hot path only shallow-copies a template and drops the output buffer into
   // its `$data` slot.
   //

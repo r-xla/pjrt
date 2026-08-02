@@ -7,6 +7,7 @@
 #pragma once
 
 #include <Rcpp.h>
+#include <Rversion.h>
 
 #include <cstdint>
 #include <cstring>
@@ -23,11 +24,13 @@ namespace rpjrt {
 // our own rather than PJRT_Buffer_Type: an Aval describes a plain R array that
 // never went near PJRT just as readily as a PJRT buffer.
 //
-// The set is exactly what tengen's DataType hierarchy can express (it rejects
-// FloatType(16) and the like), which is also exactly what pjrt's
-// string_to_pjrt_buffer_type() accepts. Conversions in either direction are
-// explicit switches rather than casts, so a PJRT type outside this set maps to
-// kInvalid rather than silently becoming a neighbouring dtype.
+// The set is what the dispatcher can represent, which is also exactly what
+// pjrt's string_to_pjrt_buffer_type() accepts. tengen now names more dtypes
+// than this (f16, bf16, f8*, complex, sub-byte ints); those are rejected by
+// anvl_dtype_from_tengen() below rather than keyed approximately. Conversions
+// in either direction are explicit switches rather than casts, so a PJRT type
+// outside this set maps to kInvalid rather than silently becoming a
+// neighbouring dtype.
 enum class AnvlDtype {
   kInvalid,
   kBool,
@@ -77,7 +80,7 @@ inline AnvlDtype anvl_dtype_from_pjrt(PJRT_Buffer_Type t) {
 // place the two layers disagree: tengen calls it "bool" and pjrt's own C-API
 // layer calls it "pred", so the buffer-facing code (string_to_pjrt_buffer_type
 // and friends) keeps saying "pred" and translates at its edge.
-inline const char* anvl_dtype_name(AnvlDtype d) {
+inline const char *anvl_dtype_name(AnvlDtype d) {
   switch (d) {
     case AnvlDtype::kBool:
       return "bool";
@@ -107,57 +110,30 @@ inline const char* anvl_dtype_name(AnvlDtype d) {
   return "invalid";
 }
 
-// Translate a tengen DataType object to an AnvlDtype. It is an S3 list classed
-// BooleanType / IntegerType / UIntegerType / FloatType, carrying the bit width
-// in `$value` (BooleanType has none). tengen's constructors reject any width
-// outside this table, so a leaf yielding kInvalid did not come from tengen; the
-// caller rejects it rather than keying it approximately.
+// Translate a tengen DataType object to an AnvlDtype. It is a length-1
+// character vector classed "DataType" whose string is the canonical dtype
+// name. tengen names more dtypes than the dispatcher supports (f16, bf16,
+// f8*, complex, sub-byte ints); those yield kInvalid and the caller rejects
+// them rather than keying approximately.
 inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
-  if (TYPEOF(dtype) != VECSXP) return AnvlDtype::kInvalid;
-  SEXP cls = Rf_getAttrib(dtype, R_ClassSymbol);
-  if (TYPEOF(cls) != STRSXP || XLENGTH(cls) == 0) return AnvlDtype::kInvalid;
-  const char* kind = CHAR(STRING_ELT(cls, 0));
-  if (!std::strcmp(kind, "BooleanType")) return AnvlDtype::kBool;
-
-  SEXP nms = Rf_getAttrib(dtype, R_NamesSymbol);
-  if (TYPEOF(nms) != STRSXP) return AnvlDtype::kInvalid;
-  int bits = 0;
-  for (R_xlen_t k = 0; k < XLENGTH(dtype); ++k) {
-    if (!std::strcmp(CHAR(STRING_ELT(nms, k)), "value")) {
-      bits = Rf_asInteger(VECTOR_ELT(dtype, k));
-      break;
-    }
+  if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
+    return AnvlDtype::kInvalid;
   }
-  if (!std::strcmp(kind, "IntegerType")) {
-    switch (bits) {
-      case 8:
-        return AnvlDtype::kI8;
-      case 16:
-        return AnvlDtype::kI16;
-      case 32:
-        return AnvlDtype::kI32;
-      case 64:
-        return AnvlDtype::kI64;
-    }
-  } else if (!std::strcmp(kind, "UIntegerType")) {
-    switch (bits) {
-      case 8:
-        return AnvlDtype::kU8;
-      case 16:
-        return AnvlDtype::kU16;
-      case 32:
-        return AnvlDtype::kU32;
-      case 64:
-        return AnvlDtype::kU64;
-    }
-  } else if (!std::strcmp(kind, "FloatType")) {
-    switch (bits) {
-      case 32:
-        return AnvlDtype::kF32;
-      case 64:
-        return AnvlDtype::kF64;
-    }
+  if (!Rf_inherits(dtype, "DataType")) {
+    return AnvlDtype::kInvalid;
   }
+  const char *name = CHAR(STRING_ELT(dtype, 0));
+  if (!std::strcmp(name, "bool")) return AnvlDtype::kBool;
+  if (!std::strcmp(name, "i8")) return AnvlDtype::kI8;
+  if (!std::strcmp(name, "i16")) return AnvlDtype::kI16;
+  if (!std::strcmp(name, "i32")) return AnvlDtype::kI32;
+  if (!std::strcmp(name, "i64")) return AnvlDtype::kI64;
+  if (!std::strcmp(name, "ui8")) return AnvlDtype::kU8;
+  if (!std::strcmp(name, "ui16")) return AnvlDtype::kU16;
+  if (!std::strcmp(name, "ui32")) return AnvlDtype::kU32;
+  if (!std::strcmp(name, "ui64")) return AnvlDtype::kU64;
+  if (!std::strcmp(name, "f32")) return AnvlDtype::kF32;
+  if (!std::strcmp(name, "f64")) return AnvlDtype::kF64;
   return AnvlDtype::kInvalid;
 }
 
@@ -171,7 +147,7 @@ struct Aval {
   bool ambiguous = false;
 };
 
-inline std::uint64_t aval_hash(const Aval& a) {
+inline std::uint64_t aval_hash(const Aval &a) {
   std::uint64_t h = static_cast<std::uint64_t>(a.dtype);
   h = hash_combine(h, a.ambiguous ? 1u : 0u);
   for (int64_t d : a.shape) {
@@ -180,7 +156,7 @@ inline std::uint64_t aval_hash(const Aval& a) {
   return h;
 }
 
-inline bool aval_eq(const Aval& a, const Aval& b) {
+inline bool aval_eq(const Aval &a, const Aval &b) {
   return a.dtype == b.dtype && a.ambiguous == b.ambiguous && a.shape == b.shape;
 }
 
@@ -209,7 +185,7 @@ inline bool r_identical(SEXP a, SEXP b) {
 // business (Engine::canonical_device()). The canonical objects are preserved
 // for the dispatcher's lifetime, which is what keeps a token's address stable
 // and unambiguous.
-using DeviceToken = const void*;
+using DeviceToken = const void *;
 
 // One leaf of the cache key. These three kinds are exhaustive: a leaf that fits
 // none of them is not a valid input, and impl_dispatch_run()'s classification
@@ -245,6 +221,18 @@ inline bool keyed_by_value(KeyLeaf::Kind kind) {
   return kind == KeyLeaf::kStatic;
 }
 
+// A closure's formals pairlist. The only R-version-dependent call in the
+// package: R_ClosureFormals() is API from R 4.5.0, and the FORMALS() it
+// replaced was dropped from Rinternals.h in 4.6, so neither spelling spans both
+// and the choice has to be made at compile time.
+inline SEXP closure_formals(SEXP f) {
+#if defined(R_VERSION) && R_VERSION >= R_Version(4, 5, 0)
+  return R_ClosureFormals(f);
+#else
+  return FORMALS(f);
+#endif
+}
+
 // Fold a closure static: its formal names, then its body as R would print it.
 // Lives here rather than in hash_atomic() because it is a cache-key concern --
 // hash_atomic() folds vector contents, and a closure has none.
@@ -263,7 +251,7 @@ inline std::uint64_t hash_closure(std::uint64_t h, SEXP f) {
   // names() of the formals pairlist: its tags, as a STRSXP. Shield rather than
   // PROTECT/UNPROTECT: hash_atomic() can throw, and an RAII guard unwinds the
   // protect stack where a bare UNPROTECT would be skipped.
-  Rcpp::Shield<SEXP> nms(Rf_getAttrib(R_ClosureFormals(f), R_NamesSymbol));
+  Rcpp::Shield<SEXP> nms(Rf_getAttrib(closure_formals(f), R_NamesSymbol));
   h = hash_atomic(h, nms);
   SEXP body = R_ClosureExpr(f);
   if (TYPEOF(body) == LANGSXP || TYPEOF(body) == SYMSXP) {
@@ -293,11 +281,11 @@ struct CacheKeyHash {
   // unordered_map's Hash concept requires std::size_t, so the 64-bit
   // accumulator is narrowed on return (a no-op on the 64-bit platforms we build
   // for).
-  std::size_t operator()(const CacheKey& k) const {
+  std::size_t operator()(const CacheKey &k) const {
     std::uint64_t h = tree_hash(k.in_tree);
     h = hash_combine(h, reinterpret_cast<std::uintptr_t>(k.device));
     h = hash_combine(h, k.leaves.size());
-    for (const KeyLeaf& leaf : k.leaves) {
+    for (const KeyLeaf &leaf : k.leaves) {
       // Folded before the per-leaf material, so a value-keyed leaf's hash
       // stream can never coincide with an Aval-keyed one's: the domain
       // separator. Note it is `keyed_by_value`, not `kind` -- a kArray and a
@@ -332,13 +320,13 @@ struct CacheKeyHash {
 };
 
 struct CacheKeyEq {
-  bool operator()(const CacheKey& a, const CacheKey& b) const {
+  bool operator()(const CacheKey &a, const CacheKey &b) const {
     if (!tree_eq(a.in_tree, b.in_tree)) return false;
     if (a.device != b.device) return false;
     if (a.leaves.size() != b.leaves.size()) return false;
     for (std::size_t k = 0; k < a.leaves.size(); ++k) {
-      const KeyLeaf& x = a.leaves[k];
-      const KeyLeaf& y = b.leaves[k];
+      const KeyLeaf &x = a.leaves[k];
+      const KeyLeaf &y = b.leaves[k];
       // A kArray and a kRData leaf of the same Aval are the same key: the two
       // compile to one program (see keyed_by_value). Only value-keyed against
       // Aval-keyed is a difference -- and tree_eq has already ruled that out,

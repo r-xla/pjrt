@@ -9,7 +9,7 @@
 //   * what a cache entry holds (the compile callback's artifacts),
 //   * how a call executes against an entry, and how its outputs are wrapped.
 //
-// PjrtEngine is the fast path for the "xla" backend: avals come off a
+// PjrtEngine is the fast path for the "pjrt" backend: avals come off a
 // PJRTBuffer's cached native metadata, inputs are assembled and executed
 // natively, and the output buffers are wrapped into AnvlArrays and re-nested
 // without leaving C++. ClosureEngine is the generic vehicle for any other

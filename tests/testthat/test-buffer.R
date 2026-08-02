@@ -123,25 +123,25 @@ test_pjrt_buffer <- function(
 
 test_that("dtype works for PJRTBuffer", {
   buf_f32 <- pjrt_buffer(1.0, dtype = "f32")
-  expect_equal(dtype(buf_f32), tengen::FloatType(32L))
+  expect_equal(dtype(buf_f32), tengen::as_dtype("f32"))
 
   buf_f64 <- pjrt_buffer(1.0, dtype = "f64")
-  expect_equal(dtype(buf_f64), tengen::FloatType(64L))
+  expect_equal(dtype(buf_f64), tengen::as_dtype("f64"))
 
   buf_i32 <- pjrt_buffer(1L, dtype = "i32")
-  expect_equal(dtype(buf_i32), tengen::IntegerType(32L))
+  expect_equal(dtype(buf_i32), tengen::as_dtype("i32"))
 
   buf_i8 <- pjrt_buffer(1L, dtype = "i8")
-  expect_equal(dtype(buf_i8), tengen::IntegerType(8L))
+  expect_equal(dtype(buf_i8), tengen::as_dtype("i8"))
 
   buf_pred <- pjrt_buffer(TRUE, dtype = "pred")
-  expect_equal(dtype(buf_pred), tengen::BooleanType())
+  expect_equal(dtype(buf_pred), tengen::as_dtype("bool"))
 
   buf_bool <- pjrt_buffer(TRUE, dtype = "bool")
-  expect_equal(dtype(buf_bool), tengen::BooleanType())
+  expect_equal(dtype(buf_bool), tengen::as_dtype("bool"))
 
   buf_ui8 <- pjrt_buffer(1L, dtype = "ui8")
-  expect_equal(dtype(buf_ui8), tengen::UIntegerType(8L))
+  expect_equal(dtype(buf_ui8), tengen::as_dtype("ui8"))
 })
 
 test_that("pjrt_scalar roundtrip works for scalar data", {
@@ -805,60 +805,60 @@ test_that("i1 is alias for pred", {
 test_that("pjrt_buffer accepts DataType objects", {
   # pjrt_buffer with DataType
   expect_equal(
-    pjrt_buffer(c(1, 2, 3), dtype = tengen::FloatType(32)),
+    pjrt_buffer(c(1, 2, 3), dtype = tengen::as_dtype("f32")),
     pjrt_buffer(c(1, 2, 3), dtype = "f32")
   )
   expect_equal(
-    pjrt_buffer(c(1, 2, 3), dtype = tengen::FloatType(64)),
+    pjrt_buffer(c(1, 2, 3), dtype = tengen::as_dtype("f64")),
     pjrt_buffer(c(1, 2, 3), dtype = "f64")
   )
   expect_equal(
-    pjrt_buffer(1L, dtype = tengen::IntegerType(32)),
+    pjrt_buffer(1L, dtype = tengen::as_dtype("i32")),
     pjrt_buffer(1L, dtype = "i32")
   )
   expect_equal(
-    pjrt_buffer(1L, dtype = tengen::UIntegerType(8)),
+    pjrt_buffer(1L, dtype = tengen::as_dtype("ui8")),
     pjrt_buffer(1L, dtype = "ui8")
   )
   expect_equal(
-    pjrt_buffer(TRUE, dtype = tengen::BooleanType()),
+    pjrt_buffer(TRUE, dtype = tengen::as_dtype("bool")),
     pjrt_buffer(TRUE, dtype = "pred")
   )
 
   # pjrt_scalar with DataType
   expect_equal(
-    pjrt_scalar(42L, dtype = tengen::IntegerType(32)),
+    pjrt_scalar(42L, dtype = tengen::as_dtype("i32")),
     pjrt_scalar(42L, dtype = "i32")
   )
   expect_equal(
-    pjrt_scalar(3.14, dtype = tengen::FloatType(64)),
+    pjrt_scalar(3.14, dtype = tengen::as_dtype("f64")),
     pjrt_scalar(3.14, dtype = "f64")
   )
 
   # pjrt_empty with DataType
   expect_equal(
-    pjrt_empty(dtype = tengen::FloatType(32), shape = c(0, 3)),
+    pjrt_empty(dtype = tengen::as_dtype("f32"), shape = c(0, 3)),
     pjrt_empty(dtype = "f32", shape = c(0, 3))
   )
 
   # raw buffer with DataType
   raw_data <- as.raw(rep(0, 24))
   expect_equal(
-    pjrt_buffer(raw_data, dtype = tengen::FloatType(32), shape = c(2, 3), row_major = FALSE),
+    pjrt_buffer(raw_data, dtype = tengen::as_dtype("f32"), shape = c(2, 3), row_major = FALSE),
     pjrt_buffer(raw_data, dtype = "f32", shape = c(2, 3), row_major = FALSE)
   )
 
   # raw scalar with DataType
   raw_scalar <- as.raw(rep(0, 4))
   expect_equal(
-    pjrt_scalar(raw_scalar, dtype = tengen::FloatType(32)),
+    pjrt_scalar(raw_scalar, dtype = tengen::as_dtype("f32")),
     pjrt_scalar(raw_scalar, dtype = "f32")
   )
 
   # identity preserves buffer when DataType matches
   buf <- pjrt_buffer(c(1, 2), dtype = "f32")
-  expect_equal(pjrt_buffer(buf, dtype = tengen::FloatType(32)), buf)
-  expect_error(pjrt_buffer(buf, dtype = tengen::IntegerType(32)), "Must use the same data type")
+  expect_equal(pjrt_buffer(buf, dtype = tengen::as_dtype("f32")), buf)
+  expect_error(pjrt_buffer(buf, dtype = tengen::as_dtype("i32")), "Must use the same data type")
 })
 
 test_that("raw buffer validates dtype and shape compatibility", {
@@ -1086,21 +1086,30 @@ describe("CPU buffer memory management", {
     g["Vcells", "(Mb)"]
   }
 
+  # The backing RAWSXP holds the payload plus up to 63 bytes of padding so the
+  # data PJRT aliases can be 64-byte aligned (XLA's CPU client refuses the
+  # zero-copy import below cpu::MinAlign()). The aliasing check proves the
+  # buffer's device memory genuinely lives inside the RAWSXP -- i.e. the
+  # zero-copy path was actually taken, not a silent copy into pool memory.
+  expect_raw_backing <- function(buf, bytes) {
+    p <- impl_test_xptr_prot(buf)
+    expect_true(is.raw(p))
+    expect_gte(length(p), bytes)
+    expect_lt(length(p), bytes + 64L)
+    expect_true(impl_test_buffer_aliases_prot(buf))
+  }
+
   it("keeps pjrt_buffer's backing RAWSXP in the XPtr's prot slot", {
     skip_if(!is_cpu())
     nfloats <- 1024L * 256L
     b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), nfloats * 4L)
+    expect_raw_backing(b, nfloats * 4L)
   })
 
   it("keeps pjrt_empty's backing RAWSXP in the XPtr's prot slot", {
     skip_if(!is_cpu())
     e <- pjrt_empty("f32", c(256L, 256L))
-    p <- impl_test_xptr_prot(e)
-    expect_true(is.raw(p))
-    expect_equal(length(p), 256L * 256L * 4L)
+    expect_raw_backing(e, 256L * 256L * 4L)
   })
 
   # Every CPU buffer must be backed by a prot-slot RAWSXP, including the
@@ -1111,35 +1120,27 @@ describe("CPU buffer memory management", {
     skip_if(!is_cpu())
     n <- 4096L
     b <- pjrt_buffer(as.double(seq_len(n)), dtype = "f64")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), n * 8L)
+    expect_raw_backing(b, n * 8L)
   })
 
   it("keeps the backing RAWSXP for a no-conversion i32 buffer", {
     skip_if(!is_cpu())
     n <- 4096L
     b <- pjrt_buffer(seq_len(n), dtype = "i32")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), n * 4L)
+    expect_raw_backing(b, n * 4L)
   })
 
   it("keeps the backing RAWSXP for an integer64 buffer", {
     skip_if(!is_cpu())
     n <- 4096L
     b <- pjrt_buffer(bit64::as.integer64(seq_len(n)), dtype = "i64")
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), n * 8L)
+    expect_raw_backing(b, n * 8L)
   })
 
   it("keeps the backing RAWSXP for a raw buffer", {
     skip_if(!is_cpu())
     b <- pjrt_buffer(raw(4096L * 4L), dtype = "f32", shape = 4096L, row_major = FALSE)
-    p <- impl_test_xptr_prot(b)
-    expect_true(is.raw(p))
-    expect_equal(length(p), 4096L * 4L)
+    expect_raw_backing(b, 4096L * 4L)
   })
 
   it("reports the backing RAWSXP size via object.size, not just the pointer", {
