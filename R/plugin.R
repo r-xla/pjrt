@@ -15,7 +15,8 @@ the[["canonical_devices"]] <- new.env(parent = emptyenv())
 the[["custom_calls"]] <- list()
 the[["config"]] <- list(
   cpu_device_count = 1L,
-  cuda_r_package = "cuda12.8"
+  cuda_r_package = "cuda12.8",
+  cuda_r_repos = "https://mlverse.r-universe.dev"
 )
 
 #' @title Create PJRT Client
@@ -95,7 +96,7 @@ pjrt_plugin <- function(platform) {
           cli::cli_abort(c(
             conditionMessage(e),
             i = "CUDA R package {.pkg {cuda_pkg}} is not installed.",
-            i = "Install it with {.code install.packages(\"{cuda_pkg}\", repos = \"https://mlverse.r-universe.dev\")}."
+            i = "Install it with {.code install.packages(\"{cuda_pkg}\", repos = \"{cuda_r_repos()}\")}."
           ))
         }
       }
@@ -422,6 +423,10 @@ print.PJRTPlugin <- function(x, ...) {
 
 cuda_r_package <- function() {
   the[["config"]][["cuda_r_package"]]
+}
+
+cuda_r_repos <- function() {
+  the[["config"]][["cuda_r_repos"]]
 }
 
 # Discover installed cuda{X.Y} packages and pre-load CUDA shared libraries

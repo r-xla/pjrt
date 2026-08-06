@@ -3,7 +3,9 @@
 #' Download and cache the PJRT plugins needed to run `pjrt`.
 #' The CPU plugin is always installed. The CUDA plugin is installed in
 #' addition when a CUDA-capable GPU is detected, or when `cuda = TRUE` is
-#' passed explicitly.
+#' passed explicitly. Installing the CUDA plugin also installs the R package
+#' providing the CUDA libraries it links against (`r cuda_r_package()` by
+#' default, see `PJRT_CUDA_R_PACKAGE` in [pjrt-package]).
 #'
 #' Plugins are otherwise downloaded lazily the first time a client is
 #' created, but the download requires user confirmation, unless
@@ -31,8 +33,35 @@ install_pjrt <- function(cuda = NULL) {
     plugin_path(platform)
   }
 
+  if (cuda) {
+    install_cuda_r_package()
+  }
+
   cli::cli_inform(c(v = "Installed PJRT plugin{?s}: {.val {platforms}}."))
   invisible(platforms)
+}
+
+# Install the R package that ships the CUDA libraries the CUDA plugin links
+# against. A no-op when the package is already installed.
+install_cuda_r_package <- function() {
+  cuda_pkg <- Sys.getenv("PJRT_CUDA_R_PACKAGE", cuda_r_package())
+  if (requireNamespace(cuda_pkg, quietly = TRUE)) {
+    pjrt_debug("CUDA R package {.pkg {cuda_pkg}} is already installed.")
+    return(invisible(FALSE))
+  }
+
+  repos <- cuda_r_repos()
+  cli::cli_inform("Installing the {.pkg {cuda_pkg}} R package from {.url {repos}}.")
+  utils::install.packages(cuda_pkg, repos = repos)
+
+  if (!requireNamespace(cuda_pkg, quietly = TRUE)) {
+    cli_abort(c(
+      x = "Failed to install the CUDA R package {.pkg {cuda_pkg}}.",
+      i = "Install it manually with {.code install.packages(\"{cuda_pkg}\", repos = \"{repos}\")}."
+    ))
+  }
+
+  invisible(TRUE)
 }
 
 # Detect whether a CUDA-capable GPU is usable on this machine. The CUDA PJRT
