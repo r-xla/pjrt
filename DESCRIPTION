@@ -35,10 +35,6 @@ Suggests:
     stablehlo,
     testthat (>= 3.0.0),
     xml2
-Remotes:
-    r-xla/anvl,
-    r-xla/stablehlo,
-    r-xla/tengen
 LinkingTo:
     Rcpp,
     testthat

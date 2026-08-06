@@ -20,7 +20,9 @@ The platforms that were installed, invisibly.
 Download and cache the PJRT plugins needed to run \code{pjrt}.
 The CPU plugin is always installed. The CUDA plugin is installed in
 addition when a CUDA-capable GPU is detected, or when \code{cuda = TRUE} is
-passed explicitly.
+passed explicitly. Installing the CUDA plugin also installs the R package
+providing the CUDA libraries it links against (cuda12.8 by
+default, see \code{PJRT_CUDA_R_PACKAGE} in \link{pjrt-package}).
 
 Plugins are otherwise downloaded lazily the first time a client is
 created, but the download requires user confirmation, unless
