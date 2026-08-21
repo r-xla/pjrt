@@ -297,3 +297,7 @@ impl_test_xptr_prot <- function(x) {
     .Call(`_pjrt_impl_test_xptr_prot`, x)
 }
 
+# Register entry points for exported C++ functions
+methods::setLoadAction(function(ns) {
+    .Call(`_pjrt_RcppExport_registerCCallable`)
+})

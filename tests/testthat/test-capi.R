@@ -52,8 +52,7 @@ test_that("buffer metadata reads back through the interface", {
 })
 
 test_that("the dtype vocabulary round-trips", {
-  for (nm in c("pred", "i8", "i16", "i32", "i64", "ui8", "ui16", "ui32",
-               "ui64", "f32", "f64")) {
+  for (nm in c("pred", "i8", "i16", "i32", "i64", "ui8", "ui16", "ui32", "ui64", "f32", "f64")) {
     rt <- impl_capi_dtype_roundtrip(nm)
     expect_gte(rt$code, 0L)
     expect_identical(rt$name, nm)

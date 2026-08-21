@@ -2,7 +2,10 @@
 // Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #include "pjrt_types.h"
+#include "../inst/include/pjrt.h"
 #include <Rcpp.h>
+#include <string>
+#include <set>
 
 using namespace Rcpp;
 
@@ -11,6 +14,184 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// execute
+SEXP execute(SEXP executable, Rcpp::List inputs, SEXP options);
+static SEXP _pjrt_execute_try(SEXP executableSEXP, SEXP inputsSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type executable(executableSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type inputs(inputsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(execute(executable, inputs, options));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _pjrt_execute(SEXP executableSEXP, SEXP inputsSEXP, SEXP optionsSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        rcpp_result_gen = PROTECT(_pjrt_execute_try(executableSEXP, inputsSEXP, optionsSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        (Rf_error)("%s", CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// buffer_from_r
+SEXP buffer_from_r(SEXP client, SEXP device, SEXP data, std::vector<int64_t> dims, std::string dtype);
+static SEXP _pjrt_buffer_from_r_try(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(buffer_from_r(client, device, data, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _pjrt_buffer_from_r(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        rcpp_result_gen = PROTECT(_pjrt_buffer_from_r_try(clientSEXP, deviceSEXP, dataSEXP, dimsSEXP, dtypeSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        (Rf_error)("%s", CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// buffer_empty
+SEXP buffer_empty(SEXP client, SEXP device, std::vector<int64_t> dims, std::string dtype);
+static SEXP _pjrt_buffer_empty_try(SEXP clientSEXP, SEXP deviceSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type client(clientSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
+    rcpp_result_gen = Rcpp::wrap(buffer_empty(client, device, dims, dtype));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _pjrt_buffer_empty(SEXP clientSEXP, SEXP deviceSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        rcpp_result_gen = PROTECT(_pjrt_buffer_empty_try(clientSEXP, deviceSEXP, dimsSEXP, dtypeSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        (Rf_error)("%s", CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// buffer_copy_to_device
+SEXP buffer_copy_to_device(SEXP buffer, SEXP device, SEXP dst_client, bool cross_client);
+static SEXP _pjrt_buffer_copy_to_device_try(SEXP bufferSEXP, SEXP deviceSEXP, SEXP dst_clientSEXP, SEXP cross_clientSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type buffer(bufferSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type device(deviceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type dst_client(dst_clientSEXP);
+    Rcpp::traits::input_parameter< bool >::type cross_client(cross_clientSEXP);
+    rcpp_result_gen = Rcpp::wrap(buffer_copy_to_device(buffer, device, dst_client, cross_client));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _pjrt_buffer_copy_to_device(SEXP bufferSEXP, SEXP deviceSEXP, SEXP dst_clientSEXP, SEXP cross_clientSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        rcpp_result_gen = PROTECT(_pjrt_buffer_copy_to_device_try(bufferSEXP, deviceSEXP, dst_clientSEXP, cross_clientSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        (Rf_error)("%s", CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// execution_options
+SEXP execution_options(std::vector<int64_t> non_donatable_indices, int launch_id);
+static SEXP _pjrt_execution_options_try(SEXP non_donatable_indicesSEXP, SEXP launch_idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< std::vector<int64_t> >::type non_donatable_indices(non_donatable_indicesSEXP);
+    Rcpp::traits::input_parameter< int >::type launch_id(launch_idSEXP);
+    rcpp_result_gen = Rcpp::wrap(execution_options(non_donatable_indices, launch_id));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _pjrt_execution_options(SEXP non_donatable_indicesSEXP, SEXP launch_idSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        rcpp_result_gen = PROTECT(_pjrt_execution_options_try(non_donatable_indicesSEXP, launch_idSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        (Rf_error)("%s", CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
 // cpp_tests_enabled
 bool cpp_tests_enabled();
 RcppExport SEXP _pjrt_cpp_tests_enabled() {
@@ -864,9 +1045,38 @@ BEGIN_RCPP
 END_RCPP
 }
 
+// validate (ensure exported C++ functions exist before calling them)
+static int _pjrt_RcppExport_validate(const char* sig) { 
+    static std::set<std::string> signatures;
+    if (signatures.empty()) {
+        signatures.insert("SEXP(*execute)(SEXP,Rcpp::List,SEXP)");
+        signatures.insert("SEXP(*buffer_from_r)(SEXP,SEXP,SEXP,std::vector<int64_t>,std::string)");
+        signatures.insert("SEXP(*buffer_empty)(SEXP,SEXP,std::vector<int64_t>,std::string)");
+        signatures.insert("SEXP(*buffer_copy_to_device)(SEXP,SEXP,SEXP,bool)");
+        signatures.insert("SEXP(*execution_options)(std::vector<int64_t>,int)");
+    }
+    return signatures.find(sig) != signatures.end();
+}
+
+// registerCCallable (register entry points for exported C++ functions)
+RcppExport SEXP _pjrt_RcppExport_registerCCallable() { 
+    R_RegisterCCallable("pjrt", "_pjrt_execute", (DL_FUNC)_pjrt_execute_try);
+    R_RegisterCCallable("pjrt", "_pjrt_buffer_from_r", (DL_FUNC)_pjrt_buffer_from_r_try);
+    R_RegisterCCallable("pjrt", "_pjrt_buffer_empty", (DL_FUNC)_pjrt_buffer_empty_try);
+    R_RegisterCCallable("pjrt", "_pjrt_buffer_copy_to_device", (DL_FUNC)_pjrt_buffer_copy_to_device_try);
+    R_RegisterCCallable("pjrt", "_pjrt_execution_options", (DL_FUNC)_pjrt_execution_options_try);
+    R_RegisterCCallable("pjrt", "_pjrt_RcppExport_validate", (DL_FUNC)_pjrt_RcppExport_validate);
+    return R_NilValue;
+}
+
 RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_pjrt_execute", (DL_FUNC) &_pjrt_execute, 3},
+    {"_pjrt_buffer_from_r", (DL_FUNC) &_pjrt_buffer_from_r, 5},
+    {"_pjrt_buffer_empty", (DL_FUNC) &_pjrt_buffer_empty, 4},
+    {"_pjrt_buffer_copy_to_device", (DL_FUNC) &_pjrt_buffer_copy_to_device, 4},
+    {"_pjrt_execution_options", (DL_FUNC) &_pjrt_execution_options, 2},
     {"_pjrt_cpp_tests_enabled", (DL_FUNC) &_pjrt_cpp_tests_enabled, 0},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
     {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
@@ -941,6 +1151,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_capi_execute", (DL_FUNC) &_pjrt_impl_capi_execute, 2},
     {"_pjrt_impl_capi_execute_error", (DL_FUNC) &_pjrt_impl_capi_execute_error, 2},
     {"_pjrt_impl_test_xptr_prot", (DL_FUNC) &_pjrt_impl_test_xptr_prot, 1},
+    {"_pjrt_RcppExport_registerCCallable", (DL_FUNC) &_pjrt_RcppExport_registerCCallable, 0},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };

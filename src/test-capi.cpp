@@ -14,13 +14,15 @@
 #include <Rcpp.h>
 
 #include "pjrt/api.h"
+// The generated half, included exactly as a downstream package would.
+#include "pjrt_RcppExports.h"
 
 // The version the header declares against what the registered entry reports.
 // [[Rcpp::export]]
 Rcpp::IntegerVector impl_capi_versions() {
-  return Rcpp::IntegerVector::create(Rcpp::Named("header") = PJRT_C_API_VERSION,
-                                     Rcpp::Named("registered") =
-                                         pjrt_c_api_version());
+  return Rcpp::IntegerVector::create(
+      Rcpp::Named("header") = PJRT_C_API_VERSION,
+      Rcpp::Named("registered") = pjrt_c_api_version());
 }
 
 // [[Rcpp::export]]
@@ -100,50 +102,37 @@ bool impl_capi_same_client(SEXP buffer, SEXP client) {
   return pjrt_c_buffer_api(buffer) == pjrt_c_client_api(client);
 }
 
-// Allocation and execution through the interface.
+// Allocation and execution, through the Rcpp-generated half. These need no
+// sentinel checking: a failure inside pjrt comes back as a thrown exception.
 // [[Rcpp::export]]
 SEXP impl_capi_buffer_from_r(SEXP client, SEXP device, SEXP data,
                              std::vector<int64_t> dims, std::string dtype) {
-  const int dt = pjrt_c_dtype_from_name(dtype.c_str());
-  SEXP out = pjrt_c_buffer_from_r(client, device, data, dims.data(),
-                                  static_cast<int>(dims.size()), dt);
-  if (out == R_NilValue) {
-    Rcpp::stop("%s", pjrt_c_last_error());
-  }
-  return out;
+  return pjrt::buffer_from_r(client, device, data, dims, dtype);
 }
 
 // [[Rcpp::export]]
-SEXP impl_capi_buffer_empty(SEXP client, SEXP device,
-                            std::vector<int64_t> dims, std::string dtype) {
-  const int dt = pjrt_c_dtype_from_name(dtype.c_str());
-  SEXP out = pjrt_c_buffer_empty(client, device, dims.data(),
-                                 static_cast<int>(dims.size()), dt);
-  if (out == R_NilValue) Rcpp::stop("%s", pjrt_c_last_error());
-  return out;
+SEXP impl_capi_buffer_empty(SEXP client, SEXP device, std::vector<int64_t> dims,
+                            std::string dtype) {
+  return pjrt::buffer_empty(client, device, dims, dtype);
 }
 
 // [[Rcpp::export]]
 SEXP impl_capi_execute(SEXP executable, Rcpp::List inputs) {
-  SEXP opts = PROTECT(pjrt_c_execution_options(R_NilValue, 0));
-  if (opts == R_NilValue) {
-    UNPROTECT(1);
-    Rcpp::stop("%s", pjrt_c_last_error());
-  }
-  SEXP out = pjrt_c_execute(executable, inputs, opts);
-  UNPROTECT(1);
-  if (out == R_NilValue) Rcpp::stop("%s", pjrt_c_last_error());
-  return out;
+  Rcpp::Shield<SEXP> opts(pjrt::execution_options(std::vector<int64_t>(), 0));
+  return pjrt::execute(executable, inputs, opts);
 }
 
-// A malformed execute must come back as a message on the error channel, not as
-// a longjmp out of the interface.
+// A failure in the generated half must arrive as a C++ exception the caller can
+// catch in its own frame -- not as a longjmp past it, and not as a sentinel.
+// Catching it here is the whole point: it proves the error crossed the package
+// boundary as a value.
 // [[Rcpp::export]]
 std::string impl_capi_execute_error(SEXP executable, Rcpp::List bad_inputs) {
-  SEXP opts = PROTECT(pjrt_c_execution_options(R_NilValue, 0));
-  SEXP out = pjrt_c_execute(executable, bad_inputs, opts);
-  UNPROTECT(1);
-  if (out != R_NilValue) return "";
-  const char* e = pjrt_c_last_error();
-  return e == nullptr ? "" : std::string(e);
+  Rcpp::Shield<SEXP> opts(pjrt::execution_options(std::vector<int64_t>(), 0));
+  try {
+    pjrt::execute(executable, bad_inputs, opts);
+  } catch (const std::exception& e) {
+    return std::string(e.what());
+  }
+  return "";
 }
