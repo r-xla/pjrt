@@ -80,9 +80,9 @@
 #'     leaf is uploaded at that dtype instead of its default (a double at
 #'     `"f32"`, an integer at `"i32"`, a logical at `"pred"`), which is how a
 #'     caller whose program consumes an R double as `f64` gets the exact value
-#'     rather than one rounded through `f32` first. `NA` leaves an input alone,
-#'     and is the only admissible entry for an array leaf, which is passed
-#'     through as it is.
+#'     rather than one rounded through `f32` first. `NA` leaves an input alone;
+#'     an array input is passed through whatever this says, so `NA` is the
+#'     meaningful entry for one.
 #'
 #'   For any other `backend` it must return a named list with:
 #'   * `r_fun`: a function called with the list of the call's dynamic leaves, in

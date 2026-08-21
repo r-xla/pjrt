@@ -27,9 +27,10 @@ classify the inputs a second time:
 \item \code{in_tree}: its \code{RTree} (see \code{\link{build_tree}}),
 \item \code{leaves}: the flat leaf list (see \code{\link{flatten}}),
 \item \code{is_static}: a \code{logical()} mask over \code{leaves},
-\item \code{avals}: per leaf, \code{NULL} if static, else the \code{list(dtype, shape, ambiguous)} the cache key was built from. \code{dtype} is a canonical dtype
-string (\code{"f32"}, \code{"i64"}, ...), \code{shape} an \code{integer()}, empty for a
-scalar,
+\item \code{avals}: per leaf, \code{NULL} if static, else the \code{list(dtype, shape)} the
+cache key was built from. \code{dtype} is a canonical dtype string (\code{"f32"},
+\code{"i64"}, ...) -- for a bare R leaf, the dtype it would be uploaded at by
+default -- and \code{shape} an \code{integer()}, empty for a scalar,
 \item \code{default_device}: the device this call resolved because no array input
 named one -- the device the cache key was built on, so \code{compile} must
 compile for it rather than resolve a default of its own. \code{NULL} when an
@@ -43,11 +44,22 @@ For \code{backend = "pjrt"} it must return a named list with:
 compiled for,
 \item \code{out_tree}: the \code{RTree} of the outputs (see \code{\link{build_tree}}),
 \item \code{out_avals}: one aval per output leaf of \code{out_tree}, each a
-\verb{list(dtype = <string>, shape = <integer>, ambiguous = <logical(1)>)}
-(\code{ambiguous} is optional and defaults to \code{FALSE}). The outputs are
-wrapped from these.
+\verb{list(dtype = <string>, shape = <integer>)}. The outputs are wrapped
+from these.
 \item \code{const_arrays} (optional): buffers prepended to the inputs,
 \item \code{phantom_specs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)} donation-output buffers to allocate fresh per call.
+}
+
+Either kind of result may additionally carry:
+\itemize{
+\item \code{input_dtypes} (optional): a \code{character()} with one entry per dynamic
+leaf, in order, naming the dtype that input is supplied at. A bare R
+leaf is uploaded at that dtype instead of its default (a double at
+\code{"f32"}, an integer at \code{"i32"}, a logical at \code{"pred"}), which is how a
+caller whose program consumes an R double as \code{f64} gets the exact value
+rather than one rounded through \code{f32} first. \code{NA} leaves an input alone;
+an array input is passed through whatever this says, so \code{NA} is the
+meaningful entry for one.
 }
 
 For any other \code{backend} it must return a named list with:
@@ -105,7 +117,7 @@ object a backend hands out stays alive for the dispatcher's lifetime.}
 
 \item{extractor}{(\code{function} | \code{NULL})\cr
 Reads a non-\code{"pjrt"} array's metadata via the backend's accessors, called as
-\code{extractor(leaf)} and returning \code{list(aval = list(dtype, shape, ambiguous), device, backend)} -- \code{dtype} a tengen \code{DataType}, \code{shape} an \code{integer()}.
+\code{extractor(leaf)} and returning \code{list(aval = list(dtype, shape), device, backend)} -- \code{dtype} a tengen \code{DataType}, \code{shape} an \code{integer()}.
 Required for any backend other than \code{"pjrt"}; ignored for \code{"pjrt"} (see
 \emph{Backends}).}
 }
@@ -123,7 +135,8 @@ compile only on a cache miss.
 }
 \details{
 Each \code{\link[=dispatch]{dispatch()}} call flattens the inputs and builds a cache key: a
-dynamic leaf contributes its dtype, shape and \code{ambiguous} flag, a static leaf
+dynamic leaf contributes its kind (an array, or bare R data), its dtype and
+its shape, a static leaf
 its value (compared with \code{\link[=identical]{identical()}}). On a hit the cached executable runs
 immediately; on a miss \code{compile} is called to produce a new cache entry.
 
@@ -143,8 +156,8 @@ sits behind it:
 inputs contribute their \verb{$data} buffer, bare R literals and arrays are
 uploaded with the same dtype defaults as
 \code{\link[=pjrt_scalar]{pjrt_scalar()}}/\code{\link[=pjrt_buffer]{pjrt_buffer()}}, and the outputs are wrapped back into
-\code{"AnvlArray"}s -- lists of \verb{$data}, \verb{$dtype}, \verb{$shape}, \verb{$device},
-\verb{$ambiguous} and \verb{$backend} -- and re-nested via \code{out_tree}, all without
+\code{"AnvlArray"}s -- lists of \verb{$data}, \verb{$dtype}, \verb{$shape}, \verb{$device} and
+\verb{$backend} -- and re-nested via \code{out_tree}, all without
 leaving C++.
 \item any other \code{backend} calls the compiled R closure \code{compile} returned, which
 returns the call's finished value. Execution, output wrapping and input
