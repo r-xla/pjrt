@@ -81,6 +81,11 @@ struct ExecInput {
   SEXP value = R_NilValue;     // an array leaf's `$data`, or the bare R leaf
   const Aval* aval = nullptr;  // an upload needs its shape
   bool upload = false;         // bare R data: upload it. Else: ready to use
+  // The dtype to upload bare R data at. kInvalid means the leaf's own default
+  // (double -> f32, integer -> i32, logical -> pred); the entry's
+  // `input_dtypes` overrides it, because only the compiled program knows what
+  // dtype it was compiled to take. Unused when `upload` is false.
+  AnvlDtype dtype = AnvlDtype::kInvalid;
 };
 
 // An engine's per-entry material -- what the compile callback produced, in the
@@ -105,6 +110,12 @@ struct CacheEntry {
   // and are rooted by it, not here.
   std::vector<Rcpp::RObject> keep;
   std::unique_ptr<EntryData> data;
+  // The dtype each execute-time input is supplied at, in program order, as the
+  // compile callback declared it (`input_dtypes`). kInvalid at a position
+  // leaves that input alone -- an array input is passed through, and bare R
+  // data falls back to its own default dtype. Empty when the callback declared
+  // nothing, which is the same as all-kInvalid.
+  std::vector<AnvlDtype> input_dtypes;
 
   // Root `x` for this entry's lifetime. R_NilValue is a no-op.
   void keep_alive(SEXP x) {
@@ -165,6 +176,14 @@ class Engine {
   // engine's lifetime; owned by the default canonical_device().
   std::vector<Rcpp::RObject> canonical_devices_;
 };
+
+// Read the compile callback's `input_dtypes` into the entry, validating it: a
+// character vector, one element per execute-time input, each a canonical dtype
+// name or NA. Absent (or NULL) leaves `e.input_dtypes` empty. `n_inputs` is
+// what the call actually has to supply, so a callback that declares a different
+// number is a malformed result rather than a silent mismatch at execute time.
+void read_input_dtypes(const Rcpp::List& res, std::size_t n_inputs,
+                       CacheEntry& e);
 
 // `engine_name` is the R-facing selector: "pjrt" or "closure"; throws on any
 // other value. `backend` is the tag the dispatcher's arrays carry (the engine

@@ -231,7 +231,6 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     kl.kind = KeyLeaf::kRData;
     kl.aval.dtype = rd->dtype;
     kl.aval.shape = std::move(rd->shape);
-    kl.aval.ambiguous = true;  // bare R data is dtype-ambiguous (to_avals)
     key.leaves.push_back(std::move(kl));
     exec_inputs.push_back({leaf, &key.leaves.back().aval, true});
   }
@@ -278,8 +277,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       // the callback always sees a string, whichever backend the leaf is from.
       avals[i] = Rcpp::List::create(
           Rcpp::Named("dtype") = anvl_dtype_name(kl.aval.dtype),
-          Rcpp::Named("shape") = shp,
-          Rcpp::Named("ambiguous") = kl.aval.ambiguous);
+          Rcpp::Named("shape") = shp);
     }
     Rcpp::List info = Rcpp::List::create(
         Rcpp::Named("args") = args,
@@ -297,6 +295,9 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     // The engine validates the result and builds its entry material.
     CacheEntry e;
     engine.build_entry(res, e);
+    // Engine-agnostic: the dtype each input is supplied at, which the callback
+    // declares because only the compiled program knows what it takes.
+    read_input_dtypes(res, exec_inputs.size(), e);
 
     // Root every SEXP the inserted key holds, so it outlives this call; the
     // entry drops them when it is evicted. The key's device token needs no
@@ -308,6 +309,22 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     entry = d.cache().get(key);
   }
 
-  // 5. The engine runs the call and returns the finished value.
+  // 5. Stamp each input with the dtype the entry was compiled to take it at,
+  // then let the engine run the call and return the finished value.
+  if (!entry->input_dtypes.empty()) {
+    // Sizes agree by construction: the key fixes which leaves are static, so
+    // every call filed under it supplies the same number of inputs as the one
+    // the entry was validated against.
+    if (entry->input_dtypes.size() != exec_inputs.size()) {
+      Rcpp::stop(
+          "internal error: cache entry declares %d input dtypes but "
+          "this call supplies %d inputs",
+          static_cast<int>(entry->input_dtypes.size()),
+          static_cast<int>(exec_inputs.size()));
+    }
+    for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
+      exec_inputs[k].dtype = entry->input_dtypes[k];
+    }
+  }
   return engine.run(*entry, exec_inputs);
 }

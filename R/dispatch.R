@@ -10,7 +10,8 @@
 #'
 #' @details
 #' Each [`dispatch()`] call flattens the inputs and builds a cache key: a
-#' dynamic leaf contributes its dtype, shape and `ambiguous` flag, a static leaf
+#' dynamic leaf contributes its kind (an array, or bare R data), its dtype and
+#' its shape, a static leaf
 #' its value (compared with [identical()]). On a hit the cached executable runs
 #' immediately; on a miss `compile` is called to produce a new cache entry.
 #'
@@ -29,8 +30,8 @@
 #'   inputs contribute their `$data` buffer, bare R literals and arrays are
 #'   uploaded with the same dtype defaults as
 #'   [`pjrt_scalar()`]/[`pjrt_buffer()`], and the outputs are wrapped back into
-#'   `"AnvlArray"`s -- lists of `$data`, `$dtype`, `$shape`, `$device`,
-#'   `$ambiguous` and `$backend` -- and re-nested via `out_tree`, all without
+#'   `"AnvlArray"`s -- lists of `$data`, `$dtype`, `$shape`, `$device` and
+#'   `$backend` -- and re-nested via `out_tree`, all without
 #'   leaving C++.
 #' * any other `backend` calls the compiled R closure `compile` returned, which
 #'   returns the call's finished value. Execution, output wrapping and input
@@ -52,10 +53,10 @@
 #'   * `in_tree`: its `RTree` (see [`build_tree`]),
 #'   * `leaves`: the flat leaf list (see [`flatten`]),
 #'   * `is_static`: a `logical()` mask over `leaves`,
-#'   * `avals`: per leaf, `NULL` if static, else the `list(dtype, shape,
-#'     ambiguous)` the cache key was built from. `dtype` is a canonical dtype
-#'     string (`"f32"`, `"i64"`, ...), `shape` an `integer()`, empty for a
-#'     scalar,
+#'   * `avals`: per leaf, `NULL` if static, else the `list(dtype, shape)` the
+#'     cache key was built from. `dtype` is a canonical dtype string (`"f32"`,
+#'     `"i64"`, ...) -- for a bare R leaf, the dtype it would be uploaded at by
+#'     default -- and `shape` an `integer()`, empty for a scalar,
 #'   * `default_device`: the device this call resolved because no array input
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
@@ -67,12 +68,21 @@
 #'     compiled for,
 #'   * `out_tree`: the `RTree` of the outputs (see [`build_tree`]),
 #'   * `out_avals`: one aval per output leaf of `out_tree`, each a
-#'     `list(dtype = <string>, shape = <integer>, ambiguous = <logical(1)>)`
-#'     (`ambiguous` is optional and defaults to `FALSE`). The outputs are
-#'     wrapped from these.
+#'     `list(dtype = <string>, shape = <integer>)`. The outputs are wrapped
+#'     from these.
 #'   * `const_arrays` (optional): buffers prepended to the inputs,
 #'   * `phantom_specs` (optional): a list of `list(dtype = <string>, shape =
 #'     <integer>)` donation-output buffers to allocate fresh per call.
+#'
+#'   Either kind of result may additionally carry:
+#'   * `input_dtypes` (optional): a `character()` with one entry per dynamic
+#'     leaf, in order, naming the dtype that input is supplied at. A bare R
+#'     leaf is uploaded at that dtype instead of its default (a double at
+#'     `"f32"`, an integer at `"i32"`, a logical at `"pred"`), which is how a
+#'     caller whose program consumes an R double as `f64` gets the exact value
+#'     rather than one rounded through `f32` first. `NA` leaves an input alone,
+#'     and is the only admissible entry for an array leaf, which is passed
+#'     through as it is.
 #'
 #'   For any other `backend` it must return a named list with:
 #'   * `r_fun`: a function called with the list of the call's dynamic leaves, in
@@ -122,8 +132,8 @@
 #'   object a backend hands out stays alive for the dispatcher's lifetime.
 #' @param extractor (`function` | `NULL`)\cr
 #'   Reads a non-`"pjrt"` array's metadata via the backend's accessors, called as
-#'   `extractor(leaf)` and returning `list(aval = list(dtype, shape, ambiguous),
-#'   device, backend)` -- `dtype` a tengen `DataType`, `shape` an `integer()`.
+#'   `extractor(leaf)` and returning `list(aval = list(dtype, shape), device,
+#'   backend)` -- `dtype` a tengen `DataType`, `shape` an `integer()`.
 #'   Required for any backend other than `"pjrt"`; ignored for `"pjrt"` (see
 #'   *Backends*).
 #' @return [`dispatcher()`] returns a `Dispatcher`.

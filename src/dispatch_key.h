@@ -110,19 +110,10 @@ inline const char *anvl_dtype_name(AnvlDtype d) {
   return "invalid";
 }
 
-// Translate a tengen DataType object to an AnvlDtype. It is a length-1
-// character vector classed "DataType" whose string is the canonical dtype
-// name. tengen names more dtypes than the dispatcher supports (f16, bf16,
-// f8*, complex, sub-byte ints); those yield kInvalid and the caller rejects
-// them rather than keying approximately.
-inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
-  if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
-    return AnvlDtype::kInvalid;
-  }
-  if (!Rf_inherits(dtype, "DataType")) {
-    return AnvlDtype::kInvalid;
-  }
-  const char *name = CHAR(STRING_ELT(dtype, 0));
+// Translate a canonical dtype name to an AnvlDtype. tengen names more dtypes
+// than the dispatcher supports (f16, bf16, f8*, complex, sub-byte ints); those
+// yield kInvalid and the caller rejects them rather than keying approximately.
+inline AnvlDtype anvl_dtype_from_name(const char *name) {
   if (!std::strcmp(name, "bool")) return AnvlDtype::kBool;
   if (!std::strcmp(name, "i8")) return AnvlDtype::kI8;
   if (!std::strcmp(name, "i16")) return AnvlDtype::kI16;
@@ -137,19 +128,28 @@ inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
   return AnvlDtype::kInvalid;
 }
 
-// Per-leaf abstract value -- mirrors anvl's nv_aval(dtype, shape, ambiguous).
-// dtype/shape are read off the leaf; `ambiguous` is an anvl type-system bit
-// supplied per leaf (pjrt folds it into the key but never interprets it). The
-// device is not part of it: it is a single per-call value on the CacheKey.
+// The same, for a tengen DataType object: a length-1 character vector classed
+// "DataType" whose string is the canonical dtype name.
+inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
+  if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
+    return AnvlDtype::kInvalid;
+  }
+  if (!Rf_inherits(dtype, "DataType")) {
+    return AnvlDtype::kInvalid;
+  }
+  return anvl_dtype_from_name(CHAR(STRING_ELT(dtype, 0)));
+}
+
+// Per-leaf abstract value -- mirrors anvl's nv_aval(dtype, shape). Both are
+// read off the leaf. The device is not part of it: it is a single per-call
+// value on the CacheKey.
 struct Aval {
   AnvlDtype dtype = AnvlDtype::kInvalid;
   std::vector<int64_t> shape;
-  bool ambiguous = false;
 };
 
 inline std::uint64_t aval_hash(const Aval &a) {
   std::uint64_t h = static_cast<std::uint64_t>(a.dtype);
-  h = hash_combine(h, a.ambiguous ? 1u : 0u);
   for (int64_t d : a.shape) {
     h = hash_combine(h, static_cast<std::uint64_t>(d));
   }
@@ -157,7 +157,7 @@ inline std::uint64_t aval_hash(const Aval &a) {
 }
 
 inline bool aval_eq(const Aval &a, const Aval &b) {
-  return a.dtype == b.dtype && a.ambiguous == b.ambiguous && a.shape == b.shape;
+  return a.dtype == b.dtype && a.shape == b.shape;
 }
 
 // identical(), tightened for use as a cache key.
@@ -205,15 +205,15 @@ struct KeyLeaf {
   SEXP value = R_NilValue;  // kStatic: the leaf
 };
 
-// How a leaf contributes to the key: by its value, or by its Aval.
+// How a leaf contributes to the key: by its value, or by its kind and Aval.
 //
-// kArray and kRData are deliberately not distinguished. They differ only in
-// where execution finds the input -- the leaf's own $data, or a fresh upload of
-// the leaf -- and that is settled per call, from the call's own leaves, never
-// from the cache entry. The program compiled for an Aval is the same either
-// way, so keying them apart would compile it twice: `f(x, y)` and `f(x, 1)`
-// with matching avals should share one executable. `kind` survives only to
-// steer input assembly.
+// kArray and kRData are distinguished, because the caller compiles them into
+// different programs: an array leaf is an input of a dtype it already has,
+// while bare R data has no dtype of its own until the program says what it is
+// used as, and can therefore be uploaded as something other than its default
+// (anvl's RData values, which let `x_f64 / sqrt(2)` see the exact double
+// rather than one rounded through f32). `f(x, y)` and `f(x, 1)` are two
+// programs, and two entries.
 //
 // CacheKeyHash and CacheKeyEq must agree on this, or two keys the map calls
 // equal would hash into different buckets.
@@ -288,11 +288,10 @@ struct CacheKeyHash {
     for (const KeyLeaf &leaf : k.leaves) {
       // Folded before the per-leaf material, so a value-keyed leaf's hash
       // stream can never coincide with an Aval-keyed one's: the domain
-      // separator. Note it is `keyed_by_value`, not `kind` -- a kArray and a
-      // kRData leaf of the same Aval must hash alike, because CacheKeyEq calls
-      // them equal.
+      // separator. The kind goes in whole, so a kArray and a kRData leaf of
+      // the same Aval land in different buckets, as CacheKeyEq requires.
       const bool by_value = keyed_by_value(leaf.kind);
-      h = hash_combine(h, by_value ? 1u : 0u);
+      h = hash_combine(h, static_cast<std::uint64_t>(leaf.kind));
       if (!by_value) {
         h = hash_combine(h, aval_hash(leaf.aval));
         continue;
@@ -327,12 +326,12 @@ struct CacheKeyEq {
     for (std::size_t k = 0; k < a.leaves.size(); ++k) {
       const KeyLeaf &x = a.leaves[k];
       const KeyLeaf &y = b.leaves[k];
-      // A kArray and a kRData leaf of the same Aval are the same key: the two
-      // compile to one program (see keyed_by_value). Only value-keyed against
-      // Aval-keyed is a difference -- and tree_eq has already ruled that out,
-      // since static-ness follows the argument names it compares.
+      // A kArray and a kRData leaf of the same Aval are different keys: they
+      // compile to different programs (see keyed_by_value). Static-ness is
+      // already ruled out by tree_eq, which compares the argument names it
+      // follows, but the array/rdata split is not.
+      if (x.kind != y.kind) return false;
       const bool by_value = keyed_by_value(x.kind);
-      if (by_value != keyed_by_value(y.kind)) return false;
       if (by_value) {
         if (!r_identical(x.value, y.value)) return false;
       } else if (!aval_eq(x.aval, y.aval)) {

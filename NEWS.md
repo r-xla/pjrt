@@ -1,5 +1,21 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* `dispatcher()`'s cache key no longer carries an `ambiguous` bit, and an
+  `AnvlArray` leaf is now keyed apart from bare R data of the same dtype and
+  shape: the two compile to different programs. The compile callback's
+  `avals` are `list(dtype, shape)`, its `out_avals` likewise, and the wrapped
+  outputs no longer carry `$ambiguous`.
+
+## Features
+
+* A compile callback may return `input_dtypes`, naming the dtype each
+  execute-time input is supplied at. A bare R leaf is then uploaded at that
+  dtype instead of its default (`"f32"` for a double, `"i32"` for an integer,
+  `"pred"` for a logical), which is how a caller whose program consumes an R
+  double as `f64` gets the exact value rather than one rounded through `f32`.
+
 # pjrt 0.5.0
 
 ## Performance
