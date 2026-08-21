@@ -53,6 +53,51 @@ test_that("Can write safetensors (different data types)", {
   }
 })
 
+test_that("bf16 safetensors payloads load raw into bf16 buffers", {
+  # Hand-crafted file, independent of pjrt's own writer: an 8-byte header
+  # length, the JSON header, then the packed row-major bfloat16s. The bit
+  # patterns are named here and split into little-endian byte pairs below,
+  # rather than interleaved by hand.
+  bits <- c(
+    `1.0` = 0x3F80,
+    `-2.5` = 0xC020,
+    `1/3` = 0x3EAB, # 0.333984375
+    `max` = 0x7F7F, # 2^128 * (1 - 2^-8), the largest finite value
+    `Inf` = 0x7F80,
+    `min subnormal` = 0x0001 # 2^-133
+  )
+  payload <- as.raw(c(rbind(bits %% 256L, bits %/% 256L)))
+
+  header <- '{"x":{"dtype":"BF16","shape":[2,3],"data_offsets":[0,12]}}'
+  path <- tempfile(fileext = ".safetensors")
+  con <- file(path, "wb")
+  writeBin(nchar(header), con, size = 8L, endian = "little")
+  writeBin(charToRaw(header), con)
+  writeBin(payload, con)
+  close(con)
+
+  dict <- safetensors::safe_load_file(path, framework = "pjrt")
+  expect_equal(as.character(elt_type(dict$x)), "bf16")
+  expect_identical(shape(dict$x), c(2L, 3L))
+  expected <- matrix(
+    c(1, -2.5, 0.333984375, 2^128 * (1 - 2^-8), Inf, 2^-133),
+    nrow = 2,
+    byrow = TRUE
+  )
+  expect_identical(as_array(dict$x), expected)
+})
+
+test_that("bf16 buffers round-trip through safetensors write/read", {
+  x <- list(
+    x = pjrt_buffer(array(c(0.5, 1.5, -2.25, 4), dim = c(2, 2)), dtype = "bf16")
+  )
+  tmp <- tempfile(fileext = ".safetensors")
+  safetensors::safe_save_file(x, tmp)
+  reloaded <- safetensors::safe_load_file(tmp, framework = "pjrt")
+  expect_equal(as.character(elt_type(reloaded$x)), "bf16")
+  expect_identical(as_array(x$x), as_array(reloaded$x))
+})
+
 test_that("load a file (pjrt)", {
   path <- test_path("_safetensors", "hello.safetensors")
   dict <- safetensors::safe_load_file(

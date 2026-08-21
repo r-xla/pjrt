@@ -793,6 +793,18 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
     "invalid input `x`.*dtype is not one anvl can represent"
   )
 
+  # bf16 goes further than f16: pjrt really does store it, so a genuine bf16
+  # buffer reaches the kInvalid mapping. Compute on bf16 needs the promotion
+  # lattice, so the dispatcher must reject it here rather than key it as some
+  # neighbouring dtype -- before compile and before the cache is probed.
+  expect_error(
+    impl_dispatch_run(
+      mk("pjrt"),
+      list(x = parr(pjrt_buffer(c(1, 2), dtype = "bf16")))
+    ),
+    "invalid input `x`.*dtype is not one anvl can represent"
+  )
+
   expect_equal(n_miss, 0L) # every rejection happened before the cache was probed
 })
 

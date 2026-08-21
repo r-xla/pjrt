@@ -30,6 +30,10 @@ Currently supported types are:
 \item \code{"pred"}: predicate (i.e. a boolean)
 \item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
+\item \code{"bf16"}: bfloat16 (for \code{double} or \code{integer} data). Values are rounded
+to the nearest bfloat16 value, ties to even; the largest finite value is
+about 3.3895e38, and larger magnitudes round to \code{Inf}.
+\code{\link[=as_array]{as_array()}} returns the exactly representable values as \code{double}.
 The default (\code{NULL}) depends on the method:
 \item \code{logical} -> \code{"pred"}
 \item \code{integer} -> \code{"i32"}
