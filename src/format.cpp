@@ -5,34 +5,59 @@
 #include <sstream>
 #include <vector>
 
+#include "bfloat16.h"
+
 using namespace Rcpp;
 
-std::string format_float_value(double value, int precision) {
-  // stablehlo format for NaN and infinity
+// The stablehlo hex spellings of NaN and infinity, plus the number of decimal
+// digits that round-trips the format, for one floating-point dtype.
+//
+// Keyed by dtype rather than by bit width: bf16 and f16 are both 16 bits, so
+// width no longer identifies a floating-point format.
+struct FloatFormat {
+  const char *nan;
+  const char *pos_inf;
+  const char *neg_inf;
+  int digits;  // significant decimal digits needed to round-trip
+};
+
+// digits = ceil(mantissa_bits * log10(2)) + 1: 4 for bf16 (8 bits), 9 for f32
+// (24), 17 for f64 (53). std::setprecision under std::scientific prints one
+// digit before the point and `n` after, so it is passed digits - 1.
+constexpr FloatFormat kBF16Format = {"0x7FC0", "0x7F80", "0xFF80", 4};
+constexpr FloatFormat kF32Format = {"0x7FC00000", "0x7F800000", "0xFF800000",
+                                    9};
+constexpr FloatFormat kF64Format = {"0x7FF8000000000000", "0x7FF0000000000000",
+                                    "0xFFF0000000000000", 17};
+
+std::string format_float_value(double value, const FloatFormat &fmt) {
   if (R_IsNaN(value)) {
-    return (precision == 64) ? "0x7FF8000000000000" : "0x7FC00000";
+    return fmt.nan;
   } else if (!R_finite(value)) {
-    if (precision == 64) {
-      return (value > 0) ? "0x7FF0000000000000" : "0xFFF0000000000000";
-    }
-    return (value > 0) ? "0x7F800000" : "0xFF800000";
+    return (value > 0) ? fmt.pos_inf : fmt.neg_inf;
   }
   std::ostringstream oss;
-  oss << std::scientific << std::setprecision(precision == 32 ? 8 : 16);
+  oss << std::scientific << std::setprecision(fmt.digits - 1);
   oss << value;
   return oss.str();
 }
 
 std::string format_element(const unsigned char *ptr, std::string dtype) {
   std::ostringstream oss;
-  if (dtype == "f32") {
+  if (dtype == "bf16") {
+    uint16_t bits;
+    std::memcpy(&bits, ptr, 2);
+    return format_float_value(
+        static_cast<double>(rpjrt::bfloat16::from_bits(bits).to_float()),
+        kBF16Format);
+  } else if (dtype == "f32") {
     float val;
     std::memcpy(&val, ptr, 4);
-    return format_float_value((double)val, 32);
+    return format_float_value((double)val, kF32Format);
   } else if (dtype == "f64") {
     double val;
     std::memcpy(&val, ptr, 8);
-    return format_float_value(val, 64);
+    return format_float_value(val, kF64Format);
   } else if (dtype == "i64") {
     int64_t val;
     std::memcpy(&val, ptr, 8);
@@ -74,7 +99,7 @@ std::string format_element(const unsigned char *ptr, std::string dtype) {
 int get_element_size(std::string dtype) {
   if (dtype == "f64" || dtype == "i64" || dtype == "ui64") return 8;
   if (dtype == "f32" || dtype == "i32" || dtype == "ui32") return 4;
-  if (dtype == "i16" || dtype == "ui16") return 2;
+  if (dtype == "bf16" || dtype == "i16" || dtype == "ui16") return 2;
   return 1;
 }
 
