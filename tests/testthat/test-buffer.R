@@ -193,6 +193,103 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
   test_pjrt_buffer(data_matrix, "f32", tolerance = 1e-6)
 })
 
+test_that("pjrt_buffer roundtrip works for bf16 data", {
+  # exactly representable in bfloat16, so no tolerance is needed
+  test_pjrt_buffer(c(1.0, -1.0, 0.0, 0.5, 0.25), "bf16")
+  test_pjrt_buffer(matrix(c(1.5, 2.25, -3.5, 4.75), nrow = 2), "bf16")
+  test_pjrt_scalar(0.5, "bf16")
+})
+
+test_that("bf16 buffers materialize the exactly representable doubles", {
+  # bfloat16 targets computed independently: 1/3 -> 0x3EAB = 0.333984375,
+  # 0.1 -> 0x3DCD = 0.10009765625, 2^128 * (1 - 2^-8) = 0x7F7F is the largest
+  # finite value, 2^128 * (1 - 2^-9) is the overflow midpoint and rounds (ties
+  # to even, since 0x7F7F has an odd mantissa) to Inf, 2^-133 = smallest
+  # subnormal.
+  bf16_max <- 2^128 * (1 - 2^-8)
+  input <- c(1, 0.5, 1 / 3, 0.1, bf16_max, 2^128 * (1 - 2^-9), 2^-133, -2.5, 0)
+  expected <- c(
+    1,
+    0.5,
+    0.333984375,
+    0.10009765625,
+    bf16_max,
+    Inf,
+    2^-133,
+    -2.5,
+    0
+  )
+  buf <- pjrt_buffer(input, dtype = "bf16")
+  expect_equal(as.character(elt_type(buf)), "bf16")
+  expect_identical(as_array(buf), array(expected))
+
+  # integer data is accepted like for the other float dtypes
+  buf_int <- pjrt_buffer(matrix(1:6, nrow = 2), dtype = "bf16")
+  expect_equal(as.character(elt_type(buf_int)), "bf16")
+  expect_identical(as_array(buf_int), matrix(as.double(1:6), nrow = 2))
+
+  s <- pjrt_scalar(3.14159, dtype = "bf16")
+  expect_identical(shape(s), integer())
+  expect_identical(as_array(s), 3.140625)
+})
+
+test_that("doubles round to bf16 to nearest, ties to even, not via float", {
+  # The double just below 1.01171875 must give 1.0078125. Rounding it through
+  # float first lands exactly on 1.01171875, which is a bf16 midpoint and then
+  # ties up to 1.015625 -- the double-rounding failure this test pins.
+  expect_identical(
+    as_array(pjrt_buffer(1.01171875 - 2^-52, dtype = "bf16")),
+    array(1.0078125)
+  )
+  # The midpoint itself ties to even, which here means rounding up: 1.0078125
+  # has an odd mantissa (0x3F81) and 1.015625 an even one (0x3F82).
+  expect_identical(
+    as_array(pjrt_buffer(1.01171875, dtype = "bf16")),
+    array(1.015625)
+  )
+
+  # Ties to even at the subnormal boundary: 2^-134 is midway between 0 and the
+  # smallest subnormal 2^-133 and rounds to the even neighbour 0; 1.5 * 2^-133
+  # is midway between 2^-133 and 2^-132 and rounds to 2^-132.
+  buf <- pjrt_buffer(c(2^-134, 1.5 * 2^-133), dtype = "bf16")
+  expect_identical(as_array(buf), array(c(0, 2^-132)))
+})
+
+test_that("bf16 raw and empty buffers work", {
+  empty <- pjrt_empty(dtype = "bf16", shape = c(0, 2))
+  expect_identical(shape(empty), c(0L, 2L))
+  expect_equal(as.character(elt_type(empty)), "bf16")
+
+  # 0x3F80 = 1.0 and 0xBF00 = -0.5, as little-endian byte pairs
+  raw_bytes <- as.raw(c(0x80, 0x3f, 0x00, 0xbf))
+  buf <- pjrt_buffer(raw_bytes, dtype = "bf16", shape = 2L, row_major = TRUE)
+  expect_identical(as_array(buf), array(c(1, -0.5)))
+  expect_identical(as_raw(buf, row_major = TRUE), raw_bytes)
+
+  expect_error(
+    pjrt_buffer(
+      as.raw(c(0, 0, 0)),
+      dtype = "bf16",
+      shape = 2L,
+      row_major = TRUE
+    ),
+    "requires 4 bytes"
+  )
+})
+
+test_that("bf16 rejects logical input like the other float dtypes", {
+  expect_error(pjrt_buffer(TRUE, dtype = "bf16"), "Unsupported type")
+})
+
+test_that("dtype() on a bf16 buffer round-trips through tengen", {
+  # Unlike f16, tengen's dtype enum already names bf16, so the buffer-level
+  # dtype and the tengen DataType agree.
+  buf <- pjrt_buffer(1.5, dtype = "bf16")
+  expect_equal(as.character(elt_type(buf)), "bf16")
+  expect_identical(dtype(buf), tengen::as_dtype("bf16"))
+  expect_identical(as_array(pjrt_buffer(1.5, dtype = tengen::as_dtype("bf16"))), array(1.5))
+})
+
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
   expect_error(pjrt_buffer(logical(0), shape = c(1, 4)), "but specified shape is")

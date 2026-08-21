@@ -90,6 +90,27 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
   expect_equal(as.vector(arr), as.vector(matrix(1:4, 2, 2) + matrix(5:8, 2, 2)), tolerance = 1e-6)
 })
 
+test_that("bf16 programs compile and execute", {
+  skip_if_metal("bf16 support is only tested on CPU and CUDA")
+  src <- r"(
+func.func @main(%x: tensor<4xbf16>, %y: tensor<4xbf16>) -> tensor<4xbf16> {
+  %0 = "stablehlo.add"(%x, %y) : (tensor<4xbf16>, tensor<4xbf16>) -> tensor<4xbf16>
+  "func.return"(%0): (tensor<4xbf16>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src))
+
+  x <- pjrt_buffer(c(1, 2.5, 0.333984375, 2^128 * (1 - 2^-8)), dtype = "bf16")
+  y <- pjrt_buffer(c(1, 0.5, 0.333984375, 2^128 * (1 - 2^-8)), dtype = "bf16")
+
+  result <- pjrt_execute(executable, x, y)
+
+  expect_equal(as.character(elt_type(result)), "bf16")
+  # 0.333984375 doubles exactly (an exponent shift), and the largest finite
+  # value overflows to Inf
+  expect_identical(as_array(result), array(c(2, 3, 0.66796875, Inf)))
+})
+
 test_that("wrong shape input raises error", {
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {

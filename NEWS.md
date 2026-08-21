@@ -1,5 +1,22 @@
 # pjrt (development version)
 
+## New features
+
+* `PJRTBuffer` supports the `"bf16"` (bfloat16) element type for storage and
+  IO. Buffers can be created from R `double` and `integer` data, from raw
+  bytes, and from `BF16` safetensors payloads (which load without an
+  intermediate f32 representation, halving the host memory a large
+  checkpoint needs). `as_array()` returns the exactly representable values as
+  `double`, `as_raw()` round-trips the packed bytes, and printing and
+  `format_buffer()` render bf16 directly.
+
+  R doubles are rounded to bf16 to nearest with ties to even, rounding the
+  double directly rather than via `float`, which would double-round.
+
+  bf16 is supported for storage and IO only: the dispatcher rejects a bf16
+  input rather than keying it as a neighbouring dtype, since computing on it
+  needs promotion-lattice support.
+
 # pjrt 0.5.0
 
 ## Performance
