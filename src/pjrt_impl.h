@@ -1,9 +1,9 @@
 // Declarations for the pjrt.cpp entry points that are reused directly from C++
-// (not only through their generated R bindings). The dispatcher's PjrtEngine
-// calls these to run executables, allocate/upload buffers, and copy buffers
-// across devices, reusing pjrt.cpp's keepalive/donation/options logic instead
-// of duplicating it. The definitions live in pjrt.cpp, which also includes this
-// header so the two stay in sync.
+// (not only through their generated R bindings). capi.cpp calls these to run
+// executables, allocate/upload buffers, and copy buffers across devices on
+// behalf of downstream packages, reusing pjrt.cpp's keepalive/donation/options
+// logic instead of duplicating it. The definitions live in pjrt.cpp, which also
+// includes this header so the two stay in sync.
 //
 // Deliberately separate from pjrt.h, which declares the low-level PJRT C API
 // loader typedef and must stay free of Rcpp / execution headers.

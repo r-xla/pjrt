@@ -5,18 +5,6 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
-impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn) {
-    .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn)
-}
-
-impl_dispatcher_size <- function(dispatcher) {
-    .Call(`_pjrt_impl_dispatcher_size`, dispatcher)
-}
-
-impl_dispatch_run <- function(dispatcher, args) {
-    .Call(`_pjrt_impl_dispatch_run`, dispatcher, args)
-}
-
 get_eigh_handler <- function() {
     .Call(`_pjrt_get_eigh_handler`)
 }
@@ -261,68 +249,48 @@ get_svd_handler_cuda <- function() {
     .Call(`_pjrt_get_svd_handler_cuda`)
 }
 
-impl_tree_build <- function(x) {
-    .Call(`_pjrt_impl_tree_build`, x)
+impl_capi_versions <- function() {
+    .Call(`_pjrt_impl_capi_versions`)
 }
 
-impl_tree_build_flatten <- function(x) {
-    .Call(`_pjrt_impl_tree_build_flatten`, x)
+impl_capi_predicates <- function(x) {
+    .Call(`_pjrt_impl_capi_predicates`, x)
 }
 
-impl_tree_unflatten <- function(tree, x) {
-    .Call(`_pjrt_impl_tree_unflatten`, tree, x)
+impl_capi_buffer_meta <- function(buffer) {
+    .Call(`_pjrt_impl_capi_buffer_meta`, buffer)
 }
 
-impl_tree_size <- function(tree) {
-    .Call(`_pjrt_impl_tree_size`, tree)
+impl_capi_dtype_roundtrip <- function(name) {
+    .Call(`_pjrt_impl_capi_dtype_roundtrip`, name)
 }
 
-impl_tree_equal <- function(a, b) {
-    .Call(`_pjrt_impl_tree_equal`, a, b)
+impl_capi_error_channel <- function(not_a_buffer) {
+    .Call(`_pjrt_impl_capi_error_channel`, not_a_buffer)
 }
 
-impl_tree_hash <- function(tree) {
-    .Call(`_pjrt_impl_tree_hash`, tree)
+impl_capi_device_identity <- function(buffer, device) {
+    .Call(`_pjrt_impl_capi_device_identity`, buffer, device)
 }
 
-impl_tree_kind <- function(tree) {
-    .Call(`_pjrt_impl_tree_kind`, tree)
+impl_capi_same_client <- function(buffer, client) {
+    .Call(`_pjrt_impl_capi_same_client`, buffer, client)
 }
 
-impl_tree_child_names <- function(tree) {
-    .Call(`_pjrt_impl_tree_child_names`, tree)
+impl_capi_buffer_from_r <- function(client, device, data, dims, dtype) {
+    .Call(`_pjrt_impl_capi_buffer_from_r`, client, device, data, dims, dtype)
 }
 
-impl_tree_child_kinds <- function(tree) {
-    .Call(`_pjrt_impl_tree_child_kinds`, tree)
+impl_capi_buffer_empty <- function(client, device, dims, dtype) {
+    .Call(`_pjrt_impl_capi_buffer_empty`, client, device, dims, dtype)
 }
 
-impl_tree_child_sizes <- function(tree) {
-    .Call(`_pjrt_impl_tree_child_sizes`, tree)
+impl_capi_execute <- function(executable, inputs) {
+    .Call(`_pjrt_impl_capi_execute`, executable, inputs)
 }
 
-impl_tree_path <- function(tree, i) {
-    .Call(`_pjrt_impl_tree_path`, tree, i)
-}
-
-impl_tree_filter_by_names <- function(tree, names) {
-    .Call(`_pjrt_impl_tree_filter_by_names`, tree, names)
-}
-
-impl_tree_concat <- function(children, names) {
-    .Call(`_pjrt_impl_tree_concat`, children, names)
-}
-
-impl_tree_mask_from_names <- function(tree, names) {
-    .Call(`_pjrt_impl_tree_mask_from_names`, tree, names)
-}
-
-impl_tree_repr <- function(tree) {
-    .Call(`_pjrt_impl_tree_repr`, tree)
-}
-
-impl_tree_diff <- function(a, b) {
-    .Call(`_pjrt_impl_tree_diff`, a, b)
+impl_capi_execute_error <- function(executable, bad_inputs) {
+    .Call(`_pjrt_impl_capi_execute_error`, executable, bad_inputs)
 }
 
 impl_test_xptr_prot <- function(x) {

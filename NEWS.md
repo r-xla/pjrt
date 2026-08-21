@@ -1,4 +1,27 @@
-# pjrt (development version)
+# pjrt 0.6.0
+
+## Breaking changes
+
+* The **Dispatcher** (`dispatcher()`, `dispatch()`, `dispatcher_size()`) and
+  the **Rtree module** (`build_tree()`, `flatten()`, `unflatten()`,
+  `map_tree()`, `pmap_tree()`, `flatten_fun()` and the `tree_*()` operations)
+  have moved to anvl, which is where they belong: pjrt used neither, and both
+  were written against anvl's data model. They keep their names, so code that
+  called `pjrt::flatten()` now calls `anvl::flatten()`.
+* `anvl` is no longer in `Suggests`. pjrt's dispatcher tests were the only
+  thing that needed it, and they moved with the dispatcher.
+
+## New features
+
+* pjrt now exposes a **C interface for downstream packages**, declared in
+  `inst/include/pjrt/api.h` and reached with `LinkingTo: pjrt`. It lets another
+  package's native code read a buffer's dtype, shape and device, upload R data,
+  allocate and copy buffers, and run a compiled executable, without linking
+  against pjrt's C++ symbols. anvl's dispatcher is built on it.
+* Devices are now **interned**: pjrt keeps one canonical `PJRTDevice` object per
+  underlying device for the life of the session, so the device read off a buffer
+  and the device returned by `pjrt_device()` are the same R object. Callers can
+  therefore compare devices by identity.
 
 # pjrt 0.5.0
 

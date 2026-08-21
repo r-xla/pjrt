@@ -1,0 +1,257 @@
+// pjrt's C interface for downstream packages.
+//
+// A package that needs to read or drive PJRT objects from its own native code
+// -- anvl's dispatcher is the reason this exists -- cannot call pjrt's C++
+// directly: R packages do not export C++ symbols, and linking one package's
+// shared object against another's is not portable. So pjrt registers a flat set
+// of C-linkage entry points with R (R_RegisterCCallable), and this header wraps
+// each one in a stub that resolves it on first use.
+//
+// Everything that crosses the boundary is a SEXP, an int, an int64_t, or a
+// const char*. No C++ types, no Rcpp types, and no pjrt classes appear in a
+// signature, which is what lets the two packages be recompiled -- and their
+// C++ internals rearranged -- independently of each other.
+//
+// Usage:
+//
+//     #include "pjrt/api.h"
+//     ...
+//     pjrt_c_api_init();   // once, from R_init_<yourpkg>
+//
+// and add `pjrt` to LinkingTo in DESCRIPTION.
+//
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+// None of these entry points raises an R error, because an R error is a longjmp
+// and it would unwind straight through the caller's C++ frames without running
+// their destructors. A call that fails instead returns a sentinel -- R_NilValue
+// for a SEXP, NULL for a pointer, -1 for an int -- and leaves a message in
+// pjrt_c_last_error(). The caller raises the error itself, in its own
+// translation unit, where the throw unwinds correctly:
+//
+//     SEXP out = pjrt_c_execute(exec, inputs, opts);
+//     if (out == R_NilValue) Rcpp::stop("%s", pjrt_c_last_error());
+//
+// pjrt_c_last_error() returns NULL when the last call succeeded. Its storage is
+// owned by pjrt and is overwritten by the next call, so copy it if you need to
+// keep it.
+//
+// ---------------------------------------------------------------------------
+// GC
+// ---------------------------------------------------------------------------
+// An entry point that returns a freshly allocated SEXP returns it *unprotected*.
+// Root it before the next allocation -- assigning it straight into a slot of an
+// already-protected list is the usual way, and PROTECT (or Rcpp::Shield) is the
+// other. Note that handing it to a C++ wrapper that preserves (Rcpp::RObject,
+// Rcpp::List, ...) is *not* enough on its own: Rcpp's preserve conses onto a
+// precious list, which can allocate before the value is rooted. Shield first.
+//
+// The two interning entry points are the exception: pjrt_c_device_for_buffer()
+// and pjrt_c_device_canonical() return an object pjrt keeps alive for the
+// session, so it is already rooted and needs nothing from the caller.
+
+#ifndef PJRT_API_H
+#define PJRT_API_H
+
+// R_NO_REMAP before R's headers, for the same reason Rcpp sets it: without it
+// Rinternals.h defines `length`, `error` and friends as bare macros, which
+// collide with the C++ standard library the moment a consumer includes it
+// afterwards. Setting it here makes this header safe to include in any order.
+// Everything below uses the Rf_-prefixed spellings accordingly.
+#ifndef R_NO_REMAP
+#define R_NO_REMAP
+#endif
+
+#include <Rinternals.h>
+#include <R_ext/Rdynload.h>
+#include <stdint.h>
+
+// Bumped on any incompatible change to the signatures below. pjrt_c_api_init()
+// compares the value compiled into the caller with the one pjrt reports, so a
+// package built against one pjrt and loaded against another fails immediately
+// and legibly instead of calling through a mismatched signature.
+#define PJRT_C_API_VERSION 1
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// ---- signatures -----------------------------------------------------------
+//
+// The typedefs are the single source of truth: pjrt's own registration assigns
+// each implementation to its typedef before casting, so a definition that
+// drifts from the declaration is a compile error rather than a wrong call at
+// runtime.
+
+typedef int (*pjrt_c_api_version_ft)(void);
+typedef const char *(*pjrt_c_last_error_ft)(void);
+
+// Class predicates. 1 if `x` is an external pointer of that pjrt class, else 0.
+// A caller validates with these before passing an object on: every entry point
+// below reinterprets its arguments, so handing one the wrong class is undefined
+// behaviour rather than an error.
+typedef int (*pjrt_c_is_buffer_ft)(SEXP x);
+typedef int (*pjrt_c_is_client_ft)(SEXP x);
+typedef int (*pjrt_c_is_device_ft)(SEXP x);
+typedef int (*pjrt_c_is_executable_ft)(SEXP x);
+
+// Buffer metadata. These are on the dispatch hot path, so they neither allocate
+// nor copy: pjrt memoizes a buffer's dtype, dimensions and device on first read
+// and these hand back the memoized values. -1 / NULL if `buffer` is not a
+// PJRTBuffer.
+//
+// The dtype is a PJRT_Buffer_Type; include <xla/pjrt/c/pjrt_c_api.h> (also
+// shipped by pjrt) for the enum.
+//
+// pjrt_c_buffer_dims() writes the rank through `rank` and returns a pointer to
+// `rank` int64_t dimensions, borrowed from the buffer and valid for as long as
+// it lives.
+typedef int (*pjrt_c_buffer_dtype_ft)(SEXP buffer);
+typedef const int64_t *(*pjrt_c_buffer_dims_ft)(SEXP buffer, int *rank);
+
+// Identity tokens: the underlying PJRT_Device* and PJRT_Api*, as opaque
+// pointers. Never dereferenced by the caller -- they are for comparison only
+// (is this buffer on that device? did these two objects come from one plugin?).
+typedef const void *(*pjrt_c_buffer_device_ptr_ft)(SEXP buffer);
+typedef const void *(*pjrt_c_buffer_api_ft)(SEXP buffer);
+typedef const void *(*pjrt_c_device_ptr_ft)(SEXP device);
+typedef const void *(*pjrt_c_client_api_ft)(SEXP client);
+
+// Interned devices. pjrt keeps one canonical PJRTDevice object per underlying
+// PJRT_Device* for the life of the session, so a device that reaches a caller
+// from a buffer and the same device that reaches it from pjrt_device() are the
+// *same* R object. That makes object identity a sound device comparison, which
+// is what lets a cache be keyed on a device without an identical() call.
+//
+// pjrt_c_device_for_buffer() interns the device a buffer lives on;
+// pjrt_c_device_canonical() interns an existing PJRTDevice. Both return
+// R_NilValue on a wrong-class argument.
+typedef SEXP (*pjrt_c_device_for_buffer_ft)(SEXP buffer);
+typedef SEXP (*pjrt_c_device_canonical_ft)(SEXP device);
+
+// The dtype vocabulary, as pjrt spells it ("pred", "f32", "i64", ...).
+// pjrt_c_dtype_from_name() returns a PJRT_Buffer_Type, or -1 for a name pjrt
+// does not know. pjrt_c_dtype_name() returns NULL for an unknown value.
+typedef int (*pjrt_c_dtype_from_name_ft)(const char *name);
+typedef const char *(*pjrt_c_dtype_name_ft)(int dtype);
+
+// Upload an R vector or array to a device buffer, with the same conversion and
+// column-major handling as pjrt_buffer() / pjrt_scalar(). `data` must be a
+// REALSXP, INTSXP or LGLSXP; `dims` / `rank` give the logical shape (rank 0 for
+// a scalar) and `dtype` the PJRT_Buffer_Type to store it as.
+typedef SEXP (*pjrt_c_buffer_from_r_ft)(SEXP client, SEXP device, SEXP data,
+                                        const int64_t *dims, int rank,
+                                        int dtype);
+
+// Allocate an uninitialized buffer -- what an output-donation "phantom" input
+// needs.
+typedef SEXP (*pjrt_c_buffer_empty_ft)(SEXP client, SEXP device,
+                                       const int64_t *dims, int rank,
+                                       int dtype);
+
+// Copy a buffer to another device. `cross_client` selects the host round-trip
+// needed when source and destination belong to different clients; compare
+// pjrt_c_buffer_api() with pjrt_c_client_api() to decide.
+typedef SEXP (*pjrt_c_buffer_copy_to_device_ft)(SEXP buffer, SEXP device,
+                                                SEXP dst_client,
+                                                int cross_client);
+
+// Run a compiled executable. `inputs` is a list of PJRTBuffers in program
+// order; the result is a list of PJRTBuffers. `options` comes from
+// pjrt_c_execution_options(); donation and input keepalives are handled inside.
+typedef SEXP (*pjrt_c_execute_ft)(SEXP executable, SEXP inputs, SEXP options);
+
+// A reusable PJRTExecuteOptions. `non_donatable_indices` is an integer or
+// double vector of 0-based input positions, or R_NilValue for none.
+typedef SEXP (*pjrt_c_execution_options_ft)(SEXP non_donatable_indices,
+                                            int launch_id);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+
+// ---------------------------------------------------------------------------
+// Consumer stubs
+// ---------------------------------------------------------------------------
+// pjrt itself defines PJRT_C_API_IMPLEMENTATION before including this header,
+// so that it gets the typedefs (and the version macro) without the stubs, whose
+// names its own definitions own.
+
+#ifndef PJRT_C_API_IMPLEMENTATION
+
+#ifdef __cplusplus
+extern "C++" {
+#endif
+
+// One resolved-on-first-use stub per entry point. R_GetCCallable() raises an R
+// error if the symbol is missing, which can only happen when the caller was
+// built against a pjrt that no longer matches -- pjrt_c_api_init() is there to
+// turn that into a legible message at load time instead.
+#define PJRT_C_STUB(name, ret, params, args)                             \
+  static inline ret name params {                                        \
+    static name##_ft fn_ = NULL;                                         \
+    if (fn_ == NULL) {                                                   \
+      fn_ = (name##_ft)R_GetCCallable("pjrt", #name);                    \
+    }                                                                    \
+    return fn_ args;                                                     \
+  }
+
+PJRT_C_STUB(pjrt_c_api_version, int, (void), ())
+PJRT_C_STUB(pjrt_c_last_error, const char *, (void), ())
+PJRT_C_STUB(pjrt_c_is_buffer, int, (SEXP x), (x))
+PJRT_C_STUB(pjrt_c_is_client, int, (SEXP x), (x))
+PJRT_C_STUB(pjrt_c_is_device, int, (SEXP x), (x))
+PJRT_C_STUB(pjrt_c_is_executable, int, (SEXP x), (x))
+PJRT_C_STUB(pjrt_c_buffer_dtype, int, (SEXP buffer), (buffer))
+PJRT_C_STUB(pjrt_c_buffer_dims, const int64_t *, (SEXP buffer, int *rank),
+            (buffer, rank))
+PJRT_C_STUB(pjrt_c_buffer_device_ptr, const void *, (SEXP buffer), (buffer))
+PJRT_C_STUB(pjrt_c_buffer_api, const void *, (SEXP buffer), (buffer))
+PJRT_C_STUB(pjrt_c_device_ptr, const void *, (SEXP device), (device))
+PJRT_C_STUB(pjrt_c_client_api, const void *, (SEXP client), (client))
+PJRT_C_STUB(pjrt_c_device_for_buffer, SEXP, (SEXP buffer), (buffer))
+PJRT_C_STUB(pjrt_c_device_canonical, SEXP, (SEXP device), (device))
+PJRT_C_STUB(pjrt_c_dtype_from_name, int, (const char *name), (name))
+PJRT_C_STUB(pjrt_c_dtype_name, const char *, (int dtype), (dtype))
+PJRT_C_STUB(pjrt_c_buffer_from_r, SEXP,
+            (SEXP client, SEXP device, SEXP data, const int64_t *dims,
+             int rank, int dtype),
+            (client, device, data, dims, rank, dtype))
+PJRT_C_STUB(pjrt_c_buffer_empty, SEXP,
+            (SEXP client, SEXP device, const int64_t *dims, int rank,
+             int dtype),
+            (client, device, dims, rank, dtype))
+PJRT_C_STUB(pjrt_c_buffer_copy_to_device, SEXP,
+            (SEXP buffer, SEXP device, SEXP dst_client, int cross_client),
+            (buffer, device, dst_client, cross_client))
+PJRT_C_STUB(pjrt_c_execute, SEXP, (SEXP executable, SEXP inputs, SEXP options),
+            (executable, inputs, options))
+PJRT_C_STUB(pjrt_c_execution_options, SEXP,
+            (SEXP non_donatable_indices, int launch_id),
+            (non_donatable_indices, launch_id))
+
+#undef PJRT_C_STUB
+
+// Resolve the interface and check that the pjrt we are talking to is the one we
+// were compiled against. Call once from R_init_<yourpkg>. Raises an R error on
+// a mismatch, which at that point is safe -- there are no C++ frames of the
+// caller's below it to unwind.
+static inline void pjrt_c_api_init(void) {
+  const int have = pjrt_c_api_version();
+  if (have != PJRT_C_API_VERSION) {
+    Rf_error(
+        "pjrt C API version mismatch: this package was built against version "
+        "%d but the installed pjrt provides version %d. Reinstall this package "
+        "against the installed pjrt.",
+        PJRT_C_API_VERSION, have);
+  }
+}
+
+#ifdef __cplusplus
+}  // extern "C++"
+#endif
+
+#endif  // PJRT_C_API_IMPLEMENTATION
+
+#endif  // PJRT_API_H

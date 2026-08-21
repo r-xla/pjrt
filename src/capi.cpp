@@ -1,0 +1,396 @@
+// pjrt's C interface for downstream packages: the implementations behind
+// inst/include/pjrt/api.h, and their registration with R.
+//
+// See that header for the contract. Two rules govern everything here:
+//
+//  1. Nothing escapes as a C++ exception and nothing raises an R error. An R
+//     error is a longjmp; raised here it would tear through the *caller's* C++
+//     frames without running their destructors. Every entry point therefore
+//     wraps its body in PJRT_C_TRY/PJRT_C_CATCH, which converts a failure into
+//     a sentinel return plus a message in pjrt_c_last_error().
+//
+//  2. No pjrt or Rcpp type appears in a signature. The boundary speaks SEXP,
+//     int, int64_t and const char* only, so pjrt's C++ internals can be
+//     rearranged without breaking a package compiled against an older copy of
+//     the header.
+
+// Rcpp.h first: it owns the R-header include order (it sets R_NO_REMAP before
+// pulling them in), and pjrt's own sources are compiled against that.
+#include <Rcpp.h>
+
+#define PJRT_C_API_IMPLEMENTATION
+#include "pjrt/api.h"
+
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <new>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "buffer.h"
+#include "client.h"
+#include "device.h"
+#include "pjrt_impl.h"
+#include "utils.h"
+
+using rpjrt::PJRTBuffer;
+using rpjrt::PJRTClient;
+using rpjrt::PJRTDevice;
+using rpjrt::PJRTElementType;
+using rpjrt::PJRTExecuteOptions;
+using rpjrt::PJRTLoadedExecutable;
+
+namespace {
+
+// The message left by the last failing entry point. Empty means "the last call
+// succeeded"; pjrt_c_last_error() reports that as NULL. R is single-threaded
+// here (every one of these runs on the R thread), so a plain static is enough.
+std::string& last_error() {
+  static std::string msg;
+  return msg;
+}
+
+// An external pointer of a given pjrt S3 class. Nothing here reinterprets an
+// argument before this has passed: an Rcpp::XPtr checks only that the SEXP is
+// an external pointer, never what it points at.
+bool is_xptr_of(SEXP x, const char* cls) {
+  return TYPEOF(x) == EXTPTRSXP && Rf_inherits(x, cls);
+}
+
+// The payload of a checked external pointer, or nullptr.
+//
+// Deliberately R's own accessor rather than an Rcpp::XPtr: constructing one
+// preserves the object (Rcpp conses it onto a precious list) and destroying it
+// releases it again. That is real work, and the metadata readers below run
+// once per array input per dispatch -- the hottest path pjrt has. They only
+// need to *read* through the pointer, and the SEXP is already rooted by the
+// caller's argument list for the duration of the call, so there is nothing to
+// protect and nothing to preserve.
+template <typename T>
+T* checked_ptr(SEXP x, const char* cls) {
+  if (!is_xptr_of(x, cls)) return nullptr;
+  return static_cast<T*>(R_ExternalPtrAddr(x));
+}
+
+// ---- the device intern table ----------------------------------------------
+
+// One canonical PJRTDevice object per underlying PJRT_Device*, kept for the
+// life of the session. A PJRT_Device* is itself a per-client singleton and a
+// client is a per-platform singleton, so this table holds a handful of entries
+// at most.
+//
+// Interning is what lets a caller compare devices by object identity: the
+// device read off a buffer and the device returned by pjrt_device() are the
+// same R object, so a cache keyed on a device needs no identical() call. The
+// entries are R_PreserveObject'd and never released, which is what keeps that
+// identity -- and any address derived from it -- stable for the session.
+std::unordered_map<PJRT_Device*, SEXP>& device_intern_table() {
+  static std::unordered_map<PJRT_Device*, SEXP> table;
+  return table;
+}
+
+SEXP intern_device(PJRT_Device* p, const std::shared_ptr<PJRT_Api>& api) {
+  auto& table = device_intern_table();
+  auto it = table.find(p);
+  if (it != table.end()) return it->second;
+  auto dev = std::make_unique<PJRTDevice>(p, api);
+  Rcpp::XPtr<PJRTDevice> xptr(dev.release(), true);
+  xptr.attr("class") = "PJRTDevice";
+  SEXP s = xptr;
+  R_PreserveObject(s);
+  table.emplace(p, s);
+  return s;
+}
+
+std::vector<int64_t> dims_vector(const int64_t* dims, int rank) {
+  if (dims == nullptr || rank <= 0) return {};
+  return std::vector<int64_t>(dims, dims + rank);
+}
+
+}  // namespace
+
+// Open a boundary body. Clearing the message first is what makes
+// pjrt_c_last_error() mean "the last call", not "some earlier call".
+#define PJRT_C_TRY \
+  last_error().clear();  \
+  try {
+
+// Close it, mapping any failure to `sentinel`. std::exception covers
+// Rcpp::exception and the std::runtime_error that check_err throws; the
+// catch-all covers the rest, because letting anything through here is exactly
+// the unwinding bug this boundary exists to prevent.
+#define PJRT_C_CATCH(sentinel)                            \
+  }                                                       \
+  catch (const std::exception& e) {                       \
+    last_error() = e.what();                              \
+    return sentinel;                                      \
+  }                                                       \
+  catch (...) {                                           \
+    last_error() = "unknown C++ exception raised in pjrt"; \
+    return sentinel;                                      \
+  }
+
+// Record a message for a failure we detect ourselves rather than catch.
+#define PJRT_C_FAIL(msg, sentinel) \
+  do {                             \
+    last_error() = (msg);          \
+    return sentinel;               \
+  } while (0)
+
+extern "C" {
+
+int pjrt_c_api_version(void) { return PJRT_C_API_VERSION; }
+
+const char* pjrt_c_last_error(void) {
+  return last_error().empty() ? nullptr : last_error().c_str();
+}
+
+int pjrt_c_is_buffer(SEXP x) { return is_xptr_of(x, "PJRTBuffer") ? 1 : 0; }
+int pjrt_c_is_client(SEXP x) { return is_xptr_of(x, "PJRTClient") ? 1 : 0; }
+int pjrt_c_is_device(SEXP x) { return is_xptr_of(x, "PJRTDevice") ? 1 : 0; }
+int pjrt_c_is_executable(SEXP x) {
+  return is_xptr_of(x, "PJRTLoadedExecutable") ? 1 : 0;
+}
+
+// The metadata readers. All six are on the dispatch hot path -- once per array
+// input per call -- so they take the cheap route: a checked R_ExternalPtrAddr
+// and a read of memoized state. None allocates, none can throw (element_type(),
+// dimensions() and device_ptr() read PJRTBuffer::cache_meta, populated on the
+// buffer's first metadata access), so none needs the try/catch boundary either.
+// A wrong-classed argument is reported the same way as any other failure.
+
+int pjrt_c_buffer_dtype(SEXP buffer) {
+  last_error().clear();
+  const PJRTBuffer* buf = checked_ptr<PJRTBuffer>(buffer, "PJRTBuffer");
+  if (buf == nullptr) PJRT_C_FAIL("expected a PJRTBuffer", -1);
+  return static_cast<int>(const_cast<PJRTBuffer*>(buf)->element_type());
+}
+
+const int64_t* pjrt_c_buffer_dims(SEXP buffer, int* rank) {
+  last_error().clear();
+  if (rank != nullptr) *rank = 0;
+  const PJRTBuffer* buf = checked_ptr<PJRTBuffer>(buffer, "PJRTBuffer");
+  if (buf == nullptr) PJRT_C_FAIL("expected a PJRTBuffer", nullptr);
+  // Borrowed from the buffer's memoized metadata, so this neither allocates
+  // nor copies -- which is the point.
+  const std::vector<int64_t>& dims =
+      const_cast<PJRTBuffer*>(buf)->dimensions();
+  if (rank != nullptr) *rank = static_cast<int>(dims.size());
+  return dims.empty() ? nullptr : dims.data();
+}
+
+const void* pjrt_c_buffer_device_ptr(SEXP buffer) {
+  last_error().clear();
+  const PJRTBuffer* buf = checked_ptr<PJRTBuffer>(buffer, "PJRTBuffer");
+  if (buf == nullptr) PJRT_C_FAIL("expected a PJRTBuffer", nullptr);
+  return static_cast<const void*>(const_cast<PJRTBuffer*>(buf)->device_ptr());
+}
+
+const void* pjrt_c_buffer_api(SEXP buffer) {
+  last_error().clear();
+  const PJRTBuffer* buf = checked_ptr<PJRTBuffer>(buffer, "PJRTBuffer");
+  if (buf == nullptr) PJRT_C_FAIL("expected a PJRTBuffer", nullptr);
+  return static_cast<const void*>(buf->get_api().get());
+}
+
+const void* pjrt_c_device_ptr(SEXP device) {
+  last_error().clear();
+  const PJRTDevice* dev = checked_ptr<PJRTDevice>(device, "PJRTDevice");
+  if (dev == nullptr) PJRT_C_FAIL("expected a PJRTDevice", nullptr);
+  return static_cast<const void*>(dev->device);
+}
+
+const void* pjrt_c_client_api(SEXP client) {
+  last_error().clear();
+  const PJRTClient* cl = checked_ptr<PJRTClient>(client, "PJRTClient");
+  if (cl == nullptr) PJRT_C_FAIL("expected a PJRTClient", nullptr);
+  return static_cast<const void*>(cl->api.get());
+}
+
+SEXP pjrt_c_device_for_buffer(SEXP buffer) {
+  PJRT_C_TRY
+  PJRTBuffer* buf = checked_ptr<PJRTBuffer>(buffer, "PJRTBuffer");
+  if (buf == nullptr) PJRT_C_FAIL("expected a PJRTBuffer", R_NilValue);
+  // Hot: one hash lookup on the already-interned device in the common case.
+  // Only the very first sight of a device allocates.
+  return intern_device(buf->device_ptr(), buf->get_api());
+  PJRT_C_CATCH(R_NilValue)
+}
+
+SEXP pjrt_c_device_canonical(SEXP device) {
+  PJRT_C_TRY
+  PJRTDevice* dev = checked_ptr<PJRTDevice>(device, "PJRTDevice");
+  if (dev == nullptr) PJRT_C_FAIL("expected a PJRTDevice", R_NilValue);
+  return intern_device(dev->device, dev->api);
+  PJRT_C_CATCH(R_NilValue)
+}
+
+int pjrt_c_dtype_from_name(const char* name) {
+  PJRT_C_TRY
+  if (name == nullptr) PJRT_C_FAIL("dtype name must not be NULL", -1);
+  // Throws on a name pjrt does not know; the boundary turns that into -1, so
+  // an unknown dtype is a value the caller tests rather than an error it has
+  // to catch.
+  return static_cast<int>(string_to_pjrt_buffer_type(std::string(name)));
+  PJRT_C_CATCH(-1)
+}
+
+const char* pjrt_c_dtype_name(int dtype) {
+  PJRT_C_TRY
+  // Returned into a static so the pointer stays valid after this returns; the
+  // next call overwrites it, as documented.
+  static std::string name;
+  name = PJRTElementType(static_cast<PJRT_Buffer_Type>(dtype)).as_string();
+  return name.c_str();
+  PJRT_C_CATCH(nullptr)
+}
+
+SEXP pjrt_c_buffer_from_r(SEXP client, SEXP device, SEXP data,
+                          const int64_t* dims, int rank, int dtype) {
+  PJRT_C_TRY
+  if (!is_xptr_of(client, "PJRTClient")) {
+    PJRT_C_FAIL("expected a PJRTClient", R_NilValue);
+  }
+  if (!is_xptr_of(device, "PJRTDevice")) {
+    PJRT_C_FAIL("expected a PJRTDevice", R_NilValue);
+  }
+  Rcpp::XPtr<PJRTClient> cl(client);
+  Rcpp::XPtr<PJRTDevice> dev(device);
+  std::vector<int64_t> shape = dims_vector(dims, rank);
+  // The impls take the dtype by name; converting here costs the same string
+  // the previous in-tree caller built from a literal.
+  std::string dt =
+      PJRTElementType(static_cast<PJRT_Buffer_Type>(dtype)).as_string();
+  switch (TYPEOF(data)) {
+    case REALSXP:
+      return impl_client_buffer_from_double(cl, dev, data, shape, dt);
+    case INTSXP:
+      return impl_client_buffer_from_integer(cl, dev, data, shape, dt);
+    case LGLSXP:
+      return impl_client_buffer_from_logical(cl, dev, data, shape, dt);
+    default:
+      PJRT_C_FAIL(
+          "pjrt_c_buffer_from_r: `data` must be a double, integer or logical "
+          "vector",
+          R_NilValue);
+  }
+  PJRT_C_CATCH(R_NilValue)
+}
+
+SEXP pjrt_c_buffer_empty(SEXP client, SEXP device, const int64_t* dims,
+                         int rank, int dtype) {
+  PJRT_C_TRY
+  if (!is_xptr_of(client, "PJRTClient")) {
+    PJRT_C_FAIL("expected a PJRTClient", R_NilValue);
+  }
+  if (!is_xptr_of(device, "PJRTDevice")) {
+    PJRT_C_FAIL("expected a PJRTDevice", R_NilValue);
+  }
+  Rcpp::XPtr<PJRTClient> cl(client);
+  Rcpp::XPtr<PJRTDevice> dev(device);
+  return client_buffer_empty(cl, dev, dims_vector(dims, rank),
+                             static_cast<PJRT_Buffer_Type>(dtype));
+  PJRT_C_CATCH(R_NilValue)
+}
+
+SEXP pjrt_c_buffer_copy_to_device(SEXP buffer, SEXP device, SEXP dst_client,
+                                  int cross_client) {
+  PJRT_C_TRY
+  if (!is_xptr_of(buffer, "PJRTBuffer")) {
+    PJRT_C_FAIL("expected a PJRTBuffer", R_NilValue);
+  }
+  if (!is_xptr_of(device, "PJRTDevice")) {
+    PJRT_C_FAIL("expected a PJRTDevice", R_NilValue);
+  }
+  if (!is_xptr_of(dst_client, "PJRTClient")) {
+    PJRT_C_FAIL("expected a PJRTClient", R_NilValue);
+  }
+  Rcpp::XPtr<PJRTBuffer> buf(buffer);
+  Rcpp::XPtr<PJRTDevice> dev(device);
+  Rcpp::XPtr<PJRTClient> cl(dst_client);
+  return impl_buffer_copy_to_device(buf, dev, cl, cross_client != 0);
+  PJRT_C_CATCH(R_NilValue)
+}
+
+SEXP pjrt_c_execute(SEXP executable, SEXP inputs, SEXP options) {
+  PJRT_C_TRY
+  if (!is_xptr_of(executable, "PJRTLoadedExecutable")) {
+    PJRT_C_FAIL("expected a PJRTLoadedExecutable", R_NilValue);
+  }
+  if (!is_xptr_of(options, "PJRTExecuteOptions")) {
+    PJRT_C_FAIL("expected a PJRTExecuteOptions", R_NilValue);
+  }
+  if (TYPEOF(inputs) != VECSXP) {
+    PJRT_C_FAIL("`inputs` must be a list of PJRTBuffers", R_NilValue);
+  }
+  // Each element is handed straight to the PJRT C API as a PJRTBuffer; a
+  // wrong-classed external pointer there would be reinterpreted blindly and
+  // crash, so they are checked before the call rather than trusted.
+  const R_xlen_t n = XLENGTH(inputs);
+  for (R_xlen_t i = 0; i < n; ++i) {
+    if (!is_xptr_of(VECTOR_ELT(inputs, i), "PJRTBuffer")) {
+      PJRT_C_FAIL("every element of `inputs` must be a PJRTBuffer", R_NilValue);
+    }
+  }
+  Rcpp::XPtr<PJRTLoadedExecutable> exec(executable);
+  Rcpp::XPtr<PJRTExecuteOptions> opts(options);
+  return impl_loaded_executable_execute(exec, Rcpp::List(inputs), opts);
+  PJRT_C_CATCH(R_NilValue)
+}
+
+SEXP pjrt_c_execution_options(SEXP non_donatable_indices, int launch_id) {
+  PJRT_C_TRY
+  std::vector<int64_t> idx;
+  if (non_donatable_indices != R_NilValue) {
+    Rcpp::NumericVector v(Rcpp::as<Rcpp::NumericVector>(non_donatable_indices));
+    idx.reserve(v.size());
+    for (R_xlen_t i = 0; i < v.size(); ++i) {
+      idx.push_back(static_cast<int64_t>(v[i]));
+    }
+  }
+  return impl_execution_options_create(idx, launch_id);
+  PJRT_C_CATCH(R_NilValue)
+}
+
+}  // extern "C"
+
+// ---- registration ----------------------------------------------------------
+
+// Assigning each implementation to its typedef before the cast is what makes a
+// signature that drifts from inst/include/pjrt/api.h a compile error here,
+// rather than a mismatched call in a downstream package at runtime.
+#define PJRT_C_REGISTER(name)                                    \
+  do {                                                           \
+    name##_ft fn_ = &name;                                       \
+    R_RegisterCCallable("pjrt", #name, reinterpret_cast<DL_FUNC>(fn_)); \
+  } while (0)
+
+// Called from R_init_pjrt: Rcpp attributes emits a call to every function
+// tagged [[Rcpp::init]] there, so this needs no hand-written init file.
+// [[Rcpp::init]]
+void pjrt_register_c_api(DllInfo* dll) {
+  (void)dll;
+  PJRT_C_REGISTER(pjrt_c_api_version);
+  PJRT_C_REGISTER(pjrt_c_last_error);
+  PJRT_C_REGISTER(pjrt_c_is_buffer);
+  PJRT_C_REGISTER(pjrt_c_is_client);
+  PJRT_C_REGISTER(pjrt_c_is_device);
+  PJRT_C_REGISTER(pjrt_c_is_executable);
+  PJRT_C_REGISTER(pjrt_c_buffer_dtype);
+  PJRT_C_REGISTER(pjrt_c_buffer_dims);
+  PJRT_C_REGISTER(pjrt_c_buffer_device_ptr);
+  PJRT_C_REGISTER(pjrt_c_buffer_api);
+  PJRT_C_REGISTER(pjrt_c_device_ptr);
+  PJRT_C_REGISTER(pjrt_c_client_api);
+  PJRT_C_REGISTER(pjrt_c_device_for_buffer);
+  PJRT_C_REGISTER(pjrt_c_device_canonical);
+  PJRT_C_REGISTER(pjrt_c_dtype_from_name);
+  PJRT_C_REGISTER(pjrt_c_dtype_name);
+  PJRT_C_REGISTER(pjrt_c_buffer_from_r);
+  PJRT_C_REGISTER(pjrt_c_buffer_empty);
+  PJRT_C_REGISTER(pjrt_c_buffer_copy_to_device);
+  PJRT_C_REGISTER(pjrt_c_execute);
+  PJRT_C_REGISTER(pjrt_c_execution_options);
+}

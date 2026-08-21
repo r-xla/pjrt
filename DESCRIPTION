@@ -1,6 +1,6 @@
 Package: pjrt
 Title: R Interface to PJRT
-Version: 0.5.0.9000
+Version: 0.6.0
 Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = c("cre", "aut"),
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197")),
@@ -30,7 +30,6 @@ Imports:
     withr,
     tengen (>= 0.2.0)
 Suggests:
-    anvl,
     callr,
     stablehlo,
     testthat (>= 3.0.0),
@@ -53,7 +52,6 @@ Collate:
     'compare.R'
     'custom_call.R'
     'device.R'
-    'dispatch.R'
     'execution_options.R'
     'format.R'
     'hlo.R'
@@ -65,8 +63,6 @@ Collate:
     'program.R'
     'reexports.R'
     'safetensors.R'
-    'tree.R'
     'utils.R'
     'zzz.R'
 Config/roxygen2/version: 8.0.0
-RoxygenNote: 7.3.3

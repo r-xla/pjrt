@@ -4,9 +4,7 @@
 
 `pjrt` is the runtime layer of the r-xla stack. It compiles StableHLO/MLIR programs to hardware-specific executables and runs them via the PJRT C API. It supports CPU, CUDA, and Metal backends through dynamically loaded plugins.
 
-Beyond the runtime, pjrt also owns the **Rtree module** (`build_tree()`/`flatten()`/`unflatten()` and the structural tree ops in `src/tree.h`/`src/tree.cpp`/`R/tree.R`); trees are opaque `RTree` external pointers. The Rtree is pjrt's R analog of [JAX's pytree](https://docs.jax.dev/en/latest/pytrees.html), which is where the idea comes from.
-
-It also owns the **Dispatcher** (`dispatcher()`/`dispatch()`), the native eager-dispatch engine behind anvl's `jit()`: an executable cache keyed on the inputs' structure and abstract values, which calls back into R to compile only on a miss. See `specs/design/dispatch/dispatch.md`.
+pjrt is the *runtime* only. The **Dispatcher** and the **Rtree module** used to live here and now belong to anvl (see *C interface for downstream packages* below); nothing in pjrt depends on either.
 
 ## Core Design
 
@@ -73,13 +71,45 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `device.R` – `pjrt_device()`, device spec parsing ("cpu:0")
 - `program.R` – `pjrt_program()` (MLIR/HLO loading)
 - `format.R` – buffer pretty-printing
-- `tree.R` – Rtree API over the native `RTree` (`build_tree()`, `flatten()`, `unflatten()`, `map_tree()`, ...)
-- `dispatch.R` – `dispatcher()`, `dispatch()`; the engine itself is C++ (`src/dispatch*.{h,cpp}`)
 - `safetensors.R` – safetensors read/write integration
 - `reexports.R` – tengen re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options
+- `src/capi.cpp`, `inst/include/pjrt/api.h` – the C interface for downstream packages (see below)
 
 **Important:** Do not call `devtools::load_all()` and `devtools::test()` in the same R process. The protobuf descriptors get registered twice, causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use separate `Rscript -e` calls instead.
+
+## C interface for downstream packages
+
+A package that needs to drive PJRT objects from its own native code cannot call
+pjrt's C++ directly: R packages do not export C++ symbols, and linking one
+package's shared object against another's is not portable. pjrt therefore
+registers a flat, C-linkage interface with R (`R_RegisterCCallable`), declared
+in `inst/include/pjrt/api.h` and implemented in `src/capi.cpp`. anvl's
+dispatcher is the reason it exists and its only consumer today.
+
+Three rules govern it, and breaking any of them is a bug:
+
+1. **No C++ or Rcpp type appears in a signature.** The boundary speaks `SEXP`,
+   `int`, `int64_t` and `const char*`. That is what lets pjrt's internals be
+   rearranged without breaking a package compiled against an older header.
+2. **Nothing raises an R error.** An R error is a longjmp; raised inside one of
+   these entry points it would tear through the *caller's* C++ frames without
+   running their destructors. A failure returns a sentinel (`R_NilValue`,
+   `NULL`, `-1`) and leaves a message in `pjrt_c_last_error()`, which the caller
+   turns into an error in its own translation unit.
+3. **`PJRT_C_API_VERSION` is bumped on any incompatible change**, so that a
+   mismatched pair fails at load time with a legible message instead of calling
+   through a wrong signature. anvl checks it from `.onLoad`.
+
+Registration happens in `pjrt_register_c_api()`, tagged `// [[Rcpp::init]]` so
+Rcpp attributes calls it from the generated `R_init_pjrt`. Each implementation
+is assigned to its typedef before the cast, so a signature that drifts from the
+header is a compile error rather than a runtime surprise.
+
+pjrt also **interns devices**: one canonical `PJRTDevice` object per underlying
+`PJRT_Device*`, for the life of the session. That makes object identity a sound
+device comparison for callers, which is what lets anvl key an executable cache
+on a device without an `identical()` call.
 
 ## Memory management
 
