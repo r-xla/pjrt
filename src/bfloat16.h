@@ -7,9 +7,9 @@
 // range as binary32, seven fewer mantissa bits, so every bf16 is an exactly
 // representable float and the widening direction is a bit shift.
 //
-// This is a storage-and-conversion type only: pjrt supports bf16 buffers for
-// storage and IO, not for compute, so no arithmetic operators are defined.
-// Anything that needs to compute on the values widens to float first.
+// A host-side storage and conversion type only, with no arithmetic operators:
+// arithmetic on bf16 values happens on device, inside the XLA program. Host
+// code that needs to compute on them widens to float first.
 //
 // Deliberately not a vendored dependency. bf16 is simple enough that the
 // conversion is shorter than the code needed to select and audit a third-party
