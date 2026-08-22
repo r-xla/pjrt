@@ -1,5 +1,22 @@
 # pjrt (development version)
 
+## Testing
+
+* pjrt no longer suggests `anvl`. The dispatcher tests used to drive the engine
+  through `anvl::jit()`, which meant a pjrt feature could not be tested without
+  pjrt's own downstream package. They now build a `dispatcher()` directly with a
+  compile callback of their own, using fixtures the suite already had. The
+  complementary check -- that anvl's real callback and arrays match what the
+  engine expects -- moved to anvl's suite, where a package that imports pjrt can
+  test the pairing without inverting the dependency.
+* The cache-key tests now run on the closure engine, so they no longer need a
+  compiled program or a downloaded plugin, and stop being skipped where one is
+  absent.
+* New: the pjrt engine's `move_inputs` cross-device copy is now covered. It was
+  previously exercised only through `anvl::jit(device = )`; the closure-engine
+  test next to it does not reach the copy, because there pjrt deliberately moves
+  nothing.
+
 # pjrt 0.5.0
 
 ## Performance
