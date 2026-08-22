@@ -2,7 +2,11 @@
 
 ## Testing
 
-* pjrt no longer suggests `anvl`. The dispatcher tests used to drive the engine
+* pjrt no longer suggests `anvl` or `stablehlo`, so it has no dependency edge
+  back to anything that depends on it. `stablehlo` was unused inside the
+  package -- only `tools/stress-cpu-memory.R`, which is not shipped, referenced
+  it -- and it suggests `pjrt` in turn, so the entry was a cycle.
+* Dropping `anvl`. The dispatcher tests used to drive the engine
   through `anvl::jit()`, which meant a pjrt feature could not be tested without
   pjrt's own downstream package. They now build a `dispatcher()` directly with a
   compile callback of their own, using fixtures the suite already had. The
