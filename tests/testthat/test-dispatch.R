@@ -1,15 +1,3 @@
-# The dispatcher, driven directly.
-#
-# Every test here builds a `dispatcher()` and hands it a compile callback of its
-# own, so the suite exercises pjrt's engine against pjrt's own fixtures and needs
-# nothing from anvl. The complementary check -- that anvl's *real* callback and
-# arrays match what this engine expects -- lives in anvl's own suite
-# (tests/testthat/test-jit-dispatch.R there), which is where a package that
-# imports pjrt can test the pairing without pjrt depending on it.
-
-# The building blocks directly, for what jit() cannot express.
-# ---------------------------------------------------------------------------
-
 # The `default_device` resolvers a dispatcher needs when a call has no array
 # input to read a device from. `test_device()` returns a fresh object each call
 # (like anvl's quickr backend): the dispatcher canonicalizes devices with
