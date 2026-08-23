@@ -1,5 +1,10 @@
 # pjrt (development version)
 
+## Other
+
+* pjrt no longer Suggests anvl and stablehlo for it's tests
+  and the integration tests are moved to {anvl}.
+
 # pjrt 0.5.0
 
 ## Performance
