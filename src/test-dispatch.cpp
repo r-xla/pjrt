@@ -165,7 +165,7 @@ context("CacheKey: aval-keyed leaves") {
     expect_true(hash_of(a) == hash_of(b));
   }
 
-  test_that("dtype, shape, ambiguity and arity each split the key") {
+  test_that("dtype, shape and arity each split the key") {
     CacheKey base = key_of({array_leaf(f32_2x3)});
 
     CacheKey dtype = key_of({array_leaf(mk_aval(AnvlDtype::kI32, {2, 3}))});

@@ -6,7 +6,9 @@
 
 Beyond the runtime, pjrt also owns the **Rtree module** (`build_tree()`/`flatten()`/`unflatten()` and the structural tree ops in `src/tree.h`/`src/tree.cpp`/`R/tree.R`); trees are opaque `RTree` external pointers. The Rtree is pjrt's R analog of [JAX's pytree](https://docs.jax.dev/en/latest/pytrees.html), which is where the idea comes from.
 
-It also owns the **Dispatcher** (`dispatcher()`/`dispatch()`), the native eager-dispatch engine behind anvl's `jit()`: an executable cache keyed on the inputs' structure and abstract values, which calls back into R to compile only on a miss. See `specs/design/dispatch/dispatch.md`.
+It also owns the **Dispatcher** (`dispatcher()`/`dispatch()`), the native eager-dispatch engine behind anvl's `jit()`: an executable cache keyed on the inputs' structure and abstract values, which calls back into R to compile only on a miss.
+
+The dispatcher's C++ names anvl's data model -- the `"AnvlArray"` class, its `$data`/`$backend`/`$device` fields, the `"plain"` backend tag, and the `AnvlDtype` vocabulary. That is a contract pjrt defines and anvl produces; it is deliberately *not* a package dependency. **pjrt must not depend on anvl, in `Suggests` or anywhere else.** `tests/testthat/test-dispatch.R` therefore drives the engine with its own fixtures (`parr()`, `qarr()`, `pjrt_entry()`), and the integration test that anvl's real callback matches this engine lives in anvl's `test-jit-dispatch.R`, which is the side of the dependency that can hold it.
 
 ## Core Design
 

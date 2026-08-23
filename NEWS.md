@@ -16,6 +16,11 @@
   `"pred"` for a logical), which is how a caller whose program consumes an R
   double as `f64` gets the exact value rather than one rounded through `f32`.
 
+## Other
+
+* pjrt no longer Suggests anvl and stablehlo for it's tests
+  and the integration tests are moved to {anvl}.
+
 # pjrt 0.5.0
 
 ## Performance
