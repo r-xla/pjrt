@@ -54,21 +54,21 @@ Aval mk_aval(AnvlDtype dtype, std::vector<int64_t> shape) {
 
 KeyLeaf array_leaf(Aval a) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kArray;
   kl.aval = std::move(a);
+  kl.aval.kind = rpjrt::AvalKind::kArray;
   return kl;
 }
 
 KeyLeaf rdata_leaf(Aval a) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kRData;
   kl.aval = std::move(a);
+  kl.aval.kind = rpjrt::AvalKind::kRData;
   return kl;
 }
 
 KeyLeaf static_leaf(SEXP value) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kStatic;
+  kl.is_static = true;
   kl.value = value;
   return kl;
 }
@@ -185,7 +185,8 @@ context("CacheKey: aval-keyed leaves") {
     expect_false(hash_of(base) == hash_of(arity));
   }
 
-  test_that("a kArray and a kRData leaf of one aval are different keys") {
+  test_that(
+      "an array and an rdata aval of one dtype and shape are different keys") {
     // They compile to different programs: bare R data has no dtype of its own
     // until the program says what it is used as, so `f(x, 1)` may consume it
     // at a dtype `f(x, y)` never asks for.

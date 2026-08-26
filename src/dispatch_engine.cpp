@@ -512,7 +512,7 @@ class PjrtEngine : public Engine {
     R_xlen_t pos = 0;
     for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
-      if (!in.upload) {
+      if (in.aval->kind != AvalKind::kRData) {
         if (move_inputs_) {
           Rcpp::XPtr<PJRTBuffer> buf(in.value);
           if (buf->device_ptr() != pe->device->device) {

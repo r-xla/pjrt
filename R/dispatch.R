@@ -10,8 +10,8 @@
 #'
 #' @details
 #' Each [`dispatch()`] call flattens the inputs and builds a cache key: a
-#' dynamic leaf contributes its kind (an array, or bare R data), its dtype and
-#' its shape, a static leaf
+#' dynamic leaf contributes its abstract value -- its kind (one of the backend's
+#' arrays, or bare R data), its dtype and its shape -- a static leaf
 #' its value (compared with [identical()]). On a hit the cached executable runs
 #' immediately; on a miss `compile` is called to produce a new cache entry.
 #'
@@ -53,10 +53,14 @@
 #'   * `in_tree`: its `RTree` (see [`build_tree`]),
 #'   * `leaves`: the flat leaf list (see [`flatten`]),
 #'   * `is_static`: a `logical()` mask over `leaves`,
-#'   * `avals`: per leaf, `NULL` if static, else the `list(dtype, shape)` the
-#'     cache key was built from. `dtype` is a canonical dtype string (`"f32"`,
-#'     `"i64"`, ...) -- for a bare R leaf, the dtype it would be uploaded at by
-#'     default -- and `shape` an `integer()`, empty for a scalar,
+#'   * `avals`: per leaf, `NULL` if static, else the `list(kind, dtype, shape)`
+#'     the cache key was built from. `kind` is `"array"` for one of the
+#'     backend's arrays and `"rdata"` for a bare R literal or array -- the two
+#'     are different cache keys, because bare R data has no dtype of its own and
+#'     the caller may compile it into a different program. `dtype` is a
+#'     canonical dtype string (`"f32"`, `"i64"`, ...) -- for an `"rdata"` leaf,
+#'     the dtype it would be uploaded at by default -- and `shape` an
+#'     `integer()`, empty for a scalar,
 #'   * `default_device`: the device this call resolved because no array input
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
@@ -133,7 +137,9 @@
 #' @param extractor (`function` | `NULL`)\cr
 #'   Reads a non-`"pjrt"` array's metadata via the backend's accessors, called as
 #'   `extractor(leaf)` and returning `list(aval = list(dtype, shape), device,
-#'   backend)` -- `dtype` a tengen `DataType`, `shape` an `integer()`.
+#'   backend)` -- `dtype` a tengen `DataType`, `shape` an `integer()`. The
+#'   aval's kind is not the extractor's to say: whatever it returns is an array
+#'   leaf.
 #'   Required for any backend other than `"pjrt"`; ignored for `"pjrt"` (see
 #'   *Backends*).
 #' @return [`dispatcher()`] returns a `Dispatcher`.

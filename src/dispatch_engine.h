@@ -78,13 +78,14 @@ std::string leaf_subject(const RTree& in_tree, std::size_t leaf_index);
 // they are baked into the program as constants and live only in the cache key
 // -- so the inputs to supply are exactly this sequence.
 struct ExecInput {
-  SEXP value = R_NilValue;     // an array leaf's `$data`, or the bare R leaf
-  const Aval* aval = nullptr;  // an upload needs its shape
-  bool upload = false;         // bare R data: upload it. Else: ready to use
+  SEXP value = R_NilValue;  // an array leaf's `$data`, or the bare R leaf
+  // The leaf's Aval: its `kind` says whether the value is ready to use or has
+  // to be uploaded, and an upload needs its shape.
+  const Aval* aval = nullptr;
   // The dtype to upload bare R data at. kInvalid means the leaf's own default
   // (double -> f32, integer -> i32, logical -> pred); the entry's
   // `input_dtypes` overrides it, because only the compiled program knows what
-  // dtype it was compiled to take. Unused when `upload` is false.
+  // dtype it was compiled to take. Unused for an array leaf.
   AnvlDtype dtype = AnvlDtype::kInvalid;
 };
 

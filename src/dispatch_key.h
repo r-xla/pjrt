@@ -140,16 +140,35 @@ inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
   return anvl_dtype_from_name(CHAR(STRING_ELT(dtype, 0)));
 }
 
-// Per-leaf abstract value -- mirrors anvl's nv_aval(dtype, shape). Both are
-// read off the leaf. The device is not part of it: it is a single per-call
-// value on the CacheKey.
+// What kind of value an Aval abstracts. The two differ in where execution finds
+// the value *and* in what the caller compiles for it, so an Aval is a variant
+// over them rather than a plain (dtype, shape) pair:
+//   kArray  one of the backend's arrays. Its dtype is its own; execution hands
+//           the program the array's `$data`.
+//   kRData  a bare R literal or array. It has no dtype of its own until the
+//           program says what it is used as (anvl's RData values, which let
+//           `x_f64 / sqrt(2)` see the exact double rather than one rounded
+//           through f32), so `dtype` is only the default it would be uploaded
+//           at, and the entry's `input_dtypes` may override it. Execution
+//           uploads the leaf itself.
+enum class AvalKind : std::uint8_t { kArray, kRData };
+
+// Per-leaf abstract value -- mirrors anvl's nv_aval(dtype, shape) and its
+// RDataArray. All three fields are read off the leaf. The device is not part of
+// it: it is a single per-call value on the CacheKey.
 struct Aval {
+  AvalKind kind = AvalKind::kArray;
   AnvlDtype dtype = AnvlDtype::kInvalid;
   std::vector<int64_t> shape;
 };
 
+inline const char *aval_kind_name(AvalKind k) {
+  return k == AvalKind::kRData ? "rdata" : "array";
+}
+
 inline std::uint64_t aval_hash(const Aval &a) {
-  std::uint64_t h = static_cast<std::uint64_t>(a.dtype);
+  std::uint64_t h = static_cast<std::uint64_t>(a.kind);
+  h = hash_combine(h, static_cast<std::uint64_t>(a.dtype));
   for (int64_t d : a.shape) {
     h = hash_combine(h, static_cast<std::uint64_t>(d));
   }
@@ -157,7 +176,7 @@ inline std::uint64_t aval_hash(const Aval &a) {
 }
 
 inline bool aval_eq(const Aval &a, const Aval &b) {
-  return a.dtype == b.dtype && a.shape == b.shape;
+  return a.kind == b.kind && a.dtype == b.dtype && a.shape == b.shape;
 }
 
 // identical(), tightened for use as a cache key.
@@ -187,39 +206,21 @@ inline bool r_identical(SEXP a, SEXP b) {
 // and unambiguous.
 using DeviceToken = const void *;
 
-// One leaf of the cache key. These three kinds are exhaustive: a leaf that fits
-// none of them is not a valid input, and impl_dispatch_run()'s classification
-// loop rejects it -- naming the offending argument -- before any key is built.
-//   kArray   an AnvlArray of the dispatcher's backend. Keyed by its Aval; its
-//            $data is the execute-time input. A bare PJRTBuffer is not this:
-//            with no AnvlArray wrapper it is not a valid input.
-//   kStatic  static arg: keyed by value via r_identical(), and excluded from
-//            execution (statics are baked into the executable).
-//   kRData   bare R literal/array: keyed by (default dtype, shape); it is
-//            uploaded to the entry's device at execute time (pjrt engine) or
-//            passed through as-is (closure engine).
+// One leaf of the cache key. A leaf is either static -- keyed by value via
+// r_identical(), and excluded from execution, because a static is baked into
+// the executable as a constant -- or dynamic, in which case it is keyed by its
+// Aval and supplied at execute time. A leaf that is neither is not a valid
+// input, and impl_dispatch_run()'s classification loop rejects it -- naming the
+// offending argument -- before any key is built.
+//
+// What sort of dynamic leaf it is lives in the Aval (see AvalKind), which is
+// also what keeps `f(x, y)` and `f(x, 1)` two entries: their avals differ in
+// kind, so they compile to two programs.
 struct KeyLeaf {
-  enum Kind { kArray, kStatic, kRData };
-  Kind kind = kArray;
-  Aval aval;                // kArray / kRData
-  SEXP value = R_NilValue;  // kStatic: the leaf
+  bool is_static = false;
+  Aval aval;                // dynamic leaf
+  SEXP value = R_NilValue;  // static leaf: the leaf itself
 };
-
-// How a leaf contributes to the key: by its value, or by its kind and Aval.
-//
-// kArray and kRData are distinguished, because the caller compiles them into
-// different programs: an array leaf is an input of a dtype it already has,
-// while bare R data has no dtype of its own until the program says what it is
-// used as, and can therefore be uploaded as something other than its default
-// (anvl's RData values, which let `x_f64 / sqrt(2)` see the exact double
-// rather than one rounded through f32). `f(x, y)` and `f(x, 1)` are two
-// programs, and two entries.
-//
-// CacheKeyHash and CacheKeyEq must agree on this, or two keys the map calls
-// equal would hash into different buckets.
-inline bool keyed_by_value(KeyLeaf::Kind kind) {
-  return kind == KeyLeaf::kStatic;
-}
 
 // A closure's formals pairlist. The only R-version-dependent call in the
 // package: R_ClosureFormals() is API from R 4.5.0, and the FORMALS() it
@@ -288,11 +289,11 @@ struct CacheKeyHash {
     for (const KeyLeaf &leaf : k.leaves) {
       // Folded before the per-leaf material, so a value-keyed leaf's hash
       // stream can never coincide with an Aval-keyed one's: the domain
-      // separator. The kind goes in whole, so a kArray and a kRData leaf of
-      // the same Aval land in different buckets, as CacheKeyEq requires.
-      const bool by_value = keyed_by_value(leaf.kind);
-      h = hash_combine(h, static_cast<std::uint64_t>(leaf.kind));
-      if (!by_value) {
+      // separator. The Aval's own kind is folded by aval_hash(), so an array
+      // and an rdata leaf of the same dtype and shape land in different
+      // buckets, as CacheKeyEq requires.
+      h = hash_combine(h, leaf.is_static ? 1u : 0u);
+      if (!leaf.is_static) {
         h = hash_combine(h, aval_hash(leaf.aval));
         continue;
       }
@@ -326,13 +327,12 @@ struct CacheKeyEq {
     for (std::size_t k = 0; k < a.leaves.size(); ++k) {
       const KeyLeaf &x = a.leaves[k];
       const KeyLeaf &y = b.leaves[k];
-      // A kArray and a kRData leaf of the same Aval are different keys: they
-      // compile to different programs (see keyed_by_value). Static-ness is
-      // already ruled out by tree_eq, which compares the argument names it
-      // follows, but the array/rdata split is not.
-      if (x.kind != y.kind) return false;
-      const bool by_value = keyed_by_value(x.kind);
-      if (by_value) {
+      // Static-ness is already ruled out by tree_eq, which compares the
+      // argument names it follows; the array/rdata split is not, and aval_eq()
+      // is what rules it out -- two leaves of the same dtype and shape but
+      // different kind compile to different programs.
+      if (x.is_static != y.is_static) return false;
+      if (x.is_static) {
         if (!r_identical(x.value, y.value)) return false;
       } else if (!aval_eq(x.aval, y.aval)) {
         return false;

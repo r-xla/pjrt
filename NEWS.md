@@ -4,9 +4,13 @@
 
 * `dispatcher()`'s cache key no longer carries an `ambiguous` bit, and an
   `AnvlArray` leaf is now keyed apart from bare R data of the same dtype and
-  shape: the two compile to different programs. The compile callback's
-  `avals` are `list(dtype, shape)`, its `out_avals` likewise, and the wrapped
-  outputs no longer carry `$ambiguous`.
+  shape: the two compile to different programs. That distinction lives in the
+  abstract value, which is a variant over the two kinds, so the compile
+  callback's `avals` are `list(kind, dtype, shape)` with `kind` one of
+  `"array"` / `"rdata"` -- the callback no longer has to classify each leaf a
+  second time, and cannot reach a different answer than the key was built with.
+  `out_avals` are `list(dtype, shape)`, and the wrapped outputs no longer carry
+  `$ambiguous`.
 
 ## Features
 

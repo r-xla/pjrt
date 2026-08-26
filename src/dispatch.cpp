@@ -165,7 +165,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             "invalid static %s: a static argument must not be an AnvlArray",
             leaf_subject(in_tree, k));
       }
-      kl.kind = KeyLeaf::kStatic;
+      kl.is_static = true;
       kl.value = leaf;
       key.leaves.push_back(std::move(kl));
       continue;
@@ -189,7 +189,6 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             "invalid %s: expected an AnvlArray of backend \"%s\"; got \"%s\"",
             leaf_subject(in_tree, k), call_backend, leaf_backend);
       }
-      kl.kind = KeyLeaf::kArray;
       kl.aval = std::move(al->aval);
       if (al->device.isNULL()) {
         Rcpp::stop("invalid %s: an AnvlArray must carry $device",
@@ -217,7 +216,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       }
       key.leaves.push_back(std::move(kl));
       // `$data` is a field of a leaf of `args`, which roots it for the call.
-      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval, false});
+      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval});
       continue;
     }
     std::optional<RDataInfo> rd = classify_rdata(leaf);
@@ -228,11 +227,11 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
           leaf_subject(in_tree, k), r_class_name(leaf),
           static_cast<long long>(Rf_xlength(leaf)));
     }
-    kl.kind = KeyLeaf::kRData;
+    kl.aval.kind = AvalKind::kRData;
     kl.aval.dtype = rd->dtype;
     kl.aval.shape = std::move(rd->shape);
     key.leaves.push_back(std::move(kl));
-    exec_inputs.push_back({leaf, &key.leaves.back().aval, true});
+    exec_inputs.push_back({leaf, &key.leaves.back().aval});
   }
 
   // 3. No array leaf named a device, so the call runs on the backend's
@@ -271,11 +270,14 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       leaf_list[i] = leaves[i];
       static_mask[i] = is_static[i] ? TRUE : FALSE;
       const KeyLeaf& kl = key.leaves[i];
-      if (kl.kind == KeyLeaf::kStatic) continue;
+      if (kl.is_static) continue;
       Rcpp::IntegerVector shp(kl.aval.shape.begin(), kl.aval.shape.end());
       // Every dtype has a canonical name -- a leaf with none was rejected -- so
       // the callback always sees a string, whichever backend the leaf is from.
+      // `kind` saves the callback classifying the leaf a second time, and keeps
+      // it from reaching a different answer than the key was built with.
       avals[i] = Rcpp::List::create(
+          Rcpp::Named("kind") = aval_kind_name(kl.aval.kind),
           Rcpp::Named("dtype") = anvl_dtype_name(kl.aval.dtype),
           Rcpp::Named("shape") = shp);
     }
