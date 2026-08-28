@@ -1,5 +1,12 @@
 # pjrt (development version)
 
+## Features
+
+* `pjrt_register_custom_call()` now accepts the `NativeSymbol` objects
+  returned by `getNativeSymbolInfo()`, so a handler declared with
+  `XLA_FFI_DEFINE_HANDLER_SYMBOL()` can be compiled with `R CMD SHLIB` and
+  registered without writing any C glue to hand its address to R.
+
 ## Other
 
 * pjrt no longer Suggests anvl and stablehlo for it's tests

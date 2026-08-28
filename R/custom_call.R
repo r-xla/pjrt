@@ -10,6 +10,11 @@ pjrt_platform_name <- function(platform) {
 #' (see `xla/ffi/api/ffi.h` shipped in pjrt's `inst/include/`).
 #' They are passed to this function as external pointers.
 #'
+#' A handler declared with `XLA_FFI_DEFINE_HANDLER_SYMBOL()` is an ordinary
+#' `extern "C"` symbol, so it can be handed over without writing any glue:
+#' compile the file with `R CMD SHLIB` (or ship it in a package's `src/`),
+#' then pass [`base::getNativeSymbolInfo()`]`(...)$address`.
+#'
 #' Registration is deferred: if the PJRT plugin for a given platform
 #' is not yet loaded, the handler is queued and registered automatically
 #' when [`pjrt_plugin()`] loads it.
@@ -19,6 +24,8 @@ pjrt_platform_name <- function(platform) {
 #' @param handler A named list of external pointers (`externalptr`) to
 #'   `XLA_FFI_Handler`s, keyed by PJRT platform name
 #'   (e.g., `list(host = ptr)` or `list(host = cpu_ptr, cuda = cuda_ptr)`).
+#'   Native symbols obtained from [`base::getNativeSymbolInfo()`] are
+#'   external pointers too and are accepted as-is.
 #' @param .package (`character(1)` or `NULL`)\cr
 #'   The package registering this handler. When provided, handlers are
 #'   automatically removed from the registry when the package unloads.
@@ -32,7 +39,10 @@ pjrt_register_custom_call <- function(target_name, handler, .package = NULL) {
       "{.arg handler} must be a named list of external pointers keyed by platform (e.g. {.val host}, {.val cuda})."
     )
   }
-  if (!all(vapply(handler, inherits, logical(1), "externalptr"))) {
+  # `typeof()`, not `inherits()`: a `NativeSymbol` from
+  # `getNativeSymbolInfo()` is an external pointer carrying a class
+  # attribute, and is exactly the pointer the FFI wants.
+  if (!all(vapply(handler, function(x) typeof(x) == "externalptr", logical(1)))) {
     cli_abort("All elements of {.arg handler} must be external pointers.")
   }
   names(handler) <- vapply(names(handler), pjrt_platform_name, character(1))
