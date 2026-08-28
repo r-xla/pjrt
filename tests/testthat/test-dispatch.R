@@ -1,10 +1,15 @@
+# The platform under test. The pjrt-engine fixtures compile, upload and execute
+# there, so `PJRT_PLATFORM=cuda` runs them on a GPU. The two tests that need a
+# second device stay on cpu, which setup.R gives two of.
+test_platform <- function() Sys.getenv("PJRT_PLATFORM", "cpu")
+
 # The `default_device` resolvers a dispatcher needs when a call has no array
 # input to read a device from. `test_device()` returns a fresh object each call
 # (like anvl's quickr backend): the dispatcher canonicalizes devices with
 # identical() as a fallback to object identity, so equal-but-distinct devices
 # still collapse to one. The identity fast path is exercised where a test reuses
 # one object (see "devices are canonicalized").
-test_pjrt_device <- function() pjrt_device("cpu:0")
+test_pjrt_device <- function() pjrt_device(paste0(test_platform(), ":0"))
 test_device <- function(id = "cpu") structure(list(device = id), class = "QuickrDevice")
 test_quickr_device <- function() test_device("cpu")
 
@@ -25,11 +30,13 @@ pjrt_entry <- function(
   ...,
   out_tree = build_tree(0),
   out_avals = list(oav()),
-  device = pjrt_device("cpu:0")
+  device = test_pjrt_device()
 ) {
   list(
     exec = exec,
-    client = pjrt_client("cpu"),
+    # The client must own `device`: uploads and phantoms go through it, and the
+    # executable was compiled for that device.
+    client = pjrt_client(platform(device)),
     device = device,
     out_tree = out_tree,
     out_avals = out_avals,
@@ -88,24 +95,24 @@ new_dispatcher <- function(capacity, miss, static, engine, backend, move, defaul
 # tiny stablehlo functions rather than tracing them.
 # ---------------------------------------------------------------------------
 
-# Elementwise `x <op> y` over two tensors of one type.
-binop_exec <- function(ty = "tensor<2xf32>", op = "stablehlo.add") {
-  pjrt_compile(pjrt_program(
-    src = sprintf(
-      'func.func @main(%%x: %s, %%y: %s) -> %s {
+# Elementwise `x <op> y` over two tensors of one type. `device` defaults to the
+# test platform's first device, like the rest of the pjrt-engine fixtures.
+binop_exec <- function(ty = "tensor<2xf32>", op = "stablehlo.add", device = NULL) {
+  src <- sprintf(
+    'func.func @main(%%x: %s, %%y: %s) -> %s {
        %%0 = "%s"(%%x, %%y) : (%s, %s) -> %s
        "func.return"(%%0): (%s) -> ()
      }',
-      ty,
-      ty,
-      ty,
-      op,
-      ty,
-      ty,
-      ty,
-      ty
-    )
-  ))
+    ty,
+    ty,
+    ty,
+    op,
+    ty,
+    ty,
+    ty,
+    ty
+  )
+  pjrt_compile(pjrt_program(src = src), device = device)
 }
 
 # Identity over one tensor, for tests that only care about the input's aval.
@@ -411,13 +418,16 @@ test_that("a static argument must not be an AnvlArray", {
 test_that("inputs spread across devices are rejected, naming the input", {
   skip_if_not(plugins_downloaded())
   skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
+  # Two devices of one platform is what this needs, so it stays on cpu whatever
+  # PJRT_PLATFORM says: the rejection happens in the dispatcher core, before an
+  # executable exists, and is the same on every platform.
   # Without a fixed target device the first array's device is the call's, and a
   # conflicting input is an error -- caught before the cache is probed, so
   # nothing is compiled.
   d <- dispatcher(
     10L,
     function(info) stop("must not reach the compile callback"),
-    default_device = test_pjrt_device
+    default_device = function() pjrt_device("cpu:0")
   )
   x0 <- parr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
   y1 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
@@ -430,11 +440,12 @@ test_that("move_inputs copies a pjrt input to the entry's device", {
   skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
   # The closure engine's move_inputs test above proves the *policy*; this one
   # proves the pjrt engine's copy, which is the only place pjrt itself moves a
-  # buffer between devices.
+  # buffer between devices. Like the test above it needs two devices of one
+  # platform and so stays on cpu, executable included.
   dev0 <- pjrt_device("cpu:0")
   d <- dispatcher(
     10L,
-    function(info) pjrt_entry(binop_exec(), device = dev0),
+    function(info) pjrt_entry(binop_exec(device = dev0), device = dev0),
     move_inputs = TRUE
   )
   x0 <- parr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
@@ -963,7 +974,7 @@ test_that("the pjrt engine validates the compile callback's entry", {
   # A missing client (needed for uploads, phantoms, and the wrap's device) is a
   # clear error, not a crash at input-assembly time.
   d_bad <- mk(function(info) {
-    list(exec = exec, device = pjrt_device("cpu:0"), out_tree = build_tree(0))
+    list(exec = exec, device = test_pjrt_device(), out_tree = build_tree(0))
   })
   expect_error(impl_dispatch_run(d_bad, list(x)), "must return `client`")
 
