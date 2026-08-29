@@ -36,9 +36,12 @@ Options, roughly in increasing order of how much they change:
   is byte-identical, and the SASS is targeted at the real device rather than
   JITted from PTX or picked out of a fatbin. The costs are real though:
   compile errors move from install time to first use (so CI has to cover what
-  the compiler used to), the first `dlopen` of the 104MB libnvrtc is slow
-  enough to notice, and the compile result wants an on-disk cache keyed on
-  source hash + architecture + NVRTC version.
+  the compiler used to), and the compile result wants an on-disk cache keyed on
+  source hash + architecture + NVRTC version. Note that libnvrtc is not a new
+  dependency: `libpjrt_cuda.so` already has `libnvrtc.so.12` in its `NEEDED`
+  list, so it is resident whenever the CUDA plugin is. Measured cost of a
+  compile was ~40ms warm; a cold page cache made the first one in a process
+  take ~1.1s, which an on-disk cache would hide.
 - **Put the kernels in a companion package.** This is how JAX sidesteps the
   problem entirely: its GPU kernels live in `jax-cuda12-plugin`, a separate
   wheel, so a CPU user never installs the device code in the first place and
