@@ -39,6 +39,16 @@ Options, roughly in increasing order of how much they change:
   the compiler used to), the first `dlopen` of the 104MB libnvrtc is slow
   enough to notice, and the compile result wants an on-disk cache keyed on
   source hash + architecture + NVRTC version.
+- **Put the kernels in a companion package.** This is how JAX sidesteps the
+  problem entirely: its GPU kernels live in `jax-cuda12-plugin`, a separate
+  wheel, so a CPU user never installs the device code in the first place and
+  the decision is made by dependency resolution rather than by sniffing the
+  build machine. The analogue here would be a `pjrt.cuda` package carrying
+  `src/cuda/` and registering its handlers on load, which pjrt's deferred
+  custom-call registry already supports without changes. The most invasive
+  option, and it means a second package to release in lockstep, but it is the
+  only one where the answer does not depend on what happens to be installed on
+  the build machine.
 - **Precompile once at release and ship the fatbin.** Removes `nvcc` from every
   install, but makes *everyone* carry the device code, so it trades this
   problem for a worse version of it. Only worth it if runtime compilation turns
