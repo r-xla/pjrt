@@ -32,9 +32,11 @@ the cache key was built from. \code{kind} is \code{"array"} for one of the
 backend's arrays and \code{"rdata"} for a bare R literal or array -- the two
 are different cache keys, because bare R data has no dtype of its own and
 the caller may compile it into a different program. \code{dtype} is a
-canonical dtype string (\code{"f32"}, \code{"i64"}, ...) -- for an \code{"rdata"} leaf,
-the dtype it would be uploaded at by default -- and \code{shape} an
-\code{integer()}, empty for a scalar,
+canonical dtype string (\code{"f32"}, \code{"i64"}, ...) for an \code{"array"} leaf, and
+for an \code{"rdata"} leaf its R storage type instead -- \code{"r_dbl"}, \code{"r_int"}
+or \code{"r_bool"}, which is what the value \emph{is}, not a dtype it is not yet
+(what it is uploaded at is \code{input_dtypes}) -- and \code{shape} an \code{integer()},
+empty for a scalar,
 \item \code{default_device}: the device this call resolved because no array input
 named one -- the device the cache key was built on, so \code{compile} must
 compile for it rather than resolve a default of its own. \code{NULL} when an
@@ -56,14 +58,22 @@ from these.
 
 Either kind of result may additionally carry:
 \itemize{
-\item \code{input_dtypes} (optional): a \code{character()} with one entry per dynamic
-leaf, in order, naming the dtype that input is supplied at. A bare R
-leaf is uploaded at that dtype instead of its default (a double at
-\code{"f32"}, an integer at \code{"i32"}, a logical at \code{"pred"}), which is how a
-caller whose program consumes an R double as \code{f64} gets the exact value
-rather than one rounded through \code{f32} first. \code{NA} leaves an input alone;
-an array input is passed through whatever this says, so \code{NA} is the
-meaningful entry for one.
+\item \code{input_dtypes}: a \code{character()} with one entry per dynamic leaf, in
+order, naming the dtype that input is supplied at. \code{NA} leaves an input
+alone, and is the only valid entry for an array input: an array is
+supplied as it is, so declaring a dtype for one is an error rather than a
+no-op.
+
+With \code{backend = "pjrt"} every bare R leaf must name a dtype: bare R data
+has no dtype of its own, and only the compiled program knows what it is
+used as, so the engine uploads it at the dtype declared here and never
+guesses one. It is what lets a program that consumes an R double as \code{f64}
+get the exact value rather than one rounded through \code{f32} first. The
+\code{"rdata"} aval's \code{dtype} is the leaf's R storage type, so it is never an
+answer to this: the callback names a real dtype. The field may be omitted
+only for a call whose inputs are all arrays.
+Any other \code{backend} uploads nothing (\code{r_fun} gets the R value itself) and
+ignores the field.
 }
 
 For any other \code{backend} it must return a named list with:

@@ -136,6 +136,11 @@ mlir_ty <- c(
   f64 = "f64"
 )
 
+# An "rdata" aval names the leaf's R storage type, not a dtype -- the program
+# decides what it is uploaded at. These are the choices the tests make, which
+# happen to be pjrt_scalar()'s defaults.
+rdata_upload_dtype <- c(r_dbl = "f32", r_int = "i32", r_bool = "bool")
+
 
 # ---------------------------------------------------------------------------
 # The cache key: static arguments.
@@ -313,24 +318,52 @@ test_that("a static argument compiles one entry per distinct value", {
   expect_equal(dispatcher_size(d), 2L)
 })
 
-test_that("bare R data is uploaded at its default dtype, column-major", {
+test_that("bare R data is keyed by its R storage type and uploaded column-major", {
   skip_if_not(plugins_downloaded())
-  # A bare R double defaults to f32 and an integer to i32 (pjrt_scalar()'s
-  # defaults), which is what the leaf's aval -- and so the cache key -- is
-  # built from.
+  # A bare R leaf's aval names its R storage type -- "r_dbl", "r_int",
+  # "r_bool" -- and that is what the cache key is built from. It is not a dtype:
+  # the callback picks the one the program takes the value at and declares it.
   d <- dispatcher(
     10L,
     function(info) {
-      dt <- info$avals[[1L]]$dtype
-      shp <- info$avals[[1L]]$shape
+      aval <- info$avals[[1L]]
+      is_rdata <- aval$kind == "rdata"
+      dt <- if (is_rdata) rdata_upload_dtype[[aval$dtype]] else aval$dtype
+      shp <- aval$shape
       ty <- if (length(shp) == 0L) {
         sprintf("tensor<%s>", mlir_ty[[dt]])
       } else {
         sprintf("tensor<%sx%s>", paste(shp, collapse = "x"), mlir_ty[[dt]])
       }
-      pjrt_entry(id_exec(ty), out_avals = list(oav(dtype = dt, shape = shp)))
+      pjrt_entry(
+        id_exec(ty),
+        out_avals = list(oav(dtype = dt, shape = shp)),
+        input_dtypes = if (is_rdata) dt else NA_character_
+      )
     },
     default_device = test_pjrt_device
+  )
+
+  # The aval of a bare R value says what it is, not what a buffer holds.
+  expect_identical(
+    vapply(
+      list(5, 3L, TRUE),
+      function(x) {
+        av <- NULL
+        dd <- dispatcher(
+          1L,
+          function(info) {
+            av <<- info$avals[[1L]]$dtype
+            stop("not compiled")
+          },
+          default_device = test_pjrt_device
+        )
+        try(dispatch(dd, list(x = x)), silent = TRUE)
+        av
+      },
+      character(1L)
+    ),
+    c("r_dbl", "r_int", "r_bool")
   )
 
   # A rank-0 double literal, uploaded per call; the signature does not change,
@@ -345,7 +378,7 @@ test_that("bare R data is uploaded at its default dtype, column-major", {
   expect_equal(out(dispatch(d, list(x = parr(pjrt_scalar(5, dtype = "f32"))))), 5)
   expect_equal(dispatcher_size(d), 2L)
 
-  # An integer literal defaults to i32, a different aval and so a new entry.
+  # An integer literal is "r_int", a different aval and so a new entry.
   invisible(dispatch(d, list(x = 3L)))
   expect_equal(dispatcher_size(d), 3L)
 
@@ -1049,10 +1082,18 @@ test_that("`input_dtypes` decides the dtype a bare R leaf is uploaded at", {
   expect_identical(as.numeric(tengen::as_array(await(dispatch(d, list(x = pi))$data))), pi)
   expect_equal(dispatcher_size(d), 1L)
 
-  # An entry that declares nothing keeps the leaf's own default (f32 for a
-  # double), which this f64 executable rejects.
+  # There is no default to fall back on: an entry that declares nothing for a
+  # bare R input is a malformed result, not a licence to guess f32.
   d2 <- dispatcher(10L, entry(NULL), default_device = test_pjrt_device)
-  expect_error(dispatch(d2, list(x = sqrt(2))))
+  expect_error(
+    dispatch(d2, list(x = sqrt(2))),
+    "`input_dtypes` is required, because input 1 is bare R data"
+  )
+  d3 <- dispatcher(10L, entry(NA_character_), default_device = test_pjrt_device)
+  expect_error(
+    dispatch(d3, list(x = sqrt(2))),
+    "`input_dtypes\\[\\[1\\]\\]` is NA for a bare R input"
+  )
 })
 
 test_that("a malformed `input_dtypes` is rejected, not silently ignored", {
@@ -1077,5 +1118,66 @@ test_that("a malformed `input_dtypes` is rejected, not silently ignored", {
   expect_error(
     dispatch(dispatcher(10L, cb(64), default_device = test_pjrt_device), list(x = 1)),
     "must be a character vector"
+  )
+})
+
+test_that("a bare R input needs its dtype declared, whatever else the call passes", {
+  skip_if_not(plugins_downloaded())
+  # The requirement is per input: an array alongside it still takes NA, and the
+  # rejection names the bare R one by its position among the call's inputs.
+  src <- 'func.func @main(%a: tensor<f32>, %b: tensor<f32>) -> tensor<f32> {
+    %0 = "stablehlo.add"(%a, %b): (tensor<f32>, tensor<f32>) -> tensor<f32>
+    "func.return"(%0): (tensor<f32>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  cb <- function(dtypes) {
+    function(info) {
+      pjrt_entry(
+        exec,
+        out_avals = list(oav("f32", integer())),
+        input_dtypes = dtypes
+      )
+    }
+  }
+  args <- list(a = parr(pjrt_scalar(1, dtype = "f32")), b = 2)
+  expect_error(
+    dispatch(dispatcher(10L, cb(NULL), default_device = test_pjrt_device), args),
+    "`input_dtypes` is required, because input 2 is bare R data"
+  )
+  expect_error(
+    dispatch(dispatcher(10L, cb(rep(NA_character_, 2L)), default_device = test_pjrt_device), args),
+    "`input_dtypes\\[\\[2\\]\\]` is NA for a bare R input"
+  )
+  d <- dispatcher(10L, cb(c(NA, "f32")), default_device = test_pjrt_device)
+  expect_equal(out(dispatch(d, args)), 3)
+})
+
+test_that("`input_dtypes` may not declare a dtype for an array input", {
+  skip_if_not(plugins_downloaded())
+  # An array is supplied as it is -- nothing uploads it -- so a declared dtype
+  # could not take effect, and is rejected rather than silently ignored.
+  src <- 'func.func @main(%x: tensor<f32>) -> tensor<f32> {
+    "func.return"(%x): (tensor<f32>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  cb <- function(dtypes) {
+    function(info) {
+      pjrt_entry(
+        exec,
+        out_avals = list(oav("f32", integer())),
+        input_dtypes = dtypes
+      )
+    }
+  }
+  arr <- parr(pjrt_scalar(1, dtype = "f32"))
+  expect_error(
+    dispatch(dispatcher(10L, cb("f32"), default_device = test_pjrt_device), list(x = arr)),
+    "declares dtype \"f32\" for an array input"
+  )
+  # NA is the entry an array takes, and leaves the buffer alone.
+  d <- dispatcher(10L, cb(NA_character_), default_device = test_pjrt_device)
+  expect_identical(
+    as.numeric(tengen::as_array(await(dispatch(d, list(x = arr))$data))),
+    1
   )
 })

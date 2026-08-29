@@ -58,9 +58,11 @@
 #'     backend's arrays and `"rdata"` for a bare R literal or array -- the two
 #'     are different cache keys, because bare R data has no dtype of its own and
 #'     the caller may compile it into a different program. `dtype` is a
-#'     canonical dtype string (`"f32"`, `"i64"`, ...) -- for an `"rdata"` leaf,
-#'     the dtype it would be uploaded at by default -- and `shape` an
-#'     `integer()`, empty for a scalar,
+#'     canonical dtype string (`"f32"`, `"i64"`, ...) for an `"array"` leaf, and
+#'     for an `"rdata"` leaf its R storage type instead -- `"r_dbl"`, `"r_int"`
+#'     or `"r_bool"`, which is what the value *is*, not a dtype it is not yet
+#'     (what it is uploaded at is `input_dtypes`) -- and `shape` an `integer()`,
+#'     empty for a scalar,
 #'   * `default_device`: the device this call resolved because no array input
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
@@ -79,14 +81,22 @@
 #'     <integer>)` donation-output buffers to allocate fresh per call.
 #'
 #'   Either kind of result may additionally carry:
-#'   * `input_dtypes` (optional): a `character()` with one entry per dynamic
-#'     leaf, in order, naming the dtype that input is supplied at. A bare R
-#'     leaf is uploaded at that dtype instead of its default (a double at
-#'     `"f32"`, an integer at `"i32"`, a logical at `"pred"`), which is how a
-#'     caller whose program consumes an R double as `f64` gets the exact value
-#'     rather than one rounded through `f32` first. `NA` leaves an input alone;
-#'     an array input is passed through whatever this says, so `NA` is the
-#'     meaningful entry for one.
+#'   * `input_dtypes`: a `character()` with one entry per dynamic leaf, in
+#'     order, naming the dtype that input is supplied at. `NA` leaves an input
+#'     alone, and is the only valid entry for an array input: an array is
+#'     supplied as it is, so declaring a dtype for one is an error rather than a
+#'     no-op.
+#'
+#'     With `backend = "pjrt"` every bare R leaf must name a dtype: bare R data
+#'     has no dtype of its own, and only the compiled program knows what it is
+#'     used as, so the engine uploads it at the dtype declared here and never
+#'     guesses one. It is what lets a program that consumes an R double as `f64`
+#'     get the exact value rather than one rounded through `f32` first. The
+#'     `"rdata"` aval's `dtype` is the leaf's R storage type, so it is never an
+#'     answer to this: the callback names a real dtype. The field may be omitted
+#'     only for a call whose inputs are all arrays.
+#'     Any other `backend` uploads nothing (`r_fun` gets the R value itself) and
+#'     ignores the field.
 #'
 #'   For any other `backend` it must return a named list with:
 #'   * `r_fun`: a function called with the list of the call's dynamic leaves, in

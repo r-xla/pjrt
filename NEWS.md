@@ -2,23 +2,16 @@
 
 ## Breaking changes
 
-* `dispatcher()`'s cache key no longer carries an `ambiguous` bit, and an
-  `AnvlArray` leaf is now keyed apart from bare R data of the same dtype and
-  shape: the two compile to different programs. That distinction lives in the
-  abstract value, which is a variant over the two kinds, so the compile
-  callback's `avals` are `list(kind, dtype, shape)` with `kind` one of
-  `"array"` / `"rdata"` -- the callback no longer has to classify each leaf a
-  second time, and cannot reach a different answer than the key was built with.
-  `out_avals` are `list(dtype, shape)`, and the wrapped outputs no longer carry
-  `$ambiguous`.
-
-## Features
-
-* A compile callback may return `input_dtypes`, naming the dtype each
-  execute-time input is supplied at. A bare R leaf is then uploaded at that
-  dtype instead of its default (`"f32"` for a double, `"i32"` for an integer,
-  `"pred"` for a logical), which is how a caller whose program consumes an R
-  double as `f64` gets the exact value rather than one rounded through `f32`.
+* Removed support for the `ambiguity` field in the dispatcher and replaced
+  it with support for `rdata` objects.
+  This enables the improved precision semantics in anvl.
+* A bare R leaf's aval now names its R storage type (`"r_dbl"`, `"r_int"`,
+  `"r_bool"`) rather than the dtype it used to default to: the value has no
+  dtype until the program says what it is uploaded at.
+* The dispatcher's `input_dtypes` is now validated against the call's inputs:
+  with `backend = "pjrt"` every bare R input must name the dtype it is uploaded
+  at (there is no default to fall back on), and an array input must be `NA`,
+  since it is supplied as it is.
 
 ## Other
 

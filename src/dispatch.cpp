@@ -299,7 +299,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     engine.build_entry(res, e);
     // Engine-agnostic: the dtype each input is supplied at, which the callback
     // declares because only the compiled program knows what it takes.
-    read_input_dtypes(res, exec_inputs.size(), e);
+    read_input_dtypes(res, exec_inputs, engine.uploads_rdata(), e);
 
     // Root every SEXP the inserted key holds, so it outlives this call; the
     // entry drops them when it is evicted. The key's device token needs no

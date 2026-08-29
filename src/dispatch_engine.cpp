@@ -61,13 +61,13 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   RDataInfo info;
   switch (t) {
     case REALSXP:
-      info.dtype = AnvlDtype::kF32;
+      info.dtype = AnvlDtype::kRDbl;
       break;
     case INTSXP:
-      info.dtype = AnvlDtype::kI32;
+      info.dtype = AnvlDtype::kRInt;
       break;
     case LGLSXP:
-      info.dtype = AnvlDtype::kBool;
+      info.dtype = AnvlDtype::kRBool;
       break;
     default:
       return std::nullopt;
@@ -141,11 +141,35 @@ std::string leaf_subject(const RTree& in_tree, std::size_t leaf_index) {
 
 // ---- The compile callback's declared input dtypes --------------------------
 
-void read_input_dtypes(const Rcpp::List& res, std::size_t n_inputs,
-                       CacheEntry& e) {
-  if (!res.containsElementNamed("input_dtypes")) return;
-  SEXP v = res["input_dtypes"];
-  if (v == R_NilValue) return;
+// The first bare R input of the call, or npos when it has none. An engine that
+// uploads bare R data needs every one of them declared.
+static std::size_t first_rdata_input(
+    const std::vector<ExecInput>& exec_inputs) {
+  for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
+    if (exec_inputs[k].aval->kind == AvalKind::kRData) return k;
+  }
+  return static_cast<std::size_t>(-1);
+}
+
+void read_input_dtypes(const Rcpp::List& res,
+                       const std::vector<ExecInput>& exec_inputs,
+                       bool uploads_rdata, CacheEntry& e) {
+  const std::size_t n_inputs = exec_inputs.size();
+  SEXP v = res.containsElementNamed("input_dtypes") ? SEXP(res["input_dtypes"])
+                                                    : R_NilValue;
+  if (v == R_NilValue) {
+    const std::size_t k = first_rdata_input(exec_inputs);
+    if (uploads_rdata && k != static_cast<std::size_t>(-1)) {
+      Rcpp::stop(
+          "compile result: `input_dtypes` is required, because input %d is "
+          "bare "
+          "R data: it has no dtype of its own, so the program must name the "
+          "one "
+          "it is uploaded at",
+          static_cast<int>(k + 1));
+    }
+    return;
+  }
   if (TYPEOF(v) != STRSXP) {
     Rcpp::stop("compile result: `input_dtypes` must be a character vector");
   }
@@ -159,12 +183,37 @@ void read_input_dtypes(const Rcpp::List& res, std::size_t n_inputs,
   e.input_dtypes.assign(static_cast<std::size_t>(n), AnvlDtype::kInvalid);
   for (R_xlen_t k = 0; k < n; ++k) {
     SEXP el = STRING_ELT(v, k);
-    if (el == NA_STRING) continue;  // this input is passed through as it is
+    const bool is_rdata =
+        exec_inputs[static_cast<std::size_t>(k)].aval->kind == AvalKind::kRData;
+    if (el == NA_STRING) {
+      // NA is "leave this input alone", which a bare R input cannot be: it is
+      // not a value the engine can supply until the program says what dtype it
+      // is. Guessing a default here is what `input_dtypes` exists to prevent.
+      if (uploads_rdata && is_rdata) {
+        Rcpp::stop(
+            "compile result: `input_dtypes[[%d]]` is NA for a bare R input: it "
+            "has no dtype of its own, so the program must name the one it is "
+            "uploaded at",
+            static_cast<int>(k + 1));
+      }
+      continue;  // this input is passed through as it is
+    }
     const AnvlDtype d = anvl_dtype_from_name(CHAR(el));
     if (d == AnvlDtype::kInvalid) {
       Rcpp::stop(
           "compile result: `input_dtypes[[%d]]` is not a dtype anvl can "
           "represent: \"%s\"",
+          static_cast<int>(k + 1), CHAR(el));
+    }
+    // An array input is supplied as it is -- the engine never uploads it, so
+    // there is no point at which a declared dtype could take effect. Silently
+    // ignoring it would let a callback believe it converted an input it did
+    // not, so the claim is rejected instead.
+    if (!is_rdata) {
+      Rcpp::stop(
+          "compile result: `input_dtypes[[%d]]` declares dtype \"%s\" for an "
+          "array input, which is supplied as it is; only a bare R input is "
+          "uploaded at a declared dtype, so this entry must be NA",
           static_cast<int>(k + 1), CHAR(el));
     }
     e.input_dtypes[static_cast<std::size_t>(k)] = d;
@@ -312,11 +361,10 @@ class ClosureEngine : public Engine {
 
 // ---- PjrtEngine -------------------------------------------------------------
 
-// The dtype name to upload a bare R leaf at: the one the entry declared, or the
-// leaf's own default when it declared none. "bool" is spelled "pred" at the
+// The dtype name to upload a bare R leaf at: the one the entry declared, which
+// read_input_dtypes() required it to declare. "bool" is spelled "pred" at the
 // buffer-facing layer (see anvl_dtype_name).
-static const char* upload_dtype_name(AnvlDtype d, const char* fallback) {
-  if (d == AnvlDtype::kInvalid) return fallback;
+static const char* upload_dtype_name(AnvlDtype d) {
   if (d == AnvlDtype::kBool) return "pred";
   return anvl_dtype_name(d);
 }
@@ -361,6 +409,11 @@ class PjrtEngine : public Engine {
       : backend_(std::move(backend)),
         opts_(impl_execution_options_create(std::vector<int64_t>(), 0)),
         move_inputs_(move_inputs) {}
+
+  // This engine uploads a bare R input itself, so the program must say at which
+  // dtype: there is no default it could fall back on that the program would
+  // agree with.
+  bool uploads_rdata() const override { return true; }
 
   // Reads the native way: dtype/shape/device all come off the PJRTBuffer in
   // `$data`, which caches them natively and so cannot drift from the array's
@@ -529,24 +582,22 @@ class PjrtEngine : public Engine {
         continue;
       }
       // The dtype the program was compiled to take this input at. The
-      // callback declares it because only the trace knows what the value is
-      // used for -- an R double that meets an f64 array has to arrive as f64,
-      // not rounded through the f32 default first.
+      // callback declares it -- and must, since only the trace knows what the
+      // value is used for: an R double that meets an f64 array has to arrive as
+      // f64, not rounded through an f32 guess first.
+      const char* dt = upload_dtype_name(in.dtype);
       switch (TYPEOF(in.value)) {
         case REALSXP:
           inputs[pos++] = impl_client_buffer_from_double(
-              pe->client, pe->device, in.value, in.aval->shape,
-              upload_dtype_name(in.dtype, "f32"));
+              pe->client, pe->device, in.value, in.aval->shape, dt);
           break;
         case INTSXP:
           inputs[pos++] = impl_client_buffer_from_integer(
-              pe->client, pe->device, in.value, in.aval->shape,
-              upload_dtype_name(in.dtype, "i32"));
+              pe->client, pe->device, in.value, in.aval->shape, dt);
           break;
         default:
           inputs[pos++] = impl_client_buffer_from_logical(
-              pe->client, pe->device, in.value, in.aval->shape,
-              upload_dtype_name(in.dtype, "pred"));
+              pe->client, pe->device, in.value, in.aval->shape, dt);
           break;
       }
     }
