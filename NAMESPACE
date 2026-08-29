@@ -115,17 +115,13 @@ importFrom(Rcpp,sourceCpp)
 importFrom(bit64,integer64)
 importFrom(cli,cli_abort)
 importFrom(rlang,"%||%")
-importFrom(safetensors,
-  safe_tensor_buffer,
-  safe_tensor_meta
-)
-importFrom(tengen,
-  as_array,
-  as_dtype,
-  as_raw,
-  device,
-  dtype,
-  shape
-)
+importFrom(safetensors,safe_tensor_buffer)
+importFrom(safetensors,safe_tensor_meta)
+importFrom(tengen,as_array)
+importFrom(tengen,as_dtype)
+importFrom(tengen,as_raw)
+importFrom(tengen,device)
+importFrom(tengen,dtype)
+importFrom(tengen,shape)
 importFrom(utils,hashtab)
 useDynLib(pjrt, .registration = TRUE)
