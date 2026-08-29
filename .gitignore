@@ -9,3 +9,5 @@ docs
 .claude/settings.local.json
 .claude/worktrees
 .worktrees/
+src/cuda_fatbin.cpp
+src/*.fatbin

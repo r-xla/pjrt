@@ -1,5 +1,20 @@
 # pjrt (development version)
 
+## New features
+
+* pjrt can now ship its own CUDA kernels. `.cu` files under `src/cuda/` are
+  compiled at install time into fatbins covering every GPU architecture the
+  PJRT CUDA plugin supports (the architecture list is JAX's), embedded in the
+  package, and loaded through the CUDA driver API -- so the package still
+  builds and loads on machines with no CUDA. Installing needs `nvcc`, which
+  the `cuda12.8` R package provides; without one the package still installs
+  and `pjrt_cuda_kernels_available()` reports `FALSE`.
+
+* New custom call `lu_pivots_to_permutation()`, converting `lu()`'s LAPACK
+  pivot vector into a permutation vector. On CUDA this is the first kernel to
+  use the mechanism above; deriving the permutation in the IR instead costs one
+  kernel launch per pivot, which dominates the factorisation it follows.
+
 ## Other
 
 * pjrt no longer Suggests anvl and stablehlo for it's tests

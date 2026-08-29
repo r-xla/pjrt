@@ -21,6 +21,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_cuda_kernels_available
+bool impl_cuda_kernels_available();
+RcppExport SEXP _pjrt_impl_cuda_kernels_available() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(impl_cuda_kernels_available());
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_dispatcher_create
 Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(int capacity, SEXP compile_fn, Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn, SEXP extractor_fn);
 RcppExport SEXP _pjrt_impl_dispatcher_create(SEXP capacitySEXP, SEXP compile_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP, SEXP extractor_fnSEXP) {
@@ -176,6 +186,26 @@ BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     rcpp_result_gen = Rcpp::wrap(get_lu_handler_cuda());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_lu_pivots_to_permutation_handler
+SEXP get_lu_pivots_to_permutation_handler();
+RcppExport SEXP _pjrt_get_lu_pivots_to_permutation_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_lu_pivots_to_permutation_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_lu_pivots_to_permutation_handler_cuda
+SEXP get_lu_pivots_to_permutation_handler_cuda();
+RcppExport SEXP _pjrt_get_lu_pivots_to_permutation_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_lu_pivots_to_permutation_handler_cuda());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -961,6 +991,7 @@ RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_cpp_tests_enabled", (DL_FUNC) &_pjrt_cpp_tests_enabled, 0},
+    {"_pjrt_impl_cuda_kernels_available", (DL_FUNC) &_pjrt_impl_cuda_kernels_available, 0},
     {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 8},
     {"_pjrt_impl_dispatcher_size", (DL_FUNC) &_pjrt_impl_dispatcher_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
@@ -975,6 +1006,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_call_r_gc", (DL_FUNC) &_pjrt_impl_call_r_gc, 0},
     {"_pjrt_get_lu_handler", (DL_FUNC) &_pjrt_get_lu_handler, 0},
     {"_pjrt_get_lu_handler_cuda", (DL_FUNC) &_pjrt_get_lu_handler_cuda, 0},
+    {"_pjrt_get_lu_pivots_to_permutation_handler", (DL_FUNC) &_pjrt_get_lu_pivots_to_permutation_handler, 0},
+    {"_pjrt_get_lu_pivots_to_permutation_handler_cuda", (DL_FUNC) &_pjrt_get_lu_pivots_to_permutation_handler_cuda, 0},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
     {"_pjrt_impl_plugin_client_create", (DL_FUNC) &_pjrt_impl_plugin_client_create, 2},
     {"_pjrt_impl_program_load", (DL_FUNC) &_pjrt_impl_program_load, 2},

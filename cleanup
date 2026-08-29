@@ -1,4 +1,4 @@
-rm -f src/Makevars autobrew configure.log
+rm -f src/Makevars autobrew configure.log src/cuda_fatbin.cpp src/*.fatbin
 rm -Rf .deps
 
 echo "Cleaning: ${PWD}"

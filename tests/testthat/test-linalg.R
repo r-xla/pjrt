@@ -226,6 +226,94 @@ describe("lu", {
 })
 
 # ---------------------------------------------------------------------------
+# LU pivots -> permutation
+# ---------------------------------------------------------------------------
+
+describe("lu_pivots_to_permutation", {
+  # Exercises the `lu_pivots_to_permutation` custom call, which turns getrf's
+  # sequential row swaps into the permutation vector P with P A = L U.
+  #
+  # This is the one built-in whose CUDA side is a kernel pjrt compiled itself
+  # (src/cuda/lu_pivots_to_permutation.cu) rather than a cuSOLVER call, so on
+  # CUDA these tests also cover the fatbin embedding and the driver-API module
+  # loader in src/cuda_kernels.cpp.
+
+  # The definition, in R: replay the 1-based swaps on the identity.
+  reference <- function(pivots, n) {
+    perm <- seq_len(n)
+    for (i in seq_along(pivots)) {
+      j <- pivots[[i]]
+      tmp <- perm[[i]]
+      perm[[i]] <- perm[[j]]
+      perm[[j]] <- tmp
+    }
+    perm
+  }
+
+  run_pivots <- function(pivots, n) {
+    as.integer(run_linalg(
+      "lu_pivots_to_permutation",
+      inputs = list(as.integer(pivots)),
+      in_specs = list(list(dims = length(pivots), dtype = "i32")),
+      out_specs = list(list(dims = n, dtype = "i32"))
+    )[[1L]])
+  }
+
+  it("replays the swaps onto the identity", {
+    pivots <- c(3L, 3L, 4L, 4L)
+    expect_equal(run_pivots(pivots, 5L), reference(pivots, 5L))
+  })
+
+  it("returns the identity when nothing was swapped", {
+    expect_equal(run_pivots(1:4, 4L), 1:4)
+  })
+
+  it("handles more permutation entries than pivots", {
+    # A tall matrix has k = min(m, n) pivots but m rows to permute, so the
+    # tail of the permutation is left untouched by the swap chain.
+    pivots <- c(2L, 4L)
+    expect_equal(run_pivots(pivots, 6L), reference(pivots, 6L))
+  })
+
+  it("ignores pivots pointing outside the permutation", {
+    # cuSOLVER leaves the tail of ipiv untouched when a factorisation bails
+    # early; the result should still be a permutation rather than a corrupted
+    # buffer or a crash.
+    expect_equal(sort(run_pivots(c(2L, 0L, 99L, -1L), 4L)), 1:4)
+  })
+
+  it("rejects more pivots than permutation entries", {
+    expect_error(run_pivots(1:5, 3L))
+  })
+
+  it("agrees with the permutation implied by lu", {
+    withr::local_seed(21)
+    a <- matrix(rnorm(25), 5, 5)
+    res <- run_linalg(
+      "lu",
+      inputs = list(a),
+      in_specs = list(list(dims = c(5, 5), dtype = "f64")),
+      out_specs = list(
+        list(dims = c(5, 5), dtype = "f64"),
+        list(dims = 5, dtype = "i32")
+      )
+    )
+    LU <- res[[1L]]
+    pivots <- as.integer(res[[2L]])
+    perm <- run_pivots(pivots, 5L)
+
+    L <- LU
+    L[upper.tri(L)] <- 0
+    diag(L) <- 1
+    U <- LU
+    U[lower.tri(U)] <- 0
+    # The permutation is the point: P A, taken row-wise through `perm`, is
+    # exactly what the factors multiply back to.
+    expect_equal(a[perm, ], L %*% U, tolerance = 1e-10)
+  })
+})
+
+# ---------------------------------------------------------------------------
 # SVD
 # ---------------------------------------------------------------------------
 

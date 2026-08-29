@@ -71,6 +71,18 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
     list(host = get_lu_handler(), cuda = get_lu_handler_cuda()),
     .package = pkgname
   )
+  # Backed by a kernel pjrt compiles itself on CUDA (src/cuda/) rather than by
+  # cuSOLVER. The CUDA handler is registered even when the build had no nvcc,
+  # so that reaching it produces pjrt's own explanation instead of XLA's
+  # "no such custom call target".
+  pjrt_register_custom_call(
+    "lu_pivots_to_permutation",
+    list(
+      host = get_lu_pivots_to_permutation_handler(),
+      cuda = get_lu_pivots_to_permutation_handler_cuda()
+    ),
+    .package = pkgname
+  )
   pjrt_register_custom_call(
     "svd",
     list(host = get_svd_handler(), cuda = get_svd_handler_cuda()),

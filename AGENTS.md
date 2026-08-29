@@ -79,9 +79,48 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `dispatch.R` – `dispatcher()`, `dispatch()`; the engine itself is C++ (`src/dispatch*.{h,cpp}`)
 - `safetensors.R` – safetensors read/write integration
 - `reexports.R` – tengen re-exports
+- `cuda_kernels.R` – `pjrt_cuda_kernels_available()`
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options
+- `src/cuda/` – CUDA kernels pjrt ships itself (see below)
 
 **Important:** Do not call `devtools::load_all()` and `devtools::test()` in the same R process. The protobuf descriptors get registered twice, causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use separate `Rscript -e` calls instead.
+
+## Shipping a CUDA kernel
+
+Most of pjrt's GPU work is cuSOLVER, reached by `dlopen` (`src/ffi_cuda.h`).
+`src/cuda/` is for the cases where that is not enough and pjrt needs device
+code of its own.
+
+To add one: drop a `.cu` in `src/cuda/` with an `extern "C" __global__` entry
+point, and from the platform's FFI handler call `cuda_kernel("<symbol>", &fn)`
+followed by `cuda_launch(...)` (`src/cuda_kernels.h`). The build picks the file
+up on its own. `src/cuda/lu_pivots_to_permutation.cu` plus
+`src/lu_pivots_cuda.cpp` is the worked example.
+
+What happens underneath:
+
+- `configure` finds an `nvcc` -- from `PJRT_NVCC`, the `cuda12.8` R package,
+  `CUDA_HOME`, or the `PATH` -- and compiles each `.cu` into a fatbin holding
+  cubins for every architecture the PJRT CUDA plugin supports, plus PTX so a
+  newer GPU still runs. The architecture list is copied from JAX's `.bazelrc`;
+  `PJRT_CUDA_SM_ARCHS` / `PJRT_CUDA_PTX_ARCH` override it.
+- `tools/embed_fatbin.R` turns those into `src/cuda_fatbin.cpp`, so the device
+  code lives in `pjrt.so` and nothing has to find a file at run time.
+- `src/cuda_kernels.cpp` hands a fatbin to `cuModuleLoadData` on first use and
+  caches the module per CUDA context.
+
+Two constraints worth keeping:
+
+- **No link-time CUDA.** Everything goes through `libcuda.so.1` via `dlopen`,
+  never `libcudart`, so the package builds with no CUDA installed and loads on
+  machines with no GPU. Writing a `.cu` that uses the CUDA *runtime* API or the
+  `<<<>>>` launch syntax would break that; use the driver API from the handler
+  instead.
+- **A missing `nvcc` is not a build failure.** The package installs without the
+  kernels and `pjrt_cuda_kernels_available()` returns `FALSE`. A handler that
+  needs one then fails with an explanation, and callers that can lower the same
+  computation another way should check first -- anvl's `pivots_to_permutation()`
+  does.
 
 ## Memory management
 

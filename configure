@@ -119,6 +119,141 @@ $PROTOC -I "../inst/proto" --cpp_out="proto" --experimental_allow_proto3_optiona
 find ./ -type f -name "*.pb.h" -exec sed -i.bak "s@^[[:space:]]*#pragma@/*nowarn*/#pragma@g" "{}" \;
 rm -f *.bak
 
+# ---------------------------------------------------------------------------
+# CUDA kernels
+#
+# src/cuda/*.cu holds device code pjrt ships itself, as opposed to the cuSOLVER
+# routines it dlopens. Each file is compiled here, ahead of time, into a fatbin
+# covering every GPU architecture the PJRT CUDA plugin supports, and embedded
+# into the shared object as a byte array. None of this adds a link-time or
+# run-time CUDA dependency -- src/cuda_kernels.h explains why.
+#
+# A missing nvcc is not an error: pjrt is installed on plenty of machines that
+# will never see a GPU, and on those the kernels are simply left out. What that
+# costs is visible from R as `pjrt_cuda_kernels_available()`.
+#
+# Overrides:
+#   PJRT_NVCC             path to nvcc, skipping the search below
+#   PJRT_CUDA_INCLUDE     directory holding cuda_runtime.h
+#   PJRT_CUDA_R_PACKAGE   CUDA R package to take the toolkit from
+#   PJRT_CUDA_SM_ARCHS    architectures to emit cubins for
+#   PJRT_CUDA_PTX_ARCH    architecture to emit PTX for
+
+CUDA_R_PACKAGE="${PJRT_CUDA_R_PACKAGE:-cuda12.8}"
+
+# Architectures to precompile for, copied from JAX's .bazelrc
+# (HERMETIC_CUDA_COMPUTE_CAPABILITIES for CUDA 12). One cubin per GPU
+# generation suffices because cubins are forward compatible across minor
+# versions within a generation -- an sm_80 cubin runs on sm_86 and sm_89 -- and
+# the PTX entry below covers anything newer than the whole list, at the cost of
+# a JIT on first load. Together these reach every device the PJRT CUDA plugin
+# itself carries code for (sm_50 through sm_120).
+SM_ARCHS="${PJRT_CUDA_SM_ARCHS:-50 60 70 80 90 100 101}"
+PTX_ARCH="${PJRT_CUDA_PTX_ARCH:-120}"
+
+# mlverse/cudatoolkit's cuda12.8 and friends ship a toolkit without needing a
+# system CUDA install, so prefer whichever one this R library has.
+cuda_pkg_path() {
+  "${R_HOME}/bin/Rscript" --vanilla -e "
+    pkg <- '${CUDA_R_PACKAGE}'
+    if (requireNamespace(pkg, quietly = TRUE)) {
+      p <- try(getExportedValue(pkg, '$1')('$2'), silent = TRUE)
+      if (!inherits(p, 'try-error')) cat(p)
+    }" 2>/dev/null
+}
+
+NVCC="$PJRT_NVCC"
+if [ -z "$NVCC" ]; then
+  CANDIDATE=`cuda_pkg_path bin_path nvcc`
+  if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE/nvcc" ]; then
+    NVCC="$CANDIDATE/nvcc"
+  else
+    for CUDA_ROOT in "$CUDA_HOME" "$CUDA_PATH" /usr/local/cuda; do
+      if [ -n "$CUDA_ROOT" ] && [ -x "$CUDA_ROOT/bin/nvcc" ]; then
+        NVCC="$CUDA_ROOT/bin/nvcc"
+        break
+      fi
+    done
+    if [ -z "$NVCC" ]; then
+      NVCC=`command -v nvcc 2>/dev/null`
+    fi
+  fi
+fi
+
+# nvcc implicitly includes cuda_runtime.h. A toolkit install has it next to the
+# compiler and needs no help; the R packages split it into a separate component
+# directory, so point at that when we are using one.
+CUDA_INC="$PJRT_CUDA_INCLUDE"
+if [ -z "$CUDA_INC" ]; then
+  CANDIDATE=`cuda_pkg_path include_path runtime`
+  if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE/cuda_runtime.h" ]; then
+    CUDA_INC="$CANDIDATE"
+  else
+    for CUDA_ROOT in "$CUDA_HOME" "$CUDA_PATH" /usr/local/cuda; do
+      if [ -n "$CUDA_ROOT" ] && [ -f "$CUDA_ROOT/include/cuda_runtime.h" ]; then
+        CUDA_INC="$CUDA_ROOT/include"
+        break
+      fi
+    done
+  fi
+fi
+
+# There is no CUDA PJRT plugin for Windows (see plugin_url() in R/plugin.R) and
+# src/cuda_kernels.cpp compiles to nothing there, so device code would be dead
+# weight in the DLL even if a Windows nvcc turned up.
+case `uname -s` in
+  MINGW*|MSYS*|CYGWIN*|Windows_NT) NVCC="" ;;
+esac
+
+FATBINS=""
+if [ -n "$NVCC" ] && [ -d cuda ]; then
+  echo "Building CUDA kernels with $NVCC"
+
+  # Drop any architecture this nvcc is too old to know about, rather than
+  # failing the whole build over it.
+  KNOWN_ARCHS=`"$NVCC" --list-gpu-arch 2>/dev/null | sed 's/compute_//'`
+  GENCODE=""
+  for ARCH in $SM_ARCHS; do
+    if echo "$KNOWN_ARCHS" | grep -qx "$ARCH"; then
+      GENCODE="$GENCODE -gencode arch=compute_$ARCH,code=sm_$ARCH"
+    fi
+  done
+  if ! echo "$KNOWN_ARCHS" | grep -qx "$PTX_ARCH"; then
+    PTX_ARCH=`echo "$KNOWN_ARCHS" | tail -1`
+  fi
+  if [ -n "$PTX_ARCH" ]; then
+    # Cubin *and* PTX for the newest architecture we can name. Spelled as two
+    # -gencode flags rather than nvcc's code=[a,b] shorthand, whose brackets
+    # the shell would try to glob.
+    GENCODE="$GENCODE -gencode arch=compute_$PTX_ARCH,code=sm_$PTX_ARCH"
+    GENCODE="$GENCODE -gencode arch=compute_$PTX_ARCH,code=compute_$PTX_ARCH"
+  fi
+
+  NVCC_FLAGS="-std=c++17 -O2 -Wno-deprecated-gpu-targets"
+  if [ -n "$CUDA_INC" ]; then
+    NVCC_FLAGS="$NVCC_FLAGS -I$CUDA_INC"
+  fi
+
+  for CU_FILE in cuda/*.cu; do
+    [ -f "$CU_FILE" ] || continue
+    FATBIN=`basename "$CU_FILE" .cu`.fatbin
+    if "$NVCC" $NVCC_FLAGS $GENCODE -fatbin "$CU_FILE" -o "$FATBIN" 2>&1; then
+      FATBINS="$FATBINS $FATBIN"
+    else
+      # Partial device code would be worse than none: a handler would find
+      # some kernels and not others. Drop the lot and carry on without.
+      echo "WARNING: $CU_FILE failed to compile; building pjrt without CUDA kernels."
+      rm -f $FATBINS "$FATBIN"
+      FATBINS=""
+      break
+    fi
+  done
+else
+  echo "No nvcc found; building pjrt without CUDA kernels."
+fi
+
+"${R_HOME}/bin/Rscript" --vanilla ../tools/embed_fatbin.R cuda_fatbin.cpp $FATBINS
+
 PB_SRC=$(echo $(find proto -type f -name "*.pb.cc" -print))
 CPP_SRC=$(echo $(find *.cpp -print))
 CRC_SRC=$(echo $(find . -type f -name "*.c" -print))

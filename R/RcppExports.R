@@ -5,6 +5,10 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
+impl_cuda_kernels_available <- function() {
+    .Call(`_pjrt_impl_cuda_kernels_available`)
+}
+
 impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn) {
     .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn)
 }
@@ -59,6 +63,14 @@ get_lu_handler <- function() {
 
 get_lu_handler_cuda <- function() {
     .Call(`_pjrt_get_lu_handler_cuda`)
+}
+
+get_lu_pivots_to_permutation_handler <- function() {
+    .Call(`_pjrt_get_lu_pivots_to_permutation_handler`)
+}
+
+get_lu_pivots_to_permutation_handler_cuda <- function() {
+    .Call(`_pjrt_get_lu_pivots_to_permutation_handler_cuda`)
 }
 
 impl_plugin_load <- function(path) {
