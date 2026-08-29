@@ -58,7 +58,6 @@ Collate:
     'install.R'
     'loaded_executable.R'
     'package.R'
-    'pjrt-package.R'
     'plugin.R'
     'program.R'
     'reexports.R'

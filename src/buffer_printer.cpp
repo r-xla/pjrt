@@ -303,9 +303,12 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
             if (std::isnan(dv)) return std::string("nan");
             return std::string(dv > 0 ? "inf" : "-inf");
           }
-          long long iv = static_cast<long long>(dv);
-          long long abs_val = iv < 0 ? -iv : iv;
-          int digits = (abs_val == 0)
+          // Stay in floating point while deciding how to render: an
+          // integer-valued double above 2^63 has no `long long` to be cast
+          // to, and every value that survives the `digits > 6` branch is
+          // small enough for the cast to be well-defined.
+          double abs_val = std::fabs(dv);
+          int digits = (abs_val == 0.0)
                            ? 1
                            : static_cast<int>(std::floor(std::log10(
                                  static_cast<long double>(abs_val)))) +
@@ -313,10 +316,10 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
           if (digits > 6) {
             std::ostringstream s;
             s.setf(std::ios::scientific, std::ios::floatfield);
-            s << std::setprecision(4) << static_cast<long double>(iv);
+            s << std::setprecision(4) << static_cast<long double>(dv);
             return s.str();
           }
-          return std::to_string(iv);
+          return std::to_string(static_cast<long long>(dv));
         };
         result = build_buffer_lines(ncols, nrows, rows_to_print, max_width,
                                     cont, fmt, slice, rows_left, "");
