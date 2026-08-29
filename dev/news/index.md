@@ -2,6 +2,12 @@
 
 ## pjrt (development version)
 
+### Bug fixes
+
+- Printing a float buffer whose values are all integer-valued but exceed
+  the `int64` range (e.g. `1e20`) no longer renders them as
+  `-9223372036854775808`.
+
 ### Other
 
 - pjrt no longer Suggests anvl and stablehlo for it’s tests and the

@@ -52,6 +52,10 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
 <div class="section level3">
+<h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
+<ul><li>Printing a float buffer whose values are all integer-valued but exceed the <code>int64</code> range (e.g. <code>1e20</code>) no longer renders them as <code>-9223372036854775808</code>.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="other-development-version">Other<a class="anchor" aria-label="anchor" href="#other-development-version"></a></h3>
 <ul><li>pjrt no longer Suggests anvl and stablehlo for it’s tests and the integration tests are moved to {anvl}.</li>
 </ul></div>
