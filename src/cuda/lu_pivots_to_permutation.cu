@@ -19,6 +19,8 @@
 // threads within a block, so a multi-block launch would let the swap chain
 // start before the identity fill finished.
 
+#include "lu_pivots_to_permutation.h"
+
 extern "C" __global__ void pjrt_lu_pivots_to_permutation(
     const int *pivots, int *permutation, int k, int n) {
   for (int i = threadIdx.x; i < n; i += blockDim.x) {

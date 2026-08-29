@@ -14,9 +14,10 @@
 // Compiling the .cu against the CUDA *runtime* API instead, with its `<<<>>>`
 // launch syntax, would put libcudart in NEEDED and break both.
 //
-// To add a kernel: drop a .cu in src/cuda/ with an `extern "C" __global__`
-// entry point, and call cuda_kernel() with that symbol name from a handler.
-// The build picks the file up on its own.
+// To add a kernel: drop a .cu in src/cuda/ plus a header declaring its entry
+// point (see cuda/lu_pivots_to_permutation.h), and launch it from a handler
+// through a `Kernel` built from that declaration. The build picks the .cu up
+// on its own.
 #pragma once
 
 #include "ffi_common.h"
@@ -56,8 +57,50 @@ xla::ffi::Error cuda_kernel(const char *name, void **kernel_out);
 // pointers-to-arguments cuLaunchKernel expects: one entry per kernel
 // parameter, each pointing at the value to pass (so an `int *` parameter needs
 // the address of the pointer variable, not the pointer itself).
+//
+// Prefer `Kernel` below to calling this directly: building that array by hand
+// erases the argument types, and nothing downstream can notice a mismatch.
 xla::ffi::Error cuda_launch(void *kernel, unsigned int grid_dim,
                             unsigned int block_dim, void *stream, void **args);
+
+// A launchable kernel, typed by its signature.
+//
+// The device code is compiled separately by nvcc into a fatbin, and an
+// `extern "C"` symbol carries no argument types, so nothing in the object file
+// can catch a handler that disagrees with the kernel it is launching -- and
+// the consequence is not a link error but a `cuLaunchKernel` reading whatever
+// happens to sit at those addresses. Instantiating this from the kernel's own
+// declaration puts the signature back in the type system on the host side:
+//
+//   #include "cuda/lu_pivots_to_permutation.h"
+//   constexpr Kernel<decltype(pjrt_lu_pivots_to_permutation)> kLuPivots{
+//       "pjrt_lu_pivots_to_permutation"};
+//   ...
+//   return kLuPivots(grid, block, stream, pivots_ptr, perm_ptr, k, n);
+//
+// `Args` is fixed by the declaration rather than deduced from the call, so an
+// argument of the wrong type is a compile error instead of a silent
+// conversion. The .cu is held to the same declaration by including the header
+// that provides it, which is what makes the two ends agree.
+template <typename Signature>
+struct Kernel;
+
+template <typename... Args>
+struct Kernel<void(Args...)> {
+  // The `extern "C"` symbol name, as it appears in the .cu.
+  const char *name;
+
+  xla::ffi::Error operator()(unsigned int grid_dim, unsigned int block_dim,
+                             void *stream, Args... args) const {
+    // The parameters live until operator() returns, and cuLaunchKernel
+    // marshals the values before it does, so their addresses are good here.
+    void *arg_ptrs[] = {
+        const_cast<void *>(static_cast<const void *>(&args))...};
+    void *kernel = nullptr;
+    PJRT_RETURN_IF_ERROR(cuda_kernel(name, &kernel));
+    return cuda_launch(kernel, grid_dim, block_dim, stream, arg_ptrs);
+  }
+};
 
 #endif  // _WIN32
 

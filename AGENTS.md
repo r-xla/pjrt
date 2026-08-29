@@ -91,11 +91,27 @@ Most of pjrt's GPU work is cuSOLVER, reached by `dlopen` (`src/ffi_cuda.h`).
 `src/cuda/` is for the cases where that is not enough and pjrt needs device
 code of its own.
 
-To add one: drop a `.cu` in `src/cuda/` with an `extern "C" __global__` entry
-point, and from the platform's FFI handler call `cuda_kernel("<symbol>", &fn)`
-followed by `cuda_launch(...)` (`src/cuda_kernels.h`). The build picks the file
-up on its own. `src/cuda/lu_pivots_to_permutation.cu` plus
-`src/lu_pivots_cuda.cpp` is the worked example.
+To add one, write three things; `lu_pivots_to_permutation` is the worked
+example of each.
+
+1. `src/cuda/<name>.h` -- one declaration of the entry point, spelling
+   `__global__` as `PJRT_CUDA_KERNEL` (from `src/cuda/kernel.h`) so the host
+   compiler can read it too.
+2. `src/cuda/<name>.cu` -- includes that header and defines the kernel. nvcc
+   then checks the definition against the declaration. The build picks the
+   file up on its own.
+3. The launch, in the platform's FFI handler: include the header and
+   instantiate `Kernel<decltype(<symbol>)>` with the `extern "C"` symbol name
+   (`src/cuda_kernels.h`), then call it with the grid, block, stream and the
+   kernel's arguments.
+
+The reason for the header, rather than just calling `cuda_kernel()` and
+`cuda_launch()` directly: the device code is compiled separately into a fatbin
+and an `extern "C"` symbol carries no argument types, so a handler that
+disagrees with its kernel produces neither a compile nor a link error -- just a
+`cuLaunchKernel` reading the wrong bytes. Deriving the launch signature from a
+declaration that the `.cu` is also held to puts both ends back under the
+compiler.
 
 What happens underneath:
 
