@@ -33,11 +33,12 @@ No FFI handler registered for print_tensor on a platform Host (canonical host)
 
 Registration itself still reports success, and `test-custom-call.R` still passes
 (it only checks bookkeeping, never compiles a program that uses a custom call),
-so this surfaces as `test-ffi.R` and `test-linalg.R` failing wholesale. Rebuild
-those plugins as **part of** the upgrade: dispatch `r-xla/pjrt-builds` ->
-*Build PJRT* with `commit_hash=<the new XLA commit>`, then repoint the pinned
-URLs in `plugin_url()`. To reproduce the mismatch locally without Windows, point
-`PJRT_PLUGIN_PATH_CPU` at a plugin from the previous ZML release.
+so this surfaces as `test-ffi.R` and `test-linalg.R` failing wholesale. To
+reproduce the mismatch locally without Windows, point `PJRT_PLUGIN_PATH_CPU` at
+a plugin from the previous ZML release.
+
+Rebuilding those plugins is **part of** the upgrade, not a follow-up -- see
+step 5.
 
 ## 1. Pick the target
 
@@ -120,7 +121,9 @@ the patch; if there is no difference it deletes the patch file. Afterwards,
 re-run the copy scripts from a clean tree and confirm they reproduce byte-identical
 files — that round-trip is the check that the patches are in sync.
 
-## 5. Update the plugin version and CUDA dependencies
+## 5. Update the plugin version, rebuild Windows, and update CUDA deps
+
+### The ZML version
 
 - `R/plugin.R`: `plugin_version()` returns the ZML tag without the leading `v`.
 - `R/plugin.R`: `the[["config"]]$cuda_r_package` / `$cuda_r_repos` must name a
@@ -145,6 +148,28 @@ files — that round-trip is the check that the patches are in sync.
   CUDA 13), so a CUDA major bump needs a new candidate in `kCusolverSonames`.
   Verify the declared signatures in `src/ffi_cuda.h` against the new
   `cusolverDn.h` — they are hand-written and nothing checks them at build time.
+
+### The Windows plugin
+
+ZML ships no Windows artifact, so this one is ours to rebuild at the same XLA
+commit. Skipping it is what makes Windows CI fail; there is no version of this
+upgrade where that failure is acceptable.
+
+1. Dispatch `r-xla/pjrt-builds` → *Build PJRT* with
+   `commit_hash=<the new XLA short hash>`. Expect roughly three hours — most of
+   it is one bazel build of XLA on a 4-core Windows runner.
+2. When it publishes `pjrt-<commit>-windows-x86_64.zip`, point the Windows URL
+   in `plugin_url()` at it.
+
+The workflow rebuilds all five configurations, not just Windows. Only the
+Windows asset is needed here, so cancel the run once that job finishes rather
+than paying for four unused builds.
+
+If the Windows job itself fails, the failure is in that workflow rather than in
+pjrt. Two things are worth knowing before debugging it: jaxlib builds XLA for
+Windows in CI, so its `.bazelrc` `win_clang` config is the reference to compare
+against; and flags reach bazel through a git-bash command line there, where MSYS
+rewrites a leading `/` as a path — so defines must be spelled `-D`, not `/D`.
 
 ## 6. Build and test
 
@@ -172,5 +197,10 @@ same R process (protobuf descriptor crash). Use separate `Rscript -e` calls.
 
 ## 7. Finish
 
-Update `NEWS.md` and re-render `README.md` from `README.Rmd`. Windows CI is
-expected to fail and can be ignored.
+Update `NEWS.md` and re-render `README.md` from `README.Rmd`.
+
+**Every platform in CI is expected to pass, Windows included.** If Windows goes
+red, the usual cause is the one in the lockstep note above: its plugin is still
+pinned to the previous XLA commit, so `test-ffi.R` and `test-linalg.R` fail
+wholesale with `No FFI handler registered`. That is the rebuild in step 5, not
+something to wave through.
