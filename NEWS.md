@@ -1,6 +1,24 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* The PJRT plugin was upgraded to ZML artifacts `v18.0.0` (XLA commit
+  `6b73c4c`), which is built against **CUDA 13.3**. The CUDA backend now
+  requires the `cuda13.3` R package (from
+  <https://r-xla.r-universe.dev>) instead of `cuda12.8`; the CUDA 12
+  packages no longer satisfy the plugin's runtime dependencies.
+
+## New features
+
+* Linux ARM (`aarch64`) now downloads the official ZML artifacts rather than
+  a pre-built plugin pinned to an old XLA commit, and the CUDA backend is
+  available on Linux ARM as well as Linux x86_64.
+
 ## Bug fixes
+
+* The CUDA linalg kernels (`qr`, `lu`, `svd`, `eigh`) again find cuSOLVER on
+  CUDA 13 installs, where its SONAME is `libcusolver.so.12` rather than
+  `libcusolver.so.11`.
 
 * Printing a float buffer whose values are all integer-valued but exceed the
   `int64` range (e.g. `1e20`) no longer renders them as

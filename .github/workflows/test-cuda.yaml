@@ -34,7 +34,7 @@ jobs:
         run: |
           # Create a conda env that includes R and cudnn from conda-forge,
           # simulating a user environment where conda's cudnn could conflict
-          # with the cuda12.8 R package.
+          # with the cuda13.3 R package.
           mamba create -y -n test-env \
             -c conda-forge -c nvidia \
             r-base=4.4 \
@@ -70,13 +70,12 @@ jobs:
           export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
           echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 
-          # Use pak to install pjrt + all deps from source, plus cuda12.8 manually
+          # Use pak to install pjrt + all deps from source, plus cuda13.3 manually
           Rscript -e '
             install.packages("pak", repos = "https://cloud.r-project.org")
             pak::repo_add("r-xla" = "https://r-xla.r-universe.dev")
-            pak::repo_add("mlverse" = "https://mlverse.r-universe.dev")
             pak::pkg_install("local::.", dependencies = TRUE)
-            pak::pkg_install("cuda12.8")
+            pak::pkg_install("cuda13.3")
           '
 
           # Run tests

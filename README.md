@@ -54,26 +54,25 @@ environment variables.
 
 ### CUDA
 
-To use the CUDA backend, install the {cuda12.8} R package which provides
+To use the CUDA backend, install the {cuda13.3} R package which provides
 the required CUDA runtime libraries and you only need to have a
 compatible CUDA driver.
 
 ``` r
-pak::pak("mlverse/cudatoolkit/cuda12.8")
+pak::pak("r-xla/cudatoolkit/cuda13.3")
 ```
 
-Alternatively, install from
-[r-universe](https://mlverse.r-universe.dev/).
+Alternatively, install from [r-universe](https://r-xla.r-universe.dev/).
 
 ``` r
-install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
+install.packages("cuda13.3", repos = "https://r-xla.r-universe.dev")
 ```
 
-When the {cuda12.8} package is not installed, the correct runtime
+When the {cuda13.3} package is not installed, the correct runtime
 libraries need to be installed on the system, which can be difficult to
 set up. The specific versions of the CUDA runtime libraries provided
-with {cuda12.8} are provided
-[here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
+with {cuda13.3} are provided
+[here](https://github.com/r-xla/cudatoolkit/blob/main/cuda13.3/inst/components.tsv).
 
 **Troubleshooting**
 
