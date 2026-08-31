@@ -69,6 +69,16 @@ std::string impl_program_repr(Rcpp::XPtr<rpjrt::PJRTProgram> program,
 }
 
 // [[Rcpp::export()]]
+std::string impl_program_code(Rcpp::XPtr<rpjrt::PJRTProgram> program) {
+  return program->code;
+}
+
+// [[Rcpp::export()]]
+std::string impl_program_format(Rcpp::XPtr<rpjrt::PJRTProgram> program) {
+  return std::string(program->program.format, program->program.format_size);
+}
+
+// [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuildOptions> impl_build_options_create(
     const int num_replicas = 1, const int num_partitions = 1,
     const int device_ordinal = -1) {
