@@ -288,9 +288,12 @@ plugin_url <- function(platform) {
       )
     }
 
-    # on windows download from our pre-built artifacts
-    # TODO make this versioned.
-    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-a4df377-windows-x86_64.zip"
+    # ZML ships no Windows artifact, so Windows uses our own build from
+    # r-xla/pjrt-builds. It must be built from the same XLA commit the
+    # vendored headers come from: a handler reports its FFI header version
+    # back to the runtime, and a plugin older than the headers silently
+    # refuses every custom call. See the upgrade-pjrt skill.
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6b73c4c-windows-x86_64.zip"
     # windows files are zipped
     attr(url, "extract") <- function(path, cache_dir) {
       tmp <- tempfile()
