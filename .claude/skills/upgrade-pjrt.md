@@ -20,6 +20,25 @@ the vendored files to a new XLA commit and bumps the artifact version.
 Both must move together: the vendored `pjrt_c_api.h` declares the ABI that the
 downloaded plugin implements.
 
+That includes **every** plugin, not just ZML's. ZML ships no Windows artifact,
+so `plugin_url()` serves Windows from `r-xla/pjrt-builds` at a hand-pinned XLA
+commit. A handler reports the FFI header version it was compiled against back to
+the runtime (`api.h`, `PopulateMetadata`), and a plugin will not accept a handler
+newer than itself -- so as soon as `XLA_FFI_API_MINOR` moves, an un-rebuilt
+plugin silently drops every custom call:
+
+```
+No FFI handler registered for print_tensor on a platform Host (canonical host)
+```
+
+Registration itself still reports success, and `test-custom-call.R` still passes
+(it only checks bookkeeping, never compiles a program that uses a custom call),
+so this surfaces as `test-ffi.R` and `test-linalg.R` failing wholesale. Rebuild
+those plugins as **part of** the upgrade: dispatch `r-xla/pjrt-builds` ->
+*Build PJRT* with `commit_hash=<the new XLA commit>`, then repoint the pinned
+URLs in `plugin_url()`. To reproduce the mismatch locally without Windows, point
+`PJRT_PLUGIN_PATH_CPU` at a plugin from the previous ZML release.
+
 ## 1. Pick the target
 
 Ask the user for the ZML release tag if not given. Then read the XLA commit
@@ -116,6 +135,10 @@ files — that round-trip is the check that the patches are in sync.
 
 - `.github/workflows/R-CMD-check.yaml` and `.github/workflows/test-cuda.yaml`:
   the CUDA container image tag and the `cudaX.Y` R package reference.
+- The CUDA R package must also ship `nvvm/libdevice/libdevice.10.bc`. On CUDA 12
+  that came with the nvcc wheel; on CUDA 13 it moved to a separate
+  `nvidia-nvvm` wheel. Without it pjrt's own tests still pass but anvl's math
+  ops fail with `libdevice not found at ./libdevice.10.bc`.
 - `src/ffi_cuda.cpp`: pjrt declares the cuSOLVER entry points itself rather
   than including the CUDA SDK, and `dlopen`s the library by SONAME. cuSOLVER's
   SONAME major does *not* track the CUDA major (`.11` on CUDA 12, `.12` on
@@ -133,6 +156,12 @@ cd tests && NOT_CRAN=true PJRT_TEST=1 PJRT_PLATFORM=cpu PJRT_INSTALL=1 Rscript t
 Compare the compiler warnings from `inst/include/` against a pre-upgrade build;
 new `-Wreturn-type` warnings mean a new switch statement needs a `throw` added
 to the patch.
+
+gcc is not enough on its own here: `PJRT_NO_DISCARD` expands to `[[nodiscard]]`
+only under clang, so new `[[nodiscard]]` markings on `PJRT_Api` fields show up
+first on the macOS runner, where `rcmdcheck`'s `error_on = "warning"` turns them
+into a check failure. Any `PJRT_Api` call whose result is deliberately dropped
+(destructors) should pass it to `destroy_error()` instead.
 
 With a GPU available, repeat with `PJRT_PLATFORM=cuda`. Also run the {anvl}
 test suite against the upgraded pjrt — anvl exercises code paths (e.g.
