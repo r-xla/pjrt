@@ -2,20 +2,17 @@
 
 ## Breaking changes
 
-* The PJRT plugin was upgraded to ZML artifacts `v18.0.0` (XLA commit
-  `6b73c4c`), which is built against **CUDA 13.3**. The CUDA backend now
-  requires the `pjrt.cuda` R package (from
-  <https://r-xla.r-universe.dev>) instead of `cuda12.8`.
+* Updated the PJRT plugin version, which now requires CUDA 13.3.
 
 ## New features
 
-* Added support for CUDA on Linux (arm).
+* Added CUDA support for Linux ARM
+* Added supoort for Intel Macs.
 
 ## Bug fixes
 
-* Printing a float buffer whose values are all integer-valued but exceed the
-  `int64` range (e.g. `1e20`) no longer renders them as
-  `-9223372036854775808`.
+* Large buffer whose values are all integer-valued are now
+  printed correctly.
 
 ## Other
 
