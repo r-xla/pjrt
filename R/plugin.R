@@ -15,7 +15,7 @@ the[["canonical_devices"]] <- new.env(parent = emptyenv())
 the[["custom_calls"]] <- list()
 the[["config"]] <- list(
   cpu_device_count = 1L,
-  cuda_r_package = "cuda13.3",
+  cuda_r_package = "pjrt.cuda",
   cuda_r_repos = "https://r-xla.r-universe.dev"
 )
 

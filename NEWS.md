@@ -4,7 +4,7 @@
 
 * The PJRT plugin was upgraded to ZML artifacts `v18.0.0` (XLA commit
   `6b73c4c`), which is built against **CUDA 13.3**. The CUDA backend now
-  requires the `cuda13.3` R package (from
+  requires the `pjrt.cuda` R package (from
   <https://r-xla.r-universe.dev>) instead of `cuda12.8`; the CUDA 12
   packages no longer satisfy the plugin's runtime dependencies.
 

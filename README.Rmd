@@ -58,7 +58,7 @@ See `?pjrt` for the full list of environment variables.
 To use the CUDA backend, install the  {`r cuda_pkg`} R package which provides the required CUDA runtime libraries and you only need to have a compatible CUDA driver.
 
 ```{r, echo = FALSE, results = "asis"}
-cat(sprintf('```r\npak::pak("r-xla/cudatoolkit/%s")\n```', cuda_pkg))
+cat(sprintf('```r\npak::pak("r-xla/%s")\n```', cuda_pkg))
 ```
 
 Alternatively, install from [r-universe](`r sprintf("%s/", cuda_repos)`).
@@ -68,7 +68,7 @@ cat(sprintf('```r\ninstall.packages("%s", repos = "%s")\n```', cuda_pkg, cuda_re
 ```
 
 When the {`r cuda_pkg`} package is not installed, the correct runtime libraries need to be installed on the system, which can be difficult to set up.
-The specific versions of the CUDA runtime libraries provided with {`r cuda_pkg`} are provided [here](`r sprintf("https://github.com/r-xla/cudatoolkit/blob/main/%s/inst/components.tsv", cuda_pkg)`).
+The specific versions of the CUDA runtime libraries provided with {`r cuda_pkg`} are provided [here](`r sprintf("https://github.com/r-xla/%s/blob/main/inst/components.tsv", cuda_pkg)`).
 
 **Troubleshooting**
 

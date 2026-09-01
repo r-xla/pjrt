@@ -33,7 +33,7 @@ jobs:
           # - config: {os: "ubuntu", platform: "cuda"}
           #   container: {image: 'nvidia/cuda:13.3.0-base-ubuntu24.04', options: '--gpus all --runtime=nvidia'}
           #   runner: ['self-hosted', 'gpu']
-          #   extra-packages: "any::rcmdcheck, cuda13.3"
+          #   extra-packages: "any::rcmdcheck, pjrt.cuda"
           #   extra-repositories: "https://r-xla.r-universe.dev"
           #   as-cran: 'false'
           - config: {os: "ubuntu", platform: "cpu"}

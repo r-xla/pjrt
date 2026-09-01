@@ -33,46 +33,46 @@ install.packages("pjrt", repos = c("https://r-xla.r-universe.dev", getOption("re
 
 ### Plugin download
 
-`pjrt` relies on a backend-specific PJRT *plugin* (a shared library) that is
-not bundled with the package. The first time you create a client or compile a
-program for a platform, the matching plugin is downloaded and cached in
-`tools::R_user_dir("pjrt", "cache")`.
+`pjrt` relies on a backend-specific PJRT *plugin* (a shared library)
+that is not bundled with the package. The first time you create a client
+or compile a program for a platform, the matching plugin is downloaded
+and cached in `tools::R_user_dir("pjrt", "cache")`.
 
-In an interactive session you are asked for confirmation before the download.
-The `PJRT_INSTALL` environment variable controls this:
+In an interactive session you are asked for confirmation before the
+download. The `PJRT_INSTALL` environment variable controls this:
 
-- `PJRT_INSTALL=1`: always download without asking (e.g. in CI, scripts, or
-  Docker builds).
+- `PJRT_INSTALL=1`: always download without asking (e.g. in CI, scripts,
+  or Docker builds).
 - `PJRT_INSTALL=0`: never download; an error with instructions is raised
   instead.
 
-In a non-interactive session the plugin is **not** downloaded automatically
-unless `PJRT_INSTALL=1` is set. Alternatively, set
-`PJRT_PLUGIN_PATH_<PLATFORM>` (e.g. `PJRT_PLUGIN_PATH_CPU`) to a local plugin
-file to skip the download entirely. See `?pjrt` for the full list of
-environment variables.
+In a non-interactive session the plugin is **not** downloaded
+automatically unless `PJRT_INSTALL=1` is set. Alternatively, set
+`PJRT_PLUGIN_PATH_<PLATFORM>` (e.g. `PJRT_PLUGIN_PATH_CPU`) to a local
+plugin file to skip the download entirely. See `?pjrt` for the full list
+of environment variables.
 
 ### CUDA
 
-To use the CUDA backend, install the {cuda13.3} R package which provides
-the required CUDA runtime libraries and you only need to have a
+To use the CUDA backend, install the {pjrt.cuda} R package which
+provides the required CUDA runtime libraries and you only need to have a
 compatible CUDA driver.
 
 ``` r
-pak::pak("r-xla/cudatoolkit/cuda13.3")
+pak::pak("r-xla/pjrt.cuda")
 ```
 
 Alternatively, install from [r-universe](https://r-xla.r-universe.dev/).
 
 ``` r
-install.packages("cuda13.3", repos = "https://r-xla.r-universe.dev")
+install.packages("pjrt.cuda", repos = "https://r-xla.r-universe.dev")
 ```
 
-When the {cuda13.3} package is not installed, the correct runtime
+When the {pjrt.cuda} package is not installed, the correct runtime
 libraries need to be installed on the system, which can be difficult to
 set up. The specific versions of the CUDA runtime libraries provided
-with {cuda13.3} are provided
-[here](https://github.com/r-xla/cudatoolkit/blob/main/cuda13.3/inst/components.tsv).
+with {pjrt.cuda} are provided
+[here](https://github.com/r-xla/pjrt.cuda/blob/main/inst/components.tsv).
 
 **Troubleshooting**
 
