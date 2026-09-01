@@ -1,10 +1,18 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* Updated the PJRT plugin version, which now requires CUDA 13.3.
+
+## New features
+
+* Added CUDA support for Linux ARM
+* Added supoort for Intel Macs.
+
 ## Bug fixes
 
-* Printing a float buffer whose values are all integer-valued but exceed the
-  `int64` range (e.g. `1e20`) no longer renders them as
-  `-9223372036854775808`.
+* Large buffer whose values are all integer-valued are now
+  printed correctly.
 
 ## Other
 
