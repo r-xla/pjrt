@@ -64,7 +64,7 @@ scattered across various websites. The options include:
   to 1. This is primarily intended for testing purposes.
 
 - `PJRT_CUDA_R_PACKAGE`: Name of the R package providing CUDA libraries.
-  Defaults to the value of cuda12.8. Set this to use a different CUDA
+  Defaults to the value of pjrt.cuda. Set this to use a different CUDA
   toolkit package, but note that other versions may not work with the
   XLA plugin.
 
@@ -77,7 +77,7 @@ scattered across various websites. The options include:
 The `pjrt` package itself is MIT-licensed. The CUDA backend dynamically
 loads NVIDIA software which is not bundled with `pjrt`, but downloaded
 from NVIDIA's official redistributable channels by the CUDA toolkit R
-package (e.g. `cuda12.8`) at install time. Its use is governed by the
+package (e.g. `pjrt.cuda`) at install time. Its use is governed by the
 [NVIDIA CUDA Toolkit EULA](https://docs.nvidia.com/cuda/eula/), with the
 exception of cuDNN, which is covered by the [NVIDIA cuDNN
 SLA](https://docs.nvidia.com/deeplearning/cudnn/sla/index.html), and

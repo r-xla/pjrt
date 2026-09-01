@@ -46,28 +46,27 @@ for the full list of environment variables.
 
 ### CUDA
 
-To use the CUDA backend, install the {cuda12.8} R package which provides
-the required CUDA runtime libraries and you only need to have a
+To use the CUDA backend, install the {pjrt.cuda} R package which
+provides the required CUDA runtime libraries and you only need to have a
 compatible CUDA driver.
 
 ``` r
 
-pak::pak("mlverse/cudatoolkit/cuda12.8")
+pak::pak("r-xla/pjrt.cuda")
 ```
 
-Alternatively, install from
-[r-universe](https://mlverse.r-universe.dev/).
+Alternatively, install from [r-universe](https://r-xla.r-universe.dev/).
 
 ``` r
 
-install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
+install.packages("pjrt.cuda", repos = "https://r-xla.r-universe.dev")
 ```
 
-When the {cuda12.8} package is not installed, the correct runtime
+When the {pjrt.cuda} package is not installed, the correct runtime
 libraries need to be installed on the system, which can be difficult to
 set up. The specific versions of the CUDA runtime libraries provided
-with {cuda12.8} are provided
-[here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
+with {pjrt.cuda} are provided
+[here](https://github.com/r-xla/pjrt.cuda/blob/main/inst/components.tsv).
 
 **Troubleshooting**
 
@@ -152,7 +151,7 @@ pjrt_execute(executable, x, y)
 - **Windows**
   - ✅ CPU backend is fully supported.
   - ⚠️ GPU is only supported via Windows Subsystem for Linux (WSL2).
-- **macOS**
+- **macOS** (Apple silicon and Intel)
   - ✅ CPU backend is supported.
   - ⚠️ Metal (Apple GPU) backend is available but not fully functional.
 
