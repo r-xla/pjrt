@@ -149,25 +149,21 @@ files — that round-trip is the check that the patches are in sync.
   Verify the declared signatures in `src/ffi_cuda.h` against the new
   `cusolverDn.h` — they are hand-written and nothing checks them at build time.
 
-### The pjrt-builds plugins (Windows + portable Linux)
+### The Windows plugin
 
-Two artifacts are ours to rebuild at the same XLA commit: ZML ships no Windows
-artifact at all, and its Linux x86_64 artifacts are built with
-`-march=x86-64-v3` (AVX2), so `plugin_url()` serves pre-AVX2 CPUs a portable
-baseline build. Skipping the Windows rebuild is what makes Windows CI fail;
-skipping the Linux one breaks the AVX2 fallback. There is no version of this
-upgrade where those failures are acceptable.
+ZML ships no Windows artifact, so this one is ours to rebuild at the same XLA
+commit. Skipping it is what makes Windows CI fail; there is no version of this
+upgrade where that failure is acceptable.
 
 1. Dispatch `r-xla/pjrt-builds` → *Build PJRT* with
    `commit_hash=<the new XLA short hash>`. Expect roughly three hours — most of
    it is one bazel build of XLA on a 4-core Windows runner.
-2. When it publishes `pjrt-<commit>-windows-x86_64.zip` and
-   `pjrt-<commit>-linux-x86_64.tar.gz` (on the `pjrt` tag), point the Windows
-   URL and the AVX2-fallback URL in `plugin_url()` at them.
+2. When it publishes `pjrt-<commit>-windows-x86_64.zip`, point the Windows URL
+   in `plugin_url()` at it.
 
-The workflow rebuilds all five configurations. The Windows and Linux x86_64
-assets are the ones needed here; the rest can be cancelled once those two jobs
-finish.
+The workflow rebuilds all five configurations, not just Windows. Only the
+Windows asset is needed here, so cancel the run once that job finishes rather
+than paying for four unused builds.
 
 If the Windows job itself fails, the failure is in that workflow rather than in
 pjrt. Two things are worth knowing before debugging it: jaxlib builds XLA for

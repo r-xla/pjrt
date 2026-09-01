@@ -13,10 +13,6 @@
 * Linux ARM (`aarch64`) now downloads the official ZML artifacts rather than
   a pre-built plugin pinned to an old XLA commit, and the CUDA backend is
   available on Linux ARM as well as Linux x86_64.
-* The official ZML plugins for Linux x86_64 require AVX2 (`-march=x86-64-v3`,
-  i.e. Intel Haswell 2013+ / AMD Zen 2017+) and crash with an illegal
-  instruction on older CPUs. On such CPUs the CPU plugin now falls back
-  automatically to a portable baseline build from `r-xla/pjrt-builds`.
 
 ## Bug fixes
 
