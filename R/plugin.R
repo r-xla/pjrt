@@ -317,6 +317,15 @@ plugin_url <- function(platform) {
     ))
   }
 
+  if (platform == "cpu" && os == "linux" && arch == "amd64" && !cpu_supports_avx2()) {
+    # ZML's linux x86_64 artifacts are built with -march=x86-64-v3 (AVX2/FMA;
+    # Haswell 2013+ / Zen 2017+) and die with an illegal instruction on older
+    # CPUs. Serve those CPUs our portable baseline build instead. Like the
+    # Windows plugin it comes from r-xla/pjrt-builds and must be built from
+    # the same XLA commit as the vendored headers; see the upgrade-pjrt skill.
+    return("https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6b73c4c-linux-x86_64.tar.gz")
+  }
+
   sprintf(
     "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
     zml_version,
@@ -324,6 +333,17 @@ plugin_url <- function(platform) {
     os,
     arch
   )
+}
+
+# Whether the CPU supports AVX2. Only consulted on Linux x86_64; when
+# /proc/cpuinfo cannot be read we assume no AVX2, which errs toward the
+# portable plugin build that runs everywhere.
+cpu_supports_avx2 <- function() {
+  info <- tryCatch(
+    readLines("/proc/cpuinfo", warn = FALSE),
+    error = function(e) character()
+  )
+  any(grepl("^flags\\s*:.*\\bavx2\\b", info))
 }
 
 plugin_version <- function() {
