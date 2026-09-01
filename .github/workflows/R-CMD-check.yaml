@@ -19,6 +19,7 @@ jobs:
       matrix:
         config:
           - { os: "macos", r: "release", platform: "cpu" }
+          - { os: "macos-intel", r: "release", platform: "cpu" }
           - { os: "ubuntu", r: "release", platform: "cpu", build_cpp_tests: true }
           - { os: "ubuntu", r: "release", platform: "cpu", depends_only: true}
           - { os: "ubuntu", r: "oldrel-1", platform: "cpu" }
@@ -42,6 +43,11 @@ jobs:
             runner: 'ubuntu-24.04-arm'
           - config: {os: "macos", platform: "cpu"}
             runner: 'macos-latest'
+            setup: |
+              brew install protobuf@21
+              brew link protobuf@21 --force --overwrite
+          - config: {os: "macos-intel", platform: "cpu"}
+            runner: 'macos-15-intel'
             setup: |
               brew install protobuf@21
               brew link protobuf@21 --force --overwrite

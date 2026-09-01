@@ -128,7 +128,7 @@ pjrt_execute(executable, x, y)
 * **Windows**
   * :white_check_mark: CPU backend is fully supported.
   * :warning: GPU is only supported via Windows Subsystem for Linux (WSL2).
-* **macOS**
+* **macOS** (Apple silicon and Intel)
   * :white_check_mark: CPU backend is supported.
   * :warning: Metal (Apple GPU) backend is available but not fully functional.
 
