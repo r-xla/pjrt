@@ -50,9 +50,6 @@ std::string field_string(SEXP v) {
              : std::string();
 }
 
-// Whether a logical field is TRUE (absent / NA counts as FALSE).
-bool field_true(SEXP v) { return v != R_NilValue && Rf_asLogical(v) == TRUE; }
-
 std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   const SEXPTYPE t = TYPEOF(leaf);
   if (Rf_isObject(leaf)) {
@@ -151,6 +148,24 @@ static std::size_t first_rdata_input(
   return static_cast<std::size_t>(-1);
 }
 
+// Whether the pjrt engine can upload a bare R leaf of storage type `storage`
+// at `target`. Each storage type is uploaded through the buffer entry point
+// for its SEXPTYPE, and those do not all convert to every dtype: a double
+// reaches any of them, an integer any but bool, and a logical only bool --
+// PRED is uploaded from R's logicals alone.
+static bool upload_pair_supported(AnvlDtype storage, AnvlDtype target) {
+  switch (storage) {
+    case AnvlDtype::kRDbl:
+      return true;
+    case AnvlDtype::kRInt:
+      return target != AnvlDtype::kBool;
+    case AnvlDtype::kRBool:
+      return target == AnvlDtype::kBool;
+    default:
+      return false;
+  }
+}
+
 void read_input_dtypes(const Rcpp::List& res,
                        const std::vector<ExecInput>& exec_inputs,
                        bool uploads_rdata, CacheEntry& e) {
@@ -215,6 +230,20 @@ void read_input_dtypes(const Rcpp::List& res,
           "array input, which is supplied as it is; only a bare R input is "
           "uploaded at a declared dtype, so this entry must be NA",
           static_cast<int>(k + 1), CHAR(el));
+    }
+    // Not every R storage type uploads at every dtype. Settled here, on the
+    // compile path and against the `input_dtypes` entry the callback has to
+    // correct, rather than left to surface from the buffer layer mid-execution
+    // as a bare "Unsupported type: pred" naming neither input nor field.
+    const AnvlDtype storage =
+        exec_inputs[static_cast<std::size_t>(k)].aval->dtype;
+    if (uploads_rdata && !upload_pair_supported(storage, d)) {
+      Rcpp::stop(
+          "compile result: `input_dtypes[[%d]]` is \"%s\", which input %d "
+          "cannot be uploaded at: it is %s. An R double uploads at any dtype, "
+          "an R integer at any but \"bool\", and an R logical only at \"bool\"",
+          static_cast<int>(k + 1), CHAR(el), static_cast<int>(k + 1),
+          anvl_dtype_name(storage));
     }
     e.input_dtypes[static_cast<std::size_t>(k)] = d;
   }

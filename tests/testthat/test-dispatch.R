@@ -1152,6 +1152,50 @@ test_that("a bare R input needs its dtype declared, whatever else the call passe
   expect_equal(out(dispatch(d, args)), 3)
 })
 
+test_that("`input_dtypes` may not name a dtype the R value cannot upload at", {
+  skip_if_not(plugins_downloaded())
+  # Each R storage type is uploaded through the buffer entry point for its
+  # SEXPTYPE, and those do not all reach every dtype. The pair is settled on
+  # the compile path, against the `input_dtypes` entry the callback must fix,
+  # rather than surfacing from the buffer layer mid-execution.
+  cb <- function(dtypes, ty) {
+    src <- sprintf(
+      'func.func @main(%%x: tensor<%s>) -> tensor<%s> {
+        "func.return"(%%x): (tensor<%s>) -> ()
+      }',
+      ty,
+      ty,
+      ty
+    )
+    exec <- pjrt_compile(pjrt_program(src = src))
+    function(info) {
+      pjrt_entry(exec, out_avals = list(oav(ty, integer())), input_dtypes = dtypes)
+    }
+  }
+  reject <- function(x, dtypes, ty) {
+    d <- dispatcher(10L, cb(dtypes, ty), default_device = test_pjrt_device)
+    expect_error(dispatch(d, list(x = x)), "cannot be uploaded at: it is")
+  }
+  # An R integer has no path to bool, and an R logical no path to anything else.
+  reject(1L, "bool", "i1")
+  reject(TRUE, "i32", "i32")
+  reject(TRUE, "f32", "f32")
+
+  # The pairs that do work still do, including the ones an R double reaches
+  # only by conversion.
+  accept <- function(x, dtype, ty, expected) {
+    d <- dispatcher(10L, cb(dtype, ty), default_device = test_pjrt_device)
+    expect_equal(
+      as.vector(tengen::as_array(await(dispatch(d, list(x = x))$data))),
+      expected
+    )
+  }
+  accept(TRUE, "bool", "i1", TRUE)
+  accept(3L, "f64", "f64", 3)
+  accept(2.5, "f32", "f32", 2.5)
+  accept(1, "bool", "i1", TRUE)
+})
+
 test_that("`input_dtypes` may not declare a dtype for an array input", {
   skip_if_not(plugins_downloaded())
   # An array is supplied as it is -- nothing uploads it -- so a declared dtype

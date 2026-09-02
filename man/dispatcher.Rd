@@ -72,8 +72,15 @@ get the exact value rather than one rounded through \code{f32} first. The
 \code{"rdata"} aval's \code{dtype} is the leaf's R storage type, so it is never an
 answer to this: the callback names a real dtype. The field may be omitted
 only for a call whose inputs are all arrays.
-Any other \code{backend} uploads nothing (\code{r_fun} gets the R value itself) and
-ignores the field.
+
+Not every R storage type uploads at every dtype, and a pair that cannot
+be uploaded is rejected here rather than at execute time: an \code{"r_dbl"}
+input takes any dtype, an \code{"r_int"} input any but \code{"bool"}, and an
+\code{"r_bool"} input only \code{"bool"}.
+
+Any other \code{backend} uploads nothing -- \code{r_fun} gets the R value itself,
+so no entry can take effect -- but a declared \code{input_dtypes} is still
+checked for length and for naming real dtypes only at bare R inputs.
 }
 
 For any other \code{backend} it must return a named list with:
@@ -170,8 +177,8 @@ sits behind it:
 \itemize{
 \item \code{backend = "pjrt"} executes a compiled PJRT executable natively: array
 inputs contribute their \verb{$data} buffer, bare R literals and arrays are
-uploaded with the same dtype defaults as
-\code{\link[=pjrt_scalar]{pjrt_scalar()}}/\code{\link[=pjrt_buffer]{pjrt_buffer()}}, and the outputs are wrapped back into
+uploaded at the dtype the entry's \code{input_dtypes} declared for them, and
+the outputs are wrapped back into
 \code{"AnvlArray"}s -- lists of \verb{$data}, \verb{$dtype}, \verb{$shape}, \verb{$device} and
 \verb{$backend} -- and re-nested via \code{out_tree}, all without
 leaving C++.

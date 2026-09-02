@@ -28,8 +28,8 @@
 #'
 #' * `backend = "pjrt"` executes a compiled PJRT executable natively: array
 #'   inputs contribute their `$data` buffer, bare R literals and arrays are
-#'   uploaded with the same dtype defaults as
-#'   [`pjrt_scalar()`]/[`pjrt_buffer()`], and the outputs are wrapped back into
+#'   uploaded at the dtype the entry's `input_dtypes` declared for them, and
+#'   the outputs are wrapped back into
 #'   `"AnvlArray"`s -- lists of `$data`, `$dtype`, `$shape`, `$device` and
 #'   `$backend` -- and re-nested via `out_tree`, all without
 #'   leaving C++.
@@ -95,8 +95,15 @@
 #'     `"rdata"` aval's `dtype` is the leaf's R storage type, so it is never an
 #'     answer to this: the callback names a real dtype. The field may be omitted
 #'     only for a call whose inputs are all arrays.
-#'     Any other `backend` uploads nothing (`r_fun` gets the R value itself) and
-#'     ignores the field.
+#'
+#'     Not every R storage type uploads at every dtype, and a pair that cannot
+#'     be uploaded is rejected here rather than at execute time: an `"r_dbl"`
+#'     input takes any dtype, an `"r_int"` input any but `"bool"`, and an
+#'     `"r_bool"` input only `"bool"`.
+#'
+#'     Any other `backend` uploads nothing -- `r_fun` gets the R value itself,
+#'     so no entry can take effect -- but a declared `input_dtypes` is still
+#'     checked for length and for naming real dtypes only at bare R inputs.
 #'
 #'   For any other `backend` it must return a named list with:
 #'   * `r_fun`: a function called with the list of the call's dynamic leaves, in
