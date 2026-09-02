@@ -1096,6 +1096,31 @@ test_that("`input_dtypes` decides the dtype a bare R leaf is uploaded at", {
   )
 })
 
+test_that("`input_dtypes` uploads an R double at an integer dtype exactly", {
+  skip_if_not(plugins_downloaded())
+  # The integer counterpart of the f64 case above: a bare R double consumed as
+  # i64 must arrive as the value it is, not narrowed through an int32 step on
+  # the way in.
+  src <- 'func.func @main(%x: tensor<i64>) -> tensor<i64> {
+    "func.return"(%x): (tensor<i64>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  d <- dispatcher(
+    10L,
+    function(info) {
+      pjrt_entry(
+        exec,
+        out_tree = build_tree(0),
+        out_avals = list(oav("i64", integer())),
+        input_dtypes = "i64"
+      )
+    },
+    default_device = test_pjrt_device
+  )
+  res <- dispatch(d, list(x = 2^40))
+  expect_equal(as.character(tengen::as_array(await(res$data))), "1099511627776")
+})
+
 test_that("a malformed `input_dtypes` is rejected, not silently ignored", {
   skip_if_not(plugins_downloaded())
   src <- 'func.func @main(%x: tensor<f64>) -> tensor<f64> {
