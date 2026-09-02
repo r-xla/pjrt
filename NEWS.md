@@ -3,6 +3,9 @@
 ## Breaking changes
 
 * Updated the PJRT plugin version, which now requires CUDA 13.3.
+* Uploading a double at an integer dtype (`pjrt_buffer(x, dtype = "i64")`) now
+  errors on a value the dtype cannot hold -- `NA`/`NaN`, or one outside its
+  range -- instead of silently storing a wrapped value.
 
 ## New features
 
@@ -13,6 +16,9 @@
 
 * Large buffer whose values are all integer-valued are now
   printed correctly.
+* Uploading a double at an integer dtype no longer narrows it through a 32-bit
+  intermediate first: `pjrt_buffer(2^40, dtype = "i64")` stored
+  `-2147483648`, and now stores `1099511627776`.
 
 ## Other
 

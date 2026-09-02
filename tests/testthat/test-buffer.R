@@ -310,6 +310,45 @@ test_that("pjrt_buffer / as_array round-trip i64 with full 64-bit range", {
   expect_equal(as.character(back), as.character(x))
 })
 
+test_that("a double uploads at an integer dtype without a 32-bit intermediate", {
+  # The double is converted straight to the target type: nothing narrows it to
+  # an R integer on the way, so a value beyond the int32 range survives.
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^40, dtype = "i64"))),
+    "1099511627776"
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(c(2^40, 2^41), dtype = "ui64"))),
+    c("1099511627776", "2199023255552")
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(-2^40, dtype = "i64"))),
+    "-1099511627776"
+  )
+  # Truncation toward zero, like as.integer(), and column-major like any other
+  # pjrt_buffer() upload.
+  expect_equal(
+    as_array(pjrt_buffer(c(1.9, -3.7), dtype = "i32")),
+    array(c(1L, -3L), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(200, dtype = "ui8")), array(200L, 1L))
+  m <- matrix(c(2^40, 2, 3, 4), nrow = 2L)
+  expect_equal(
+    as.character(as_array(pjrt_buffer(m, dtype = "i64"))),
+    as.character(m)
+  )
+})
+
+test_that("a double an integer dtype cannot hold is rejected, not wrapped", {
+  # An integer dtype has no NA sentinel to carry a missing value into, and a
+  # static_cast of an out-of-range double is undefined behaviour.
+  expect_error(pjrt_buffer(1e30, dtype = "i64"), "outside the range")
+  expect_error(pjrt_buffer(-1, dtype = "ui8"), "outside the range")
+  expect_error(pjrt_buffer(300, dtype = "ui8"), "outside the range")
+  expect_error(pjrt_buffer(NA_real_, dtype = "i64"), "NA/NaN")
+  expect_error(pjrt_buffer(NaN, dtype = "i64"), "NA/NaN")
+})
+
 test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {
   x <- bit64::as.integer64(9223372036854775000)
   buf <- pjrt_scalar(x)
