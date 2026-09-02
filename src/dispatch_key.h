@@ -47,17 +47,19 @@ enum class AnvlDtype {
   // The R storage types, which a bare R leaf (AvalKind::kRData) is keyed by.
   // These are not device dtypes and no buffer ever holds one: a bare R value
   // has no dtype until the program says what it is uploaded as, so its key
-  // entry names what the value *is* rather than a dtype it is not yet.
-  kRDbl,
-  kRInt,
-  kRBool,
+  // entry names what the value *is* rather than a dtype it is not yet. They
+  // are spelled as R's own typeof() values, which is why "double" is not f64
+  // and "integer" not i32 -- neither says anything about a buffer's width.
+  kDouble,
+  kInteger,
+  kLogical,
 };
 
 // Whether `d` is an R storage type rather than a device dtype. Only a kRData
 // Aval carries one, and nothing that names a buffer's type accepts one.
 inline bool is_rdata_dtype(AnvlDtype d) {
-  return d == AnvlDtype::kRDbl || d == AnvlDtype::kRInt ||
-         d == AnvlDtype::kRBool;
+  return d == AnvlDtype::kDouble || d == AnvlDtype::kInteger ||
+         d == AnvlDtype::kLogical;
 }
 
 inline AnvlDtype anvl_dtype_from_pjrt(PJRT_Buffer_Type t) {
@@ -118,12 +120,12 @@ inline const char *anvl_dtype_name(AnvlDtype d) {
       return "f32";
     case AnvlDtype::kF64:
       return "f64";
-    case AnvlDtype::kRDbl:
-      return "r_dbl";
-    case AnvlDtype::kRInt:
-      return "r_int";
-    case AnvlDtype::kRBool:
-      return "r_bool";
+    case AnvlDtype::kDouble:
+      return "double";
+    case AnvlDtype::kInteger:
+      return "integer";
+    case AnvlDtype::kLogical:
+      return "logical";
     case AnvlDtype::kInvalid:
       return "invalid";
   }
@@ -133,7 +135,7 @@ inline const char *anvl_dtype_name(AnvlDtype d) {
 // Translate a canonical dtype name to an AnvlDtype. tengen names more dtypes
 // than the dispatcher supports (f16, bf16, f8*, complex, sub-byte ints); those
 // yield kInvalid and the caller rejects them rather than keying approximately.
-// The R storage types ("r_dbl", ...) are deliberately absent: this parses the
+// The R storage types ("double", ...) are deliberately absent: this parses the
 // strings that name a *buffer's* type (a tengen DataType, the compile
 // callback's `input_dtypes`), and no buffer is ever of an R storage type.
 inline AnvlDtype anvl_dtype_from_name(const char *name) {
@@ -171,10 +173,10 @@ inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
 //   kRData  a bare R literal or array. It has no dtype of its own until the
 //           program says what it is used as (anvl's RData values, which let
 //           `x_f64 / sqrt(2)` see the exact double rather than one rounded
-//           through f32), so `dtype` is its R storage type -- "r_dbl", "r_int"
-//           or "r_bool" -- rather than any device dtype: what the leaf is
-//           uploaded at is the entry's `input_dtypes`, which the callback must
-//           declare. Execution uploads the leaf itself.
+//           through f32), so `dtype` is its R storage type -- "double",
+//           "integer" or "logical" -- rather than any device dtype: what the
+//           leaf is uploaded at is the entry's `input_dtypes`, which the
+//           callback must declare. Execution uploads the leaf itself.
 enum class AvalKind : std::uint8_t { kArray, kRData };
 
 // Per-leaf abstract value -- mirrors anvl's nv_aval(dtype, shape) and its

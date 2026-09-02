@@ -59,10 +59,11 @@
 #'     are different cache keys, because bare R data has no dtype of its own and
 #'     the caller may compile it into a different program. `dtype` is a
 #'     canonical dtype string (`"f32"`, `"i64"`, ...) for an `"array"` leaf, and
-#'     for an `"rdata"` leaf its R storage type instead -- `"r_dbl"`, `"r_int"`
-#'     or `"r_bool"`, which is what the value *is*, not a dtype it is not yet
-#'     (what it is uploaded at is `input_dtypes`) -- and `shape` an `integer()`,
-#'     empty for a scalar,
+#'     for an `"rdata"` leaf its R storage type instead -- its [typeof()],
+#'     so `"double"`, `"integer"` or `"logical"`. That is what the value *is*,
+#'     not a dtype it is not yet: `"double"` is not `"f64"`, and what the leaf
+#'     is uploaded at is `input_dtypes`. `shape` is an `integer()`, empty for a
+#'     scalar,
 #'   * `default_device`: the device this call resolved because no array input
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
@@ -97,9 +98,9 @@
 #'     only for a call whose inputs are all arrays.
 #'
 #'     Not every R storage type uploads at every dtype, and a pair that cannot
-#'     be uploaded is rejected here rather than at execute time: an `"r_dbl"`
-#'     input takes any dtype, an `"r_int"` input any but `"bool"`, and an
-#'     `"r_bool"` input only `"bool"`.
+#'     be uploaded is rejected here rather than at execute time: a `"double"`
+#'     input takes any dtype, an `"integer"` input any but `"bool"`, and a
+#'     `"logical"` input only `"bool"`.
 #'
 #'     Any other `backend` uploads nothing -- `r_fun` gets the R value itself,
 #'     so no entry can take effect -- but a declared `input_dtypes` is still

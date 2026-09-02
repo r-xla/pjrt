@@ -33,10 +33,11 @@ backend's arrays and \code{"rdata"} for a bare R literal or array -- the two
 are different cache keys, because bare R data has no dtype of its own and
 the caller may compile it into a different program. \code{dtype} is a
 canonical dtype string (\code{"f32"}, \code{"i64"}, ...) for an \code{"array"} leaf, and
-for an \code{"rdata"} leaf its R storage type instead -- \code{"r_dbl"}, \code{"r_int"}
-or \code{"r_bool"}, which is what the value \emph{is}, not a dtype it is not yet
-(what it is uploaded at is \code{input_dtypes}) -- and \code{shape} an \code{integer()},
-empty for a scalar,
+for an \code{"rdata"} leaf its R storage type instead -- its \code{\link[=typeof]{typeof()}},
+so \code{"double"}, \code{"integer"} or \code{"logical"}. That is what the value \emph{is},
+not a dtype it is not yet: \code{"double"} is not \code{"f64"}, and what the leaf
+is uploaded at is \code{input_dtypes}. \code{shape} is an \code{integer()}, empty for a
+scalar,
 \item \code{default_device}: the device this call resolved because no array input
 named one -- the device the cache key was built on, so \code{compile} must
 compile for it rather than resolve a default of its own. \code{NULL} when an
@@ -74,9 +75,9 @@ answer to this: the callback names a real dtype. The field may be omitted
 only for a call whose inputs are all arrays.
 
 Not every R storage type uploads at every dtype, and a pair that cannot
-be uploaded is rejected here rather than at execute time: an \code{"r_dbl"}
-input takes any dtype, an \code{"r_int"} input any but \code{"bool"}, and an
-\code{"r_bool"} input only \code{"bool"}.
+be uploaded is rejected here rather than at execute time: a \code{"double"}
+input takes any dtype, an \code{"integer"} input any but \code{"bool"}, and a
+\code{"logical"} input only \code{"bool"}.
 
 Any other \code{backend} uploads nothing -- \code{r_fun} gets the R value itself,
 so no entry can take effect -- but a declared \code{input_dtypes} is still
