@@ -53,8 +53,9 @@ struct ArrayLeaf {
 
 // Classification of a bare (class-less) R value as an uploadable
 // literal/array leaf. Mirrors anvl's is_valid_r_lit / is_valid_r_array. The
-// dtype is the value's R storage type (kRDbl / kRInt / kRBool), which is all
-// the key needs: what the leaf is uploaded at is the entry's `input_dtypes`.
+// dtype is the value's R storage type (kDouble / kInteger / kLogical), which is
+// all the key needs: what the leaf is uploaded at is the entry's
+// `input_dtypes`.
 struct RDataInfo {
   AnvlDtype dtype = AnvlDtype::kInvalid;
   std::vector<int64_t> shape;  // empty for a rank-0 literal

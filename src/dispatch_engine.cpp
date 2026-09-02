@@ -58,13 +58,13 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   RDataInfo info;
   switch (t) {
     case REALSXP:
-      info.dtype = AnvlDtype::kRDbl;
+      info.dtype = AnvlDtype::kDouble;
       break;
     case INTSXP:
-      info.dtype = AnvlDtype::kRInt;
+      info.dtype = AnvlDtype::kInteger;
       break;
     case LGLSXP:
-      info.dtype = AnvlDtype::kRBool;
+      info.dtype = AnvlDtype::kLogical;
       break;
     default:
       return std::nullopt;
@@ -155,11 +155,11 @@ static std::size_t first_rdata_input(
 // PRED is uploaded from R's logicals alone.
 static bool upload_pair_supported(AnvlDtype storage, AnvlDtype target) {
   switch (storage) {
-    case AnvlDtype::kRDbl:
+    case AnvlDtype::kDouble:
       return true;
-    case AnvlDtype::kRInt:
+    case AnvlDtype::kInteger:
       return target != AnvlDtype::kBool;
-    case AnvlDtype::kRBool:
+    case AnvlDtype::kLogical:
       return target == AnvlDtype::kBool;
     default:
       return false;

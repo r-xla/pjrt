@@ -16,7 +16,7 @@
 
 ## New features
 
-* Added CUDA support for Linux ARM
+* Added CUDA support for Linux ARM.
 * Added supoort for Intel Macs.
 
 ## Bug fixes

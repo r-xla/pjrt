@@ -139,7 +139,7 @@ mlir_ty <- c(
 # An "rdata" aval names the leaf's R storage type, not a dtype -- the program
 # decides what it is uploaded at. These are the choices the tests make, which
 # happen to be pjrt_scalar()'s defaults.
-rdata_upload_dtype <- c(r_dbl = "f32", r_int = "i32", r_bool = "bool")
+rdata_upload_dtype <- c(double = "f32", integer = "i32", logical = "bool")
 
 
 # ---------------------------------------------------------------------------
@@ -320,8 +320,8 @@ test_that("a static argument compiles one entry per distinct value", {
 
 test_that("bare R data is keyed by its R storage type and uploaded column-major", {
   skip_if_not(plugins_downloaded())
-  # A bare R leaf's aval names its R storage type -- "r_dbl", "r_int",
-  # "r_bool" -- and that is what the cache key is built from. It is not a dtype:
+  # A bare R leaf's aval names its R storage type -- "double", "integer",
+  # "logical" -- and that is what the cache key is built from. It is not a dtype:
   # the callback picks the one the program takes the value at and declares it.
   d <- dispatcher(
     10L,
@@ -363,7 +363,7 @@ test_that("bare R data is keyed by its R storage type and uploaded column-major"
       },
       character(1L)
     ),
-    c("r_dbl", "r_int", "r_bool")
+    c("double", "integer", "logical")
   )
 
   # A rank-0 double literal, uploaded per call; the signature does not change,
@@ -378,7 +378,7 @@ test_that("bare R data is keyed by its R storage type and uploaded column-major"
   expect_equal(out(dispatch(d, list(x = parr(pjrt_scalar(5, dtype = "f32"))))), 5)
   expect_equal(dispatcher_size(d), 2L)
 
-  # An integer literal is "r_int", a different aval and so a new entry.
+  # An integer literal is "integer", a different aval and so a new entry.
   invisible(dispatch(d, list(x = 3L)))
   expect_equal(dispatcher_size(d), 3L)
 
