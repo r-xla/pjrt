@@ -27,6 +27,7 @@ limitations under the License.
 #include <initializer_list>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -291,10 +292,19 @@ class Ffi {
   // Creates an empty binding for the instantiate stage.
   static Binding<ExecutionStage::kInstantiate> BindInstantiate();
 
+  // Creates an empty binding for the prepare stage.
+  static Binding<ExecutionStage::kPrepare> BindPrepare();
+
+  // Creates an empty binding for the initialize stage.
+  static Binding<ExecutionStage::kInitialize> BindInitialize();
+
+  // Creates an empty binding for the execute stage.
+  static Binding<ExecutionStage::kExecute> BindExecute();
+
   // Automatic FFI binding that does binding specification inference from the
   // `fn` type signature and binds `fn` to it. This enables a more concise FFI
   // handler registration with fully automatic type inference at the cost of
-  // less readable error messages, template metaprogramming "magic" and a risk
+  // less readable error messages, template metaprograming "magic" and a risk
   // to accidentally change handler type without noticing it.
   template <typename Fn, ExecutionStage stage = ExecutionStage::kExecute>
   static auto BindTo(Fn fn, std::initializer_list<Traits> traits = {});
@@ -364,7 +374,7 @@ class Ffi {
   template <typename... Args>
   static std::string StrCat(Args... args);
 
-  static XLA_FFI_Error* Sucess();
+  static XLA_FFI_Error* Success();
 
   static XLA_FFI_Error* MakeError(const XLA_FFI_Api* api,
                                   XLA_FFI_Error_Code errc, std::string message);
@@ -426,7 +436,7 @@ std::string Ffi::StrCat(Args... args) {
   return ss.str();
 }
 
-inline XLA_FFI_Error* Ffi::Sucess() { return nullptr; }
+inline XLA_FFI_Error* Ffi::Success() { return nullptr; }
 
 inline XLA_FFI_Error* Ffi::MakeError(const XLA_FFI_Api* api,
                                      XLA_FFI_Error_Code errc,
@@ -475,6 +485,32 @@ inline XLA_FFI_Error* Ffi::StructSizeIsGreaterOrEqual(
 }
 
 //===----------------------------------------------------------------------===//
+// XLA_FFI_Error helpers
+//===----------------------------------------------------------------------===//
+
+namespace internal {
+
+inline void DestroyError(const XLA_FFI_Api* api, XLA_FFI_Error* error) {
+  XLA_FFI_Error_Destroy_Args args;
+  args.struct_size = XLA_FFI_Error_Destroy_Args_STRUCT_SIZE;
+  args.extension_start = nullptr;
+  args.error = error;
+  api->XLA_FFI_Error_Destroy(&args);
+}
+
+inline const char* GetErrorMessage(const XLA_FFI_Api* api,
+                                   XLA_FFI_Error* error) {
+  XLA_FFI_Error_GetMessage_Args args;
+  args.struct_size = XLA_FFI_Error_GetMessage_Args_STRUCT_SIZE;
+  args.extension_start = nullptr;
+  args.error = error;
+  api->XLA_FFI_Error_GetMessage(&args);
+  return args.message;
+}
+
+}  // namespace internal
+
+//===----------------------------------------------------------------------===//
 // Type tags for distinguishing handler argument types
 //===----------------------------------------------------------------------===//
 
@@ -488,7 +524,7 @@ class Context;
 
 namespace internal {
 
-// WARNING: A lot of template metaprogramming on top of C++ variadic templates
+// WARNING: A lot of template metaprograming on top of C++ variadic templates
 // parameter packs. We need this to be able to pattern match FFI handler
 // signature at compile time.
 
@@ -732,12 +768,24 @@ inline Binding<ExecutionStage::kInstantiate> Ffi::BindInstantiate() {
   return Bind<ExecutionStage::kInstantiate>();
 }
 
+inline Binding<ExecutionStage::kPrepare> Ffi::BindPrepare() {
+  return Bind<ExecutionStage::kPrepare>();
+}
+
+inline Binding<ExecutionStage::kInitialize> Ffi::BindInitialize() {
+  return Bind<ExecutionStage::kInitialize>();
+}
+
+inline Binding<ExecutionStage::kExecute> Ffi::BindExecute() {
+  return Bind<ExecutionStage::kExecute>();
+}
+
 //===----------------------------------------------------------------------===//
-// Template metaprogramming to automatically infer Binding from invocable
+// Template metaprograming to automatically infer Binding from invocable
 // object.
 //===----------------------------------------------------------------------===//
 
-// A little bit of metaprogramming that automatically infers the binding schema
+// A little bit of metaprograming that automatically infers the binding schema
 // from an invocable type signature.
 
 // XLA FFI binding for an argument.
@@ -937,7 +985,9 @@ class Result {
  public:
   Result(T value) : value_(value) {}  // NOLINT
   T& operator*() { return value_; }
+  const T& operator*() const { return value_; }
   T* operator->() { return &value_; }
+  const T* operator->() const { return &value_; }
 
  private:
   T value_;
@@ -955,6 +1005,390 @@ class Attr {
  private:
   T value_;
 };
+
+//===----------------------------------------------------------------------===//
+// Buffers
+//===----------------------------------------------------------------------===//
+
+// Sentinel rank for buffers whose rank is not statically known; a dynamic-rank
+// buffer (or pattern) accepts any rank.
+inline constexpr size_t kDynamicRank = std::numeric_limits<size_t>::max();
+
+template <size_t rank, size_t... ranks>
+constexpr bool IsDynamicRank() {
+  return rank == kDynamicRank || ((ranks == kDynamicRank) || ...);
+}
+
+//===----------------------------------------------------------------------===//
+// Buffer Matching
+//===----------------------------------------------------------------------===//
+
+namespace match {
+namespace internal {
+
+// Unlike std::integer_sequence, this sequence also supports enum values.
+template <typename T, T... values>
+struct ValueSequence {
+  using ValueType = T;
+  static constexpr size_t size() { return sizeof...(values); }
+};
+
+}  // namespace internal
+
+// Type-level set of the unique dtype constraints on a pattern. The dtype enum
+// type is fixed per header (DataType or PrimitiveType), so the type system
+// enforces that all dtypes share one enum type.
+template <typename DType, DType... dtypes>
+using DTypeSet = internal::ValueSequence<DType, dtypes...>;
+
+// Type-level set of the unique rank constraints on a pattern.
+template <size_t... ranks>
+using RankSet = internal::ValueSequence<size_t, ranks...>;
+
+namespace internal {
+
+// Reinterprets a buffer as a concrete `Buffer<dtype, rank>` without any checks.
+// Defined by each FFI header as a friend of its buffer types, and only safe to
+// call once a successful match has confirmed the buffer's dtype and rank.
+struct BufferCast;
+
+// Prints a single constraint value into a diagnostic. The default uses
+// `operator<<`; FFI headers specialize it for dtype enums that lack a symbolic
+// `operator<<` (see `PrimitiveType` in `xla/ffi/ffi.h`).
+template <typename T>
+struct ValuePrinter {
+  friend std::ostream& operator<<(std::ostream& os, ValuePrinter printer) {
+    return os << printer.value;
+  }
+  T value;
+};
+
+// Discards diagnostics in the successful hot path. The matcher is rerun with
+// an output stream only when it fails.
+class NoOpDiagnostic {
+ public:
+  template <typename T>
+  NoOpDiagnostic& operator<<(T&&) {
+    return *this;
+  }
+};
+
+inline constexpr char kDType[] = "dtype";
+inline constexpr char kRank[] = "rank";
+
+template <const char* name, typename Values>
+class ValueSet;
+
+template <const char* name, typename T, T... values>
+class ValueSet<name, ValueSequence<T, values...>> {
+  using Values = ValueSequence<T, values...>;
+
+ public:
+  template <typename Diagnostic>
+  static bool Match(T value, Diagnostic& os) {
+    if (empty() ||
+        std::find(kValues.begin(), kValues.end(), value) != kValues.end()) {
+      return true;
+    }
+
+    os << "expected " << name;
+    if (kValues.size() == 1) {
+      os << " " << ValuePrinter<T>{kValues.front()} << " but got "
+         << ValuePrinter<T>{value};
+      return false;
+    }
+
+    os << " to be one of [" << ValuePrinter<T>{kValues.front()};
+    for (size_t i = 1; i < kValues.size(); ++i) {
+      os << ", " << ValuePrinter<T>{kValues[i]};
+    }
+    os << "] but got " << ValuePrinter<T>{value};
+    return false;
+  }
+
+  static void DescribeTo(std::ostream& os) {
+    if (kValues.empty()) {
+      return;
+    }
+    os << name;
+    if (kValues.size() == 1) {
+      os << " " << ValuePrinter<T>{kValues.front()};
+      return;
+    }
+
+    os << " in [" << ValuePrinter<T>{kValues.front()};
+    for (size_t i = 1; i < kValues.size(); ++i) {
+      os << ", " << ValuePrinter<T>{kValues[i]};
+    }
+    os << "]";
+  }
+
+  static constexpr bool empty() { return Values::size() == 0; }
+
+ private:
+  static constexpr std::array<T, Values::size()> kValues = {values...};
+};
+
+template <typename Values>
+using DTypeValues =
+    ValueSet<kDType, Values>;  // NOLINT(readability-identifier-naming): alias
+                               // for internal matcher value sets
+
+template <typename Values>
+using RankValues =
+    ValueSet<kRank, Values>;  // NOLINT(readability-identifier-naming): alias
+                              // for internal matcher value sets
+
+template <typename DTypes, typename Ranks>
+class BufferPatternBase;
+
+}  // namespace internal
+
+// Matches one buffer dimension. A dimension can be unconstrained, fixed, or
+// captured.
+class DimPattern {
+ public:
+  DimPattern() = default;
+
+  template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+  // NOLINTNEXTLINE(google-explicit-constructor,runtime/explicit)
+  DimPattern(T value) : value_(static_cast<int64_t>(value)) {
+    static_assert(sizeof(T) <= sizeof(int64_t),
+                  "Integral dimension value must fit in 64-bit integer.");
+  }
+
+  // Intentionally implicit so that capture pointers (e.g. &rows) can be passed
+  // directly to WithDims and WithDim.
+  // NOLINTNEXTLINE(google-explicit-constructor,runtime/explicit)
+  DimPattern(int64_t* value) : value_(value) {
+    assert(value != nullptr && "dimension capture must be non-null");
+  }
+
+  template <typename Diagnostic>
+  bool Match(int64_t value, size_t index, Diagnostic& os) const {
+    const int64_t* expected = std::get_if<int64_t>(&value_);
+    if (expected == nullptr || value == *expected) {
+      return true;
+    }
+
+    os << "expected dimension " << index << " to be " << *expected
+       << " but got " << value;
+    return false;
+  }
+
+  void Capture(int64_t value) const {
+    if (auto capture = std::get_if<int64_t*>(&value_)) {
+      **capture = value;
+    }
+  }
+
+  void DescribeTo(std::ostream& os) const {
+    if (auto value = std::get_if<int64_t>(&value_)) {
+      os << *value;
+    } else if (std::holds_alternative<int64_t*>(value_)) {
+      os << "any dimension (captured)";
+    } else {
+      os << "any dimension";
+    }
+  }
+
+ private:
+  template <typename, typename>
+  friend class internal::BufferPatternBase;
+
+  int64_t* capture() const {
+    auto capture = std::get_if<int64_t*>(&value_);
+    return capture == nullptr ? nullptr : *capture;
+  }
+
+  // Unconstrained dimension is represented by monostate, a fixed dimension size
+  // by an int64_t value, and a captured dimension by an int64_t* pointer.
+  std::variant<std::monostate, int64_t, int64_t*> value_;
+};
+
+namespace internal {
+
+// An immutable pattern for matching buffer metadata. Dtype and rank
+// constraints remain encoded in the pattern type so Match can refine an
+// AnyBuffer when both identify exactly one concrete buffer type. Patterns with
+// alternative constraints can still be used with Verify or when matching an
+// already typed Buffer.
+//
+// The concrete dtype enum (`DataType` or `PrimitiveType`) is carried by
+// `DTypes`; each FFI header exposes the pattern as its `BufferPattern` alias.
+template <typename DTypes, typename Ranks>
+class BufferPatternBase {
+  using DType = typename DTypes::ValueType;
+
+ public:
+  BufferPatternBase() = default;
+
+  template <size_t rank, size_t... ranks>
+  auto WithRank() const {
+    static_assert(!IsDynamicRank<rank, ranks...>(),
+                  "dynamic rank is represented by an empty rank set");
+    using WithRankSet = RankSet<rank, ranks...>;
+    return BufferPatternBase<DTypes, WithRankSet>(*this);
+  }
+
+  template <DType dtype, DType... dtypes>
+  auto WithDType() const {
+    using WithDTypeSet = DTypeSet<DType, dtype, dtypes...>;
+    return BufferPatternBase<WithDTypeSet, Ranks>(*this);
+  }
+
+  // Constrains every dimension positionally and deduces the type-level rank
+  // from the number of arguments.
+  template <typename... Args,
+            typename = std::enable_if_t<
+                (std::is_convertible_v<Args, DimPattern> && ...)>>
+  XLA_FFI_ATTRIBUTE_ALWAYS_INLINE auto WithDims(Args&&... dimensions) const {
+    using WithRank = RankSet<sizeof...(Args)>;
+    BufferPatternBase<DTypes, WithRank> pattern(*this);
+    pattern.dimensions_ = {std::forward<Args>(dimensions)...};
+    return pattern;
+  }
+
+  // Constrains a single dimension, leaving the rest (and the rank) free.
+  BufferPatternBase WithDim(size_t index, DimPattern dimension) const {
+    BufferPatternBase pattern(*this);
+    auto& dimensions = pattern.dimensions_;
+    dimensions.resize(std::max(dimensions.size(), index + 1));
+    dimensions[index] = std::move(dimension);
+    return pattern;
+  }
+
+  template <size_t index>
+  BufferPatternBase WithDim(DimPattern dimension) const {
+    return WithDim(index, std::move(dimension));
+  }
+
+  template <typename Buffer, typename Diagnostic>
+  XLA_FFI_ATTRIBUTE_ALWAYS_INLINE bool Match(Buffer buffer,
+                                             Diagnostic& os) const {
+    if (!DTypeValues<DTypes>::Match(buffer.element_type(), os)) {
+      return false;
+    }
+
+    auto dimensions = buffer.dimensions();
+    if (!RankValues<Ranks>::Match(dimensions.size(), os)) {
+      return false;
+    }
+
+    if (dimensions_.size() > dimensions.size()) {
+      os << "expected dimension " << dimensions_.size() - 1
+         << " but buffer rank is " << dimensions.size();
+      return false;
+    }
+
+    size_t count = dimensions_.size();
+    for (size_t i = 0; i < count; ++i) {
+      const DimPattern& dimension = dimensions_[i];
+      if (!dimension.Match(dimensions[i], i, os)) {
+        return false;
+      }
+
+      int64_t* capture = dimension.capture();
+      if (capture == nullptr) {
+        continue;
+      }
+      for (size_t j = 0; j < i; ++j) {
+        if (dimensions_[j].capture() != capture) {
+          continue;
+        }
+        if (dimensions[i] == dimensions[j]) {
+          break;
+        }
+        os << "expected dimension " << i << " to be " << dimensions[j]
+           << " but got " << dimensions[i];
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  template <typename Buffer>
+  void Capture(Buffer buffer) const {
+    auto dimensions = buffer.dimensions();
+    size_t count = std::min(dimensions_.size(), dimensions.size());
+    for (size_t i = 0; i < count; ++i) {
+      dimensions_[i].Capture(dimensions[i]);
+    }
+  }
+
+  void DescribeTo(std::ostream& os) const {
+    os << "a buffer";
+    if (!DTypeValues<DTypes>::empty()) {
+      os << " with ";
+      DTypeValues<DTypes>::DescribeTo(os);
+    }
+    if (!RankValues<Ranks>::empty()) {
+      os << " with ";
+      RankValues<Ranks>::DescribeTo(os);
+    }
+    if (!dimensions_.empty()) {
+      os << " with dimensions [";
+      for (size_t i = 0; i < dimensions_.size(); ++i) {
+        if (i != 0) {
+          os << ", ";
+        }
+        dimensions_[i].DescribeTo(os);
+      }
+      os << "]";
+    }
+  }
+
+ private:
+  template <typename, typename>
+  friend class BufferPatternBase;
+
+  template <typename OtherDTypes, typename OtherRanks>
+  explicit BufferPatternBase(
+      const BufferPatternBase<OtherDTypes, OtherRanks>& other)
+      : dimensions_(other.dimensions_) {}
+
+  // Positional dimension constraints. Unconstrained positions (the gaps left by
+  // WithDim) hold a catch-all DimPattern that matches any extent.
+  std::vector<DimPattern> dimensions_;
+};
+
+}  // namespace internal
+
+inline DimPattern Dim() { return DimPattern(); }
+
+template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+inline DimPattern Dim(T value) {
+  return DimPattern(value);
+}
+inline DimPattern Dim(int64_t* value) { return DimPattern(value); }
+
+}  // namespace match
+
+namespace internal {
+
+// Matches buffer metadata and returns an error message on failure. Captures
+// are applied only after a capture-free pass succeeds.
+template <typename Buffer, typename Pattern>
+XLA_FFI_ATTRIBUTE_ALWAYS_INLINE std::optional<std::string> MatchBuffer(
+    std::string_view name, Buffer buffer, const Pattern& pattern) {
+  match::internal::NoOpDiagnostic diagnostic;
+  if (pattern.Match(buffer, diagnostic)) {
+    pattern.Capture(buffer);
+    return std::nullopt;
+  }
+
+  std::ostringstream explanation;
+  pattern.Match(buffer, explanation);
+
+  std::ostringstream error;
+  error << "Buffer '" << name << "' failed to match ";
+  pattern.DescribeTo(error);
+  error << ": " << explanation.str();
+  return error.str();
+}
+
+}  // namespace internal
 
 //===----------------------------------------------------------------------===//
 // Attributes bindings
@@ -1509,7 +1943,7 @@ class ContextBase {
 }  // namespace internal
 
 //===----------------------------------------------------------------------===//
-// Template metaprogramming for decoding handler signature
+// Template metaprograming for decoding handler signature
 //===----------------------------------------------------------------------===//
 
 // Forward declare classes for decoding variadic number of arguments and
@@ -1571,16 +2005,17 @@ struct FnArgType<internal::CtxTag<T>> {
 
 // A template to detect result encodings that are state constructors. We use
 // this to report back the TypeId of the state as a part of the metadata.
-template <typename ResultEnconding, typename = void>
+template <typename ResultEncoding, typename = void>
 struct IsStateConstructor : std::false_type {};
 
-// Check if the ResultEncoding has a static `state_type_id()` method returning
-// the XLA_FFI_TypeId.
+// Check if the ResultEncoding has a static `state_type_id(const XLA_FFI_Api*)`
+// method returning the XLA_FFI_TypeId.
 template <typename ResultEncoding>
 struct IsStateConstructor<
     ResultEncoding,
     std::enable_if_t<std::is_same_v<XLA_FFI_TypeId,
-                                    decltype(ResultEncoding::state_type_id())>>>
+                                    decltype(ResultEncoding::state_type_id(
+                                        std::declval<const XLA_FFI_Api*>()))>>>
     : std::true_type {};
 
 template <typename ResultEncoding>
@@ -1627,13 +2062,10 @@ class Handler : public Ffi {
   using ResultType = std::invoke_result_t<Fn, FnArgType<Ts>...>;
 
  public:
-  // We deliberately opt-out from the cognitive complexity check, as this
-  // function is on a hot path, any any attempt to split it leads to measurable
-  // regressions in microbenchmarks. It is a straight line block of mostly
-  // constexpr conditionals, that gets optimized to a much smaller code size in
-  // all template instantiations.
-  //
-  // NOLINTNEXTLINE(readability-function-cognitive-complexity)
+  // Note: this function is on a hot path, any any attempt to split it leads to
+  // measurable regressions in microbenchmarks. It is a straight line block of
+  // mostly constexpr conditionals, that gets optimized to a much smaller code
+  // size in all template instantiations.
   XLA_FFI_Error* Call(XLA_FFI_CallFrame* call_frame) const override {
     // Sanity checking call frame struct size.
     if (XLA_FFI_Error* err = CheckStructSize(
@@ -1668,7 +2100,8 @@ class Handler : public Ffi {
       if (XLA_FFI_PREDICT_FALSE(call_frame->args.size < kNumArgs)) {
         return InvalidArgument(
             call_frame->api,
-            StrCat("Wrong number of arguments: expected at least ",
+            StrCat("[", call_frame->stage, "] ",
+                   "Wrong number of arguments: expected at least ",
                    kNumArgs - kNumOptionalArgs - 1, " but got ",
                    call_frame->args.size));
       }
@@ -1676,15 +2109,21 @@ class Handler : public Ffi {
       if (XLA_FFI_PREDICT_FALSE(call_frame->args.size < kNumArgs)) {
         return InvalidArgument(
             call_frame->api,
-            StrCat("Wrong number of arguments: expected at least ",
+            StrCat("[", call_frame->stage, "] ",
+                   "Wrong number of arguments: expected at least ",
                    kNumArgs - kNumOptionalArgs, " but got ",
                    call_frame->args.size));
       }
     } else {
-      if (XLA_FFI_PREDICT_FALSE(call_frame->args.size != kNumArgs)) {
+      // It is safe to not check the number of arguments if we don't plan to
+      // decode any of them, i.e. for prepare/initialize stages where the FFI
+      // handler might be interested only in the attributes or context.
+      if (XLA_FFI_PREDICT_FALSE(call_frame->args.size != kNumArgs &&
+                                kNumArgs > 0)) {
         return InvalidArgument(
             call_frame->api,
-            StrCat("Wrong number of arguments: expected ", kNumArgs,
+            StrCat("[", call_frame->stage, "] ",
+                   "Wrong number of arguments: expected ", kNumArgs,
                    " but got ", call_frame->args.size));
       }
     }
@@ -1695,7 +2134,8 @@ class Handler : public Ffi {
       if (XLA_FFI_PREDICT_FALSE(call_frame->rets.size < kNumRets)) {
         return InvalidArgument(
             call_frame->api,
-            StrCat("Wrong number of results: expected at least ",
+            StrCat("[", call_frame->stage, "] ",
+                   "Wrong number of results: expected at least ",
                    kNumRets - kNumOptionalRets - 1, " but got ",
                    call_frame->rets.size));
       }
@@ -1703,28 +2143,43 @@ class Handler : public Ffi {
       if (XLA_FFI_PREDICT_FALSE(call_frame->rets.size < kNumRets)) {
         return InvalidArgument(
             call_frame->api,
-            StrCat("Wrong number of results: expected at least ",
+            StrCat("[", call_frame->stage, "] ",
+                   "Wrong number of results: expected at least ",
                    kNumRets - kNumOptionalRets, " but got ",
                    call_frame->rets.size));
       }
     } else {
-      if (XLA_FFI_PREDICT_FALSE(call_frame->rets.size != kNumRets)) {
+      // It is safe to not check the number of results if we don't plan to
+      // decode any of them, i.e. for prepare/initialize stages where the FFI
+      // handler might be interested only in the attributes or context.
+      if (XLA_FFI_PREDICT_FALSE(call_frame->rets.size != kNumRets &&
+                                kNumRets > 0)) {
         return InvalidArgument(
             call_frame->api,
-            StrCat("Wrong number of results: expected ", kNumRets, " but got ",
+            StrCat("[", call_frame->stage, "] ",
+                   "Wrong number of results: expected ", kNumRets, " but got ",
                    call_frame->rets.size));
       }
     }
 
     // Check that the number of passed attributes matches the signature. Each
-    // individual attribute decoding will check the actual type. If we decode
-    // attributes into a dictionary (or a custom struct decoded from a
-    // dictionary), then there is no need to check attributes, as the FFI
-    // handler (or a struct decoding) should be responsible for it.
-    if (XLA_FFI_PREDICT_FALSE(kNumDictAttrs == 0 &&
+    // individual attribute decoding will check the actual type.
+    //
+    // If we decode attributes into a dictionary (or a custom struct decoded
+    // from a dictionary), then there is no need to check the number of
+    // attributes, as the FFI handler (or a struct decoding) should be
+    // responsible for it.
+    //
+    // If the number of bound attributes is zero, then we also don't care about
+    // the number of attributes in the call frame. FFI handler can safely choose
+    // to ignore attributes in this case. We only need to check the number of
+    // attributes if we plan to decode them, as we build a mapping from the
+    // attribute name to its index in the call frame attributes.
+    if (XLA_FFI_PREDICT_FALSE(kNumDictAttrs == 0 && kNumAttrs > 0 &&
                               call_frame->attrs.size != kNumAttrs)) {
       std::stringstream msg;
-      msg << "Wrong number of attributes: expected " << kNumAttrs << " but got "
+      msg << "[" << call_frame->stage << "] "
+          << "Wrong number of attributes: expected " << kNumAttrs << " but got "
           << call_frame->attrs.size;
       if (call_frame->attrs.size > 0) {
         msg << " with name(s): ";
@@ -1781,17 +2236,17 @@ class Handler : public Ffi {
     // type id in the metadata.
     using ResultEncoding = ResultEncoding<stage, ResultType>;
     if constexpr (internal::is_state_constructor_v<ResultEncoding>) {
-      if (ResultEncoding::state_type_id() == XLA_FFI_UNKNOWN_TYPE_ID) {
+      if (ResultEncoding::state_type_id(api) == XLA_FFI_UNKNOWN_TYPE_ID) {
         return FailedPrecondition(api,
                                   "Types used by FFI handlers must be "
                                   "registered before the handler registration");
       }
-      extension->metadata->state_type_id = ResultEncoding::state_type_id();
+      extension->metadata->state_type_id = ResultEncoding::state_type_id(api);
     } else {
       extension->metadata->state_type_id = XLA_FFI_UNKNOWN_TYPE_ID;
     }
 
-    return Sucess();
+    return Success();
   }
 
   template <size_t... Is>
@@ -2155,12 +2610,6 @@ auto DictionaryDecoder(Members... m) {
 // Helper macro for registering FFI implementations
 //===----------------------------------------------------------------------===//
 
-#if (defined(__GNUC__) || defined(__APPLE__)) && !defined(SWIG)  // GCC-style
-#define XLA_FFI_ATTRIBUTE_UNUSED __attribute__((unused))
-#else  // Non-GCC equivalents
-#define XLA_FFI_ATTRIBUTE_UNUSED
-#endif
-
 // In all macros below we use captureless lambda to function pointer conversion
 // to create a static XLA_FFI_Handler function pointer variable.
 
@@ -2208,7 +2657,7 @@ auto DictionaryDecoder(Members... m) {
 #define XLA_FFI_REGISTER_HANDLER_(API, NAME, PLATFORM, FUNC, N, ...) \
   XLA_FFI_REGISTER_HANDLER__(API, NAME, PLATFORM, FUNC, N, ##__VA_ARGS__)
 #define XLA_FFI_REGISTER_HANDLER__(API, NAME, PLATFORM, FUNC, N, ...)       \
-  XLA_FFI_ATTRIBUTE_UNUSED static const XLA_FFI_Error*                      \
+  [[maybe_unused]] static const XLA_FFI_Error*                              \
       xla_ffi_static_handler_##N##_registered_ = [] {                       \
         return ::xla::ffi::Ffi::RegisterStaticHandler(API, NAME, PLATFORM,  \
                                                       FUNC, ##__VA_ARGS__); \
@@ -2216,6 +2665,14 @@ auto DictionaryDecoder(Members... m) {
 
 // Following two APIs are intended for users who want to export XLA FFI handler
 // from a shared library as a C function symbol.
+
+// Declares C function that returns FFI type id.
+#define XLA_FFI_DECLARE_TYPE_ID_SYMBOL(type_id_fn) \
+  extern "C" XLA_FFI_TypeId* type_id_fn()
+
+// Declares C function that returns FFI type info.
+#define XLA_FFI_DECLARE_TYPE_INFO_SYMBOL(type_info_fn) \
+  extern "C" const XLA_FFI_TypeInfo* type_info_fn()
 
 // Declares C function that implements FFI handler.
 #define XLA_FFI_DECLARE_HANDLER_SYMBOL(fn) \

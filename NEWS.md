@@ -1,5 +1,26 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* Updated the PJRT plugin version, which now requires CUDA 13.3.
+
+## New features
+
+* Added CUDA support for Linux ARM
+* Added supoort for Intel Macs.
+
+## Bug fixes
+
+* Large buffer whose values are all integer-valued are now
+  printed correctly.
+
+## Other
+
+* pjrt no longer Suggests anvl and stablehlo for it's tests
+  and the integration tests are moved to {anvl}.
+
+# pjrt 0.5.0
+
 ## Performance
 
 * A `PJRTBuffer` now memoizes its immutable metadata (dtype, shape, and
@@ -8,7 +29,7 @@
 
 ## Bug fixes
 
-* `check_err()` no longer leaks the underlying `PJRT_Error` when
+* `check_err()` (C++) no longer leaks the underlying `PJRT_Error` when
   converting a plugin error into an R exception.
 * Reading a buffer back to the host now respects the device buffer's
   actual memory layout. A non-row-major (but untiled) executable output —
@@ -30,7 +51,8 @@
   `PJRT_INSTALL` environment variable overrides this: set it to `"1"` to
   always download without asking, or `"0"` to never download.
 * Added an `install_pjrt()` function which is a slight convenience wrapper
-  for downloading the plugins.
+  for downloading the plugins. When it installs the CUDA plugin, it also
+  installs the R package providing the CUDA libraries (`cuda12.8`).
 * Added the Rtree module (pjrt's R analog of JAX's pytree), which
   includes functions like `build_tree()`, `flatten()`, `unflatten()`, etc..
 * Added `dispatcher()` and `dispatch()`, a native (C++) eager-dispatch engine:
