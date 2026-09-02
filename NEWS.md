@@ -3,6 +3,16 @@
 ## Breaking changes
 
 * Updated the PJRT plugin version, which now requires CUDA 13.3.
+* Removed support for the `ambiguity` field in the dispatcher and replaced
+  it with support for `rdata` objects.
+  This enables the improved precision semantics in anvl.
+* A bare R leaf's aval now names its R storage type (`"r_dbl"`, `"r_int"`,
+  `"r_bool"`) rather than the dtype it used to default to: the value has no
+  dtype until the program says what it is uploaded at.
+* The dispatcher's `input_dtypes` is now validated against the call's inputs:
+  with `backend = "pjrt"` every bare R input must name the dtype it is uploaded
+  at (there is no default to fall back on), and an array input must be `NA`,
+  since it is supplied as it is.
 
 ## New features
 
@@ -11,8 +21,9 @@
 
 ## Bug fixes
 
-* Large buffer whose values are all integer-valued are now
-  printed correctly.
+* Printing a float buffer whose values are all integer-valued but exceed the
+  `int64` range (e.g. `1e20`) no longer renders them as
+  `-9223372036854775808`.
 
 ## Other
 

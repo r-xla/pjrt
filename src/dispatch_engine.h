@@ -52,16 +52,16 @@ struct ArrayLeaf {
 };
 
 // Classification of a bare (class-less) R value as an uploadable
-// literal/array leaf. Mirrors anvl's is_valid_r_lit / is_valid_r_array and its
-// default dtypes (double -> f32, integer -> i32, logical -> pred -- also
-// pjrt_scalar()'s defaults).
+// literal/array leaf. Mirrors anvl's is_valid_r_lit / is_valid_r_array. The
+// dtype is the value's R storage type (kRDbl / kRInt / kRBool), which is all
+// the key needs: what the leaf is uploaded at is the entry's `input_dtypes`.
 struct RDataInfo {
   AnvlDtype dtype = AnvlDtype::kInvalid;
   std::vector<int64_t> shape;  // empty for a rank-0 literal
 };
 
 // Nullopt for anything that is not uploadable bare R data -- NA literals
-// included: they have no dtype.
+// included: they have no value the program could be given.
 std::optional<RDataInfo> classify_rdata(SEXP leaf);
 
 // class(x)[1L], as R would print it, for naming a rejected leaf's type.
@@ -78,9 +78,16 @@ std::string leaf_subject(const RTree& in_tree, std::size_t leaf_index);
 // they are baked into the program as constants and live only in the cache key
 // -- so the inputs to supply are exactly this sequence.
 struct ExecInput {
-  SEXP value = R_NilValue;     // an array leaf's `$data`, or the bare R leaf
-  const Aval* aval = nullptr;  // an upload needs its shape
-  bool upload = false;         // bare R data: upload it. Else: ready to use
+  SEXP value = R_NilValue;  // an array leaf's `$data`, or the bare R leaf
+  // The leaf's Aval: its `kind` says whether the value is ready to use or has
+  // to be uploaded, and an upload needs its shape.
+  const Aval* aval = nullptr;
+  // The dtype to upload bare R data at, from the entry's `input_dtypes`: an
+  // engine that uploads bare R data itself requires the compile callback to
+  // declare one, because only the compiled program knows what dtype it was
+  // compiled to take. Unused for an array leaf, and kInvalid for every input of
+  // an engine that uploads nothing.
+  AnvlDtype dtype = AnvlDtype::kInvalid;
 };
 
 // An engine's per-entry material -- what the compile callback produced, in the
@@ -105,6 +112,13 @@ struct CacheEntry {
   // and are rooted by it, not here.
   std::vector<Rcpp::RObject> keep;
   std::unique_ptr<EntryData> data;
+  // The dtype each execute-time input is supplied at, in program order, as the
+  // compile callback declared it (`input_dtypes`). kInvalid at a position
+  // leaves that input alone; it is the only entry an array input takes, since
+  // an array is supplied as it is. Empty when the callback declared nothing,
+  // which an engine that uploads bare R data allows only for a call whose
+  // inputs are all arrays.
+  std::vector<AnvlDtype> input_dtypes;
 
   // Root `x` for this entry's lifetime. R_NilValue is a no-op.
   void keep_alive(SEXP x) {
@@ -147,6 +161,11 @@ class Engine {
   // first: a malformed result must throw rather than produce an entry.
   virtual void build_entry(const Rcpp::List& res, CacheEntry& e) const = 0;
 
+  // Whether this engine uploads a bare R input itself, and so needs the dtype
+  // to upload it at declared (`input_dtypes`): true for pjrt, false for an
+  // engine that hands the R value to a closure that decides for itself.
+  virtual bool uploads_rdata() const { return false; }
+
   // Execute one call against a cached entry and return the finished R value.
   // `inputs` is the call's execute-time inputs, already classified and in order
   // (see ExecInput): the engine supplies exactly these, and knows nothing of
@@ -165,6 +184,21 @@ class Engine {
   // engine's lifetime; owned by the default canonical_device().
   std::vector<Rcpp::RObject> canonical_devices_;
 };
+
+// Read the compile callback's `input_dtypes` into the entry, validating it: a
+// character vector, one element per execute-time input, each a canonical dtype
+// name or NA. Absent (or NULL) leaves `e.input_dtypes` empty. `exec_inputs` is
+// what the call actually has to supply, so a callback that declares a different
+// number is a malformed result rather than a silent mismatch at execute time,
+// and a dtype at an array input -- which nothing ever uploads, so the declared
+// dtype could not be honoured -- is rejected rather than ignored.
+//
+// `uploads_rdata` (Engine::uploads_rdata()) makes the declaration mandatory for
+// every bare R input: bare R data has no dtype of its own, and only the
+// compiled program knows what it is used as, so the engine never guesses one.
+void read_input_dtypes(const Rcpp::List& res,
+                       const std::vector<ExecInput>& exec_inputs,
+                       bool uploads_rdata, CacheEntry& e);
 
 // `engine_name` is the R-facing selector: "pjrt" or "closure"; throws on any
 // other value. `backend` is the tag the dispatcher's arrays carry (the engine
