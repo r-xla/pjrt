@@ -1,4 +1,4 @@
-skip_if_metal("FFI extension not available on metal")
+skip_if_mps("FFI extension not available on mps")
 
 test_that("can load the ffi extension", {
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")

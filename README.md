@@ -158,8 +158,18 @@ pjrt_execute(executable, x, y)
     (WSL2).
 - **macOS** (Apple silicon and Intel)
   - :white_check_mark: CPU backend is supported.
-  - :warning: Metal (Apple GPU) backend is available but not fully
+  - :warning: MPS (Apple GPU) backend is available but not fully
     functional.
+
+## Versions
+
+The versions below are queried from the CPU plugin:
+
+| Component                     | Version |
+|:------------------------------|:--------|
+| PJRT C API                    | 0.81    |
+| StableHLO (current)           | 1.13.3  |
+| StableHLO (minimum supported) | 0.9.0   |
 
 ## Acknowledgements
 
@@ -177,5 +187,5 @@ pjrt_execute(executable, x, y)
   - Various protobuf files, see `./tools/copy-proto.R` for which ones.
   - Plugin implementations for CPU and CUDA (we are using the builds
     from [zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts/)).
-- For Metal, we are using the plugin implementation from
-  [jax-metal](https://pypi.org/project/jax-metal/).
+- For MPS (Apple GPU), we are using the plugin implementation from
+  [jax-mps](https://github.com/tillahoffmann/jax-mps).

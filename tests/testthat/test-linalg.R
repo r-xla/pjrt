@@ -1,4 +1,4 @@
-skip_if_metal("linalg custom_calls are CPU/CUDA only")
+skip_if_mps("linalg custom_calls are CPU/CUDA only")
 
 describe("qr (geqrf + orgqr)", {
   # Exercises the `geqrf` + `orgqr` LAPACK / cuSOLVER custom calls: QR

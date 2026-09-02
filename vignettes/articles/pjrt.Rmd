@@ -19,7 +19,7 @@ knitr::opts_chunk$set(
 
 The {pjrt} package provides an R interface to [PJRT](https://openxla.org/xla/pjrt), part of the [OpenXLA](https://openxla.org/) project.
 PJRT is a portability layer that allows frameworks to work with different hardware backends through a standardized interface.
-Anyone can implement a PJRT plugin for a specific hardware backend, and this package currently supports CPU, NVIDIA GPU, and Metal (Apple GPU; experimental) plugins.
+Anyone can implement a PJRT plugin for a specific hardware backend, and this package currently supports CPU, NVIDIA GPU, and MPS (Apple GPU; experimental) plugins.
 
 A key design principle of pjrt is **asynchronous dispatch**: operations like buffer creation and program execution return immediately with `PJRTBuffer` objects that may not be ready yet, allowing R to continue preparing work while the device computes in the background. This enables efficient overlap of host and device work, which is critical for performance on accelerators.
 
