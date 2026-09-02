@@ -13,6 +13,9 @@
 
 * Large buffer whose values are all integer-valued are now
   printed correctly.
+* Uploading a double at an integer dtype no longer narrows it through a 32-bit
+  intermediate first: `pjrt_buffer(2^40, dtype = "i64")` stored
+  `-2147483648`, and now stores `1099511627776`.
 
 ## Other
 
