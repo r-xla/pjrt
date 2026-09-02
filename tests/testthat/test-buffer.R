@@ -339,14 +339,20 @@ test_that("a double uploads at an integer dtype without a 32-bit intermediate", 
   )
 })
 
-test_that("a double an integer dtype cannot hold is rejected, not wrapped", {
-  # An integer dtype has no NA sentinel to carry a missing value into, and a
-  # static_cast of an out-of-range double is undefined behaviour.
-  expect_error(pjrt_buffer(1e30, dtype = "i64"), "outside the range")
-  expect_error(pjrt_buffer(-1, dtype = "ui8"), "outside the range")
-  expect_error(pjrt_buffer(300, dtype = "ui8"), "outside the range")
-  expect_error(pjrt_buffer(NA_real_, dtype = "i64"), "NA/NaN")
-  expect_error(pjrt_buffer(NaN, dtype = "i64"), "NA/NaN")
+test_that("a double an integer dtype cannot hold is left to the check flags", {
+  # Buffer creation checks nothing by design, so an unrepresentable value is
+  # uploaded rather than rejected. It lands on the type's NA sentinel, which is
+  # what the two check flags already look for.
+  expect_no_error(pjrt_buffer(1e30, dtype = "i64"))
+  expect_no_error(pjrt_buffer(c(-1, 300), dtype = "ui8"))
+  expect_no_error(pjrt_buffer(NA_real_, dtype = "i64"))
+
+  expect_error(pjrt_buffer(NA_real_, dtype = "i64", check = TRUE), "missing")
+  expect_error(
+    as_array(pjrt_buffer(1e30, dtype = "i64"), check = TRUE),
+    "distinguish from"
+  )
+  expect_true(anyNA(as_array(pjrt_buffer(NaN, dtype = "i32"))))
 })
 
 test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {

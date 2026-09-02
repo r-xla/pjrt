@@ -120,24 +120,27 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
 
 // Convert one R double to the integral element type T: as.integer()'s
 // truncation toward zero, but without R's 32-bit intermediate -- an i64 buffer
-// must be able to hold 2^40. A static_cast of a NaN or out-of-range double is
-// undefined behaviour, so those are rejected rather than wrapped; an integer
-// dtype has no NA sentinel to carry a missing value into either.
+// must be able to hold 2^40.
+//
+// A value T cannot represent is not rejected. Buffer creation checks nothing
+// by design (see ?pjrt_buffer): NA input is `check = TRUE`'s business and a
+// corrupt result is as_array(check = TRUE)'s. It is still mapped to a defined
+// result, because a static_cast of a NaN or out-of-range double is undefined
+// behaviour, and undefined is not the same as unchecked -- lowest(), which for
+// the signed types is the NA sentinel both of those checks already look for.
 template <typename T>
 T r_double_to_integral(double v) {
-  if (ISNAN(v)) {
-    Rcpp::stop("Cannot convert NA/NaN to integer type");
-  }
   const double t = std::trunc(v);
   // The bounds are compared in double space. lowest() is a power of two, and
   // max() + 1 is spelled max() / 2 + 1 doubled -- also a power of two -- so
   // both convert to double exactly and the half-open test is the correct one
-  // (max() itself is generally not representable as a double).
+  // (max() itself is generally not representable as a double). Negated, so a
+  // NaN takes the same path as an out-of-range value.
   constexpr double kLo = static_cast<double>(std::numeric_limits<T>::lowest());
   constexpr double kHiExclusive =
       2.0 * static_cast<double>(std::numeric_limits<T>::max() / 2 + 1);
-  if (t < kLo || t >= kHiExclusive) {
-    Rcpp::stop("Value %g is outside the range of the target integer type", v);
+  if (!(t >= kLo && t < kHiExclusive)) {
+    return std::numeric_limits<T>::lowest();
   }
   return static_cast<T>(t);
 }
