@@ -54,15 +54,16 @@
 <div class="section level3">
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
 <ul><li>Updated the PJRT plugin version, which now requires CUDA 13.3.</li>
+<li>Removed support for the ambiguity concept in the dispatcher and replaced it with support for <code>rdata</code> objects. This enables the improved precision semantics in anvl.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
-<ul><li>Added CUDA support for Linux ARM</li>
+<ul><li>Added CUDA support for Linux ARM.</li>
 <li>Added supoort for Intel Macs.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
-<ul><li>Large buffer whose values are all integer-valued are now printed correctly.</li>
+<ul><li>Large float buffers now print correctly.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="other-development-version">Other<a class="anchor" aria-label="anchor" href="#other-development-version"></a></h3>

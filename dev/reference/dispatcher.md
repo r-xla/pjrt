@@ -49,9 +49,18 @@ dispatcher(
     mask over `leaves`,
 
   - `avals`: per leaf, `NULL` if static, else the
-    `list(dtype, shape, ambiguous)` the cache key was built from.
-    `dtype` is a canonical dtype string (`"f32"`, `"i64"`, ...), `shape`
-    an [`integer()`](https://rdrr.io/r/base/integer.html), empty for a
+    `list(kind, dtype, shape)` the cache key was built from. `kind` is
+    `"array"` for one of the backend's arrays and `"rdata"` for a bare R
+    literal or array – the two are different cache keys, because bare R
+    data has no dtype of its own and the caller may compile it into a
+    different program. `dtype` is a canonical dtype string (`"f32"`,
+    `"i64"`, ...) for an `"array"` leaf, and for an `"rdata"` leaf its R
+    storage type instead – its
+    [`typeof()`](https://rdrr.io/r/base/typeof.html), so `"double"`,
+    `"integer"` or `"logical"`. That is what the value *is*, not a dtype
+    it is not yet: `"double"` is not `"f64"`, and what the leaf is
+    uploaded at is `input_dtypes`. `shape` is an
+    [`integer()`](https://rdrr.io/r/base/integer.html), empty for a
     scalar,
 
   - `default_device`: the device this call resolved because no array
@@ -73,15 +82,44 @@ dispatcher(
     [`build_tree`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md)),
 
   - `out_avals`: one aval per output leaf of `out_tree`, each a
-    `list(dtype = <string>, shape = <integer>, ambiguous = <logical(1)>)`
-    (`ambiguous` is optional and defaults to `FALSE`). The outputs are
-    wrapped from these.
+    `list(dtype = <string>, shape = <integer>)`. The outputs are wrapped
+    from these.
 
   - `const_arrays` (optional): buffers prepended to the inputs,
 
   - `phantom_specs` (optional): a list of
     `list(dtype = <string>, shape = <integer>)` donation-output buffers
     to allocate fresh per call.
+
+  Either kind of result may additionally carry:
+
+  - `input_dtypes`: a
+    [`character()`](https://rdrr.io/r/base/character.html) with one
+    entry per dynamic leaf, in order, naming the dtype that input is
+    supplied at. `NA` leaves an input alone, and is the only valid entry
+    for an array input: an array is supplied as it is, so declaring a
+    dtype for one is an error rather than a no-op.
+
+    With `backend = "pjrt"` every bare R leaf must name a dtype: bare R
+    data has no dtype of its own, and only the compiled program knows
+    what it is used as, so the engine uploads it at the dtype declared
+    here and never guesses one. It is what lets a program that consumes
+    an R double as `f64` get the exact value rather than one rounded
+    through `f32` first. The `"rdata"` aval's `dtype` is the leaf's R
+    storage type, so it is never an answer to this: the callback names a
+    real dtype. The field may be omitted only for a call whose inputs
+    are all arrays.
+
+    Not every R storage type uploads at every dtype, and a pair that
+    cannot be uploaded is rejected here rather than at execute time: a
+    `"double"` input takes any dtype, an `"integer"` input any but
+    `"bool"`, and a `"logical"` input only `"bool"`.
+
+    Any other `backend` uploads nothing: `r_fun` gets each R value
+    itself, so no entry could take effect and every one of them must be
+    `NA`. A declared dtype is rejected there rather than accepted and
+    ignored, for the same reason it is at an array input. The field is
+    still length-checked, and may still be omitted entirely.
 
   For any other `backend` it must return a named list with:
 
@@ -155,10 +193,12 @@ dispatcher(
   (`function` \| `NULL`)  
   Reads a non-`"pjrt"` array's metadata via the backend's accessors,
   called as `extractor(leaf)` and returning
-  `list(aval = list(dtype, shape, ambiguous), device, backend)` –
-  `dtype` a tengen `DataType`, `shape` an
-  [`integer()`](https://rdrr.io/r/base/integer.html). Required for any
-  backend other than `"pjrt"`; ignored for `"pjrt"` (see *Backends*).
+  `list(aval = list(dtype, shape), device, backend)` – `dtype` a tengen
+  `DataType`, `shape` an
+  [`integer()`](https://rdrr.io/r/base/integer.html). The aval's kind is
+  not the extractor's to say: whatever it returns is an array leaf.
+  Required for any backend other than `"pjrt"`; ignored for `"pjrt"`
+  (see *Backends*).
 
 ## Value
 
@@ -169,11 +209,11 @@ dispatcher(
 Each
 [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)
 call flattens the inputs and builds a cache key: a dynamic leaf
-contributes its dtype, shape and `ambiguous` flag, a static leaf its
-value (compared with
-[`identical()`](https://rdrr.io/r/base/identical.html)). On a hit the
-cached executable runs immediately; on a miss `compile` is called to
-produce a new cache entry.
+contributes its abstract value – its kind (one of the backend's arrays,
+or bare R data), its dtype and its shape – a static leaf its value
+(compared with [`identical()`](https://rdrr.io/r/base/identical.html)).
+On a hit the cached executable runs immediately; on a miss `compile` is
+called to produce a new cache entry.
 
 Inputs are validated before the cache is probed, and a rejection names
 the offending argument by its path in the argument tree. An input must
@@ -189,11 +229,10 @@ backend-specific sits behind it:
 
 - `backend = "pjrt"` executes a compiled PJRT executable natively: array
   inputs contribute their `$data` buffer, bare R literals and arrays are
-  uploaded with the same dtype defaults as
-  [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)/[`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
+  uploaded at the dtype the entry's `input_dtypes` declared for them,
   and the outputs are wrapped back into `"AnvlArray"`s – lists of
-  `$data`, `$dtype`, `$shape`, `$device`, `$ambiguous` and `$backend` –
-  and re-nested via `out_tree`, all without leaving C++.
+  `$data`, `$dtype`, `$shape`, `$device` and `$backend` – and re-nested
+  via `out_tree`, all without leaving C++.
 
 - any other `backend` calls the compiled R closure `compile` returned,
   which returns the call's finished value. Execution, output wrapping

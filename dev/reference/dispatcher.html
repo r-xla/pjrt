@@ -99,8 +99,16 @@ classify the inputs a second time:</p><ul><li><p><code>args</code>: the dispatch
 <li><p><code>in_tree</code>: its <code>RTree</code> (see <code><a href="build_tree.html">build_tree</a></code>),</p></li>
 <li><p><code>leaves</code>: the flat leaf list (see <code><a href="flatten.html">flatten</a></code>),</p></li>
 <li><p><code>is_static</code>: a <code><a href="https://rdrr.io/r/base/logical.html" class="external-link">logical()</a></code> mask over <code>leaves</code>,</p></li>
-<li><p><code>avals</code>: per leaf, <code>NULL</code> if static, else the <code>list(dtype, shape, ambiguous)</code> the cache key was built from. <code>dtype</code> is a canonical dtype
-string (<code>"f32"</code>, <code>"i64"</code>, ...), <code>shape</code> an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>, empty for a
+<li><p><code>avals</code>: per leaf, <code>NULL</code> if static, else the <code>list(kind, dtype, shape)</code>
+the cache key was built from. <code>kind</code> is <code>"array"</code> for one of the
+backend's arrays and <code>"rdata"</code> for a bare R literal or array – the two
+are different cache keys, because bare R data has no dtype of its own and
+the caller may compile it into a different program. <code>dtype</code> is a
+canonical dtype string (<code>"f32"</code>, <code>"i64"</code>, ...) for an <code>"array"</code> leaf, and
+for an <code>"rdata"</code> leaf its R storage type instead – its <code><a href="https://rdrr.io/r/base/typeof.html" class="external-link">typeof()</a></code>,
+so <code>"double"</code>, <code>"integer"</code> or <code>"logical"</code>. That is what the value <em>is</em>,
+not a dtype it is not yet: <code>"double"</code> is not <code>"f64"</code>, and what the leaf
+is uploaded at is <code>input_dtypes</code>. <code>shape</code> is an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>, empty for a
 scalar,</p></li>
 <li><p><code>default_device</code>: the device this call resolved because no array input
 named one – the device the cache key was built on, so <code>compile</code> must
@@ -111,11 +119,32 @@ array named the device, or under <code>move_inputs</code>.</p></li>
 compiled for,</p></li>
 <li><p><code>out_tree</code>: the <code>RTree</code> of the outputs (see <code><a href="build_tree.html">build_tree</a></code>),</p></li>
 <li><p><code>out_avals</code>: one aval per output leaf of <code>out_tree</code>, each a
-<code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;, ambiguous = &lt;logical(1)&gt;)</code>
-(<code>ambiguous</code> is optional and defaults to <code>FALSE</code>). The outputs are
-wrapped from these.</p></li>
+<code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;)</code>. The outputs are wrapped
+from these.</p></li>
 <li><p><code>const_arrays</code> (optional): buffers prepended to the inputs,</p></li>
 <li><p><code>phantom_specs</code> (optional): a list of <code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;)</code> donation-output buffers to allocate fresh per call.</p></li>
+</ul><p>Either kind of result may additionally carry:</p><ul><li><p><code>input_dtypes</code>: a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> with one entry per dynamic leaf, in
+order, naming the dtype that input is supplied at. <code>NA</code> leaves an input
+alone, and is the only valid entry for an array input: an array is
+supplied as it is, so declaring a dtype for one is an error rather than a
+no-op.</p>
+<p>With <code>backend = "pjrt"</code> every bare R leaf must name a dtype: bare R data
+has no dtype of its own, and only the compiled program knows what it is
+used as, so the engine uploads it at the dtype declared here and never
+guesses one. It is what lets a program that consumes an R double as <code>f64</code>
+get the exact value rather than one rounded through <code>f32</code> first. The
+<code>"rdata"</code> aval's <code>dtype</code> is the leaf's R storage type, so it is never an
+answer to this: the callback names a real dtype. The field may be omitted
+only for a call whose inputs are all arrays.</p>
+<p>Not every R storage type uploads at every dtype, and a pair that cannot
+be uploaded is rejected here rather than at execute time: a <code>"double"</code>
+input takes any dtype, an <code>"integer"</code> input any but <code>"bool"</code>, and a
+<code>"logical"</code> input only <code>"bool"</code>.</p>
+<p>Any other <code>backend</code> uploads nothing: <code>r_fun</code> gets each R value itself, so
+no entry could take effect and every one of them must be <code>NA</code>. A declared
+dtype is rejected there rather than accepted and ignored, for the same
+reason it is at an array input. The field is still length-checked, and
+may still be omitted entirely.</p></li>
 </ul><p>For any other <code>backend</code> it must return a named list with:</p><ul><li><p><code>r_fun</code>: a function called with the list of the call's dynamic leaves, in
 order and with an array leaf contributing its <code>$data</code>, returning the
 call's finished value. Static leaves are <em>not</em> passed: they are constants
@@ -176,7 +205,9 @@ object a backend hands out stays alive for the dispatcher's lifetime.</p></dd>
 <dt id="arg-extractor">extractor<a class="anchor" aria-label="anchor" href="#arg-extractor"></a></dt>
 <dd><p>(<code>function</code> | <code>NULL</code>)<br>
 Reads a non-<code>"pjrt"</code> array's metadata via the backend's accessors, called as
-<code>extractor(leaf)</code> and returning <code>list(aval = list(dtype, shape, ambiguous), device, backend)</code> – <code>dtype</code> a tengen <code>DataType</code>, <code>shape</code> an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>.
+<code>extractor(leaf)</code> and returning <code>list(aval = list(dtype, shape), device, backend)</code> – <code>dtype</code> a tengen <code>DataType</code>, <code>shape</code> an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>. The
+aval's kind is not the extractor's to say: whatever it returns is an array
+leaf.
 Required for any backend other than <code>"pjrt"</code>; ignored for <code>"pjrt"</code> (see
 <em>Backends</em>).</p></dd>
 
@@ -188,7 +219,8 @@ Required for any backend other than <code>"pjrt"</code>; ignored for <code>"pjrt
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Each <code><a href="dispatch.html">dispatch()</a></code> call flattens the inputs and builds a cache key: a
-dynamic leaf contributes its dtype, shape and <code>ambiguous</code> flag, a static leaf
+dynamic leaf contributes its abstract value – its kind (one of the backend's
+arrays, or bare R data), its dtype and its shape – a static leaf
 its value (compared with <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code>). On a hit the cached executable runs
 immediately; on a miss <code>compile</code> is called to produce a new cache entry.</p>
 <p>Inputs are validated before the cache is probed, and a rejection names the
@@ -205,10 +237,10 @@ executable.</p>
 <p>The <code>backend</code> selects the execution engine, and everything backend-specific
 sits behind it:</p><ul><li><p><code>backend = "pjrt"</code> executes a compiled PJRT executable natively: array
 inputs contribute their <code>$data</code> buffer, bare R literals and arrays are
-uploaded with the same dtype defaults as
-<code><a href="pjrt_buffer.html">pjrt_scalar()</a></code>/<code><a href="pjrt_buffer.html">pjrt_buffer()</a></code>, and the outputs are wrapped back into
-<code>"AnvlArray"</code>s – lists of <code>$data</code>, <code>$dtype</code>, <code>$shape</code>, <code>$device</code>,
-<code>$ambiguous</code> and <code>$backend</code> – and re-nested via <code>out_tree</code>, all without
+uploaded at the dtype the entry's <code>input_dtypes</code> declared for them, and
+the outputs are wrapped back into
+<code>"AnvlArray"</code>s – lists of <code>$data</code>, <code>$dtype</code>, <code>$shape</code>, <code>$device</code> and
+<code>$backend</code> – and re-nested via <code>out_tree</code>, all without
 leaving C++.</p></li>
 <li><p>any other <code>backend</code> calls the compiled R closure <code>compile</code> returned, which
 returns the call's finished value. Execution, output wrapping and input

@@ -5,16 +5,18 @@
 ### Breaking changes
 
 - Updated the PJRT plugin version, which now requires CUDA 13.3.
+- Removed support for the ambiguity concept in the dispatcher and
+  replaced it with support for `rdata` objects. This enables the
+  improved precision semantics in anvl.
 
 ### New features
 
-- Added CUDA support for Linux ARM
+- Added CUDA support for Linux ARM.
 - Added supoort for Intel Macs.
 
 ### Bug fixes
 
-- Large buffer whose values are all integer-valued are now printed
-  correctly.
+- Large float buffers now print correctly.
 
 ### Other
 
