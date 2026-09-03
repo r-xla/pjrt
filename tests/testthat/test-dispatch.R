@@ -1194,6 +1194,7 @@ test_that("`input_dtypes` may not name a dtype the R value cannot upload at", {
   accept(3L, "f64", "f64", 3)
   accept(2.5, "f32", "f32", 2.5)
   accept(1, "bool", "i1", TRUE)
+  accept(7, "i32", "i32", 7L)
 })
 
 test_that("`input_dtypes` may not declare a dtype for an array input", {
