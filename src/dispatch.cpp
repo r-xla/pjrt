@@ -319,10 +319,11 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     // the entry was validated against.
     if (entry->input_dtypes.size() != exec_inputs.size()) {
       Rcpp::stop(
-          "internal error: cache entry declares %d input dtypes but "
-          "this call supplies %d inputs",
+          "internal error: cache entry declares %d input dtypes but this call "
+          "supplies %d %s",
           static_cast<int>(entry->input_dtypes.size()),
-          static_cast<int>(exec_inputs.size()));
+          static_cast<int>(exec_inputs.size()),
+          exec_inputs.size() == 1 ? "input" : "inputs");
     }
     for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
       exec_inputs[k].dtype = entry->input_dtypes[k];

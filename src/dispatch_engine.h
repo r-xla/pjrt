@@ -197,6 +197,9 @@ class Engine {
 // `uploads_rdata` (Engine::uploads_rdata()) makes the declaration mandatory for
 // every bare R input: bare R data has no dtype of its own, and only the
 // compiled program knows what it is used as, so the engine never guesses one.
+// An engine that uploads nothing is held to the mirror image: it hands each
+// bare R value to `r_fun` as it is, so every entry must be NA there -- the
+// field is still length-checked and still rejects a name that is not a dtype.
 void read_input_dtypes(const Rcpp::List& res,
                        const std::vector<ExecInput>& exec_inputs,
                        bool uploads_rdata, CacheEntry& e);

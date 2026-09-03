@@ -55,12 +55,6 @@ enum class AnvlDtype {
   kLogical,
 };
 
-// Whether `d` is an R storage type rather than a device dtype. Only a kRData
-// Aval carries one, and nothing that names a buffer's type accepts one.
-inline bool is_rdata_dtype(AnvlDtype d) {
-  return d == AnvlDtype::kDouble || d == AnvlDtype::kInteger ||
-         d == AnvlDtype::kLogical;
-}
 
 inline AnvlDtype anvl_dtype_from_pjrt(PJRT_Buffer_Type t) {
   switch (t) {

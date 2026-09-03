@@ -191,9 +191,9 @@ void read_input_dtypes(const Rcpp::List& res,
   const R_xlen_t n = XLENGTH(v);
   if (static_cast<std::size_t>(n) != n_inputs) {
     Rcpp::stop(
-        "compile result: `input_dtypes` has %d entries but the call supplies "
-        "%d inputs",
-        static_cast<int>(n), static_cast<int>(n_inputs));
+        "compile result: `input_dtypes` has %d %s but the call supplies %d %s",
+        static_cast<int>(n), n == 1 ? "entry" : "entries",
+        static_cast<int>(n_inputs), n_inputs == 1 ? "input" : "inputs");
   }
   e.input_dtypes.assign(static_cast<std::size_t>(n), AnvlDtype::kInvalid);
   for (R_xlen_t k = 0; k < n; ++k) {
@@ -231,13 +231,25 @@ void read_input_dtypes(const Rcpp::List& res,
           "uploaded at a declared dtype, so this entry must be NA",
           static_cast<int>(k + 1), CHAR(el));
     }
+    // The same rule one level up. An engine that uploads nothing hands the
+    // bare R value to `r_fun` as it is, so there is no upload for a declared
+    // dtype to apply to either -- accepting the entry and ignoring it is the
+    // silent no-op the array case above refuses to be.
+    if (!uploads_rdata) {
+      Rcpp::stop(
+          "compile result: `input_dtypes[[%d]]` declares dtype \"%s\", but "
+          "this backend supplies every input to a compiled R closure and "
+          "uploads none of them, so no declared dtype can take effect; this "
+          "entry must be NA",
+          static_cast<int>(k + 1), CHAR(el));
+    }
     // Not every R storage type uploads at every dtype. Settled here, on the
     // compile path and against the `input_dtypes` entry the callback has to
     // correct, rather than left to surface from the buffer layer mid-execution
     // as a bare "Unsupported type: pred" naming neither input nor field.
     const AnvlDtype storage =
         exec_inputs[static_cast<std::size_t>(k)].aval->dtype;
-    if (uploads_rdata && !upload_pair_supported(storage, d)) {
+    if (!upload_pair_supported(storage, d)) {
       Rcpp::stop(
           "compile result: `input_dtypes[[%d]]` is \"%s\", which input %d "
           "cannot be uploaded at: it is %s. An R double uploads at any dtype, "
@@ -584,8 +596,8 @@ class PjrtEngine : public Engine {
     // Assemble the executable's inputs: const_arrays ++ the call's inputs ++
     // freshly allocated phantom donation buffers. A buffer input passes through
     // -- or, under `move_inputs`, is copied to the entry's device when it lives
-    // elsewhere; a bare R literal/array is uploaded to the entry's device (same
-    // impls and dtype defaults as pjrt_scalar() / pjrt_buffer()). The GC-rooted
+    // elsewhere; a bare R literal/array is uploaded to the entry's device, at
+    // the dtype `input_dtypes` declared for it. The GC-rooted
     // `inputs` list is built first and each allocated buffer (copy, upload,
     // phantom) written straight into its slot: it is reachable only through
     // `inputs` (the R GC does not scan C++ locals across the next allocation).

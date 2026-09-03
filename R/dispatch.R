@@ -102,9 +102,11 @@
 #'     input takes any dtype, an `"integer"` input any but `"bool"`, and a
 #'     `"logical"` input only `"bool"`.
 #'
-#'     Any other `backend` uploads nothing -- `r_fun` gets the R value itself,
-#'     so no entry can take effect -- but a declared `input_dtypes` is still
-#'     checked for length and for naming real dtypes only at bare R inputs.
+#'     Any other `backend` uploads nothing: `r_fun` gets each R value itself, so
+#'     no entry could take effect and every one of them must be `NA`. A declared
+#'     dtype is rejected there rather than accepted and ignored, for the same
+#'     reason it is at an array input. The field is still length-checked, and
+#'     may still be omitted entirely.
 #'
 #'   For any other `backend` it must return a named list with:
 #'   * `r_fun`: a function called with the list of the call's dynamic leaves, in

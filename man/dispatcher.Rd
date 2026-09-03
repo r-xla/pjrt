@@ -79,9 +79,11 @@ be uploaded is rejected here rather than at execute time: a \code{"double"}
 input takes any dtype, an \code{"integer"} input any but \code{"bool"}, and a
 \code{"logical"} input only \code{"bool"}.
 
-Any other \code{backend} uploads nothing -- \code{r_fun} gets the R value itself,
-so no entry can take effect -- but a declared \code{input_dtypes} is still
-checked for length and for naming real dtypes only at bare R inputs.
+Any other \code{backend} uploads nothing: \code{r_fun} gets each R value itself, so
+no entry could take effect and every one of them must be \code{NA}. A declared
+dtype is rejected there rather than accepted and ignored, for the same
+reason it is at an array input. The field is still length-checked, and
+may still be omitted entirely.
 }
 
 For any other \code{backend} it must return a named list with:

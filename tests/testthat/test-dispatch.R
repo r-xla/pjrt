@@ -1197,6 +1197,88 @@ test_that("`input_dtypes` may not name a dtype the R value cannot upload at", {
   accept(7, "i32", "i32", 7L)
 })
 
+test_that("a backend that uploads nothing takes no dtype at any input", {
+  # The closure engine hands each dynamic leaf to `r_fun` as it is, bare R
+  # value included, so there is no upload for a declared dtype to apply to.
+  # Every entry must be NA, exactly as an array input's must be under pjrt --
+  # accepting one and ignoring it is the silent no-op both rules refuse to be.
+  cb <- function(dtypes) {
+    function(info) list(r_fun = function(flat) flat[[1L]], input_dtypes = dtypes)
+  }
+  clo <- function(dtypes) {
+    dispatcher(
+      10L,
+      cb(dtypes),
+      backend = "quickr",
+      default_device = test_quickr_device,
+      extractor = test_extractor
+    )
+  }
+  expect_error(
+    dispatch(clo("f64"), list(x = 3.5)),
+    "uploads none of them"
+  )
+  expect_error(
+    dispatch(clo("f64"), list(x = qarr(c(1, 2)))),
+    "declares dtype \"f64\" for an array input"
+  )
+
+  # NA is "leave this input alone", which is all this engine ever does, so it
+  # is accepted at a bare R leaf here where pjrt insists on a real dtype.
+  expect_identical(dispatch(clo(NA_character_), list(x = 3.5)), 3.5)
+  expect_identical(dispatch(clo(NULL), list(x = 3.5)), 3.5)
+
+  # The length and dtype-name checks are the engine's business either way.
+  expect_error(
+    dispatch(clo(c(NA_character_, NA_character_)), list(x = 3.5)),
+    "has 2 entries but the call supplies 1 input"
+  )
+  expect_error(
+    dispatch(clo("not_a_dtype"), list(x = 3.5)),
+    "not a dtype anvl can represent"
+  )
+})
+
+test_that("`input_dtypes` is indexed by dynamic leaf, skipping statics", {
+  skip_if_not(plugins_downloaded())
+  # A static is a constant of the compiled program, not an input the engine
+  # supplies, so it takes no `input_dtypes` slot -- while `info$avals` still
+  # carries one (NULL) for it. The two indexings differ by exactly the statics
+  # in the call, which is the off-by-one a callback author has to get right.
+  src <- 'func.func @main(%x: tensor<f64>) -> tensor<f64> {
+    "func.return"(%x): (tensor<f64>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  seen <- NULL
+  cb <- function(dtypes) {
+    function(info) {
+      seen <<- info$avals
+      pjrt_entry(
+        exec,
+        out_tree = build_tree(0),
+        out_avals = list(oav("f64", integer())),
+        input_dtypes = dtypes
+      )
+    }
+  }
+  mk <- function(dtypes) {
+    dispatcher(10L, cb(dtypes), static = "s", default_device = test_pjrt_device)
+  }
+  # One entry, for the single dynamic leaf -- not two for the two arguments.
+  res <- dispatch(mk("f64"), list(s = 42L, x = sqrt(2)))
+  expect_identical(as.numeric(tengen::as_array(await(res$data))), sqrt(2))
+  # `info$avals` is the other indexing: per leaf, NULL where a static sits.
+  expect_length(seen, 2L)
+  expect_null(seen[[1L]])
+  expect_identical(seen[[2L]]$dtype, "double")
+
+  # One entry per argument is the mistake this catches.
+  expect_error(
+    dispatch(mk(c(NA_character_, "f64")), list(s = 42L, x = sqrt(2))),
+    "has 2 entries but the call supplies 1 input"
+  )
+})
+
 test_that("`input_dtypes` may not declare a dtype for an array input", {
   skip_if_not(plugins_downloaded())
   # An array is supplied as it is -- nothing uploads it -- so a declared dtype
