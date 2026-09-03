@@ -45,31 +45,30 @@ RTree flat_tree(std::size_t n) {
   return t;
 }
 
-Aval mk_aval(AnvlDtype dtype, std::vector<int64_t> shape, bool ambiguous) {
+Aval mk_aval(AnvlDtype dtype, std::vector<int64_t> shape) {
   Aval a;
   a.dtype = dtype;
   a.shape = std::move(shape);
-  a.ambiguous = ambiguous;
   return a;
 }
 
 KeyLeaf array_leaf(Aval a) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kArray;
   kl.aval = std::move(a);
+  kl.aval.kind = rpjrt::AvalKind::kArray;
   return kl;
 }
 
 KeyLeaf rdata_leaf(Aval a) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kRData;
   kl.aval = std::move(a);
+  kl.aval.kind = rpjrt::AvalKind::kRData;
   return kl;
 }
 
 KeyLeaf static_leaf(SEXP value) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kStatic;
+  kl.is_static = true;
   kl.value = value;
   return kl;
 }
@@ -157,7 +156,7 @@ context("AnvlDtype") {
 }
 
 context("CacheKey: aval-keyed leaves") {
-  const Aval f32_2x3 = mk_aval(AnvlDtype::kF32, {2, 3}, false);
+  const Aval f32_2x3 = mk_aval(AnvlDtype::kF32, {2, 3});
 
   test_that("equal signatures compare equal and hash alike") {
     CacheKey a = key_of({array_leaf(f32_2x3), array_leaf(f32_2x3)});
@@ -166,42 +165,35 @@ context("CacheKey: aval-keyed leaves") {
     expect_true(hash_of(a) == hash_of(b));
   }
 
-  test_that("dtype, shape, ambiguity and arity each split the key") {
+  test_that("dtype, shape and arity each split the key") {
     CacheKey base = key_of({array_leaf(f32_2x3)});
 
-    CacheKey dtype =
-        key_of({array_leaf(mk_aval(AnvlDtype::kI32, {2, 3}, false))});
+    CacheKey dtype = key_of({array_leaf(mk_aval(AnvlDtype::kI32, {2, 3}))});
     expect_false(eq(base, dtype));
     expect_false(hash_of(base) == hash_of(dtype));
 
-    CacheKey shape =
-        key_of({array_leaf(mk_aval(AnvlDtype::kF32, {3, 2}, false))});
+    CacheKey shape = key_of({array_leaf(mk_aval(AnvlDtype::kF32, {3, 2}))});
     expect_false(eq(base, shape));
     expect_false(hash_of(base) == hash_of(shape));
 
-    CacheKey rank = key_of({array_leaf(mk_aval(AnvlDtype::kF32, {}, false))});
+    CacheKey rank = key_of({array_leaf(mk_aval(AnvlDtype::kF32, {}))});
     expect_false(eq(base, rank));
     expect_false(hash_of(base) == hash_of(rank));
-
-    CacheKey ambig =
-        key_of({array_leaf(mk_aval(AnvlDtype::kF32, {2, 3}, true))});
-    expect_false(eq(base, ambig));
-    expect_false(hash_of(base) == hash_of(ambig));
 
     CacheKey arity = key_of({array_leaf(f32_2x3), array_leaf(f32_2x3)});
     expect_false(eq(base, arity));
     expect_false(hash_of(base) == hash_of(arity));
   }
 
-  test_that("a kArray and a kRData leaf of one aval are one key") {
-    // They compile to the same program; only where execution finds the input
-    // differs, and that is decided per call. Keying them apart would compile
-    // `f(x, y)` and `f(x, 1)` twice.
+  test_that(
+      "an array and an rdata aval of one dtype and shape are different keys") {
+    // They compile to different programs: bare R data has no dtype of its own
+    // until the program says what it is used as, so `f(x, 1)` may consume it
+    // at a dtype `f(x, y)` never asks for.
     CacheKey arr = key_of({array_leaf(f32_2x3)});
     CacheKey lit = key_of({rdata_leaf(f32_2x3)});
-    expect_true(eq(arr, lit));
-    expect_true(hash_of(arr) ==
-                hash_of(lit));  // or the map never compares them
+    expect_false(eq(arr, lit));
+    expect_false(hash_of(arr) == hash_of(lit));
   }
 
   test_that("an aval-keyed leaf never equals a value-keyed one") {
@@ -213,7 +205,7 @@ context("CacheKey: aval-keyed leaves") {
 }
 
 context("CacheKey: device and tree") {
-  const Aval f32 = mk_aval(AnvlDtype::kF32, {2}, false);
+  const Aval f32 = mk_aval(AnvlDtype::kF32, {2});
 
   test_that("the device token splits the key and is folded into the hash") {
     CacheKey a = key_of({array_leaf(f32)});
