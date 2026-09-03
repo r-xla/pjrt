@@ -55,7 +55,6 @@ enum class AnvlDtype {
   kLogical,
 };
 
-
 inline AnvlDtype anvl_dtype_from_pjrt(PJRT_Buffer_Type t) {
   switch (t) {
     case PJRT_Buffer_Type_PRED:
