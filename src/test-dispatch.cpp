@@ -235,6 +235,31 @@ context("CacheKey: device and tree") {
     expect_false(eq(a, b));
     expect_false(hash_of(a) == hash_of(b));
   }
+
+  test_that("the context splits the key and is folded into the hash") {
+    CacheKey a = key_of({array_leaf(f32)});
+    a.context = {"f32", "i32"};
+    CacheKey b = key_of({array_leaf(f32)});
+    b.context = {"f64", "i32"};
+    CacheKey a2 = key_of({array_leaf(f32)});
+    a2.context = {"f32", "i32"};
+
+    expect_false(eq(a, b));
+    expect_false(hash_of(a) == hash_of(b));
+    expect_true(eq(a, a2));
+    expect_true(hash_of(a) == hash_of(a2));
+
+    // No context (a dispatcher without a resolver) is its own key.
+    CacheKey none = key_of({array_leaf(f32)});
+    expect_false(eq(a, none));
+    expect_false(hash_of(a) == hash_of(none));
+
+    // The element boundaries matter: one string is not two.
+    CacheKey joined = key_of({array_leaf(f32)});
+    joined.context = {"f32i32"};
+    expect_false(eq(a, joined));
+    expect_false(hash_of(a) == hash_of(joined));
+  }
 }
 
 context("CacheKey: value-keyed (static) leaves") {

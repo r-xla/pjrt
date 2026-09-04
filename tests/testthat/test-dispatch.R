@@ -78,9 +78,9 @@ test_extractor <- function(leaf) {
 # impl_dispatcher_create with the extractor wired up the way each engine needs it:
 # the closure engine requires one (here the field-reading test extractor); the
 # pjrt engine ignores it and reads the PJRTBuffer directly.
-new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device) {
+new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device, context = NULL) {
   extractor <- if (engine == "pjrt") NULL else test_extractor
-  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor)
+  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context)
 }
 # ---------------------------------------------------------------------------
 # Programs. `dispatcher()` needs something real to execute, so the tests compile
@@ -800,6 +800,102 @@ test_that("a call with no array input keys on the resolved default device", {
   expect_equal(impl_dispatcher_size(d), 2L)
 })
 
+test_that("the context resolver is part of the key and reaches the callback", {
+  # The compiled program depends on what `context` returns (anvl: the default
+  # dtypes), so it is resolved on every call -- also one with array inputs --
+  # and an entry compiled under one context is never served under another.
+  n_miss <- 0L
+  current <- c(float = "f32", int = "i32")
+  d <- new_dispatcher(
+    10L,
+    function(info) {
+      n_miss <<- n_miss + 1L
+      ctx <- info$context
+      list(r_fun = function(flat) list(ctx = ctx))
+    },
+    character(0),
+    "closure",
+    "quickr",
+    FALSE,
+    test_quickr_device,
+    function() current
+  )
+
+  x <- qarr(c(1, 2))
+  r1 <- impl_dispatch_run(d, list(x = x))
+  expect_equal(n_miss, 1L)
+  expect_identical(r1$ctx, c(float = "f32", int = "i32"))
+
+  invisible(impl_dispatch_run(d, list(x = x))) # same context -> hit
+  expect_equal(n_miss, 1L)
+
+  current <- c(float = "f64", int = "i32") # the context changes mid-session
+  r2 <- impl_dispatch_run(d, list(x = x))
+  expect_equal(n_miss, 2L) # ...so the old entry must not be served
+  expect_identical(r2$ctx, c(float = "f64", int = "i32"))
+  expect_equal(impl_dispatcher_size(d), 2L)
+
+  current <- c(float = "f32", int = "i32") # ...but is still there to come back to
+  invisible(impl_dispatch_run(d, list(x = x)))
+  expect_equal(n_miss, 2L)
+
+  # An all-literal call keys on the context as well.
+  r3 <- impl_dispatch_run(d, list(x = 1))
+  expect_equal(n_miss, 3L)
+  expect_identical(r3$ctx, c(float = "f32", int = "i32"))
+})
+
+test_that("a context resolver must return a character vector without NAs", {
+  mk <- function(resolver) {
+    new_dispatcher(
+      10L,
+      function(info) list(r_fun = function(flat) list(v = 1)),
+      character(0),
+      "closure",
+      "quickr",
+      FALSE,
+      test_quickr_device,
+      resolver
+    )
+  }
+  expect_error(impl_dispatch_run(mk(function() 1), list(x = 1)), "must return a character vector")
+  expect_error(impl_dispatch_run(mk(function() NULL), list(x = 1)), "must return a character vector")
+  expect_error(impl_dispatch_run(mk(function() NA_character_), list(x = 1)), "must not return NA")
+  expect_error(
+    impl_dispatcher_create(
+      10L,
+      function(info) NULL,
+      character(0),
+      "closure",
+      "quickr",
+      FALSE,
+      test_quickr_device,
+      test_extractor,
+      1
+    ),
+    "context must be a function or NULL"
+  )
+})
+
+test_that("without a context resolver the callback sees info$context = NULL", {
+  seen <- NULL
+  d <- new_dispatcher(
+    10L,
+    function(info) {
+      seen <<- info
+      list(r_fun = function(flat) list(v = 1))
+    },
+    character(0),
+    "closure",
+    "quickr",
+    FALSE,
+    test_quickr_device
+  )
+  invisible(impl_dispatch_run(d, list(x = 1)))
+  expect_true("context" %in% names(seen))
+  expect_null(seen$context)
+})
+
 test_that("a dispatcher without a default_device rejects a call with no arrays", {
   d <- new_dispatcher(
     10L,
@@ -905,7 +1001,8 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
     "quickr",
     FALSE,
     test_quickr_device,
-    extractor
+    extractor,
+    NULL
   )
   bare <- function(v) structure(list(data = v), class = "AnvlArray")
   expect_identical(impl_dispatch_run(d, list(bare(c(1, 2, 3))))$v, c(2, 4, 6))

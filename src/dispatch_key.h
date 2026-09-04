@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -291,6 +292,10 @@ struct CacheKey {
   RTree in_tree;
   std::vector<KeyLeaf> leaves;
   DeviceToken device = nullptr;
+  // Key material the caller resolves per call (?dispatcher's `context`): what
+  // the compiled program depends on beyond its inputs -- anvl's default dtypes,
+  // say. Empty when the dispatcher was created without a resolver.
+  std::vector<std::string> context;
 };
 
 // CacheKeyHash and CacheKeyEq are functors rather than plain functions because
@@ -304,6 +309,11 @@ struct CacheKeyHash {
   std::size_t operator()(const CacheKey &k) const {
     std::uint64_t h = tree_hash(k.in_tree);
     h = hash_combine(h, reinterpret_cast<std::uintptr_t>(k.device));
+    // Length first, so ("ab") and ("a", "b") cannot fold to one stream.
+    h = hash_combine(h, k.context.size());
+    for (const std::string &s : k.context) {
+      h = hash_combine(h, std::hash<std::string>{}(s));
+    }
     h = hash_combine(h, k.leaves.size());
     for (const KeyLeaf &leaf : k.leaves) {
       // Folded before the per-leaf material, so a value-keyed leaf's hash
@@ -342,6 +352,7 @@ struct CacheKeyEq {
   bool operator()(const CacheKey &a, const CacheKey &b) const {
     if (!tree_eq(a.in_tree, b.in_tree)) return false;
     if (a.device != b.device) return false;
+    if (a.context != b.context) return false;
     if (a.leaves.size() != b.leaves.size()) return false;
     for (std::size_t k = 0; k < a.leaves.size(); ++k) {
       const KeyLeaf &x = a.leaves[k];

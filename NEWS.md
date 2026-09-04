@@ -9,6 +9,10 @@
 
 ## New features
 
+* `dispatcher()` gained a `context` resolver: a function called on every
+  dispatch whose `character()` result is part of the cache key and reaches the
+  compile callback as `info$context`. anvl uses it to key compiled programs on
+  the backend's default dtypes.
 * Added CUDA support for Linux ARM.
 * Added supoort for Intel Macs.
 
