@@ -89,12 +89,12 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
   std::unique_ptr<Engine> eng =
       make_engine(engine, backend, move_inputs, extractor_fn);
-  if (default_device_fn != R_NilValue && TYPEOF(default_device_fn) != CLOSXP) {
+  if (default_device_fn != R_NilValue && !Rf_isFunction(default_device_fn)) {
     Rcpp::stop("default_device must be a function or NULL");
   }
   std::optional<Rcpp::Function> resolver;
   if (default_device_fn != R_NilValue) resolver.emplace(default_device_fn);
-  if (context_fn != R_NilValue && TYPEOF(context_fn) != CLOSXP) {
+  if (context_fn != R_NilValue && !Rf_isFunction(context_fn)) {
     Rcpp::stop("context must be a function or NULL");
   }
   std::optional<Rcpp::Function> context;
