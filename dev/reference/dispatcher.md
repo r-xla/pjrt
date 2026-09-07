@@ -19,7 +19,8 @@ dispatcher(
   backend = "pjrt",
   move_inputs = FALSE,
   default_device = NULL,
-  extractor = NULL
+  extractor = NULL,
+  context = NULL
 )
 ```
 
@@ -67,6 +68,11 @@ dispatcher(
     input named one – the device the cache key was built on, so
     `compile` must compile for it rather than resolve a default of its
     own. `NULL` when an array named the device, or under `move_inputs`.
+
+  - `context`: what the `context` resolver returned for this call – the
+    vector the cache key was built on, so `compile` must compile under
+    it rather than resolve its own. `NULL` when the dispatcher has no
+    `context`.
 
   For `backend = "pjrt"` it must return a named list with:
 
@@ -199,6 +205,19 @@ dispatcher(
   not the extractor's to say: whatever it returns is an array leaf.
   Required for any backend other than `"pjrt"`; ignored for `"pjrt"`
   (see *Backends*).
+
+- context:
+
+  (`function` \| `NULL`)  
+  Called with no arguments on *every* dispatch to get whatever the
+  compiled program depends on beyond its inputs – anvl passes the
+  backend's current default dtypes. Must return a
+  [`character()`](https://rdrr.io/r/base/character.html) without `NA`s;
+  its value is part of the cache key, so an entry compiled under one
+  context is never served under another, and it reaches `compile` as
+  `info$context`. Unlike `default_device`, which is consulted only when
+  no array names a device, this is resolved for every call: any entry
+  may depend on it. `NULL` (default) keys on the inputs alone.
 
 ## Value
 

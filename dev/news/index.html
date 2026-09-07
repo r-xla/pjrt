@@ -58,7 +58,9 @@
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
-<ul><li>Added CUDA support for Linux ARM.</li>
+<ul><li>
+<code><a href="../reference/dispatcher.html">dispatcher()</a></code> gained a <code>context</code> resolver: a function called on every dispatch whose <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> result is part of the cache key and reaches the compile callback as <code>info$context</code>. anvl uses it to key compiled programs on the backend’s default dtypes.</li>
+<li>Added CUDA support for Linux ARM.</li>
 <li>Added supoort for Intel Macs.</li>
 </ul></div>
 <div class="section level3">

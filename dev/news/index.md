@@ -11,6 +11,11 @@
 
 ### New features
 
+- [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)
+  gained a `context` resolver: a function called on every dispatch whose
+  [`character()`](https://rdrr.io/r/base/character.html) result is part
+  of the cache key and reaches the compile callback as `info$context`.
+  anvl uses it to key compiled programs on the backend’s default dtypes.
 - Added CUDA support for Linux ARM.
 - Added supoort for Intel Macs.
 

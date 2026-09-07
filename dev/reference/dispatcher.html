@@ -78,7 +78,8 @@ compile only on a cache miss.</p>
 <span>  backend <span class="op">=</span> <span class="st">"pjrt"</span>,</span>
 <span>  move_inputs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  default_device <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  extractor <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  extractor <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  context <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -114,6 +115,10 @@ scalar,</p></li>
 named one – the device the cache key was built on, so <code>compile</code> must
 compile for it rather than resolve a default of its own. <code>NULL</code> when an
 array named the device, or under <code>move_inputs</code>.</p></li>
+<li><p><code>context</code>: what the <code>context</code> resolver returned for this call – the
+vector the cache key was built on, so <code>compile</code> must compile under it
+rather than resolve its own. <code>NULL</code> when the dispatcher has no
+<code>context</code>.</p></li>
 </ul><p>For <code>backend = "pjrt"</code> it must return a named list with:</p><ul><li><p><code>exec</code>: a <code><a href="pjrt_compile.html">pjrt_compile</a></code>d executable,</p></li>
 <li><p><code>client</code>, <code>device</code>: the <code><a href="pjrt_client.html">pjrt_client</a></code> and the device the entry is
 compiled for,</p></li>
@@ -210,6 +215,18 @@ aval's kind is not the extractor's to say: whatever it returns is an array
 leaf.
 Required for any backend other than <code>"pjrt"</code>; ignored for <code>"pjrt"</code> (see
 <em>Backends</em>).</p></dd>
+
+
+<dt id="arg-context">context<a class="anchor" aria-label="anchor" href="#arg-context"></a></dt>
+<dd><p>(<code>function</code> | <code>NULL</code>)<br>
+Called with no arguments on <em>every</em> dispatch to get whatever the compiled
+program depends on beyond its inputs – anvl passes the backend's current
+default dtypes. Must return a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> without <code>NA</code>s; its value is
+part of the cache key, so an entry compiled under one context is never
+served under another, and it reaches <code>compile</code> as <code>info$context</code>. Unlike
+<code>default_device</code>, which is consulted only when no array names a device,
+this is resolved for every call: any entry may depend on it. <code>NULL</code>
+(default) keys on the inputs alone.</p></dd>
 
 </dl></div>
     <div class="section level2">
