@@ -78,7 +78,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
     int capacity, SEXP compile_fn,
     Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
     std::string backend, bool move_inputs, SEXP default_device_fn,
-    SEXP extractor_fn) {
+    SEXP extractor_fn, SEXP context_fn) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
@@ -89,11 +89,16 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
   std::unique_ptr<Engine> eng =
       make_engine(engine, backend, move_inputs, extractor_fn);
-  if (default_device_fn != R_NilValue && TYPEOF(default_device_fn) != CLOSXP) {
+  if (default_device_fn != R_NilValue && !Rf_isFunction(default_device_fn)) {
     Rcpp::stop("default_device must be a function or NULL");
   }
   std::optional<Rcpp::Function> resolver;
   if (default_device_fn != R_NilValue) resolver.emplace(default_device_fn);
+  if (context_fn != R_NilValue && !Rf_isFunction(context_fn)) {
+    Rcpp::stop("context must be a function or NULL");
+  }
+  std::optional<Rcpp::Function> context;
+  if (context_fn != R_NilValue) context.emplace(context_fn);
   std::unordered_set<std::string> statics;
   if (static_names.isNotNull()) {
     for (const auto& nm : Rcpp::CharacterVector(static_names)) {
@@ -102,7 +107,8 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   }
   auto d = std::make_unique<Dispatcher>(
       static_cast<std::size_t>(capacity), compile_fn, std::move(statics),
-      std::move(eng), std::move(backend), move_inputs, std::move(resolver));
+      std::move(eng), std::move(backend), move_inputs, std::move(resolver),
+      std::move(context));
   Rcpp::XPtr<Dispatcher> ptr(d.release(), true);
   ptr.attr("class") = "Dispatcher";
   return ptr;
@@ -254,6 +260,27 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     key.device = static_cast<DeviceToken>(SEXP(default_device));
   }
 
+  // 3b. The caller's context: key material the compiled program depends on
+  // beyond its inputs (anvl's default dtypes). Resolved on every call, not only
+  // when nothing else names it -- any entry may depend on it -- so an entry
+  // compiled under one context is never served under another.
+  Rcpp::RObject context;  // the resolved vector, for the callback
+  if (const std::optional<Rcpp::Function>& resolve = d.context_fn()) {
+    context = (*resolve)();
+    if (TYPEOF(context) != STRSXP) {
+      Rcpp::stop("the `context` resolver must return a character vector");
+    }
+    const R_xlen_t n = Rf_xlength(context);
+    key.context.reserve(static_cast<std::size_t>(n));
+    for (R_xlen_t i = 0; i < n; ++i) {
+      SEXP el = STRING_ELT(context, i);
+      if (el == NA_STRING) {
+        Rcpp::stop("the `context` resolver must not return NA");
+      }
+      key.context.emplace_back(Rf_translateCharUTF8(el));
+    }
+  }
+
   // 4. Probe the cache; compile via the R callback on a miss.
   CacheEntry* entry = d.cache().get(key);
   if (entry == nullptr) {
@@ -290,7 +317,10 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         // The device this call resolved when no array named one -- the device
         // the key was built on, so the callback compiles for it rather than
         // resolving a default of its own. NULL otherwise.
-        Rcpp::Named("default_device") = default_device);
+        Rcpp::Named("default_device") = default_device,
+        // The context the key was built on, for the same reason. NULL when the
+        // dispatcher has no `context` resolver.
+        Rcpp::Named("context") = context);
 
     Rcpp::List res = d.compile_fn()(info);
 

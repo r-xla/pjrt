@@ -11,7 +11,8 @@ dispatcher(
   backend = "pjrt",
   move_inputs = FALSE,
   default_device = NULL,
-  extractor = NULL
+  extractor = NULL,
+  context = NULL
 )
 }
 \arguments{
@@ -42,6 +43,10 @@ scalar,
 named one -- the device the cache key was built on, so \code{compile} must
 compile for it rather than resolve a default of its own. \code{NULL} when an
 array named the device, or under \code{move_inputs}.
+\item \code{context}: what the \code{context} resolver returned for this call -- the
+vector the cache key was built on, so \code{compile} must compile under it
+rather than resolve its own. \code{NULL} when the dispatcher has no
+\code{context}.
 }
 
 For \code{backend = "pjrt"} it must return a named list with:
@@ -146,6 +151,16 @@ aval's kind is not the extractor's to say: whatever it returns is an array
 leaf.
 Required for any backend other than \code{"pjrt"}; ignored for \code{"pjrt"} (see
 \emph{Backends}).}
+
+\item{context}{(\code{function} | \code{NULL})\cr
+Called with no arguments on \emph{every} dispatch to get whatever the compiled
+program depends on beyond its inputs -- anvl passes the backend's current
+default dtypes. Must return a \code{character()} without \code{NA}s; its value is
+part of the cache key, so an entry compiled under one context is never
+served under another, and it reaches \code{compile} as \code{info$context}. Unlike
+\code{default_device}, which is consulted only when no array names a device,
+this is resolved for every call: any entry may depend on it. \code{NULL}
+(default) keys on the inputs alone.}
 }
 \value{
 \code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}.

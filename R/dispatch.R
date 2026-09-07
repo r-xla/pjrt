@@ -68,6 +68,10 @@
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
 #'     array named the device, or under `move_inputs`.
+#'   * `context`: what the `context` resolver returned for this call -- the
+#'     vector the cache key was built on, so `compile` must compile under it
+#'     rather than resolve its own. `NULL` when the dispatcher has no
+#'     `context`.
 #'
 #'   For `backend = "pjrt"` it must return a named list with:
 #'   * `exec`: a [`pjrt_compile`]d executable,
@@ -162,6 +166,15 @@
 #'   leaf.
 #'   Required for any backend other than `"pjrt"`; ignored for `"pjrt"` (see
 #'   *Backends*).
+#' @param context (`function` | `NULL`)\cr
+#'   Called with no arguments on *every* dispatch to get whatever the compiled
+#'   program depends on beyond its inputs -- anvl passes the backend's current
+#'   default dtypes. Must return a `character()` without `NA`s; its value is
+#'   part of the cache key, so an entry compiled under one context is never
+#'   served under another, and it reaches `compile` as `info$context`. Unlike
+#'   `default_device`, which is consulted only when no array names a device,
+#'   this is resolved for every call: any entry may depend on it. `NULL`
+#'   (default) keys on the inputs alone.
 #' @return [`dispatcher()`] returns a `Dispatcher`.
 #' @export
 dispatcher <- function(
@@ -171,7 +184,8 @@ dispatcher <- function(
   backend = "pjrt",
   move_inputs = FALSE,
   default_device = NULL,
-  extractor = NULL
+  extractor = NULL,
+  context = NULL
 ) {
   checkmate::assert_count(capacity, positive = TRUE)
   checkmate::assert_function(compile)
@@ -180,6 +194,7 @@ dispatcher <- function(
   checkmate::assert_flag(move_inputs)
   checkmate::assert_function(default_device, null.ok = TRUE)
   checkmate::assert_function(extractor, null.ok = TRUE)
+  checkmate::assert_function(context, null.ok = TRUE)
   if (!move_inputs && is.null(default_device)) {
     cli::cli_abort(
       "{.arg default_device} is required unless {.code move_inputs = TRUE}."
@@ -202,7 +217,8 @@ dispatcher <- function(
     backend,
     move_inputs,
     default_device,
-    extractor
+    extractor,
+    context
   )
 }
 
