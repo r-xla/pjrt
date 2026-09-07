@@ -309,7 +309,10 @@ struct CacheKeyHash {
   std::size_t operator()(const CacheKey &k) const {
     std::uint64_t h = tree_hash(k.in_tree);
     h = hash_combine(h, reinterpret_cast<std::uintptr_t>(k.device));
-    // Length first, so ("ab") and ("a", "b") cannot fold to one stream.
+    // Length folded first so the variable-length context section is delimited
+    // from the leaf count that follows it. Each element folds as one round of
+    // its own hash, so unlike a byte-concatenated stream there is no ambiguity
+    // between ("ab") and ("a", "b") to defend against.
     h = hash_combine(h, k.context.size());
     for (const std::string &s : k.context) {
       h = hash_combine(h, std::hash<std::string>{}(s));
