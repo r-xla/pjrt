@@ -4,6 +4,19 @@ skip_if_metal <- function(msg = "") {
   }
 }
 
+# The stablehlo-opt binary is a large (hundreds of MB) separate download, so
+# tests that need it only run when it is already cached locally, or when
+# PJRT_TEST_STABLEHLO_OPT=1 explicitly opts into downloading it.
+skip_if_no_stablehlo_opt <- function() {
+  if (Sys.getenv("PJRT_TEST_STABLEHLO_OPT") == "1") {
+    return(invisible(NULL))
+  }
+  if (!stablehlo_opt_available()) {
+    testthat::skip("stablehlo-opt is not downloaded")
+  }
+  invisible(NULL)
+}
+
 is_cpu <- function() {
   Sys.getenv("PJRT_PLATFORM", "cpu") == "cpu"
 }

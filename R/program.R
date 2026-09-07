@@ -56,3 +56,15 @@ check_program <- function(program) {
   stopifnot(inherits(program, "PJRTProgram"))
   invisible(NULL)
 }
+
+# The program's source code. For "hlo" programs this is the serialized
+# HloModuleProto, i.e. binary data rather than text.
+program_code <- function(program) {
+  check_program(program)
+  impl_program_code(program)
+}
+
+program_format <- function(program) {
+  check_program(program)
+  impl_program_format(program)
+}

@@ -1,0 +1,192 @@
+---
+title: "Running a JAX Model in R"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Running a JAX Model in R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = pjrt::plugins_downloaded("cpu") && pjrt::stablehlo_opt_available()
+)
+```
+
+StableHLO is a portable representation of a computation, so a model does not
+have to be trained in the same language it is deployed in.
+In this article we export a small MLP from JAX and run it in R with {pjrt}.
+
+The interesting part is *shape polymorphism*: JAX can export a model whose
+batch dimension is left symbolic, so a single artifact serves any batch size.
+XLA, on the other hand, compiles for static shapes.
+Bridging the two is what `pjrt_refine_shapes()` does.
+
+```{r}
+library(pjrt)
+```
+
+## Exporting from JAX
+
+On the Python side we define an MLP and export it with a symbolic batch
+dimension `batch`.
+Everything except the leading dimension of `x` is static.
+
+```python
+import jax
+import jax.numpy as jnp
+from jax import export
+
+def mlp(w1, b1, w2, b2, x):
+    h = jnp.tanh(x @ w1 + b1)
+    return h @ w2 + b2
+
+(batch,) = export.symbolic_shape("batch")
+
+exported = export.export(jax.jit(mlp))(
+    jax.ShapeDtypeStruct((3, 4), jnp.float32),      # w1
+    jax.ShapeDtypeStruct((4,), jnp.float32),        # b1
+    jax.ShapeDtypeStruct((4, 2), jnp.float32),      # w2
+    jax.ShapeDtypeStruct((2,), jnp.float32),        # b2
+    jax.ShapeDtypeStruct((batch, 3), jnp.float32),  # x
+)
+
+with open("jax-mlp-dynamic.mlir", "w") as f:
+    f.write(exported.mlir_module())
+```
+
+The resulting module ships with {pjrt} so that this article can be run without
+a Python installation.
+
+```{r}
+path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
+program <- pjrt_program(path = path)
+```
+
+Its `main` function takes the four parameter tensors plus `x`, whose first
+dimension is `?`, i.e. not known yet.
+The symbolic dimension is threaded through the program as an `i32` value and
+guarded by a `stablehlo.custom_call @shape_assertion`.
+
+```{r}
+print(program, n = 8)
+```
+
+Handing this program to the compiler does not work -- XLA needs to know how
+much memory every intermediate tensor requires.
+
+```{r, error=TRUE}
+pjrt_compile(program)
+```
+
+## Concretizing the shapes
+
+`pjrt_refine_shapes()` rewrites the argument types of `main` and propagates
+them through the program, i.e. it fills in every `?` that follows from the new
+argument types.
+The types are given in MLIR syntax, one per argument of `main`.
+
+```{r}
+batch_size <- 5
+
+refined <- pjrt_refine_shapes(
+  program,
+  c(
+    "tensor<3x4xf32>",
+    "tensor<4xf32>",
+    "tensor<4x2xf32>",
+    "tensor<2xf32>",
+    sprintf("tensor<%dx3xf32>", batch_size)
+  )
+)
+
+print(refined, n = 8)
+```
+
+The dynamic ops are gone: `stablehlo.dynamic_broadcast_in_dim` became a plain
+`broadcast_in_dim`, the shape assertion was checked and erased, and every
+tensor type is static.
+This program compiles.
+
+```{r}
+executable <- pjrt_compile(refined)
+```
+
+## Running it
+
+The weights and the input are ordinary R arrays.
+Note that {pjrt} takes care of the row-major/column-major conversion.
+
+```{r}
+w1 <- pjrt_buffer(matrix(seq(0.1, 1.2, length.out = 12), nrow = 3), dtype = "f32")
+b1 <- pjrt_buffer(rep(0, 4), dtype = "f32")
+w2 <- pjrt_buffer(matrix(seq(-0.4, 0.4, length.out = 8), nrow = 4), dtype = "f32")
+b2 <- pjrt_buffer(c(1, -1), dtype = "f32")
+x <- pjrt_buffer(matrix(seq(0, 1, length.out = batch_size * 3), nrow = batch_size), dtype = "f32")
+
+as_array(pjrt_execute(executable, w1, b1, w2, b2, x))
+```
+
+## One export, many shapes
+
+Because the refinement happens on the StableHLO program rather than on the
+export, the same artifact can be specialized for a different batch size
+whenever one is needed.
+
+```{r}
+predict_batch <- function(x) {
+  refined <- pjrt_refine_shapes(
+    program,
+    c(
+      "tensor<3x4xf32>",
+      "tensor<4xf32>",
+      "tensor<4x2xf32>",
+      "tensor<2xf32>",
+      sprintf("tensor<%dx3xf32>", nrow(x))
+    )
+  )
+  executable <- pjrt_compile(refined)
+  as_array(pjrt_execute(
+    executable,
+    w1,
+    b1,
+    w2,
+    b2,
+    pjrt_buffer(x, dtype = "f32")
+  ))
+}
+
+predict_batch(matrix(0.5, nrow = 2, ncol = 3))
+predict_batch(matrix(0.5, nrow = 7, ncol = 3))
+```
+
+Compilation is expensive, so in practice you would cache the executable per
+batch size instead of recompiling on every call.
+
+## Other transformations
+
+Shape refinement is one of the passes provided by StableHLO's `stablehlo-opt`
+tool, which {pjrt} downloads on demand.
+`pjrt_optimize()` gives access to all of them, e.g. to constant folding:
+
+```{r}
+pjrt_optimize(
+  "
+  func.func @main() -> tensor<2xf32> {
+    %0 = stablehlo.constant dense<[1.0, 2.0]> : tensor<2xf32>
+    %1 = stablehlo.constant dense<[3.0, 4.0]> : tensor<2xf32>
+    %2 = stablehlo.add %0, %1 : tensor<2xf32>
+    return %2 : tensor<2xf32>
+  }
+  ",
+  passes = "stablehlo-aggressive-folder"
+)
+```
+
+The available passes are:
+
+```{r}
+stablehlo_opt_passes()
+```
