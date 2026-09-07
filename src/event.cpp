@@ -12,8 +12,9 @@ PJRTEvent::~PJRTEvent() {
     PJRT_Event_Destroy_Args args{};
     args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
     args.event = event_;
-    // Ignore errors during destruction
-    api_->PJRT_Event_Destroy_(&args);
+    // A destructor can't propagate a failure, but the error object is ours to
+    // free -- and PJRT_Event_Destroy is [[nodiscard]] under clang.
+    destroy_error(api_.get(), api_->PJRT_Event_Destroy_(&args));
   }
 }
 
@@ -29,7 +30,7 @@ PJRTEvent& PJRTEvent::operator=(PJRTEvent&& other) noexcept {
       PJRT_Event_Destroy_Args args{};
       args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
       args.event = event_;
-      api_->PJRT_Event_Destroy_(&args);
+      destroy_error(api_.get(), api_->PJRT_Event_Destroy_(&args));
     }
     event_ = other.event_;
     api_ = std::move(other.api_);

@@ -33,47 +33,46 @@ install.packages("pjrt", repos = c("https://r-xla.r-universe.dev", getOption("re
 
 ### Plugin download
 
-`pjrt` relies on a backend-specific PJRT *plugin* (a shared library) that is
-not bundled with the package. The first time you create a client or compile a
-program for a platform, the matching plugin is downloaded and cached in
-`tools::R_user_dir("pjrt", "cache")`.
+`pjrt` relies on a backend-specific PJRT *plugin* (a shared library)
+that is not bundled with the package. The first time you create a client
+or compile a program for a platform, the matching plugin is downloaded
+and cached in `tools::R_user_dir("pjrt", "cache")`.
 
-In an interactive session you are asked for confirmation before the download.
-The `PJRT_INSTALL` environment variable controls this:
+In an interactive session you are asked for confirmation before the
+download. The `PJRT_INSTALL` environment variable controls this:
 
-- `PJRT_INSTALL=1`: always download without asking (e.g. in CI, scripts, or
-  Docker builds).
+- `PJRT_INSTALL=1`: always download without asking (e.g. in CI, scripts,
+  or Docker builds).
 - `PJRT_INSTALL=0`: never download; an error with instructions is raised
   instead.
 
-In a non-interactive session the plugin is **not** downloaded automatically
-unless `PJRT_INSTALL=1` is set. Alternatively, set
-`PJRT_PLUGIN_PATH_<PLATFORM>` (e.g. `PJRT_PLUGIN_PATH_CPU`) to a local plugin
-file to skip the download entirely. See `?pjrt` for the full list of
-environment variables.
+In a non-interactive session the plugin is **not** downloaded
+automatically unless `PJRT_INSTALL=1` is set. Alternatively, set
+`PJRT_PLUGIN_PATH_<PLATFORM>` (e.g. `PJRT_PLUGIN_PATH_CPU`) to a local
+plugin file to skip the download entirely. See `?pjrt` for the full list
+of environment variables.
 
 ### CUDA
 
-To use the CUDA backend, install the {cuda12.8} R package which provides
-the required CUDA runtime libraries and you only need to have a
+To use the CUDA backend, install the {pjrt.cuda} R package which
+provides the required CUDA runtime libraries and you only need to have a
 compatible CUDA driver.
 
 ``` r
-pak::pak("mlverse/cudatoolkit/cuda12.8")
+pak::pak("r-xla/pjrt.cuda")
 ```
 
-Alternatively, install from
-[r-universe](https://mlverse.r-universe.dev/).
+Alternatively, install from [r-universe](https://r-xla.r-universe.dev/).
 
 ``` r
-install.packages("cuda12.8", repos = "https://mlverse.r-universe.dev")
+install.packages("pjrt.cuda", repos = "https://r-xla.r-universe.dev")
 ```
 
-When the {cuda12.8} package is not installed, the correct runtime
+When the {pjrt.cuda} package is not installed, the correct runtime
 libraries need to be installed on the system, which can be difficult to
 set up. The specific versions of the CUDA runtime libraries provided
-with {cuda12.8} are provided
-[here](https://github.com/mlverse/cudatoolkit/blob/main/cuda12.8/inst/components.tsv).
+with {pjrt.cuda} are provided
+[here](https://github.com/r-xla/pjrt.cuda/blob/main/inst/components.tsv).
 
 **Troubleshooting**
 
@@ -157,7 +156,7 @@ pjrt_execute(executable, x, y)
   - :white_check_mark: CPU backend is fully supported.
   - :warning: GPU is only supported via Windows Subsystem for Linux
     (WSL2).
-- **macOS**
+- **macOS** (Apple silicon and Intel)
   - :white_check_mark: CPU backend is supported.
   - :warning: Metal (Apple GPU) backend is available but not fully
     functional.

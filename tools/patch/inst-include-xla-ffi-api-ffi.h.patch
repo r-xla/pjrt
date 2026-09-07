@@ -1,0 +1,26 @@
+--- a/inst/include/xla/ffi/api/ffi.h
++++ b/inst/include/xla/ffi/api/ffi.h
+@@ -185,6 +185,7 @@
+     case DataType::C128:
+       return 16;
+   }
++  throw std::runtime_error("Unexpected data type");
+ }
+ 
+ //===----------------------------------------------------------------------===//
+@@ -920,6 +921,7 @@
+     case XLA_FFI_ArgType_BUFFER:
+       return os << "buffer";
+   }
++  throw std::runtime_error("Unexpected argument type");
+ }
+ 
+ template <>
+@@ -1007,6 +1009,7 @@
+     case XLA_FFI_RetType_BUFFER:
+       return os << "buffer";
+   }
++  throw std::runtime_error("Unexpected result type");
+ }
+ 
+ template <>

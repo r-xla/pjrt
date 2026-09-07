@@ -165,7 +165,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             "invalid static %s: a static argument must not be an AnvlArray",
             leaf_subject(in_tree, k));
       }
-      kl.kind = KeyLeaf::kStatic;
+      kl.is_static = true;
       kl.value = leaf;
       key.leaves.push_back(std::move(kl));
       continue;
@@ -189,7 +189,6 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             "invalid %s: expected an AnvlArray of backend \"%s\"; got \"%s\"",
             leaf_subject(in_tree, k), call_backend, leaf_backend);
       }
-      kl.kind = KeyLeaf::kArray;
       kl.aval = std::move(al->aval);
       if (al->device.isNULL()) {
         Rcpp::stop("invalid %s: an AnvlArray must carry $device",
@@ -217,7 +216,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       }
       key.leaves.push_back(std::move(kl));
       // `$data` is a field of a leaf of `args`, which roots it for the call.
-      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval, false});
+      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval});
       continue;
     }
     std::optional<RDataInfo> rd = classify_rdata(leaf);
@@ -228,12 +227,11 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
           leaf_subject(in_tree, k), r_class_name(leaf),
           static_cast<long long>(Rf_xlength(leaf)));
     }
-    kl.kind = KeyLeaf::kRData;
+    kl.aval.kind = AvalKind::kRData;
     kl.aval.dtype = rd->dtype;
     kl.aval.shape = std::move(rd->shape);
-    kl.aval.ambiguous = true;  // bare R data is dtype-ambiguous (to_avals)
     key.leaves.push_back(std::move(kl));
-    exec_inputs.push_back({leaf, &key.leaves.back().aval, true});
+    exec_inputs.push_back({leaf, &key.leaves.back().aval});
   }
 
   // 3. No array leaf named a device, so the call runs on the backend's
@@ -272,14 +270,16 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       leaf_list[i] = leaves[i];
       static_mask[i] = is_static[i] ? TRUE : FALSE;
       const KeyLeaf& kl = key.leaves[i];
-      if (kl.kind == KeyLeaf::kStatic) continue;
+      if (kl.is_static) continue;
       Rcpp::IntegerVector shp(kl.aval.shape.begin(), kl.aval.shape.end());
       // Every dtype has a canonical name -- a leaf with none was rejected -- so
       // the callback always sees a string, whichever backend the leaf is from.
+      // `kind` saves the callback classifying the leaf a second time, and keeps
+      // it from reaching a different answer than the key was built with.
       avals[i] = Rcpp::List::create(
+          Rcpp::Named("kind") = aval_kind_name(kl.aval.kind),
           Rcpp::Named("dtype") = anvl_dtype_name(kl.aval.dtype),
-          Rcpp::Named("shape") = shp,
-          Rcpp::Named("ambiguous") = kl.aval.ambiguous);
+          Rcpp::Named("shape") = shp);
     }
     Rcpp::List info = Rcpp::List::create(
         Rcpp::Named("args") = args,
@@ -297,6 +297,9 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     // The engine validates the result and builds its entry material.
     CacheEntry e;
     engine.build_entry(res, e);
+    // Engine-agnostic: the dtype each input is supplied at, which the callback
+    // declares because only the compiled program knows what it takes.
+    read_input_dtypes(res, exec_inputs, engine.uploads_rdata(), e);
 
     // Root every SEXP the inserted key holds, so it outlives this call; the
     // entry drops them when it is evicted. The key's device token needs no
@@ -308,6 +311,23 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     entry = d.cache().get(key);
   }
 
-  // 5. The engine runs the call and returns the finished value.
+  // 5. Stamp each input with the dtype the entry was compiled to take it at,
+  // then let the engine run the call and return the finished value.
+  if (!entry->input_dtypes.empty()) {
+    // Sizes agree by construction: the key fixes which leaves are static, so
+    // every call filed under it supplies the same number of inputs as the one
+    // the entry was validated against.
+    if (entry->input_dtypes.size() != exec_inputs.size()) {
+      Rcpp::stop(
+          "internal error: cache entry declares %d input dtypes but this call "
+          "supplies %d %s",
+          static_cast<int>(entry->input_dtypes.size()),
+          static_cast<int>(exec_inputs.size()),
+          exec_inputs.size() == 1 ? "input" : "inputs");
+    }
+    for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
+      exec_inputs[k].dtype = entry->input_dtypes[k];
+    }
+  }
   return engine.run(*entry, exec_inputs);
 }

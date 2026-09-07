@@ -1,161 +1,176 @@
-# anvl sits in Suggests, so every jit() test is a no-op where it is absent.
-skip_if_no_jit <- function() {
-  testthat::skip_if_not_installed("anvl")
-  testthat::skip_if_not(plugins_downloaded())
+# The `default_device` resolvers a dispatcher needs when a call has no array
+# input to read a device from. `test_device()` returns a fresh object each call
+# (like anvl's quickr backend): the dispatcher canonicalizes devices with
+# identical() as a fallback to object identity, so equal-but-distinct devices
+# still collapse to one. The identity fast path is exercised where a test reuses
+# one object (see "devices are canonicalized").
+test_pjrt_device <- function() pjrt_device("cpu:0")
+test_device <- function(id = "cpu") structure(list(device = id), class = "QuickrDevice")
+test_quickr_device <- function() test_device("cpu")
+
+# One output aval, as the compile callback declares it: the dtype and shape
+# pjrt stamps on that output's wrapper. Same shape as the input avals the
+# callback receives in `info$avals`.
+oav <- function(dtype = "f32", shape = 2L) {
+  list(dtype = dtype, shape = as.integer(shape))
 }
 
-# The dispatcher a jitted function dispatches through (anvl stores it in the
-# closure environment of the function's fast entry).
-jit_dispatcher <- function(f) {
-  environment(attr(f, "jit_run_args"))$dispatcher
+# The pjrt engine's full compile-callback contract for a single-output
+# executable: exec, client + device (uploads, moves, phantoms, and the wrapped
+# outputs' $device), a leaf out_tree (a single un-nested output), and the
+# out_avals the outputs are wrapped from. The default is the tests' most common
+# program: one f32 output of shape 2.
+pjrt_entry <- function(
+  exec,
+  ...,
+  out_tree = build_tree(0),
+  out_avals = list(oav()),
+  device = pjrt_device("cpu:0")
+) {
+  list(
+    exec = exec,
+    client = pjrt_client("cpu"),
+    device = device,
+    out_tree = out_tree,
+    out_avals = out_avals,
+    ...
+  )
 }
-jit_size <- function(f) dispatcher_size(jit_dispatcher(f))
 
-arr_of <- function(res) as.numeric(tengen::as_array(res))
+# A pjrt array leaf, as anvl builds them: an "AnvlArray" whose $data is a buffer.
+parr <- function(buf) {
+  structure(
+    list(data = buf, device = tengen::device(buf), backend = "pjrt"),
+    class = "AnvlArray"
+  )
+}
 
-test_that("jit() dispatches, caches, and returns wrapped arrays", {
-  skip_if_no_jit()
-  f <- anvl::jit(function(x, y) x + y)
-  x <- anvl::nv_array(c(1, 2, 3), dtype = "f32")
-  y <- anvl::nv_array(c(10, 20, 30), dtype = "f32")
+# A closure-engine array leaf, tagged with whichever backend and device.
+qarr <- function(v, dtype = "f64", device = test_quickr_device(), backend = "quickr") {
+  structure(
+    list(
+      data = v,
+      dtype = if (is.character(dtype)) tengen::as_dtype(dtype) else dtype,
+      shape = as.integer(length(v)),
+      device = device,
+      backend = backend
+    ),
+    class = "AnvlArray"
+  )
+}
 
-  r1 <- f(x, y)
-  # The result is a fully wrapped array: the dispatcher built it natively.
-  expect_s3_class(r1, "AnvlArray")
-  expect_identical(as.character(tengen::dtype(r1)), "f32")
-  expect_identical(tengen::shape(r1), 3L)
-  expect_s3_class(r1$data, "PJRTBuffer")
-  expect_s3_class(tengen::device(r1), "PJRTDevice")
-  expect_identical(r1$backend, "pjrt")
-  expect_equal(arr_of(r1), c(11, 22, 33))
+# With a leaf out_tree, dispatch() returns the single output as one wrapped
+# array: an "AnvlArray" list whose $data is the output buffer.
+out <- function(res) as.numeric(tengen::as_array(await(res$data)))
 
-  # A second call of the same signature is a cache hit...
-  expect_equal(arr_of(f(x, y)), c(11, 22, 33))
-  d <- jit_dispatcher(f)
-  expect_s3_class(d, "Dispatcher")
-  expect_equal(dispatcher_size(d), 1L)
+# The closure engine reads a leaf's metadata through a backend-supplied
+# extractor rather than by reaching for fields. The test arrays (qarr) do store
+# fields, so the test extractor simply reads them back -- standing in for a
+# backend whose accessors happen to be `$` reads.
+test_extractor <- function(leaf) {
+  list(
+    aval = list(dtype = leaf$dtype, shape = leaf$shape),
+    device = leaf$device,
+    backend = leaf$backend
+  )
+}
 
-  # ...an output feeds straight back in as an input, without re-compiling...
-  expect_equal(arr_of(f(r1, y)), c(21, 42, 63))
-  expect_equal(dispatcher_size(d), 1L)
+# impl_dispatcher_create with the extractor wired up the way each engine needs it:
+# the closure engine requires one (here the field-reading test extractor); the
+# pjrt engine ignores it and reads the PJRTBuffer directly.
+new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device) {
+  extractor <- if (engine == "pjrt") NULL else test_extractor
+  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor)
+}
+# ---------------------------------------------------------------------------
+# Programs. `dispatcher()` needs something real to execute, so the tests compile
+# tiny stablehlo functions rather than tracing them.
+# ---------------------------------------------------------------------------
 
-  # ...and a new shape is a new cache entry.
-  invisible(f(anvl::nv_array(1, dtype = "f32"), anvl::nv_array(2, dtype = "f32")))
-  expect_equal(dispatcher_size(d), 2L)
+# Elementwise `x <op> y` over two tensors of one type.
+binop_exec <- function(ty = "tensor<2xf32>", op = "stablehlo.add") {
+  pjrt_compile(pjrt_program(
+    src = sprintf(
+      'func.func @main(%%x: %s, %%y: %s) -> %s {
+       %%0 = "%s"(%%x, %%y) : (%s, %s) -> %s
+       "func.return"(%%0): (%s) -> ()
+     }',
+      ty,
+      ty,
+      ty,
+      op,
+      ty,
+      ty,
+      ty,
+      ty
+    )
+  ))
+}
 
-  # GC-correct: many dispatches with periodic gc(), then teardown.
-  for (i in 1:300) {
-    r <- f(x, y)
-    if (i %% 100 == 0) {
-      gc()
-    }
-    expect_equal(arr_of(r), c(11, 22, 33))
-  }
-})
+# Identity over one tensor, for tests that only care about the input's aval.
+id_exec <- function(ty = "tensor<2xf32>") {
+  pjrt_compile(pjrt_program(
+    src = sprintf(
+      'func.func @main(%%x: %s) -> %s {
+       "func.return"(%%x): (%s) -> ()
+     }',
+      ty,
+      ty,
+      ty
+    )
+  ))
+}
 
-test_that("jit() preserves nested output structure and names", {
-  skip_if_no_jit()
-  f <- anvl::jit(function(x) list(sum = x + x, nested = list(sq = x * x)))
-  res <- f(anvl::nv_array(c(2, 3), dtype = "f32"))
-  expect_named(res, c("sum", "nested"))
-  expect_named(res$nested, "sq")
-  expect_equal(arr_of(res$sum), c(4, 6))
-  expect_equal(arr_of(res$nested$sq), c(4, 9))
-})
+# The MLIR spelling of each dtype the engine can represent.
+mlir_ty <- c(
+  bool = "i1",
+  i8 = "i8",
+  i16 = "i16",
+  i32 = "i32",
+  i64 = "i64",
+  ui8 = "ui8",
+  ui16 = "ui16",
+  ui32 = "ui32",
+  ui64 = "ui64",
+  f32 = "f32",
+  f64 = "f64"
+)
 
-test_that("the dispatcher correctly sets the output ambiguity", {
-  skip_if_no_jit()
-  # x + 1 keeps a committed f32's dtype: the output is unambiguous. A literal
-  # alone stays ambiguous. Both bits are stamped by the dispatcher's wrap.
-  f <- anvl::jit(function(x) x + 1)
-  expect_false(f(anvl::nv_array(1, dtype = "f32"))$ambiguous)
-  g <- anvl::jit(function(x) x + 1)
-  expect_true(g(2)$ambiguous)
-})
+# An "rdata" aval names the leaf's R storage type, not a dtype -- the program
+# decides what it is uploaded at. These are the choices the tests make, which
+# happen to be pjrt_scalar()'s defaults.
+rdata_upload_dtype <- c(double = "f32", integer = "i32", logical = "bool")
 
-test_that("jit() with static args compiles per static value", {
-  skip_if_no_jit()
-  f <- anvl::jit(function(x, flag) if (flag) x + 1 else x * 2, static = "flag")
-  x <- anvl::nv_array(3, dtype = "f32")
-  expect_equal(arr_of(f(x, TRUE)), 4)
-  expect_equal(arr_of(f(x, FALSE)), 6)
-  expect_equal(arr_of(f(x, TRUE)), 4) # hit
-  expect_equal(jit_size(f), 2L)
-})
 
-test_that("a jitted call with no dynamic input dispatches on its statics alone", {
-  skip_if_no_jit()
-  # Zero dynamic leaves: the whole call is the static `n`, and the entry's
-  # device comes from the compile callback rather than from an input.
-  f <- anvl::jit(function(n) anvl::nv_eye(n), static = "n")
-  expect_equal(tengen::as_array(f(2L)), diag(2))
-  expect_equal(tengen::as_array(f(2L)), diag(2))
-  expect_equal(jit_size(f), 1L)
-})
-
-test_that("jit() uploads bare R literals and arrays", {
-  skip_if_no_jit()
-  f <- anvl::jit(function(x, y) x + y)
-  x <- anvl::nv_array(c(1, 2), dtype = "f32")
-
-  # A bare double literal is uploaded as a rank-0 f32 buffer per call; the
-  # signature does not change, so the second call is a cache hit.
-  expect_equal(arr_of(f(x, 5)), c(6, 7))
-  expect_equal(arr_of(f(x, 50)), c(51, 52))
-  expect_equal(jit_size(f), 1L)
-
-  # kArray and kRData are the same key material: an ambiguous rank-0 f32 array
-  # has the literal's aval, so both trace to the same program and share the
-  # entry. Only where execution reads the input from differs -- the leaf's
-  # buffer, or an upload of the leaf -- and that is decided per call.
-  # (nv_scalar(5) would not share it: it commits ambiguous = FALSE.)
-  expect_equal(arr_of(f(x, anvl::nv_scalar(5, ambiguous = TRUE))), c(6, 7))
-  expect_equal(jit_size(f), 1L)
-
-  # A differing aval still splits the key: `3L` defaults to i32, not f32.
-  invisible(try(f(x, 3L), silent = TRUE))
-  expect_equal(jit_size(f), 2L)
-
-  # An R array leaf uploads column-major, like pjrt_buffer().
-  g <- anvl::jit(function(x) x)
-  m <- matrix(c(1, 2, 3, 4), nrow = 2)
-  expect_equal(tengen::as_array(g(m)), m)
-})
-
-test_that("every dtype is its own cache entry", {
-  skip_if_no_jit()
-  # Every dtype an AnvlDtype names -- which is every dtype tengen can build.
-  dtypes <- c("bool", "i8", "i16", "i32", "i64", "ui8", "ui16", "ui32", "ui64", "f32", "f64")
-  f <- anvl::jit(function(x) x)
-  for (dt in dtypes) {
-    invisible(f(anvl::nv_array(c(1, 2), dtype = dt)))
-  }
-  expect_equal(jit_size(f), length(dtypes))
-
-  # Same dtype and shape, different values -> cache hit.
-  g <- anvl::jit(function(x) x)
-  invisible(g(anvl::nv_array(c(1, 2), dtype = "f64")))
-  invisible(g(anvl::nv_array(c(7, 7), dtype = "f64")))
-  expect_equal(jit_size(g), 1L)
-})
-
-# What follows is how the cache key treats real R values as static arguments.
-# Each test drives a jitted function and counts cache entries, because an entry
-# per distinct key is the behaviour that matters, not a hash the caller never
-# sees. `x + 1` ignores `s` entirely, so the only thing that can split the cache
-# is the static's key.
+# ---------------------------------------------------------------------------
+# The cache key: static arguments.
+# ---------------------------------------------------------------------------
+# What matters is an entry per distinct key, not a hash the caller never sees,
+# so each test counts cache entries. `r_fun` ignores the static entirely, which
+# leaves the static's key as the only thing that can split the cache.
+#
+# These run on the closure engine: static-ness is resolved in the dispatcher
+# core before any engine is consulted, so the keying is identical, and this way
+# the tests need no compiled program and no plugin.
 
 # TRUE iff the two static values are one cache key.
 same_key <- function(a, b) {
-  f <- anvl::jit(function(x, s) x + 1, static = "s")
-  x <- anvl::nv_array(c(1, 2), dtype = "f32")
-  invisible(f(x, a))
-  invisible(f(x, b))
-  jit_size(f) == 1L
+  d <- new_dispatcher(
+    10L,
+    function(info) list(r_fun = function(flat) flat[[1L]]),
+    "s",
+    "closure",
+    "quickr",
+    FALSE,
+    test_quickr_device
+  )
+  x <- qarr(c(1, 2))
+  invisible(dispatch(d, list(x = x, s = a)))
+  invisible(dispatch(d, list(x = x, s = b)))
+  dispatcher_size(d) == 1L
 }
 
 test_that("static args are keyed with identical(), environment included", {
-  skip_if_no_jit()
   expect_true(same_key(1L, 1L))
   expect_true(same_key("a", "a"))
   expect_false(same_key(1L, 2L))
@@ -184,7 +199,6 @@ test_that("static args are keyed with identical(), environment included", {
 })
 
 test_that("static args that identical() joins share one cache entry", {
-  skip_if_no_jit()
   # The contract: keys the dispatcher calls equal MUST hash alike, or the map
   # stores two entries for one key. Two entries here would mean a hash that
   # disagrees with the equality.
@@ -197,7 +211,6 @@ test_that("static args that identical() joins share one cache entry", {
 })
 
 test_that("static numbers are keyed bitwise: +0 and -0 are distinct", {
-  skip_if_no_jit()
   # A literal `-0` is constant-folded to `+0` by R's byte compiler, so build it
   # from a variable -- otherwise this would quietly compare 0 against 0.
   # this is important for bit64 which uses -0 for NA
@@ -207,7 +220,6 @@ test_that("static numbers are keyed bitwise: +0 and -0 are distinct", {
 })
 
 test_that("bitwise number comparison keeps NA_integer64_ apart from 0", {
-  skip_if_no_jit()
   skip_if_not_installed("bit64")
   # bit64 stores NA_integer64_ as the int64 minimum, whose double
   # reinterpretation is -0.0. Under R's default identical() (num.eq = TRUE)
@@ -220,7 +232,6 @@ test_that("bitwise number comparison keeps NA_integer64_ apart from 0", {
 })
 
 test_that("distinct static values never merge", {
-  skip_if_no_jit()
   expect_false(same_key(1L, 1)) # type is folded before the contents
   expect_false(same_key(TRUE, FALSE))
   expect_false(same_key(NaN, NA_real_))
@@ -230,165 +241,238 @@ test_that("distinct static values never merge", {
   expect_false(same_key(NA_character_, "NA"))
 })
 
-test_that("invalid jit() inputs are rejected natively, naming the argument", {
-  skip_if_no_jit()
-  f <- anvl::jit(function(x, y) x + y)
-  x <- anvl::nv_array(c(1, 2), dtype = "f32")
-  expect_error(f(x, "nope"), "invalid input `y`.*<character> of length 1")
-  expect_error(f(x, c(1, 2, 3)), "invalid input `y`.*<numeric> of length 3")
-  expect_equal(jit_size(f), 0L) # rejected before any compile
+# ---------------------------------------------------------------------------
+# The pjrt engine.
+# ---------------------------------------------------------------------------
 
-  # A static argument must not be an AnvlArray: it would key the cache on its
-  # contents, and be traced as an input execution never supplies.
-  g <- anvl::jit(function(x, s) x + 1, static = "s")
-  expect_error(g(x, x), "invalid static input `s`.*must not be an AnvlArray")
-  expect_equal(jit_size(g), 0L)
+test_that("the pjrt engine wraps its outputs and caches one entry per signature", {
+  skip_if_not(plugins_downloaded())
+  n_compile <- 0L
+  d <- dispatcher(
+    10L,
+    function(info) {
+      n_compile <<- n_compile + 1L
+      n <- info$avals[[1L]]$shape
+      pjrt_entry(
+        binop_exec(sprintf("tensor<%dxf32>", n)),
+        out_avals = list(oav(shape = n))
+      )
+    },
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(1, 2, 3), dtype = "f32"))
+  y <- parr(pjrt_buffer(c(10, 20, 30), dtype = "f32"))
+
+  r1 <- dispatch(d, list(x = x, y = y))
+  # A fully wrapped array: the engine built it natively from `out_avals`.
+  expect_s3_class(r1, "AnvlArray")
+  expect_identical(as.character(r1$dtype), "f32")
+  expect_identical(r1$shape, 3L)
+  expect_s3_class(r1$data, "PJRTBuffer")
+  expect_s3_class(r1$device, "PJRTDevice")
+  expect_identical(r1$backend, "pjrt")
+  expect_equal(out(r1), c(11, 22, 33))
+
+  # A second call of the same signature is a cache hit...
+  expect_equal(out(dispatch(d, list(x = x, y = y))), c(11, 22, 33))
+  expect_equal(dispatcher_size(d), 1L)
+  expect_equal(n_compile, 1L)
+
+  # ...an output feeds straight back in as an input, without re-compiling...
+  expect_equal(out(dispatch(d, list(x = r1, y = y))), c(21, 42, 63))
+  expect_equal(dispatcher_size(d), 1L)
+
+  # ...and a new shape is a new cache entry.
+  s <- parr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  invisible(dispatch(d, list(x = s, y = s)))
+  expect_equal(dispatcher_size(d), 2L)
+
+  # GC-correct: many dispatches with periodic gc(), then teardown.
+  for (i in 1:300) {
+    r <- dispatch(d, list(x = x, y = y))
+    if (i %% 100 == 0) {
+      gc()
+    }
+    expect_equal(out(r), c(11, 22, 33))
+  }
 })
 
-test_that("jit() rejects inputs spread across devices, naming the input", {
-  skip_if_no_jit()
-  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
-  f <- anvl::jit(function(x, y) x + y)
-  x0 <- anvl::nv_array(c(1, 2), dtype = "f32", device = "cpu:0")
-  y1 <- anvl::nv_array(c(3, 4), dtype = "f32", device = "cpu:1")
+test_that("a static argument compiles one entry per distinct value", {
+  skip_if_not(plugins_downloaded())
+  d <- dispatcher(
+    10L,
+    # The static is what the callback compiles against: it is a constant of the
+    # entry, not an execute-time input.
+    function(info) {
+      op <- if (isTRUE(info$args$flag)) "stablehlo.add" else "stablehlo.multiply"
+      pjrt_entry(binop_exec(op = op))
+    },
+    static = "flag",
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(2, 3), dtype = "f32"))
+  y <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x, y = y, flag = TRUE))), c(12, 13))
+  expect_equal(out(dispatch(d, list(x = x, y = y, flag = FALSE))), c(20, 30))
+  expect_equal(out(dispatch(d, list(x = x, y = y, flag = TRUE))), c(12, 13)) # hit
+  expect_equal(dispatcher_size(d), 2L)
+})
 
+test_that("bare R data is keyed by its R storage type and uploaded column-major", {
+  skip_if_not(plugins_downloaded())
+  # A bare R leaf's aval names its R storage type -- "double", "integer",
+  # "logical" -- and that is what the cache key is built from. It is not a dtype:
+  # the callback picks the one the program takes the value at and declares it.
+  d <- dispatcher(
+    10L,
+    function(info) {
+      aval <- info$avals[[1L]]
+      is_rdata <- aval$kind == "rdata"
+      dt <- if (is_rdata) rdata_upload_dtype[[aval$dtype]] else aval$dtype
+      shp <- aval$shape
+      ty <- if (length(shp) == 0L) {
+        sprintf("tensor<%s>", mlir_ty[[dt]])
+      } else {
+        sprintf("tensor<%sx%s>", paste(shp, collapse = "x"), mlir_ty[[dt]])
+      }
+      pjrt_entry(
+        id_exec(ty),
+        out_avals = list(oav(dtype = dt, shape = shp)),
+        input_dtypes = if (is_rdata) dt else NA_character_
+      )
+    },
+    default_device = test_pjrt_device
+  )
+
+  # The aval of a bare R value says what it is, not what a buffer holds.
+  expect_identical(
+    vapply(
+      list(5, 3L, TRUE),
+      function(x) {
+        av <- NULL
+        dd <- dispatcher(
+          1L,
+          function(info) {
+            av <<- info$avals[[1L]]$dtype
+            stop("not compiled")
+          },
+          default_device = test_pjrt_device
+        )
+        try(dispatch(dd, list(x = x)), silent = TRUE)
+        av
+      },
+      character(1L)
+    ),
+    c("double", "integer", "logical")
+  )
+
+  # A rank-0 double literal, uploaded per call; the signature does not change,
+  # so the second call is a cache hit.
+  expect_equal(out(dispatch(d, list(x = 5))), 5)
+  expect_equal(out(dispatch(d, list(x = 50))), 50)
+  expect_equal(dispatcher_size(d), 1L)
+
+  # An array leaf is not the same key material as bare R data, even at the same
+  # aval: the R value has no dtype of its own until the program says what it is
+  # used as, so the two compile to different programs and take separate entries.
+  expect_equal(out(dispatch(d, list(x = parr(pjrt_scalar(5, dtype = "f32"))))), 5)
+  expect_equal(dispatcher_size(d), 2L)
+
+  # An integer literal is "integer", a different aval and so a new entry.
+  invisible(dispatch(d, list(x = 3L)))
+  expect_equal(dispatcher_size(d), 3L)
+
+  # An R array uploads column-major, like pjrt_buffer().
+  m <- matrix(c(1, 2, 3, 4), nrow = 2)
+  expect_equal(tengen::as_array(await(dispatch(d, list(x = m))$data)), m)
+})
+
+test_that("every dtype the engine can represent is its own cache entry", {
+  skip_if_not(plugins_downloaded())
+  d <- dispatcher(
+    50L,
+    function(info) {
+      dt <- info$avals[[1L]]$dtype
+      pjrt_entry(
+        id_exec(sprintf("tensor<2x%s>", mlir_ty[[dt]])),
+        out_avals = list(oav(dtype = dt))
+      )
+    },
+    default_device = test_pjrt_device
+  )
+  for (dt in names(mlir_ty)) {
+    buf <- pjrt_empty(2L, dtype = if (dt == "bool") "pred" else dt)
+    invisible(dispatch(d, list(x = parr(buf))))
+  }
+  expect_equal(dispatcher_size(d), length(mlir_ty))
+
+  # Same dtype and shape, different values -> cache hit.
+  expect_equal(
+    dispatcher_size(d),
+    {
+      invisible(dispatch(d, list(x = parr(pjrt_buffer(c(7, 7), dtype = "f64")))))
+      length(mlir_ty)
+    }
+  )
+})
+
+test_that("a static argument must not be an AnvlArray", {
+  skip_if_not(plugins_downloaded())
+  # It would key the cache on its contents, and the callback would trace it as
+  # a real input that execution then never supplies.
+  d <- dispatcher(
+    10L,
+    function(info) stop("must not reach the compile callback"),
+    static = "s",
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(1, 2), dtype = "f32"))
+  expect_error(dispatch(d, list(x = x, s = x)), "must not be an AnvlArray")
+  expect_equal(dispatcher_size(d), 0L)
+})
+
+test_that("inputs spread across devices are rejected, naming the input", {
+  skip_if_not(plugins_downloaded())
+  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
   # Without a fixed target device the first array's device is the call's, and a
-  # conflicting input is an error -- caught natively, before the cache is
-  # probed, so nothing is compiled.
-  expect_error(f(x0, y1), "invalid input `y`.*different device")
-  expect_equal(jit_size(f), 0L)
+  # conflicting input is an error -- caught before the cache is probed, so
+  # nothing is compiled.
+  d <- dispatcher(
+    10L,
+    function(info) stop("must not reach the compile callback"),
+    default_device = test_pjrt_device
+  )
+  x0 <- parr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
+  y1 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
+  expect_error(dispatch(d, list(x = x0, y = y1)), "invalid input `y`.*different device")
+  expect_equal(dispatcher_size(d), 0L)
 })
 
-test_that("jit(device = ) fixes the entry's device and moves inputs to it", {
-  skip_if_no_jit()
+test_that("move_inputs copies a pjrt input to the entry's device", {
+  skip_if_not(plugins_downloaded())
   skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
-  f <- anvl::jit(function(x) x + 1, device = "cpu:0")
-  x0 <- anvl::nv_array(c(1, 2), dtype = "f32", device = "cpu:0")
-  res <- f(x0)
-  expect_equal(arr_of(res), c(2, 3))
+  # The closure engine's move_inputs test above proves the *policy*; this one
+  # proves the pjrt engine's copy, which is the only place pjrt itself moves a
+  # buffer between devices.
+  dev0 <- pjrt_device("cpu:0")
+  d <- dispatcher(
+    10L,
+    function(info) pjrt_entry(binop_exec(), device = dev0),
+    move_inputs = TRUE
+  )
+  x0 <- parr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
+  y0 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:0"))
+  r <- dispatch(d, list(x = x0, y = y0))
+  expect_equal(out(r), c(4, 6))
   # Devices are interned, so the wrapped output carries the very object.
-  expect_identical(tengen::device(res), pjrt_device("cpu:0"))
+  expect_identical(r$device, dev0)
 
   # An input on another device is copied to the target rather than rejected,
   # and the device is not part of the key: one entry serves both.
-  y1 <- anvl::nv_array(c(3, 4), dtype = "f32", device = "cpu:1")
-  expect_equal(arr_of(f(y1)), c(4, 5))
-  expect_equal(jit_size(f), 1L)
+  y1 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
+  expect_equal(out(dispatch(d, list(x = x0, y = y1))), c(4, 6))
+  expect_equal(dispatcher_size(d), 1L)
 })
-
-test_that("a jitted function with no array inputs keys on the default device", {
-  skip_if_no_jit()
-  f <- anvl::jit(function(n) n + 1)
-  expect_equal(arr_of(f(41)), 42)
-  expect_equal(arr_of(f(41)), 42)
-  expect_equal(jit_size(f), 1L)
-})
-
-test_that("the quickr backend dispatches through the closure engine", {
-  skip_if_not_installed("anvl")
-  skip_if_not_installed("quickr")
-  anvl::with_backend("quickr", {
-    f <- anvl::jit(function(x, y) x + y)
-    x <- anvl::nv_array(c(1, 2), dtype = "f64")
-    y <- anvl::nv_array(c(10, 20), dtype = "f64")
-    r1 <- f(x, y)
-    expect_s3_class(r1, "AnvlArray")
-    expect_identical(r1$backend, "quickr")
-    expect_equal(arr_of(r1), c(11, 22))
-    invisible(f(x, y))
-    expect_equal(jit_size(f), 1L)
-  })
-})
-
-# ---------------------------------------------------------------------------
-# The building blocks directly, for what jit() cannot express.
-# ---------------------------------------------------------------------------
-
-# The `default_device` resolvers a dispatcher needs when a call has no array
-# input to read a device from. `test_device()` returns a fresh object each call
-# (like anvl's quickr backend): the dispatcher canonicalizes devices with
-# identical() as a fallback to object identity, so equal-but-distinct devices
-# still collapse to one. The identity fast path is exercised where a test reuses
-# one object (see "devices are canonicalized").
-test_pjrt_device <- function() pjrt_device("cpu:0")
-test_device <- function(id = "cpu") structure(list(device = id), class = "QuickrDevice")
-test_quickr_device <- function() test_device("cpu")
-
-# One output aval, as the compile callback declares it: the dtype/shape/
-# ambiguous pjrt stamps on that output's wrapper. Same shape as the input avals
-# the callback receives in `info$avals`.
-oav <- function(dtype = "f32", shape = 2L, ambiguous = FALSE) {
-  list(dtype = dtype, shape = as.integer(shape), ambiguous = ambiguous)
-}
-
-# The pjrt engine's full compile-callback contract for a single-output
-# executable: exec, client + device (uploads, moves, phantoms, and the wrapped
-# outputs' $device), a leaf out_tree (a single un-nested output), and the
-# out_avals the outputs are wrapped from. The default is the tests' most common
-# program: one f32 output of shape 2.
-pjrt_entry <- function(
-  exec,
-  ...,
-  out_tree = build_tree(0),
-  out_avals = list(oav()),
-  device = pjrt_device("cpu:0")
-) {
-  list(
-    exec = exec,
-    client = pjrt_client("cpu"),
-    device = device,
-    out_tree = out_tree,
-    out_avals = out_avals,
-    ...
-  )
-}
-
-# A pjrt array leaf, as anvl builds them: an "AnvlArray" whose $data is a buffer.
-parr <- function(buf) {
-  structure(
-    list(data = buf, ambiguous = FALSE, device = tengen::device(buf), backend = "pjrt"),
-    class = "AnvlArray"
-  )
-}
-
-# A closure-engine array leaf, tagged with whichever backend and device.
-qarr <- function(v, dtype = "f64", device = test_quickr_device(), backend = "quickr") {
-  structure(
-    list(
-      data = v,
-      dtype = if (is.character(dtype)) tengen::as_dtype(dtype) else dtype,
-      shape = as.integer(length(v)),
-      ambiguous = FALSE,
-      device = device,
-      backend = backend
-    ),
-    class = "AnvlArray"
-  )
-}
-
-# With a leaf out_tree, dispatch() returns the single output as one wrapped
-# array: an "AnvlArray" list whose $data is the output buffer.
-out <- function(res) as.numeric(tengen::as_array(await(res$data)))
-
-# The closure engine reads a leaf's metadata through a backend-supplied
-# extractor rather than by reaching for fields. The test arrays (qarr) do store
-# fields, so the test extractor simply reads them back -- standing in for a
-# backend whose accessors happen to be `$` reads.
-test_extractor <- function(leaf) {
-  list(
-    aval = list(dtype = leaf$dtype, shape = leaf$shape, ambiguous = leaf$ambiguous),
-    device = leaf$device,
-    backend = leaf$backend
-  )
-}
-
-# impl_dispatcher_create with the extractor wired up the way each engine needs it:
-# the closure engine requires one (here the field-reading test extractor); the
-# pjrt engine ignores it and reads the PJRTBuffer directly.
-new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device) {
-  extractor <- if (engine == "pjrt") NULL else test_extractor
-  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor)
-}
 
 test_that("phantom_specs allocate donation buffers of the requested dtype", {
   skip_if_not(plugins_downloaded())
@@ -798,14 +882,14 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
 
 test_that("a closure backend can compute metadata via accessors, storing no fields", {
   # anvl's AnvlBackend contract guarantees only $data on a leaf; dtype/shape/
-  # device/ambiguous/backend may be computed by the backend's accessors rather
+  # device/backend may be computed by the backend's accessors rather
   # than stored as fields. The dispatcher must read them through the extractor,
   # never by reaching for fields -- this array carries $data and nothing else.
   n_miss <- 0L
   dev <- test_device("cpu")
   extractor <- function(leaf) {
     list(
-      aval = list(dtype = tengen::as_dtype("f64"), shape = length(leaf$data), ambiguous = FALSE),
+      aval = list(dtype = tengen::as_dtype("f64"), shape = length(leaf$data)),
       device = dev,
       backend = "quickr"
     )
@@ -860,18 +944,17 @@ test_that("out_avals and out_tree are the callback's claim, and are honoured", {
   y <- parr(pjrt_buffer(c(3, 4), dtype = "f32"))
 
   # Every wrapped field comes from the declared aval, not from the buffer: the
-  # first output is stamped ambiguous although nothing about the buffer is.
+  # first output is stamped f64 although the buffer it holds is f32.
   d <- mk(
     build_tree(list(sum = 0, rest = list(prod = 0))),
-    list(oav(ambiguous = TRUE), oav())
+    list(oav("f64"), oav())
   )
   res <- impl_dispatch_run(d, list(x, y))
   expect_equal(out(res$sum), c(4, 6))
   expect_equal(out(res$rest$prod), c(3, 8))
-  expect_identical(res$sum$ambiguous, TRUE)
-  expect_identical(res$rest$prod$ambiguous, FALSE)
+  expect_identical(res$sum$dtype, tengen::as_dtype("f64"))
+  expect_identical(res$rest$prod$dtype, tengen::as_dtype("f32"))
   expect_identical(res$sum$shape, 2L)
-  expect_identical(res$sum$dtype, tengen::as_dtype("f32"))
 
   # An out_tree whose leaf count disagrees with the executable's actual output
   # count is the one half of the callback's claim pjrt can still settle, and it
@@ -964,4 +1047,264 @@ test_that("an AnvlArray that is not a list is rejected, naming the argument", {
   )
   bad <- structure(c(data = 1), class = "AnvlArray")
   expect_error(impl_dispatch_run(d, list(x = bad)), "invalid input `x`")
+})
+
+# ---------------------------------------------------------------------------
+# `input_dtypes`: the dtype an execute-time input is supplied at.
+# ---------------------------------------------------------------------------
+
+test_that("`input_dtypes` decides the dtype a bare R leaf is uploaded at", {
+  skip_if_not(plugins_downloaded())
+  # An f64 program: without `input_dtypes` the bare R double would arrive as
+  # f32 and the executable would refuse it, and -- the point of the mechanism
+  # -- the value would already have been rounded to f32 on the way in.
+  src <- 'func.func @main(%x: tensor<f64>) -> tensor<f64> {
+    "func.return"(%x): (tensor<f64>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  entry <- function(dtypes) {
+    function(info) {
+      pjrt_entry(
+        exec,
+        out_tree = build_tree(0),
+        out_avals = list(oav("f64", integer())),
+        input_dtypes = dtypes
+      )
+    }
+  }
+  d <- dispatcher(10L, entry("f64"), default_device = test_pjrt_device)
+  res <- dispatch(d, list(x = sqrt(2)))
+  # Exact to the last bit: the R double was uploaded as f64, not widened from f32.
+  expect_identical(as.numeric(tengen::as_array(await(res$data))), sqrt(2))
+
+  # The same call keys the same entry whatever the value, so a second value
+  # is served by the entry compiled for the first one.
+  expect_identical(as.numeric(tengen::as_array(await(dispatch(d, list(x = pi))$data))), pi)
+  expect_equal(dispatcher_size(d), 1L)
+
+  # There is no default to fall back on: an entry that declares nothing for a
+  # bare R input is a malformed result, not a licence to guess f32.
+  d2 <- dispatcher(10L, entry(NULL), default_device = test_pjrt_device)
+  expect_error(
+    dispatch(d2, list(x = sqrt(2))),
+    "`input_dtypes` is required, because input 1 is bare R data"
+  )
+  d3 <- dispatcher(10L, entry(NA_character_), default_device = test_pjrt_device)
+  expect_error(
+    dispatch(d3, list(x = sqrt(2))),
+    "`input_dtypes\\[\\[1\\]\\]` is NA for a bare R input"
+  )
+})
+
+test_that("a malformed `input_dtypes` is rejected, not silently ignored", {
+  skip_if_not(plugins_downloaded())
+  src <- 'func.func @main(%x: tensor<f64>) -> tensor<f64> {
+    "func.return"(%x): (tensor<f64>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  cb <- function(dtypes) {
+    function(info) {
+      pjrt_entry(exec, out_avals = list(oav("f64", integer())), input_dtypes = dtypes)
+    }
+  }
+  expect_error(
+    dispatch(dispatcher(10L, cb(c("f64", "f64")), default_device = test_pjrt_device), list(x = 1)),
+    "2 entries but the call supplies 1"
+  )
+  expect_error(
+    dispatch(dispatcher(10L, cb("f16"), default_device = test_pjrt_device), list(x = 1)),
+    "not a dtype anvl can represent"
+  )
+  expect_error(
+    dispatch(dispatcher(10L, cb(64), default_device = test_pjrt_device), list(x = 1)),
+    "must be a character vector"
+  )
+})
+
+test_that("a bare R input needs its dtype declared, whatever else the call passes", {
+  skip_if_not(plugins_downloaded())
+  # The requirement is per input: an array alongside it still takes NA, and the
+  # rejection names the bare R one by its position among the call's inputs.
+  src <- 'func.func @main(%a: tensor<f32>, %b: tensor<f32>) -> tensor<f32> {
+    %0 = "stablehlo.add"(%a, %b): (tensor<f32>, tensor<f32>) -> tensor<f32>
+    "func.return"(%0): (tensor<f32>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  cb <- function(dtypes) {
+    function(info) {
+      pjrt_entry(
+        exec,
+        out_avals = list(oav("f32", integer())),
+        input_dtypes = dtypes
+      )
+    }
+  }
+  args <- list(a = parr(pjrt_scalar(1, dtype = "f32")), b = 2)
+  expect_error(
+    dispatch(dispatcher(10L, cb(NULL), default_device = test_pjrt_device), args),
+    "`input_dtypes` is required, because input 2 is bare R data"
+  )
+  expect_error(
+    dispatch(dispatcher(10L, cb(rep(NA_character_, 2L)), default_device = test_pjrt_device), args),
+    "`input_dtypes\\[\\[2\\]\\]` is NA for a bare R input"
+  )
+  d <- dispatcher(10L, cb(c(NA, "f32")), default_device = test_pjrt_device)
+  expect_equal(out(dispatch(d, args)), 3)
+})
+
+test_that("`input_dtypes` may not name a dtype the R value cannot upload at", {
+  skip_if_not(plugins_downloaded())
+  # Each R storage type is uploaded through the buffer entry point for its
+  # SEXPTYPE, and those do not all reach every dtype. The pair is settled on
+  # the compile path, against the `input_dtypes` entry the callback must fix,
+  # rather than surfacing from the buffer layer mid-execution.
+  cb <- function(dtypes, ty) {
+    src <- sprintf(
+      'func.func @main(%%x: tensor<%s>) -> tensor<%s> {
+        "func.return"(%%x): (tensor<%s>) -> ()
+      }',
+      ty,
+      ty,
+      ty
+    )
+    exec <- pjrt_compile(pjrt_program(src = src))
+    function(info) {
+      pjrt_entry(exec, out_avals = list(oav(ty, integer())), input_dtypes = dtypes)
+    }
+  }
+  reject <- function(x, dtypes, ty) {
+    d <- dispatcher(10L, cb(dtypes, ty), default_device = test_pjrt_device)
+    expect_error(dispatch(d, list(x = x)), "cannot be uploaded at: it is")
+  }
+  # An R integer has no path to bool, and an R logical no path to anything else.
+  reject(1L, "bool", "i1")
+  reject(TRUE, "i32", "i32")
+  reject(TRUE, "f32", "f32")
+
+  # The pairs that do work still do, including the ones an R double reaches
+  # only by conversion.
+  accept <- function(x, dtype, ty, expected) {
+    d <- dispatcher(10L, cb(dtype, ty), default_device = test_pjrt_device)
+    expect_equal(
+      as.vector(tengen::as_array(await(dispatch(d, list(x = x))$data))),
+      expected
+    )
+  }
+  accept(TRUE, "bool", "i1", TRUE)
+  accept(3L, "f64", "f64", 3)
+  accept(2.5, "f32", "f32", 2.5)
+  accept(1, "bool", "i1", TRUE)
+  accept(7, "i32", "i32", 7L)
+})
+
+test_that("a backend that uploads nothing takes no dtype at any input", {
+  # The closure engine hands each dynamic leaf to `r_fun` as it is, bare R
+  # value included, so there is no upload for a declared dtype to apply to.
+  # Every entry must be NA, exactly as an array input's must be under pjrt --
+  # accepting one and ignoring it is the silent no-op both rules refuse to be.
+  cb <- function(dtypes) {
+    function(info) list(r_fun = function(flat) flat[[1L]], input_dtypes = dtypes)
+  }
+  clo <- function(dtypes) {
+    dispatcher(
+      10L,
+      cb(dtypes),
+      backend = "quickr",
+      default_device = test_quickr_device,
+      extractor = test_extractor
+    )
+  }
+  expect_error(
+    dispatch(clo("f64"), list(x = 3.5)),
+    "uploads none of them"
+  )
+  expect_error(
+    dispatch(clo("f64"), list(x = qarr(c(1, 2)))),
+    "declares dtype \"f64\" for an array input"
+  )
+
+  # NA is "leave this input alone", which is all this engine ever does, so it
+  # is accepted at a bare R leaf here where pjrt insists on a real dtype.
+  expect_identical(dispatch(clo(NA_character_), list(x = 3.5)), 3.5)
+  expect_identical(dispatch(clo(NULL), list(x = 3.5)), 3.5)
+
+  # The length and dtype-name checks are the engine's business either way.
+  expect_error(
+    dispatch(clo(c(NA_character_, NA_character_)), list(x = 3.5)),
+    "has 2 entries but the call supplies 1 input"
+  )
+  expect_error(
+    dispatch(clo("not_a_dtype"), list(x = 3.5)),
+    "not a dtype anvl can represent"
+  )
+})
+
+test_that("`input_dtypes` is indexed by dynamic leaf, skipping statics", {
+  skip_if_not(plugins_downloaded())
+  # A static is a constant of the compiled program, not an input the engine
+  # supplies, so it takes no `input_dtypes` slot -- while `info$avals` still
+  # carries one (NULL) for it. The two indexings differ by exactly the statics
+  # in the call, which is the off-by-one a callback author has to get right.
+  src <- 'func.func @main(%x: tensor<f64>) -> tensor<f64> {
+    "func.return"(%x): (tensor<f64>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  seen <- NULL
+  cb <- function(dtypes) {
+    function(info) {
+      seen <<- info$avals
+      pjrt_entry(
+        exec,
+        out_tree = build_tree(0),
+        out_avals = list(oav("f64", integer())),
+        input_dtypes = dtypes
+      )
+    }
+  }
+  mk <- function(dtypes) {
+    dispatcher(10L, cb(dtypes), static = "s", default_device = test_pjrt_device)
+  }
+  # One entry, for the single dynamic leaf -- not two for the two arguments.
+  res <- dispatch(mk("f64"), list(s = 42L, x = sqrt(2)))
+  expect_identical(as.numeric(tengen::as_array(await(res$data))), sqrt(2))
+  # `info$avals` is the other indexing: per leaf, NULL where a static sits.
+  expect_length(seen, 2L)
+  expect_null(seen[[1L]])
+  expect_identical(seen[[2L]]$dtype, "double")
+
+  # One entry per argument is the mistake this catches.
+  expect_error(
+    dispatch(mk(c(NA_character_, "f64")), list(s = 42L, x = sqrt(2))),
+    "has 2 entries but the call supplies 1 input"
+  )
+})
+
+test_that("`input_dtypes` may not declare a dtype for an array input", {
+  skip_if_not(plugins_downloaded())
+  # An array is supplied as it is -- nothing uploads it -- so a declared dtype
+  # could not take effect, and is rejected rather than silently ignored.
+  src <- 'func.func @main(%x: tensor<f32>) -> tensor<f32> {
+    "func.return"(%x): (tensor<f32>) -> ()
+  }'
+  exec <- pjrt_compile(pjrt_program(src = src))
+  cb <- function(dtypes) {
+    function(info) {
+      pjrt_entry(
+        exec,
+        out_avals = list(oav("f32", integer())),
+        input_dtypes = dtypes
+      )
+    }
+  }
+  arr <- parr(pjrt_scalar(1, dtype = "f32"))
+  expect_error(
+    dispatch(dispatcher(10L, cb("f32"), default_device = test_pjrt_device), list(x = arr)),
+    "declares dtype \"f32\" for an array input"
+  )
+  # NA is the entry an array takes, and leaves the buffer alone.
+  d <- dispatcher(10L, cb(NA_character_), default_device = test_pjrt_device)
+  expect_identical(
+    as.numeric(tengen::as_array(await(dispatch(d, list(x = arr))$data))),
+    1
+  )
 })
