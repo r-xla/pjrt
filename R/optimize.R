@@ -13,17 +13,7 @@
 #'   The passes to run, e.g. `"stablehlo-aggressive-folder"`. A leading `--` is
 #'   optional. See [stablehlo_opt_passes()] for the available passes.
 #' @return `PJRTProgram`
-#' @examplesIf stablehlo_opt_available()
-#' src <- "
-#' func.func @main() -> tensor<2xf32> {
-#'   %0 = stablehlo.constant dense<[1.0, 2.0]> : tensor<2xf32>
-#'   %1 = stablehlo.constant dense<[3.0, 4.0]> : tensor<2xf32>
-#'   %2 = stablehlo.add %0, %1 : tensor<2xf32>
-#'   return %2 : tensor<2xf32>
-#' }
-#' "
-#' pjrt_optimize(src)
-#' @export
+#' @noRd
 pjrt_optimize <- function(
   program,
   passes = "stablehlo-target-independent-optimization"
@@ -72,7 +62,8 @@ pjrt_optimize <- function(
 #'   The concrete MLIR types for the arguments of `main`, one per argument,
 #'   e.g. `c("tensor<5x3xf32>", "tensor<3xf32>")`.
 #' @return `PJRTProgram`
-#' @examplesIf stablehlo_opt_available() && plugins_downloaded("cpu")
+#' @examples
+#' \dontrun{
 #' path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
 #' program <- pjrt_program(path = path)
 #' pjrt_refine_shapes(
@@ -85,6 +76,7 @@ pjrt_optimize <- function(
 #'     "tensor<5x3xf32>"
 #'   )
 #' )
+#' }
 #' @export
 pjrt_refine_shapes <- function(program, types) {
   checkmate::assert_character(types, any.missing = FALSE, min.len = 1L)
@@ -113,9 +105,7 @@ pjrt_refine_shapes <- function(program, types) {
 #' @return (`character()`)\cr
 #'   Pass names without the leading `--`, e.g.
 #'   `"stablehlo-aggressive-folder"`.
-#' @examplesIf stablehlo_opt_available()
-#' head(stablehlo_opt_passes())
-#' @export
+#' @noRd
 stablehlo_opt_passes <- function() {
   help <- stablehlo_opt_run("--help")
   # Pass flags are listed one per line as e.g. "  --stablehlo-refine-shapes"
@@ -166,9 +156,7 @@ stablehlo_opt_run <- function(args) {
 #'   binary is missing, an error is raised.
 #' @return (`character(1)`)\cr
 #'   Path to the binary.
-#' @examplesIf stablehlo_opt_available()
-#' stablehlo_opt_bin()
-#' @export
+#' @noRd
 stablehlo_opt_bin <- function(install = TRUE) {
   checkmate::assert_flag(install)
 
@@ -191,7 +179,8 @@ stablehlo_opt_bin <- function(install = TRUE) {
   if (!install) {
     cli_abort(c(
       "The {.code stablehlo-opt} binary is not downloaded yet.",
-      i = "Call {.run pjrt::stablehlo_opt_bin()} to download it."
+      i = "Set {.envvar PJRT_INSTALL} to {.val 1} to allow the download, or
+           {.envvar PJRT_STABLEHLO_OPT_PATH} to a local binary."
     ))
   }
 
@@ -206,7 +195,7 @@ stablehlo_opt_bin <- function(install = TRUE) {
 #' @return `logical(1)`
 #' @examples
 #' stablehlo_opt_available()
-#' @export
+#' @noRd
 stablehlo_opt_available <- function() {
   !inherits(
     try(stablehlo_opt_bin(install = FALSE), silent = TRUE),

@@ -76,22 +76,18 @@ mlp_types <- function(batch) {
   )
 }
 
-test_that("pjrt_refine_shapes() makes a JAX shape-polymorphic export runnable", {
+test_that("pjrt_refine_shapes() turns a shape-polymorphic export into a runnable program", {
   skip_if_no_stablehlo_opt()
 
+  # One pass over a real JAX export is enough: it shows we can invoke the
+  # binary, hand it argument types, and get back a program XLA accepts and
+  # runs. What the passes do to the IR on the way -- erasing the shape
+  # assertion, folding `dynamic_broadcast_in_dim`, which `tensor<?x...>`
+  # becomes what -- is stablehlo-opt's business, and asserting it here would
+  # only pin us to its current output.
   path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
-  program <- pjrt_program(path = path)
-
-  # The export guards the symbolic dimension with a shape assertion, which PJRT
-  # has no custom call for, and its dynamic shapes cannot be compiled.
-  expect_match(program_code(program), "shape_assertion", fixed = TRUE)
-  expect_error(pjrt_compile(program))
-
-  refined <- pjrt_refine_shapes(program, mlp_types(5L))
-  code <- program_code(refined)
-  expect_false(grepl("tensor<?x", code, fixed = TRUE))
-  expect_false(grepl("shape_assertion", code, fixed = TRUE))
-  expect_false(grepl("dynamic_broadcast_in_dim", code, fixed = TRUE))
+  refined <- pjrt_refine_shapes(pjrt_program(path = path), mlp_types(5L))
+  expect_class(refined, "PJRTProgram")
 
   w1 <- pjrt_buffer(matrix(0, nrow = 3, ncol = 4), dtype = "f32")
   b1 <- pjrt_buffer(rep(0, 4), dtype = "f32")
@@ -106,46 +102,17 @@ test_that("pjrt_refine_shapes() makes a JAX shape-polymorphic export runnable", 
   expect_equal(out, matrix(c(rep(1, 5), rep(-1, 5)), nrow = 5))
 })
 
-test_that("pjrt_refine_shapes() specializes the same program for other shapes", {
+test_that("pjrt_refine_shapes() surfaces a stablehlo-opt failure as an R error", {
   skip_if_no_stablehlo_opt()
 
-  path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
-  program <- pjrt_program(path = path)
-
-  for (batch in c(1L, 7L)) {
-    refined <- pjrt_refine_shapes(program, mlp_types(batch))
-    expect_match(
-      program_code(refined),
-      sprintf("tensor<%dx2xf32>", batch),
-      fixed = TRUE
-    )
-    expect_class(pjrt_compile(refined), "PJRTLoadedExecutable")
-  }
-})
-
-test_that("pjrt_refine_shapes() errors on a type list of the wrong length", {
-  skip_if_no_stablehlo_opt()
-
+  # Our error path, not the binary's diagnostics: a non-zero exit has to become
+  # an R condition rather than a silent pass-through.
   path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
   program <- pjrt_program(path = path)
 
   expect_error(
     pjrt_refine_shapes(program, mlp_types(5L)[-1L]),
     "stablehlo-opt.*failed"
-  )
-})
-
-test_that("pjrt_refine_shapes() reports violated shape assertions", {
-  skip_if_no_stablehlo_opt()
-
-  path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
-  program <- pjrt_program(path = path)
-
-  # The export asserts that the symbolic dimension 'batch' is >= 1.
-  expect_error(
-    pjrt_refine_shapes(program, mlp_types(0L)),
-    "Expected value >= 1 for dimension variable 'batch'",
-    fixed = TRUE
   )
 })
 

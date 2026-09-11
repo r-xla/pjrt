@@ -28,7 +28,7 @@ because XLA needs static shapes. Refining them turns such a program into an
 ordinary, compilable one.
 }
 \examples{
-\dontshow{if (stablehlo_opt_available() && plugins_downloaded("cpu")) withAutoprint(\{ # examplesIf}
+\dontrun{
 path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
 program <- pjrt_program(path = path)
 pjrt_refine_shapes(
@@ -41,5 +41,5 @@ pjrt_refine_shapes(
     "tensor<5x3xf32>"
   )
 )
-\dontshow{\}) # examplesIf}
+}
 }
