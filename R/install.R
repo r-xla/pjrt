@@ -4,8 +4,9 @@
 #' The CPU plugin is always installed. The CUDA plugin is installed in
 #' addition when a CUDA-capable GPU is detected, or when `cuda = TRUE` is
 #' passed explicitly. Installing the CUDA plugin also installs the R package
-#' providing the CUDA libraries it links against (`r cuda_r_package()` by
-#' default, see `PJRT_CUDA_R_PACKAGE` in [pjrt-package]).
+#' providing the CUDA libraries it links against (CUDA `r cuda_version()`,
+#' shipped by `r cuda_r_package()` by default, see `PJRT_CUDA_R_PACKAGE` in
+#' [pjrt-package]).
 #'
 #' Plugins are otherwise downloaded lazily the first time a client is
 #' created, but the download requires user confirmation, unless

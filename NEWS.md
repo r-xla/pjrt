@@ -1,10 +1,24 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* Updated the PJRT plugin version, which now requires CUDA 13.3.
+* Removed support for the ambiguity concept in the dispatcher and replaced
+  it with support for `rdata` objects.
+  This enables the improved precision semantics in anvl.
+
+## New features
+
+* `dispatcher()` gained a `context` resolver: a function called on every
+  dispatch whose `character()` result is part of the cache key and reaches the
+  compile callback as `info$context`. anvl uses it to key compiled programs on
+  the backend's default dtypes.
+* Added CUDA support for Linux ARM.
+* Added supoort for Intel Macs.
+
 ## Bug fixes
 
-* CUDA is now auto-detected on Linux arm64. `install_pjrt()` previously only
-  offered the CUDA plugin on x86_64, although the plugin and the CUDA
-  libraries both ship for arm64.
+* Large float buffers now print correctly.
 
 ## Other
 

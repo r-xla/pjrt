@@ -51,6 +51,16 @@ test_that("printer for doubles", {
   expect_snapshot(pjrt_buffer(c(1e10, 1e-10)))
 })
 
+test_that("integer-valued floats beyond the int64 range", {
+  skip_if(is_metal() | is_cuda())
+  # every double above 2^53 is integer-valued, so these take the printer's
+  # integer path but have no int64 to be rendered through
+  expect_snapshot(pjrt_buffer(1e20, "f64"))
+  expect_snapshot(pjrt_buffer(-1e20, "f64"))
+  expect_snapshot(pjrt_buffer(c(1, 1e20), "f64"))
+  expect_snapshot(pjrt_buffer(1e38, "f32"))
+})
+
 test_that("integer-valued floats with truncation", {
   skip_if(is_metal() | is_cuda())
   # > 30 rows triggers row truncation

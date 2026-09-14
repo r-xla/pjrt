@@ -217,6 +217,43 @@
        1.0000e-10
       [ CPUf32{2} ] 
 
+# integer-valued floats beyond the int64 range
+
+    Code
+      pjrt_buffer(1e+20, "f64")
+    Output
+      PJRTBuffer 
+       1.0000e+20
+      [ CPUf64{1} ] 
+
+---
+
+    Code
+      pjrt_buffer(-1e+20, "f64")
+    Output
+      PJRTBuffer 
+       -1.0000e+20
+      [ CPUf64{1} ] 
+
+---
+
+    Code
+      pjrt_buffer(c(1, 1e+20), "f64")
+    Output
+      PJRTBuffer 
+                1
+       1.0000e+20
+      [ CPUf64{2} ] 
+
+---
+
+    Code
+      pjrt_buffer(1e+38, "f32")
+    Output
+      PJRTBuffer 
+       1.0000e+38
+      [ CPUf32{1} ] 
+
 # integer-valued floats with truncation
 
     Code

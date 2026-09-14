@@ -57,7 +57,7 @@ Only used when downloading plugins from zml/pjrt-artifacts.
 \item \code{PJRT_CPU_DEVICE_COUNT}: The number of CPU devices to use. Defaults to 1.
 This is primarily intended for testing purposes.
 \item \code{PJRT_CUDA_R_PACKAGE}: Name of the R package providing CUDA libraries.
-Defaults to the value of cuda12.8.
+Defaults to the value of pjrt.cuda.
 Set this to use a different CUDA toolkit package, but note that other
 versions may not work with the XLA plugin.
 \item \code{PJRT_DEBUG}: If set (to any non-empty value), enables verbose debug output
@@ -70,7 +70,7 @@ via \code{cli::cli_inform()}.
 The \code{pjrt} package itself is MIT-licensed. The CUDA backend dynamically
 loads NVIDIA software which is not bundled with \code{pjrt}, but downloaded
 from NVIDIA's official redistributable channels by the CUDA toolkit R
-package (e.g. \code{cuda12.8}) at install time. Its use is governed by the
+package (e.g. \code{pjrt.cuda}) at install time. Its use is governed by the
 \href{https://docs.nvidia.com/cuda/eula/}{NVIDIA CUDA Toolkit EULA}, with the
 exception of cuDNN, which is covered by the
 \href{https://docs.nvidia.com/deeplearning/cudnn/sla/index.html}{NVIDIA cuDNN SLA},
