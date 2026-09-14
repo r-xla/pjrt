@@ -147,7 +147,7 @@ pjrt_execute(executable, x, y)
   - ✅ CUDA (NVIDIA GPU) backend is fully supported.
 - **Linux (ARM)**
   - ✅ CPU backend is fully supported.
-  - ❌ GPU is not supported.
+  - ✅ CUDA (NVIDIA GPU) backend is fully supported.
 - **Windows**
   - ✅ CPU backend is fully supported.
   - ⚠️ GPU is only supported via Windows Subsystem for Linux (WSL2).

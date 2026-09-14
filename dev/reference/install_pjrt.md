@@ -25,7 +25,7 @@ install_pjrt(cuda = NULL)
   (`logical(1)` \| `NULL`)  
   Whether to also install the CUDA plugin. When `NULL` (the default),
   CUDA support is auto-detected: the CUDA plugin is installed when an
-  NVIDIA GPU is available on a Linux x86_64 machine.
+  NVIDIA GPU is available on a Linux machine (x86_64 or arm64).
 
 ## Value
 
