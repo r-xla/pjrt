@@ -58,9 +58,15 @@ pjrt_optimize <- function(
 #' @param program (`PJRTProgram` | `character(1)`)\cr
 #'   The program to refine, either a `PJRTProgram` in `"mlir"` format or MLIR
 #'   source code.
-#' @param types (`character()`)\cr
-#'   The concrete MLIR types for the arguments of `main`, one per argument,
-#'   e.g. `c("tensor<5x3xf32>", "tensor<3xf32>")`.
+#' @param types (`list()`)\cr
+#'   One entry per argument of `main`, each a `list(dtype, shape)`:
+#'   * `dtype` -- anything [tengen::as_dtype()] accepts, e.g. `"f32"`.
+#'   * `shape` -- the axis sizes, e.g. `c(5, 3)`, or `integer()` for a scalar.
+#'
+#'   Entries may be positional or named, so
+#'   `list("f32", c(5, 3))` and `list(dtype = "f32", shape = c(5, 3))` are the
+#'   same. Every axis size has to be concrete: a dynamic one is what this
+#'   function refines away.
 #' @return `PJRTProgram`
 #' @examples
 #' \dontrun{
@@ -68,25 +74,30 @@ pjrt_optimize <- function(
 #' program <- pjrt_program(path = path)
 #' pjrt_refine_shapes(
 #'   program,
-#'   c(
-#'     "tensor<3x4xf32>",
-#'     "tensor<4xf32>",
-#'     "tensor<4x2xf32>",
-#'     "tensor<2xf32>",
-#'     "tensor<5x3xf32>"
+#'   list(
+#'     list("f32", c(3, 4)),
+#'     list("f32", 4),
+#'     list("f32", c(4, 2)),
+#'     list("f32", 2),
+#'     list("f32", c(5, 3))
 #'   )
 #' )
 #' }
 #' @export
 pjrt_refine_shapes <- function(program, types) {
-  checkmate::assert_character(types, any.missing = FALSE, min.len = 1L)
+  checkmate::assert_list(types, min.len = 1L)
+  type_strs <- vapply(
+    seq_along(types),
+    function(i) mlir_tensor_type(types[[i]], i),
+    character(1)
+  )
 
   pjrt_optimize(
     program,
     passes = c(
       sprintf(
         "stablehlo-refine-arguments=types='%s'",
-        paste(types, collapse = ",")
+        paste(type_strs, collapse = ",")
       ),
       "stablehlo-refine-shapes",
       "stablehlo-canonicalize-dynamism",
@@ -96,6 +107,69 @@ pjrt_refine_shapes <- function(program, types) {
       "stablehlo-check-shape-assertions"
     )
   )
+}
+
+# Dtypes whose MLIR spelling differs from their canonical tengen name.
+mlir_dtype_spellings <- c(
+  bool = "i1",
+  c64 = "complex<f32>",
+  c128 = "complex<f64>"
+)
+
+# One `list(dtype, shape)` entry of `types` as the MLIR type string
+# `stablehlo-refine-arguments` expects, e.g. `tensor<5x3xf32>`.
+#
+# `index` is the argument position, so an error can say which entry is wrong
+# rather than only that one of them is.
+mlir_tensor_type <- function(x, index, call = rlang::caller_env()) {
+  arg <- sprintf("types[[%d]]", index)
+  if (!is.list(x) || length(x) != 2L) {
+    cli_abort(
+      c(
+        "Each entry of {.arg types} must be a {.code list(dtype, shape)}.",
+        x = "{.arg {arg}} has length {length(x)}."
+      ),
+      call = call
+    )
+  }
+
+  nms <- names(x) %||% rep("", 2L)
+  if (setequal(nms, c("dtype", "shape"))) {
+    dtype <- x[["dtype"]]
+    shape <- x[["shape"]]
+  } else if (!any(nzchar(nms))) {
+    dtype <- x[[1L]]
+    shape <- x[[2L]]
+  } else {
+    cli_abort(
+      c(
+        "Each entry of {.arg types} must be named {.field dtype} and
+         {.field shape}, or be unnamed.",
+        x = "{.arg {arg}} is named {.val {nms}}."
+      ),
+      call = call
+    )
+  }
+
+  dtype <- as_dtype(dtype)
+  # `any.missing = FALSE`: an `NA` axis size is a *dynamic* axis, which is the
+  # thing being refined away here, so it cannot also be an answer.
+  checkmate::assert_integerish(
+    shape,
+    lower = 0,
+    any.missing = FALSE,
+    .var.name = paste0(arg, "$shape")
+  )
+
+  name <- as.character(dtype)
+  spelling <- mlir_dtype_spellings[name]
+  spelling <- if (is.na(spelling)) name else unname(spelling)
+
+  if (length(shape) == 0L) {
+    sprintf("tensor<%s>", spelling)
+  } else {
+    sprintf("tensor<%sx%s>", paste(as.integer(shape), collapse = "x"), spelling)
+  }
 }
 
 #' @title Available `stablehlo-opt` Passes

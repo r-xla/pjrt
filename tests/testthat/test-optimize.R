@@ -67,12 +67,12 @@ test_that("pjrt_optimize() rejects HLO programs", {
 })
 
 mlp_types <- function(batch) {
-  c(
-    "tensor<3x4xf32>",
-    "tensor<4xf32>",
-    "tensor<4x2xf32>",
-    "tensor<2xf32>",
-    sprintf("tensor<%dx3xf32>", batch)
+  list(
+    list("f32", c(3, 4)),
+    list("f32", 4),
+    list("f32", c(4, 2)),
+    list("f32", 2),
+    list("f32", c(batch, 3))
   )
 }
 
@@ -157,4 +157,43 @@ test_that("stablehlo_opt_url() points at an existing build", {
 
   withr::local_envvar(PJRT_STABLEHLO_OPT_URL = "https://example.com/x.tar.gz")
   expect_equal(stablehlo_opt_url(), "https://example.com/x.tar.gz")
+})
+
+test_that("pjrt_refine_shapes() accepts positional and named type entries", {
+  # Both spellings of an entry describe the same argument, so the two calls
+  # have to produce the same program.
+  skip_if_no_stablehlo_opt()
+
+  path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
+  program <- pjrt_program(path = path)
+
+  named <- lapply(mlp_types(5L), function(t) {
+    list(dtype = t[[1L]], shape = t[[2L]])
+  })
+  expect_equal(
+    program_code(pjrt_refine_shapes(program, named)),
+    program_code(pjrt_refine_shapes(program, mlp_types(5L)))
+  )
+})
+
+test_that("mlir_tensor_type() renders dtype and shape the way MLIR spells them", {
+  expect_equal(mlir_tensor_type(list("f32", c(5, 3)), 1L), "tensor<5x3xf32>")
+  expect_equal(mlir_tensor_type(list(dtype = "f32", shape = 3), 1L), "tensor<3xf32>")
+  # A scalar is a rank-0 tensor, not a 1-element one.
+  expect_equal(mlir_tensor_type(list("i64", integer()), 1L), "tensor<i64>")
+  # `as_dtype()` normalises a bool to "bool", but MLIR spells it "i1".
+  expect_equal(mlir_tensor_type(list("pred", 2), 1L), "tensor<2xi1>")
+  expect_equal(mlir_tensor_type(list("i1", 2), 1L), "tensor<2xi1>")
+})
+
+test_that("pjrt_refine_shapes() rejects malformed type entries", {
+  prog <- "func.func @main(%a: tensor<?xf32>) -> tensor<?xf32> { return %a : tensor<?xf32> }"
+  expect_error(pjrt_refine_shapes(prog, "tensor<3xf32>"), "Must be of type .list.")
+  expect_error(pjrt_refine_shapes(prog, list()), "length")
+  expect_error(pjrt_refine_shapes(prog, list(list("f32"))), "list\\(dtype, shape\\)")
+  expect_error(pjrt_refine_shapes(prog, list(list(shp = 3, dt = "f32"))), "or be unnamed")
+  # A dynamic axis is what refinement removes, so it cannot be an answer.
+  expect_error(pjrt_refine_shapes(prog, list(list("f32", NA_integer_))), "missing values")
+  expect_error(pjrt_refine_shapes(prog, list(list("f32", -1))), ">= 0")
+  expect_error(pjrt_refine_shapes(prog, list(list("nosuch", 3))), "dtype")
 })

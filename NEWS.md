@@ -42,15 +42,23 @@
 
 ## Features
 
-* Added `pjrt_optimize()`, which runs StableHLO's `stablehlo-opt` tool on a
-  StableHLO program (e.g. to fold constants) and returns the transformed
-  `PJRTProgram`. The available passes are listed by `stablehlo_opt_passes()`.
-  The tool is not bundled with the package; it is downloaded and cached on
-  first use, see `stablehlo_opt_bin()` and `stablehlo_opt_available()`.
 * Added `pjrt_refine_shapes()`, which turns a program exported with dynamic
   (polymorphic) shapes -- e.g. by `jax.export` with a symbolic batch
-  dimension -- into a compilable program with static shapes. See the
-  "Running a JAX Model in R" article.
+  dimension -- into a compilable program with static shapes. XLA needs static
+  shapes, so such a program cannot be compiled until it is refined.
+
+  The concrete argument types are given as a list with one `list(dtype, shape)`
+  per argument of `main`, positional or named:
+
+  ```r
+  pjrt_refine_shapes(program, list(list("f32", c(5, 3)), list("f32", 3)))
+  ```
+
+  It is the only exported entry point for this. It runs StableHLO's
+  `stablehlo-opt` tool, which is not bundled with the package: it is
+  downloaded and cached on first use, and `PJRT_STABLEHLO_OPT_PATH`,
+  `PJRT_STABLEHLO_OPT_URL` and `PJRT_STABLEHLO_OPT_VERSION` control where it
+  comes from (see `?pjrt-package`).
 * `pjrt_buffer()`, `pjrt_scalar()`, and `pjrt_execute()` now call R's
   garbage collector and retry once when the plugin reports
   `RESOURCE_EXHAUSTED`. Unreferenced `PJRTBuffer` external pointers are

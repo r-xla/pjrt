@@ -11,9 +11,17 @@ pjrt_refine_shapes(program, types)
 The program to refine, either a \code{PJRTProgram} in \code{"mlir"} format or MLIR
 source code.}
 
-\item{types}{(\code{character()})\cr
-The concrete MLIR types for the arguments of \code{main}, one per argument,
-e.g. \code{c("tensor<5x3xf32>", "tensor<3xf32>")}.}
+\item{types}{(\code{list()})\cr
+One entry per argument of \code{main}, each a \code{list(dtype, shape)}:
+\itemize{
+\item \code{dtype} -- anything \code{\link[tengen:as_dtype]{tengen::as_dtype()}} accepts, e.g. \code{"f32"}.
+\item \code{shape} -- the axis sizes, e.g. \code{c(5, 3)}, or \code{integer()} for a scalar.
+}
+
+Entries may be positional or named, so
+\code{list("f32", c(5, 3))} and \code{list(dtype = "f32", shape = c(5, 3))} are the
+same. Every axis size has to be concrete: a dynamic one is what this
+function refines away.}
 }
 \value{
 \code{PJRTProgram}
@@ -33,12 +41,12 @@ path <- system.file("programs/jax-mlp-dynamic.mlir", package = "pjrt")
 program <- pjrt_program(path = path)
 pjrt_refine_shapes(
   program,
-  c(
-    "tensor<3x4xf32>",
-    "tensor<4xf32>",
-    "tensor<4x2xf32>",
-    "tensor<2xf32>",
-    "tensor<5x3xf32>"
+  list(
+    list("f32", c(3, 4)),
+    list("f32", 4),
+    list("f32", c(4, 2)),
+    list("f32", 2),
+    list("f32", c(5, 3))
   )
 )
 }
