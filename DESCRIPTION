@@ -57,6 +57,7 @@ Collate:
     'hlo.R'
     'install.R'
     'loaded_executable.R'
+    'optimize.R'
     'package.R'
     'plugin.R'
     'program.R'
