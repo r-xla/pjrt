@@ -1,5 +1,11 @@
 # pjrt (development version)
 
+## Bug fixes
+
+* CUDA is now auto-detected on Linux arm64. `install_pjrt()` previously only
+  offered the CUDA plugin on x86_64, although the plugin and the CUDA
+  libraries both ship for arm64.
+
 ## Other
 
 * pjrt no longer Suggests anvl and stablehlo for it's tests
