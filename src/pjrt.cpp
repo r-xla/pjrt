@@ -118,14 +118,21 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
 
 // Copy R data into a pre-allocated typed destination buffer, performing
 // type conversion as needed. T is the PJRT-side element type.
+//
+// The source is only read, so it is accessed through the *_RO accessors: the
+// writable INTEGER()/REAL()/LOGICAL() force copy-on-write materialization of
+// ALTREP vectors (e.g. shared-memory mappings), doubling the host cost of the
+// upload, whereas the read-only forms hand back the mapping in place.
 template <typename T>
 void convert_r_data_to_typed(SEXP data, T *dst, int len) {
   if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     if (TYPEOF(data) == REALSXP) {
-      std::copy(REAL(data), REAL(data) + len, dst);
+      const double *src = REAL_RO(data);
+      std::copy(src, src + len, dst);
     } else if (TYPEOF(data) == INTSXP) {
+      const int *src = INTEGER_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = static_cast<T>(INTEGER(data)[i]);
+        dst[i] = static_cast<T>(src[i]);
       }
     } else {
       Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
@@ -137,16 +144,20 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
                        std::is_same_v<T, uint16_t> ||
                        std::is_same_v<T, uint32_t> ||
                        std::is_same_v<T, uint64_t>) {
-    std::copy(INTEGER(data), INTEGER(data) + len, dst);
+    const int *src = INTEGER_RO(data);
+    std::copy(src, src + len, dst);
   } else if constexpr (std::is_same_v<T, bool>) {
-    std::copy(LOGICAL(data), LOGICAL(data) + len, dst);
+    const int *src = LOGICAL_RO(data);
+    std::copy(src, src + len, dst);
   } else if constexpr (std::is_same_v<T, uint8_t>) {
     if (TYPEOF(data) == LGLSXP) {
+      const int *src = LOGICAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = LOGICAL(data)[i] ? 1 : 0;
+        dst[i] = src[i] ? 1 : 0;
       }
     } else if (TYPEOF(data) == INTSXP) {
-      std::copy(INTEGER(data), INTEGER(data) + len, dst);
+      const int *src = INTEGER_RO(data);
+      std::copy(src, src + len, dst);
     } else {
       Rcpp::stop("Unsupported R type: %d", TYPEOF(data));
     }
@@ -276,8 +287,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
 //
 // On non-CPU it is genuinely zero-copy: R's data is handed straight to PJRT and
 // the R object is kept alive only until the transfer completes.
+//
+// `data_ptr` comes from a read-only accessor (see convert_r_data_to_typed), so
+// an ALTREP `data` is not materialized. Both consumers only read the bytes: the
+// CPU path memcpys, and the async path uses kImmutableUntilTransferCompletes.
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, void *data_ptr,
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, const void *data_ptr,
     const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
     size_t element_size, bool row_major = false,
     PJRT_Device *device = nullptr) {
@@ -300,9 +315,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
                            });
   }
 
-  // Non-CPU: hand R's data straight to PJRT (zero-copy).
-  auto result = client->buffer_from_host_async(data_ptr, dims, byte_strides_opt,
-                                               dtype, device);
+  // Non-CPU: hand R's data straight to PJRT (zero-copy). const_cast because
+  // buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result = client->buffer_from_host_async(
+      const_cast<void *>(data_ptr), dims, byte_strides_opt, dtype, device);
 
   if (result.event) {
     R_PreserveObject(data);
@@ -326,8 +342,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
     // Copy the raw bytes into a fresh RAWSXP; don't alias the caller's vector.
     // DATAPTR_RO: the source is only read, and a writable DATAPTR would force
     // copy-on-write materialization of ALTREP raw vectors (e.g. shared-memory
-    // mappings), doubling the host cost of the upload. NB RAW_RO() is not
-    // equivalent: as of R 4.6 it forces ALTREP payloads like RAW() does.
+    // mappings), doubling the host cost of the upload. Unlike INTEGER_RO() and
+    // REAL_RO(), RAW_RO() is not a substitute: as of R 4.6 it forces ALTREP
+    // payloads like RAW() does.
     size_t total_bytes = static_cast<size_t>(Rf_length(data));
     return make_cpu_buffer(client, total_bytes, dims, byte_strides_opt, dtype,
                            device, [&](void *dst) {
@@ -338,9 +355,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 
   // kImmutableUntilTransferCompletes only reads the host bytes; const_cast
   // because buffer_from_host_async takes void* to match the PJRT C API entry.
-  auto result = client->buffer_from_host_async(
-      const_cast<void *>(DATAPTR_RO(data)), dims,
-      byte_strides_opt, dtype, device);
+  auto result =
+      client->buffer_from_host_async(const_cast<void *>(DATAPTR_RO(data)), dims,
+                                     byte_strides_opt, dtype, device);
 
   if (result.event) {
     R_PreserveObject(data);
@@ -1126,7 +1143,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     static_assert(sizeof(int) == sizeof(int32_t),
                   "R int must be 32-bit for zero-copy");
     return create_buffer_from_array_async_no_convert(
-        client, data, INTEGER(data), dims, PJRT_Buffer_Type_S32,
+        client, data, INTEGER_RO(data), dims, PJRT_Buffer_Type_S32,
         sizeof(int32_t), false, device->device);
   } else if (dtype == "i64") {
     return create_buffer_from_array_async<int64_t>(
@@ -1174,7 +1191,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
   return create_buffer_from_array_async_no_convert(
-      client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
+      client, data, REAL_RO(data), dims, buffer_type, sizeof(int64_t), false,
       device->device);
 }
 
@@ -1201,7 +1218,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     // Zero-copy optimization: use R's double data directly (no type conversion
     // needed)
     return create_buffer_from_array_async_no_convert(
-        client, data, REAL(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
+        client, data, REAL_RO(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
         false, device->device);
   } else if (dtype == "pred") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
