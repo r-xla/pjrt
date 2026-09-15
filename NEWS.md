@@ -13,6 +13,8 @@
   dispatch whose `character()` result is part of the cache key and reaches the
   compile callback as `info$context`. anvl uses it to key compiled programs on
   the backend's default dtypes.
+* `RTree` objects can be compared with `==` and `!=`, which apply
+  `tree_equal()` structural comparison.
 * Added CUDA support for Linux ARM.
 * Added supoort for Intel Macs.
 
