@@ -394,6 +394,35 @@ test_that("a double an integer dtype cannot hold is uploaded, not rejected", {
   expect_no_error(as_array(pjrt_buffer(1e4, dtype = "i8"), check = TRUE))
 })
 
+test_that("check = TRUE rejects a value the integer dtype cannot hold", {
+  # The clamp is silent at every dtype whose lowest value is an ordinary one, so
+  # creation time is the only place the loss can be caught.
+  expect_error(pjrt_buffer(300, dtype = "ui8", check = TRUE), "cannot hold")
+  expect_error(pjrt_buffer(300L, dtype = "ui8", check = TRUE), "cannot hold")
+  expect_error(pjrt_buffer(-1, dtype = "ui8", check = TRUE), "cannot hold")
+  expect_error(pjrt_buffer(200L, dtype = "i8", check = TRUE), "cannot hold")
+  expect_error(pjrt_buffer(1e5, dtype = "i16", check = TRUE), "cannot hold")
+  expect_error(pjrt_buffer(1e30, dtype = "i64", check = TRUE), "cannot hold")
+  expect_error(pjrt_buffer(2^64, dtype = "ui64", check = TRUE), "cannot hold")
+  expect_error(pjrt_scalar(300, dtype = "ui8", check = TRUE), "cannot hold")
+  # The message counts the offenders, names them, and gives the dtype's range.
+  err <- expect_error(pjrt_buffer(c(1, 300, 400), dtype = "ui8", check = TRUE))
+  expect_match(conditionMessage(err), "2 values")
+  expect_match(conditionMessage(err), "300")
+  expect_match(conditionMessage(err), "400")
+  expect_match(conditionMessage(err), "0 to 255")
+
+  # In range, including a double that only fits after truncation toward zero.
+  expect_no_error(pjrt_buffer(255.9, dtype = "ui8", check = TRUE))
+  expect_no_error(pjrt_buffer(-128.9, dtype = "i8", check = TRUE))
+  expect_no_error(pjrt_buffer(2^40, dtype = "i64", check = TRUE))
+  expect_no_error(pjrt_buffer(2^63 - 1024, dtype = "i64", check = TRUE))
+  expect_no_error(pjrt_buffer(c(0L, 255L), dtype = "ui8", check = TRUE))
+  # Float dtypes are not range-checked, and NA still reports as NA.
+  expect_no_error(pjrt_buffer(1e300, dtype = "f32", check = TRUE))
+  expect_error(pjrt_buffer(c(NA_real_, 300), dtype = "ui8", check = TRUE), "missing")
+})
+
 test_that("an out-of-range value clamps the same from an integer as from a double", {
   # The integer path used to narrow by C++'s modular wrap -- 300L at "ui8"
   # stored 44 -- while the double path clamps, so the R storage type of the
@@ -416,10 +445,13 @@ test_that("an out-of-range value clamps the same from an integer as from a doubl
   # through R's signed integer64 as negative, which as_array(check = TRUE)
   # reports. Clamping to 0 is consistent with every other dtype but that check
   # no longer has anything to catch, so the loss is now silent here too.
-  # (The check itself is unchanged -- see "as_array check = TRUE catches ui64
-  # wrap" above; it is the upload that stopped producing a wrapped value.)
+  # Clamping means as_array()'s ui64 wrap check has nothing left to catch on
+  # this path (it still works on a genuinely wrapped buffer -- see "as_array
+  # check = TRUE catches ui64 wrap" above). Creation-time check = TRUE is what
+  # catches it now.
   expect_equal(as.character(as_array(pjrt_buffer(-5L, dtype = "ui64"))), "0")
   expect_no_error(as_array(pjrt_buffer(-5L, dtype = "ui64"), check = TRUE))
+  expect_error(pjrt_buffer(-5L, dtype = "ui64", check = TRUE), "cannot hold")
 
   # In range from either side, untouched.
   expect_equal(as_array(pjrt_buffer(127L, dtype = "i8")), array(127L, 1L))

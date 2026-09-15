@@ -22,9 +22,12 @@
   stores `0`. Buffer creation still rejects nothing -- at `"i32"` and `"i64"`
   the lowest value is R's `NA` bit pattern and `as_array(check = TRUE)` reports
   it, but at the narrow signed and the unsigned dtypes no check surfaces the
-  loss. In particular a negative integer at `"ui64"` used to wrap to a value
-  `as_array(check = TRUE)` flagged as wrapped, and now clamps to `0` silently.
-  See `?pjrt_buffer`.
+  loss -- `check = TRUE` at buffer creation now does.
+* `pjrt_buffer(check = TRUE)` and `pjrt_scalar(check = TRUE)` now also reject
+  values the target integer dtype cannot hold, not just `NA`. A `double` is
+  checked after truncation toward zero, so `255.9` at `"ui8"` still passes.
+  This is the only place such a loss can be caught at `"i8"`, `"i16"` and the
+  unsigned dtypes, whose lowest value is an ordinary one.
 
 ## Other
 

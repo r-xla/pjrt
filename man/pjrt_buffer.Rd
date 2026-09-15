@@ -42,7 +42,8 @@ A \code{double} at an integer dtype is truncated toward zero, like
 \code{\link[=as.integer]{as.integer()}} but without its 32-bit intermediate, so
 \code{pjrt_buffer(2^40, dtype = "i64")} stores \code{1099511627776} rather than
 overflowing. A value the dtype cannot hold (including \code{NaN} and \code{NA}) is
-stored as the dtype's lowest value and is \emph{not} rejected -- see \code{check}.}
+stored as the dtype's lowest value rather than wrapping around, and by
+default is not rejected -- set \code{check = TRUE} to catch it.}
 
 \item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr
 A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...), in which
@@ -56,22 +57,26 @@ The default (\code{NULL}) is to infer them from the data if possible.
 The default (\code{NULL}) depends on the method.}
 
 \item{check}{(\code{logical(1)})\cr
-If \code{TRUE}, scan \code{data} for \code{NA} values before transferring to the device and
-raise an error if any are present. R's \code{NA} markers have no representation
-at the XLA level (e.g. \code{NA_integer_} is just the bit pattern \code{-2147483648},
-and \code{NA} of \code{logical} type is silently coerced to \code{TRUE}), so missing values
-are silently lost on transfer. Defaults to \code{FALSE} for performance; set to
-\code{TRUE} to fail loudly instead of silently corrupting data.
-Not applicable to \code{raw} input.
+If \code{TRUE}, scan \code{data} before transferring to the device and raise an error
+if anything would be lost on the way. Defaults to \code{FALSE} for performance;
+set to \code{TRUE} to fail loudly instead of silently corrupting data.
+Not applicable to \code{raw} input. Two losses are checked:
+\itemize{
+\item \strong{\code{NA} values.} R's \code{NA} markers have no representation at the XLA level
+(e.g. \code{NA_integer_} is just the bit pattern \code{-2147483648}, and \code{NA} of
+\code{logical} type is silently coerced to \code{TRUE}).
+\item \strong{Values the dtype cannot hold}, at an integer dtype. These are stored
+as the dtype's lowest value. This is the only place such a loss can be
+caught for most dtypes: at \code{"i32"} and \code{"i64"} the lowest value is R's
+\code{NA} bit pattern, so
+\code{\link[=as_array.PJRTBuffer]{as_array(check = TRUE)}} can still report it
+afterwards, but at the narrow signed types it is an ordinary \code{-128} /
+\code{-32768} and at every unsigned type an ordinary \code{0}, which no later
+check can single out.
+}
 
-This checks for \code{NA} only. A value the dtype cannot hold is never rejected
-here: it is stored as the dtype's lowest value, and whether that loss can
-be detected afterwards depends on the dtype. At \code{"i32"} and \code{"i64"} the
-lowest value is R's \code{NA} bit pattern, which
-\code{\link[=as_array.PJRTBuffer]{as_array(check = TRUE)}} reports; at the narrow
-signed types it is an ordinary \code{-128} / \code{-32768} and at every unsigned type
-an ordinary \code{0}, and no check surfaces either. Range-check the data
-yourself before uploading it at one of those dtypes.}
+A \code{double} is range-checked after truncation toward zero, so \code{255.9} at
+\code{"ui8"} passes.}
 
 \item{...}{(any)\cr
 Additional arguments.

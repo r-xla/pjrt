@@ -58,7 +58,8 @@ is_buffer <- function(x) {
 #'   [as.integer()] but without its 32-bit intermediate, so
 #'   `pjrt_buffer(2^40, dtype = "i64")` stores `1099511627776` rather than
 #'   overflowing. A value the dtype cannot hold (including `NaN` and `NA`) is
-#'   stored as the dtype's lowest value and is *not* rejected -- see `check`.
+#'   stored as the dtype's lowest value rather than wrapping around, and by
+#'   default is not rejected -- set `check = TRUE` to catch it.
 #' @param shape (`NULL` | `integer()`)\cr
 #'   The dimensions of the buffer.
 #'   The default (`NULL`) is to infer them from the data if possible.
@@ -69,22 +70,24 @@ is_buffer <- function(x) {
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
 #' @param check (`logical(1)`)\cr
-#'   If `TRUE`, scan `data` for `NA` values before transferring to the device and
-#'   raise an error if any are present. R's `NA` markers have no representation
-#'   at the XLA level (e.g. `NA_integer_` is just the bit pattern `-2147483648`,
-#'   and `NA` of `logical` type is silently coerced to `TRUE`), so missing values
-#'   are silently lost on transfer. Defaults to `FALSE` for performance; set to
-#'   `TRUE` to fail loudly instead of silently corrupting data.
-#'   Not applicable to `raw` input.
+#'   If `TRUE`, scan `data` before transferring to the device and raise an error
+#'   if anything would be lost on the way. Defaults to `FALSE` for performance;
+#'   set to `TRUE` to fail loudly instead of silently corrupting data.
+#'   Not applicable to `raw` input. Two losses are checked:
+#'   * **`NA` values.** R's `NA` markers have no representation at the XLA level
+#'     (e.g. `NA_integer_` is just the bit pattern `-2147483648`, and `NA` of
+#'     `logical` type is silently coerced to `TRUE`).
+#'   * **Values the dtype cannot hold**, at an integer dtype. These are stored
+#'     as the dtype's lowest value. This is the only place such a loss can be
+#'     caught for most dtypes: at `"i32"` and `"i64"` the lowest value is R's
+#'     `NA` bit pattern, so
+#'     [`as_array(check = TRUE)`][as_array.PJRTBuffer] can still report it
+#'     afterwards, but at the narrow signed types it is an ordinary `-128` /
+#'     `-32768` and at every unsigned type an ordinary `0`, which no later
+#'     check can single out.
 #'
-#'   This checks for `NA` only. A value the dtype cannot hold is never rejected
-#'   here: it is stored as the dtype's lowest value, and whether that loss can
-#'   be detected afterwards depends on the dtype. At `"i32"` and `"i64"` the
-#'   lowest value is R's `NA` bit pattern, which
-#'   [`as_array(check = TRUE)`][as_array.PJRTBuffer] reports; at the narrow
-#'   signed types it is an ordinary `-128` / `-32768` and at every unsigned type
-#'   an ordinary `0`, and no check surfaces either. Range-check the data
-#'   yourself before uploading it at one of those dtypes.
+#'   A `double` is range-checked after truncation toward zero, so `255.9` at
+#'   `"ui8"` passes.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:
@@ -124,6 +127,72 @@ check_input_na <- function(data, check) {
     cli_abort(c(
       "Input {.arg data} contains {n_na} {.val NA} value{?s}, which {?has/have} no representation at the XLA level.",
       i = "Replace or drop missing values before transferring, or set {.code check = FALSE} to skip this check."
+    ))
+  }
+  invisible(NULL)
+}
+
+# Bounds of each integer dtype. `lo` and `hi` are half-open (`>= lo & < hi`) and
+# both are powers of two, so they convert to double exactly -- which the
+# inclusive upper end does not at i64 / ui64, hence the separate `range` string
+# for the message. Mirrors r_double_to_integral() / r_int_to_integral() in
+# src/pjrt.cpp.
+integer_dtype_bounds <- list(
+  i8 = list(lo = -128, hi = 128, range = "-128 to 127"),
+  i16 = list(lo = -32768, hi = 32768, range = "-32768 to 32767"),
+  i32 = list(lo = -2^31, hi = 2^31, range = "-2147483648 to 2147483647"),
+  i64 = list(
+    lo = -2^63,
+    hi = 2^63,
+    range = "-9223372036854775808 to 9223372036854775807"
+  ),
+  ui8 = list(lo = 0, hi = 256, range = "0 to 255"),
+  ui16 = list(lo = 0, hi = 65536, range = "0 to 65535"),
+  ui32 = list(lo = 0, hi = 2^32, range = "0 to 4294967295"),
+  ui64 = list(lo = 0, hi = 2^64, range = "0 to 18446744073709551615")
+)
+
+# An out-of-range value is uploaded as the dtype's lowest value. At i32 / i64
+# that is R's NA bit pattern, which as_array(check = TRUE) can still report, but
+# at the narrow signed and the unsigned dtypes it is an ordinary value that no
+# later check can single out -- for those, this is the only place the loss can
+# be caught at all.
+check_input_range <- function(data, dtype, check) {
+  bounds <- integer_dtype_bounds[[dtype]]
+  if (!check || is.null(bounds)) {
+    return(invisible(NULL))
+  }
+  if (is.integer(data) && bounds$lo <= -2^31 && bounds$hi >= 2^31) {
+    # i32 / i64 hold every R integer, so the default integer upload skips the
+    # scan and the copy `as.numeric()` would make.
+    return(invisible(NULL))
+  }
+  # Truncation toward zero happens before the range test, so 255.9 fits in ui8.
+  values <- as.numeric(data)
+  if (!is.integer(data)) {
+    values <- trunc(values)
+  }
+  # NA is check_input_na()'s to report, and it has already run.
+  bad <- !is.na(values) & (values < bounds$lo | values >= bounds$hi)
+  if (any(bad)) {
+    n_bad <- sum(bad)
+    offenders <- utils::head(data[bad], 3L)
+    # At i32 / i64 the lowest value is R's NA bit pattern, so the loss is still
+    # visible afterwards; everywhere else it is an ordinary value and this is
+    # the last chance to see it.
+    afterwards <- if (dtype %in% c("i32", "i64")) {
+      "which {.code as_array(check = TRUE)} would report as indistinguishable from {.val NA}"
+    } else {
+      "which at this dtype no later check can distinguish from a real value"
+    }
+    cli_abort(c(
+      "Input {.arg data} contains {n_bad} value{?s} that {.val {dtype}} cannot hold: {.val {offenders}}.",
+      i = paste0(
+        "{.val {dtype}} holds {bounds$range}; an out-of-range value would be stored as {bounds$lo}, ",
+        afterwards,
+        "."
+      ),
+      i = "Clamp or drop the offending values before transferring, or set {.code check = FALSE} to skip this check."
     ))
   }
   invisible(NULL)
@@ -279,6 +348,7 @@ pjrt_buffer.integer <- function(
 ) {
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
+  check_input_range(args$data, args$dtype, check)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -294,6 +364,7 @@ pjrt_buffer.numeric <- function(
 ) {
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
+  check_input_range(args$data, args$dtype, check)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
 }
@@ -384,6 +455,7 @@ pjrt_scalar.integer <- function(
   }
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
+  check_input_range(args$data, args$dtype, check)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -401,6 +473,7 @@ pjrt_scalar.numeric <- function(
   }
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
+  check_input_range(args$data, args$dtype, check)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
 }
