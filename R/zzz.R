@@ -22,7 +22,10 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
       },
       NA_character_
     )
-    setHook(event, hooks[pkgnames != pkgname], action = "replace")
+    # A hook we did not register (no `pkgname` in its environment) yields NA
+    # here; keep it rather than letting the NA index inject a NULL into the hook
+    # list, which later blows up when the hooks are run.
+    setHook(event, hooks[is.na(pkgnames) | pkgnames != pkgname], action = "replace")
   }
 
   remove_hooks <- function(...) {

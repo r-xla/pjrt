@@ -80,9 +80,13 @@ std::string PJRTProgram::repr(int n) const {
   std::string debug("");
   switch (format) {
     case HLO: {
+      // The generated protobuf code is lite, so there is no reflection to
+      // render the module with; summarise it from the fields instead.
       xla::HloModuleProto hlo_proto{};
       hlo_proto.ParseFromArray(this->code.data(), this->code.size());
-      debug = hlo_proto.DebugString();
+      debug = "HloModule " + hlo_proto.name() + " (entry computation: " +
+              hlo_proto.entry_computation_name() + ", " +
+              std::to_string(hlo_proto.computations_size()) + " computations)";
     } break;
     case MLIR:
       debug = this->code;
