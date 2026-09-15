@@ -66,6 +66,11 @@
 <li>Added supoort for Intel Macs.</li>
 </ul></div>
 <div class="section level3">
+<h3 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h3>
+<ul><li>
+<code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> reads its source vector through R’s read-only accessors (<code>DATAPTR_RO</code>, <code>INTEGER_RO</code>, <code>REAL_RO</code>, <code>LOGICAL_RO</code>) instead of the writable <code>RAW()</code>, <code>INTEGER()</code>, <code>REAL()</code> and <code>LOGICAL()</code>. A writable pointer forces copy-on-write materialization of ALTREP vectors (for example shared-memory mappings), so every upload from such a source paid for a private duplicate of the payload before the device copy. The source is now read in place on every upload path.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>Large float buffers now print correctly.</li>
 </ul></div>

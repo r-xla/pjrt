@@ -22,6 +22,17 @@
 - Added CUDA support for Linux ARM.
 - Added supoort for Intel Macs.
 
+### Performance
+
+- [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)
+  reads its source vector through R’s read-only accessors (`DATAPTR_RO`,
+  `INTEGER_RO`, `REAL_RO`, `LOGICAL_RO`) instead of the writable
+  `RAW()`, `INTEGER()`, `REAL()` and `LOGICAL()`. A writable pointer
+  forces copy-on-write materialization of ALTREP vectors (for example
+  shared-memory mappings), so every upload from such a source paid for a
+  private duplicate of the payload before the device copy. The source is
+  now read in place on every upload path.
+
 ### Bug fixes
 
 - Large float buffers now print correctly.
