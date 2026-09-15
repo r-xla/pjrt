@@ -18,6 +18,10 @@
 
 ## Bug fixes
 
+* `devtools::load_all()` can be called repeatedly again: the generated protobuf
+  code is now lite, so loading a second copy of the shared library no longer
+  aborts the session with a duplicate descriptor registration. A `print()`ed
+  HLO program now shows a summary line instead of the full module dump.
 * Large float buffers now print correctly.
 
 ## Other

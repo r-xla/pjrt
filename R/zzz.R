@@ -6,31 +6,32 @@ setup_logging <- function() {
   }
 }
 
+# Drop the hooks `pkgname` registered on `event`, leaving every other hook in
+# place. A hook we did not register carries neither a namespace environment nor
+# a `pkgname`, so its owner is NA: keep it, because an NA index would put a NULL
+# into the hook list that errors when the hooks are next run.
+remove_pkg_hooks <- function(event, pkgname) {
+  hooks <- getHook(event)
+  pkgnames <- vapply(
+    hooks,
+    function(x) {
+      ee <- environment(x)
+      if (isNamespace(ee)) environmentName(ee) else ee$pkgname %||% NA_character_
+    },
+    NA_character_
+  )
+  setHook(event, hooks[is.na(pkgnames) | pkgnames != pkgname], action = "replace")
+}
+
 register_namespace_callback <- function(pkgname, namespace, callback) {
   # nocov start
   assert_string(pkgname)
   assert_string(namespace)
   assert_function(callback)
 
-  remove_hook <- function(event) {
-    hooks <- getHook(event)
-    pkgnames <- vapply(
-      hooks,
-      function(x) {
-        ee <- environment(x)
-        if (isNamespace(ee)) environmentName(ee) else ee$pkgname %||% NA_character_
-      },
-      NA_character_
-    )
-    # A hook we did not register (no `pkgname` in its environment) yields NA
-    # here; keep it rather than letting the NA index inject a NULL into the hook
-    # list, which later blows up when the hooks are run.
-    setHook(event, hooks[is.na(pkgnames) | pkgnames != pkgname], action = "replace")
-  }
-
   remove_hooks <- function(...) {
-    remove_hook(packageEvent(namespace, "onLoad"))
-    remove_hook(packageEvent(pkgname, "onUnload"))
+    remove_pkg_hooks(packageEvent(namespace, "onLoad"), pkgname)
+    remove_pkg_hooks(packageEvent(pkgname, "onUnload"), pkgname)
   }
 
   if (isNamespaceLoaded(namespace)) {

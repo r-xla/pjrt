@@ -84,9 +84,10 @@ std::string PJRTProgram::repr(int n) const {
       // render the module with; summarise it from the fields instead.
       xla::HloModuleProto hlo_proto{};
       hlo_proto.ParseFromArray(this->code.data(), this->code.size());
-      debug = "HloModule " + hlo_proto.name() + " (entry computation: " +
-              hlo_proto.entry_computation_name() + ", " +
-              std::to_string(hlo_proto.computations_size()) + " computations)";
+      debug = "HloModule " + hlo_proto.name() +
+              " (entry computation: " + hlo_proto.entry_computation_name() +
+              ", " + std::to_string(hlo_proto.computations_size()) +
+              " computations)";
     } break;
     case MLIR:
       debug = this->code;
