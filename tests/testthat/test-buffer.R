@@ -339,20 +339,93 @@ test_that("a double uploads at an integer dtype without a 32-bit intermediate", 
   )
 })
 
-test_that("a double an integer dtype cannot hold is left to the check flags", {
-  # Buffer creation checks nothing by design, so an unrepresentable value is
-  # uploaded rather than rejected. It lands on the type's NA sentinel, which is
-  # what the two check flags already look for.
+test_that("a double uploads at every integer dtype", {
+  # i8 / i16 / ui8 / ui16 materialize as an R integer; ui32 / i64 / ui64 as
+  # integer64, so those are compared as character.
+  expect_equal(
+    as_array(pjrt_buffer(c(-128, 127), dtype = "i8")),
+    array(c(-128L, 127L), 2L)
+  )
+  expect_equal(
+    as_array(pjrt_buffer(c(-32768, 32767), dtype = "i16")),
+    array(c(-32768L, 32767L), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(65535, dtype = "ui16")), array(65535L, 1L))
+  # Beyond the int32 range, so it only survives without the 32-bit intermediate.
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^31, dtype = "ui32"))),
+    "2147483648"
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^32 - 1, dtype = "ui32"))),
+    "4294967295"
+  )
+})
+
+test_that("pjrt_scalar uploads a double at an integer dtype", {
+  # The 0-d path shares the conversion but not the shape handling.
+  buf <- pjrt_scalar(2^40, dtype = "i64")
+  expect_equal(shape(buf), integer())
+  expect_equal(as.character(as_array(buf)), "1099511627776")
+  expect_equal(as_array(pjrt_scalar(-3.7, dtype = "i32")), -3L)
+})
+
+test_that("a double an integer dtype cannot hold is uploaded, not rejected", {
+  # Buffer creation checks nothing by design, so an unrepresentable value goes
+  # up as the dtype's lowest value.
   expect_no_error(pjrt_buffer(1e30, dtype = "i64"))
   expect_no_error(pjrt_buffer(c(-1, 300), dtype = "ui8"))
   expect_no_error(pjrt_buffer(NA_real_, dtype = "i64"))
 
   expect_error(pjrt_buffer(NA_real_, dtype = "i64", check = TRUE), "missing")
+  expect_true(anyNA(as_array(pjrt_buffer(NaN, dtype = "i32"))))
+
+  # At i32 / i64 the lowest value is R's NA bit pattern, so as_array(check =
+  # TRUE) reports the loss.
   expect_error(
     as_array(pjrt_buffer(1e30, dtype = "i64"), check = TRUE),
     "distinguish from"
   )
-  expect_true(anyNA(as_array(pjrt_buffer(NaN, dtype = "i32"))))
+  # At the narrow signed and the unsigned dtypes it is an ordinary value that no
+  # check can single out -- the loss is defined, but it is silent.
+  expect_equal(as_array(pjrt_buffer(c(-1, 300), dtype = "ui8")), array(0L, 2L))
+  expect_no_error(as_array(pjrt_buffer(300, dtype = "ui8"), check = TRUE))
+  expect_equal(as_array(pjrt_buffer(1e4, dtype = "i8")), array(-128L, 1L))
+  expect_no_error(as_array(pjrt_buffer(1e4, dtype = "i8"), check = TRUE))
+})
+
+test_that("an out-of-range value clamps the same from an integer as from a double", {
+  # The integer path used to narrow by C++'s modular wrap -- 300L at "ui8"
+  # stored 44 -- while the double path clamps, so the R storage type of the
+  # input changed what landed on the device. Both clamp now.
+  expect_equal(as_array(pjrt_buffer(300L, dtype = "ui8")), array(0L, 1L))
+  expect_equal(as_array(pjrt_buffer(300, dtype = "ui8")), array(0L, 1L))
+  expect_equal(as_array(pjrt_buffer(-1L, dtype = "ui8")), array(0L, 1L))
+  expect_equal(as_array(pjrt_buffer(-1, dtype = "ui8")), array(0L, 1L))
+
+  expect_equal(as_array(pjrt_buffer(200L, dtype = "i8")), array(-128L, 1L))
+  expect_equal(as_array(pjrt_buffer(200, dtype = "i8")), array(-128L, 1L))
+
+  expect_equal(as_array(pjrt_buffer(100000L, dtype = "i16")), array(-32768L, 1L))
+  expect_equal(as_array(pjrt_buffer(1e5, dtype = "i16")), array(-32768L, 1L))
+
+  expect_equal(as.character(as_array(pjrt_buffer(-5L, dtype = "ui32"))), "0")
+  expect_equal(as.character(as_array(pjrt_buffer(-5, dtype = "ui32"))), "0")
+
+  # A negative integer at "ui64" used to wrap to a huge value that came back
+  # through R's signed integer64 as negative, which as_array(check = TRUE)
+  # reports. Clamping to 0 is consistent with every other dtype but that check
+  # no longer has anything to catch, so the loss is now silent here too.
+  # (The check itself is unchanged -- see "as_array check = TRUE catches ui64
+  # wrap" above; it is the upload that stopped producing a wrapped value.)
+  expect_equal(as.character(as_array(pjrt_buffer(-5L, dtype = "ui64"))), "0")
+  expect_no_error(as_array(pjrt_buffer(-5L, dtype = "ui64"), check = TRUE))
+
+  # In range from either side, untouched.
+  expect_equal(as_array(pjrt_buffer(127L, dtype = "i8")), array(127L, 1L))
+  expect_equal(as_array(pjrt_buffer(127, dtype = "i8")), array(127L, 1L))
+  expect_equal(as.character(as_array(pjrt_buffer(5L, dtype = "ui64"))), "5")
+  expect_equal(as.character(as_array(pjrt_buffer(5, dtype = "ui64"))), "5")
 })
 
 test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {

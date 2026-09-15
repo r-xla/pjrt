@@ -45,13 +45,20 @@ is_buffer <- function(x) {
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
-#'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
+#'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
+#'     `double` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
 #'   The default (`NULL`) depends on the method:
 #'   - `logical` -> `"pred"`
 #'   - `integer` -> `"i32"`
 #'   - `double` -> `"f32"`
 #'   - `raw` -> must be supplied
+#'
+#'   A `double` at an integer dtype is truncated toward zero, like
+#'   [as.integer()] but without its 32-bit intermediate, so
+#'   `pjrt_buffer(2^40, dtype = "i64")` stores `1099511627776` rather than
+#'   overflowing. A value the dtype cannot hold (including `NaN` and `NA`) is
+#'   stored as the dtype's lowest value and is *not* rejected -- see `check`.
 #' @param shape (`NULL` | `integer()`)\cr
 #'   The dimensions of the buffer.
 #'   The default (`NULL`) is to infer them from the data if possible.
@@ -69,6 +76,15 @@ is_buffer <- function(x) {
 #'   are silently lost on transfer. Defaults to `FALSE` for performance; set to
 #'   `TRUE` to fail loudly instead of silently corrupting data.
 #'   Not applicable to `raw` input.
+#'
+#'   This checks for `NA` only. A value the dtype cannot hold is never rejected
+#'   here: it is stored as the dtype's lowest value, and whether that loss can
+#'   be detected afterwards depends on the dtype. At `"i32"` and `"i64"` the
+#'   lowest value is R's `NA` bit pattern, which
+#'   [`as_array(check = TRUE)`][as_array.PJRTBuffer] reports; at the narrow
+#'   signed types it is an ordinary `-128` / `-32768` and at every unsigned type
+#'   an ordinary `0`, and no check surfaces either. Range-check the data
+#'   yourself before uploading it at one of those dtypes.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:

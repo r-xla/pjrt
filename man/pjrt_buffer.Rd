@@ -28,14 +28,21 @@ The type of the buffer.
 Currently supported types are:
 \itemize{
 \item \code{"pred"}: predicate (i.e. a boolean)
-\item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
+\item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} or
+\code{double} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 The default (\code{NULL}) depends on the method:
 \item \code{logical} -> \code{"pred"}
 \item \code{integer} -> \code{"i32"}
 \item \code{double} -> \code{"f32"}
 \item \code{raw} -> must be supplied
-}}
+}
+
+A \code{double} at an integer dtype is truncated toward zero, like
+\code{\link[=as.integer]{as.integer()}} but without its 32-bit intermediate, so
+\code{pjrt_buffer(2^40, dtype = "i64")} stores \code{1099511627776} rather than
+overflowing. A value the dtype cannot hold (including \code{NaN} and \code{NA}) is
+stored as the dtype's lowest value and is \emph{not} rejected -- see \code{check}.}
 
 \item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr
 A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...), in which
@@ -55,7 +62,16 @@ at the XLA level (e.g. \code{NA_integer_} is just the bit pattern \code{-2147483
 and \code{NA} of \code{logical} type is silently coerced to \code{TRUE}), so missing values
 are silently lost on transfer. Defaults to \code{FALSE} for performance; set to
 \code{TRUE} to fail loudly instead of silently corrupting data.
-Not applicable to \code{raw} input.}
+Not applicable to \code{raw} input.
+
+This checks for \code{NA} only. A value the dtype cannot hold is never rejected
+here: it is stored as the dtype's lowest value, and whether that loss can
+be detected afterwards depends on the dtype. At \code{"i32"} and \code{"i64"} the
+lowest value is R's \code{NA} bit pattern, which
+\code{\link[=as_array.PJRTBuffer]{as_array(check = TRUE)}} reports; at the narrow
+signed types it is an ordinary \code{-128} / \code{-32768} and at every unsigned type
+an ordinary \code{0}, and no check surfaces either. Range-check the data
+yourself before uploading it at one of those dtypes.}
 
 \item{...}{(any)\cr
 Additional arguments.

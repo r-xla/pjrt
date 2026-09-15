@@ -118,16 +118,24 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
   return xptr;
 }
 
-// Convert one R double to the integral element type T: as.integer()'s
-// truncation toward zero, but without R's 32-bit intermediate -- an i64 buffer
-// must be able to hold 2^40.
+// Converting an R value to the integral element type T.
 //
-// A value T cannot represent is not rejected. Buffer creation checks nothing
-// by design (see ?pjrt_buffer): NA input is `check = TRUE`'s business and a
-// corrupt result is as_array(check = TRUE)'s. It is still mapped to a defined
-// result, because a static_cast of a NaN or out-of-range double is undefined
-// behaviour, and undefined is not the same as unchecked -- lowest(), which for
-// the signed types is the NA sentinel both of those checks already look for.
+// A value T cannot represent is not rejected: buffer creation checks nothing by
+// design, NA input being `check = TRUE`'s business and a corrupt result
+// as_array(check = TRUE)'s. It is mapped to lowest() rather than left alone,
+// because a static_cast of a NaN or out-of-range double is undefined behaviour,
+// and undefined is not the same as unchecked.
+//
+// lowest() is not a sentinel R can recognize for every T -- only `i32` and
+// `i64` have one, and those two are exactly what as_array(check = TRUE) looks
+// for. At `i8` / `i16` it is an ordinary -128 / -32768, and at every unsigned
+// type it is an ordinary 0; there is no check that surfaces those, so an
+// out-of-range value at a narrow or unsigned dtype is silently lost. It is a
+// defined loss, and the same one whether the value arrived as an R double or an
+// R integer (see r_int_to_integral), but it is a loss.
+
+// as.integer()'s truncation toward zero, without R's 32-bit intermediate -- an
+// i64 buffer must be able to hold 2^40.
 template <typename T>
 T r_double_to_integral(double v) {
   const double t = std::trunc(v);
@@ -143,6 +151,31 @@ T r_double_to_integral(double v) {
     return std::numeric_limits<T>::lowest();
   }
   return static_cast<T>(t);
+}
+
+// The same clamp for an R integer source, so that `pjrt_buffer(300, ...)` and
+// `pjrt_buffer(300L, ...)` store the same thing at the same dtype. Without it
+// the integer path would keep narrowing by C++'s modular wrap (300L at `ui8`
+// stored 44) while the double path clamps.
+template <typename T>
+T r_int_to_integral(int v) {
+  // Compared in int64_t space, where every R integer fits and so does every
+  // bound that can bite. 31 magnitude bits is what it takes to hold INT_MAX, so
+  // at or above that -- i32, ui32 and both 64-bit types -- no R integer can
+  // overflow T and the upper test is discarded; only a lower bound of 0 is
+  // left, and only for the unsigned ones.
+  constexpr int64_t kLo =
+      static_cast<int64_t>(std::numeric_limits<T>::lowest());
+  const int64_t x = v;
+  if (x < kLo) {
+    return std::numeric_limits<T>::lowest();
+  }
+  if constexpr (std::numeric_limits<T>::digits < 31) {
+    if (x > static_cast<int64_t>(std::numeric_limits<T>::max())) {
+      return std::numeric_limits<T>::lowest();
+    }
+  }
+  return static_cast<T>(x);
 }
 
 // Copy R data into a pre-allocated typed destination buffer, performing
@@ -171,7 +204,9 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
         dst[i] = r_double_to_integral<T>(REAL(data)[i]);
       }
     } else {
-      std::copy(INTEGER(data), INTEGER(data) + len, dst);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = r_int_to_integral<T>(INTEGER(data)[i]);
+      }
     }
   } else if constexpr (std::is_same_v<T, bool>) {
     std::copy(LOGICAL(data), LOGICAL(data) + len, dst);
@@ -181,7 +216,9 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
         dst[i] = LOGICAL(data)[i] ? 1 : 0;
       }
     } else if (TYPEOF(data) == INTSXP) {
-      std::copy(INTEGER(data), INTEGER(data) + len, dst);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = r_int_to_integral<uint8_t>(INTEGER(data)[i]);
+      }
     } else if (TYPEOF(data) == REALSXP) {
       for (int i = 0; i < len; ++i) {
         dst[i] = r_double_to_integral<uint8_t>(REAL(data)[i]);

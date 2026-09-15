@@ -16,6 +16,15 @@
 * Uploading a double at an integer dtype no longer narrows it through a 32-bit
   intermediate first: `pjrt_buffer(2^40, dtype = "i64")` stored
   `-2147483648`, and now stores `1099511627776`.
+* A value an integer dtype cannot hold is now stored as that dtype's lowest
+  value, whether it arrived as a `double` or as an `integer`, instead of
+  wrapping around: `pjrt_buffer(300L, dtype = "ui8")` stored `44`, and now
+  stores `0`. Buffer creation still rejects nothing -- at `"i32"` and `"i64"`
+  the lowest value is R's `NA` bit pattern and `as_array(check = TRUE)` reports
+  it, but at the narrow signed and the unsigned dtypes no check surfaces the
+  loss. In particular a negative integer at `"ui64"` used to wrap to a value
+  `as_array(check = TRUE)` flagged as wrapped, and now clamps to `0` silently.
+  See `?pjrt_buffer`.
 
 ## Other
 
