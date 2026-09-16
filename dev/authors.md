@@ -8,6 +8,9 @@
 - **Daniel Falbel**. Author.
   [](https://orcid.org/https://orcid.org/0009-0006-0143-2392)
 
+- **Hugh Graham**. Contributor.
+  [](https://orcid.org/https://orcid.org/0000-0001-9451-5010)
+
 - **Daniel James**. Copyright holder.  
   Author of the Boost.ContainerHash hash_combine copied in src/hash.h
   (BSL-1.0); see inst/COPYRIGHTS
