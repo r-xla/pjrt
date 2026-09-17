@@ -342,6 +342,55 @@ test_that("a double uploads at an integer dtype without a 32-bit intermediate", 
   )
 })
 
+test_that("a double uploads at every integer dtype", {
+  # i8 / i16 / ui8 / ui16 materialize as an R integer; ui32 / i64 / ui64 as
+  # integer64, so those are compared as character.
+  expect_equal(
+    as_array(pjrt_buffer(c(-128, 127), dtype = "i8")),
+    array(c(-128L, 127L), 2L)
+  )
+  expect_equal(
+    as_array(pjrt_buffer(c(-32768, 32767), dtype = "i16")),
+    array(c(-32768L, 32767L), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(65535, dtype = "ui16")), array(65535L, 1L))
+  # Beyond the int32 range, so it only survives without the 32-bit intermediate.
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^31, dtype = "ui32"))),
+    "2147483648"
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^32 - 1, dtype = "ui32"))),
+    "4294967295"
+  )
+})
+
+test_that("pjrt_scalar uploads a double at an integer dtype", {
+  # The 0-d path shares the conversion but not the shape handling.
+  buf <- pjrt_scalar(2^40, dtype = "i64")
+  expect_equal(shape(buf), integer())
+  expect_equal(as.character(as_array(buf)), "1099511627776")
+  expect_equal(as_array(pjrt_scalar(-3.7, dtype = "i32")), -3L)
+})
+
+test_that("an integer and a double agree at an integer dtype", {
+  # The integer path used to narrow by C++'s modular wrap -- 300L at "ui8"
+  # stored 44 while 300 clamped to 0 -- so the R storage type of the input
+  # changed what landed on the device. Now both are rejected, and both are
+  # taken unchanged when they fit.
+  expect_error(pjrt_buffer(300L, dtype = "ui8"), "without overflow")
+  expect_error(pjrt_buffer(300, dtype = "ui8"), "without overflow")
+  expect_error(pjrt_buffer(200L, dtype = "i8"), "without overflow")
+  expect_error(pjrt_buffer(200, dtype = "i8"), "without overflow")
+  expect_error(pjrt_buffer(-5L, dtype = "ui32"), "without overflow")
+  expect_error(pjrt_buffer(-5, dtype = "ui32"), "without overflow")
+
+  expect_equal(as_array(pjrt_buffer(127L, dtype = "i8")), array(127L, 1L))
+  expect_equal(as_array(pjrt_buffer(127, dtype = "i8")), array(127L, 1L))
+  expect_equal(as.character(as_array(pjrt_buffer(5L, dtype = "ui64"))), "5")
+  expect_equal(as.character(as_array(pjrt_buffer(5, dtype = "ui64"))), "5")
+})
+
 test_that("a double an integer dtype cannot hold is rejected", {
   # Like torch.tensor(x, dtype=) and jnp.array(x, dtype=), the upload boundary
   # refuses a value the dtype cannot hold rather than clamping or wrapping it.
@@ -391,6 +440,9 @@ test_that("a double at the edge of an integer dtype's range is accepted", {
     as.character(as_array(pjrt_buffer(2^62, dtype = "i64"))),
     "4611686018427387904"
   )
+  expect_equal(as_array(pjrt_buffer(-128.9, dtype = "i8")), array(-128L, 1L))
+  # A floating-point dtype is not range-checked at all; it overflows to Inf.
+  expect_equal(as_array(pjrt_buffer(1e300, dtype = "f32")), array(Inf, 1L))
   # An INTSXP uploads to i32 zero-copy, so NA_integer_ is the one missing value
   # that still travels through, as the sentinel as_array(check = TRUE) finds.
   expect_true(

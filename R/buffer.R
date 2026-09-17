@@ -60,13 +60,21 @@ is_buffer <- function(x) {
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)
-#'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
+#'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
+#'     `double` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
 #'   The default (`NULL`) depends on the method:
 #'   - `logical` -> `"pred"`
 #'   - `integer` -> `"i32"`
 #'   - `double` -> `"f32"`
 #'   - `raw` -> must be supplied
+#'
+#'   A `double` at an integer dtype is truncated toward zero, like
+#'   [as.integer()] but without its 32-bit intermediate, so
+#'   `pjrt_buffer(2^40, dtype = "i64")` stores `1099511627776` rather than
+#'   overflowing. A value the dtype cannot hold is an error rather than a
+#'   wrapped or clamped result, and the range is tested after truncation, so
+#'   `255.7` still fits `"ui8"`.
 #' @param shape (`NULL` | `integer()`)\cr
 #'   The dimensions of the buffer.
 #'   The default (`NULL`) is to infer them from the data if possible.
@@ -77,13 +85,16 @@ is_buffer <- function(x) {
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
 #' @param check (`logical(1)`)\cr
-#'   If `TRUE`, scan `data` for `NA` values before transferring to the device and
-#'   raise an error if any are present. R's `NA` markers have no representation
-#'   at the XLA level (e.g. `NA_integer_` is just the bit pattern `-2147483648`,
-#'   and `NA` of `logical` type is silently coerced to `TRUE`), so missing values
-#'   are silently lost on transfer. Defaults to `FALSE` for performance; set to
-#'   `TRUE` to fail loudly instead of silently corrupting data.
-#'   Not applicable to `raw` input.
+#'   If `TRUE`, scan `data` for `NA` values before transferring and raise an
+#'   error rather than letting them through. Defaults to `FALSE` for
+#'   performance, since it scans the whole vector. Not applicable to `raw`
+#'   input. R's `NA` markers have no representation at the XLA level:
+#'   `NA_integer_` is just the bit pattern `-2147483648`, `NA` of `logical`
+#'   type is coerced to `TRUE`, and at a floating-point dtype an `NA` becomes
+#'   `NaN`.
+#'
+#'   A value the target dtype cannot hold is rejected whatever this is set to,
+#'   so the flag only governs missing values.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:
@@ -143,6 +154,7 @@ check_input_na <- function(data, check) {
   }
   invisible(NULL)
 }
+
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   buf <- data

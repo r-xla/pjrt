@@ -28,14 +28,22 @@ The type of the buffer.
 Currently supported types are:
 \itemize{
 \item \code{"pred"}: predicate (i.e. a boolean)
-\item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
+\item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} or
+\code{double} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 The default (\code{NULL}) depends on the method:
 \item \code{logical} -> \code{"pred"}
 \item \code{integer} -> \code{"i32"}
 \item \code{double} -> \code{"f32"}
 \item \code{raw} -> must be supplied
-}}
+}
+
+A \code{double} at an integer dtype is truncated toward zero, like
+\code{\link[=as.integer]{as.integer()}} but without its 32-bit intermediate, so
+\code{pjrt_buffer(2^40, dtype = "i64")} stores \code{1099511627776} rather than
+overflowing. A value the dtype cannot hold is an error rather than a
+wrapped or clamped result, and the range is tested after truncation, so
+\code{255.7} still fits \code{"ui8"}.}
 
 \item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr
 A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...), in which
@@ -49,13 +57,16 @@ The default (\code{NULL}) is to infer them from the data if possible.
 The default (\code{NULL}) depends on the method.}
 
 \item{check}{(\code{logical(1)})\cr
-If \code{TRUE}, scan \code{data} for \code{NA} values before transferring to the device and
-raise an error if any are present. R's \code{NA} markers have no representation
-at the XLA level (e.g. \code{NA_integer_} is just the bit pattern \code{-2147483648},
-and \code{NA} of \code{logical} type is silently coerced to \code{TRUE}), so missing values
-are silently lost on transfer. Defaults to \code{FALSE} for performance; set to
-\code{TRUE} to fail loudly instead of silently corrupting data.
-Not applicable to \code{raw} input.}
+If \code{TRUE}, scan \code{data} for \code{NA} values before transferring and raise an
+error rather than letting them through. Defaults to \code{FALSE} for
+performance, since it scans the whole vector. Not applicable to \code{raw}
+input. R's \code{NA} markers have no representation at the XLA level:
+\code{NA_integer_} is just the bit pattern \code{-2147483648}, \code{NA} of \code{logical}
+type is coerced to \code{TRUE}, and at a floating-point dtype an \code{NA} becomes
+\code{NaN}.
+
+A value the target dtype cannot hold is rejected whatever this is set to,
+so the flag only governs missing values.}
 
 \item{...}{(any)\cr
 Additional arguments.
