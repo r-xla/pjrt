@@ -3,6 +3,17 @@
 ## Breaking changes
 
 * Updated the PJRT plugin version, which now requires CUDA 13.3.
+* Uploading a value an integer element type cannot hold is now an error instead
+  of a wrapped or clamped result: `pjrt_buffer(300, dtype = "ui8")` and
+  `pjrt_buffer(300L, dtype = "ui8")` both abort, where the latter used to store
+  `44`. Fractional values still truncate toward zero, and the range is tested
+  after truncation, so `255.7` still fits `"ui8"`.
+* A missing value is now an error at every element type except the two where
+  R's `NA` marker is already the target's bit pattern and survives the round
+  trip: `NA_integer_` at `"i32"` and `bit64::NA_integer64_` at `"i64"` /
+  `"ui64"`, which warn instead. In particular `pjrt_buffer(NA_integer_,
+  dtype = "i64")` used to store `-2147483648` and `pjrt_buffer(NA,
+  dtype = "pred")` used to store `TRUE`; both now abort.
 * Removed support for the ambiguity concept in the dispatcher and replaced
   it with support for `rdata` objects.
   This enables the improved precision semantics in anvl.
@@ -31,6 +42,20 @@
 ## Bug fixes
 
 * Large float buffers now print correctly.
+* Uploading a double at an integer dtype no longer narrows it through a 32-bit
+  intermediate first: `pjrt_buffer(2^40, dtype = "i64")` stored
+  `-2147483648`, and now stores `1099511627776`.
+* Uploading a missing value at one of the two dtypes that carry it through
+  (`NA_integer_` at `"i32"`, `bit64::NA_integer64_` at `"i64"` / `"ui64"`) now
+  warns. The scan runs alongside the copy, so the default upload pays nothing
+  for it.
+* `NA_integer_` at a floating-point dtype now stores `NaN` instead of
+  `-2147483648`.
+* Every R source type now uploads at every element type. `pjrt_buffer(0L,
+  dtype = "pred")` and `pjrt_buffer(TRUE, dtype = "i32")` raised
+  `Unsupported type`, and now work.
+* `pjrt_buffer()` and `pjrt_scalar()` accept `check` for `bit64::integer64`
+  input, which previously rejected it as an unused argument.
 
 ## Other
 

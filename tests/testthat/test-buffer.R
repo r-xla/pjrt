@@ -200,12 +200,18 @@ test_that("pjrt_buffer handles edge cases", {
   expect_error(pjrt_buffer(numeric(0), shape = c(1, 4)), "but specified shape is")
 })
 
-test_that("pjrt_buffer check = FALSE silently transfers NA", {
-  # default behaviour: NAs flow through and become dtype-specific bit patterns.
+test_that("pjrt_buffer check = FALSE transfers NA where it survives", {
+  # Default behaviour: a double lands on NaN, silently. An integer at i32 and a
+  # bit64::integer64 at i64 land on the bit pattern R reads back as NA, which
+  # warns. A logical at pred has nowhere to put it and is an error.
   expect_no_error(pjrt_buffer(c(1, NA, 3)))
-  expect_no_error(pjrt_buffer(c(1L, NA_integer_, 3L)))
-  expect_no_error(pjrt_buffer(c(TRUE, NA, FALSE)))
-  expect_no_error(pjrt_scalar(NA_integer_))
+  expect_warning(pjrt_buffer(c(1L, NA_integer_, 3L)), "-2147483648")
+  expect_warning(pjrt_scalar(NA_integer_), "-2147483648")
+  expect_warning(
+    pjrt_buffer(bit64::as.integer64(c(1, NA, 3))),
+    "-9223372036854775808"
+  )
+  expect_error(pjrt_buffer(c(TRUE, NA, FALSE)), "NA/NaN")
 })
 
 test_that("pjrt_buffer check = TRUE errors on NA input", {
@@ -216,6 +222,10 @@ test_that("pjrt_buffer check = TRUE errors on NA input", {
   expect_error(
     pjrt_buffer(c(1L, NA_integer_, 3L), check = TRUE),
     "no representation at the XLA level"
+  )
+  expect_error(
+    pjrt_buffer(bit64::as.integer64(c(1, NA, 3)), check = TRUE),
+    "contains 1 .*NA.* value"
   )
   expect_error(
     pjrt_buffer(c(TRUE, NA, FALSE), check = TRUE),
@@ -243,8 +253,9 @@ test_that("pjrt_buffer check = TRUE errors on NA input", {
 test_that("as_array check = TRUE catches i32 / i64 NA collisions", {
   client <- pjrt_client("cpu")
 
-  # i32: NA_integer_ bit pattern is INT_MIN (-2147483648).
-  buf_i32 <- pjrt_buffer(NA_integer_, dtype = "i32")
+  # i32: NA_integer_ bit pattern is INT_MIN (-2147483648). The upload warns
+  # about exactly that; here we are testing the readback check instead.
+  buf_i32 <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
   expect_true(anyNA(as_array(buf_i32)))
   expect_error(as_array(buf_i32, check = TRUE), "distinguish from")
 
@@ -308,6 +319,274 @@ test_that("pjrt_buffer / as_array round-trip i64 with full 64-bit range", {
   back <- as_array(buf)
   expect_s3_class(back, "integer64")
   expect_equal(as.character(back), as.character(x))
+})
+
+test_that("a double uploads at an integer dtype without a 32-bit intermediate", {
+  # The double is converted straight to the target type: nothing narrows it to
+  # an R integer on the way, so a value beyond the int32 range survives.
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^40, dtype = "i64"))),
+    "1099511627776"
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(c(2^40, 2^41), dtype = "ui64"))),
+    c("1099511627776", "2199023255552")
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(-2^40, dtype = "i64"))),
+    "-1099511627776"
+  )
+  # Truncation toward zero, like as.integer(), and column-major like any other
+  # pjrt_buffer() upload.
+  expect_equal(
+    as_array(pjrt_buffer(c(1.9, -3.7), dtype = "i32")),
+    array(c(1L, -3L), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(200, dtype = "ui8")), array(200L, 1L))
+  m <- matrix(c(2^40, 2, 3, 4), nrow = 2L)
+  expect_equal(
+    as.character(as_array(pjrt_buffer(m, dtype = "i64"))),
+    as.character(m)
+  )
+})
+
+test_that("a double uploads at every integer dtype", {
+  # i8 / i16 / ui8 / ui16 materialize as an R integer; ui32 / i64 / ui64 as
+  # integer64, so those are compared as character.
+  expect_equal(
+    as_array(pjrt_buffer(c(-128, 127), dtype = "i8")),
+    array(c(-128L, 127L), 2L)
+  )
+  expect_equal(
+    as_array(pjrt_buffer(c(-32768, 32767), dtype = "i16")),
+    array(c(-32768L, 32767L), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(65535, dtype = "ui16")), array(65535L, 1L))
+  # Beyond the int32 range, so it only survives without the 32-bit intermediate.
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^31, dtype = "ui32"))),
+    "2147483648"
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^32 - 1, dtype = "ui32"))),
+    "4294967295"
+  )
+})
+
+test_that("pjrt_scalar uploads a double at an integer dtype", {
+  # The 0-d path shares the conversion but not the shape handling.
+  buf <- pjrt_scalar(2^40, dtype = "i64")
+  expect_equal(shape(buf), integer())
+  expect_equal(as.character(as_array(buf)), "1099511627776")
+  expect_equal(as_array(pjrt_scalar(-3.7, dtype = "i32")), -3L)
+})
+
+test_that("an integer and a double agree at an integer dtype", {
+  # The integer path used to narrow by C++'s modular wrap -- 300L at "ui8"
+  # stored 44 while 300 clamped to 0 -- so the R storage type of the input
+  # changed what landed on the device. Now both are rejected, and both are
+  # taken unchanged when they fit.
+  expect_error(pjrt_buffer(300L, dtype = "ui8"), "without overflow")
+  expect_error(pjrt_buffer(300, dtype = "ui8"), "without overflow")
+  expect_error(pjrt_buffer(200L, dtype = "i8"), "without overflow")
+  expect_error(pjrt_buffer(200, dtype = "i8"), "without overflow")
+  expect_error(pjrt_buffer(-5L, dtype = "ui32"), "without overflow")
+  expect_error(pjrt_buffer(-5, dtype = "ui32"), "without overflow")
+
+  expect_equal(as_array(pjrt_buffer(127L, dtype = "i8")), array(127L, 1L))
+  expect_equal(as_array(pjrt_buffer(127, dtype = "i8")), array(127L, 1L))
+  expect_equal(as.character(as_array(pjrt_buffer(5L, dtype = "ui64"))), "5")
+  expect_equal(as.character(as_array(pjrt_buffer(5, dtype = "ui64"))), "5")
+})
+
+test_that("a double an integer dtype cannot hold is rejected", {
+  # Like torch.tensor(x, dtype=) and jnp.array(x, dtype=), the upload boundary
+  # refuses a value the dtype cannot hold rather than clamping or wrapping it.
+  expect_error(pjrt_buffer(1e30, dtype = "i64"), "without overflow")
+  expect_error(pjrt_buffer(-1, dtype = "ui8"), "without overflow")
+  expect_error(pjrt_buffer(300, dtype = "ui8"), "without overflow")
+  expect_error(pjrt_buffer(2^31, dtype = "i32"), "without overflow")
+  expect_error(pjrt_buffer(Inf, dtype = "i32"), "Value Inf", fixed = TRUE)
+  expect_error(pjrt_buffer(-Inf, dtype = "i32"), "Value -Inf", fixed = TRUE)
+  expect_error(pjrt_buffer(NA_real_, dtype = "i64"), "NA/NaN")
+  expect_error(pjrt_buffer(NaN, dtype = "i32"), "NA/NaN")
+
+  # The message names the dtype, and locates the element when there is a choice.
+  expect_error(pjrt_buffer(300, dtype = "ui8"), '"ui8"')
+  expect_error(pjrt_buffer(c(1, 300), dtype = "ui8"), "element 2")
+  err <- expect_error(pjrt_buffer(300, dtype = "ui8"))
+  expect_false(grepl("element", conditionMessage(err), fixed = TRUE))
+
+  # An integer source is held to the same range, so 300 and 300L agree.
+  expect_error(pjrt_buffer(300L, dtype = "ui8"), "without overflow")
+  expect_error(pjrt_buffer(-1L, dtype = "ui32"), "without overflow")
+
+  # And to the same treatment of a missing value, so NA_real_ and NA_integer_
+  # agree too. i64 is wide enough to hold INT_MIN and would otherwise store
+  # -2147483648, which as_array(check = TRUE) cannot tell from real data.
+  expect_error(pjrt_buffer(NA_integer_, dtype = "ui8"), "NA/NaN")
+  expect_error(pjrt_buffer(NA_integer_, dtype = "i64"), "NA/NaN")
+
+  # The rejected value is reported exactly, not rounded to six digits.
+  expect_error(pjrt_buffer(2^31, dtype = "i32"), "2147483648", fixed = TRUE)
+  expect_error(
+    pjrt_buffer(2^31 + 1000, dtype = "i32"),
+    "2147484648",
+    fixed = TRUE
+  )
+})
+
+test_that("a double at the edge of an integer dtype's range is accepted", {
+  # The range is tested on the truncated value, so a fraction below the first
+  # unrepresentable integer still fits.
+  expect_equal(as_array(pjrt_buffer(255.7, dtype = "ui8")), array(255L, 1L))
+  expect_equal(as_array(pjrt_buffer(-0.5, dtype = "ui8")), array(0L, 1L))
+  expect_equal(
+    as_array(pjrt_buffer(2^31 - 1, dtype = "i32")),
+    array(2147483647L, 1L)
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^62, dtype = "i64"))),
+    "4611686018427387904"
+  )
+  expect_equal(as_array(pjrt_buffer(-128.9, dtype = "i8")), array(-128L, 1L))
+  # A floating-point dtype is not range-checked at all; it overflows to Inf.
+  expect_equal(as_array(pjrt_buffer(1e300, dtype = "f32")), array(Inf, 1L))
+  # An INTSXP uploads to i32 zero-copy, so NA_integer_ is the one missing value
+  # that still travels through, as the sentinel as_array(check = TRUE) finds.
+  expect_true(
+    anyNA(as_array(suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))))
+  )
+  expect_error(
+    as_array(
+      suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32")),
+      check = TRUE
+    ),
+    "distinguish from"
+  )
+})
+
+test_that("NA_integer_ at i32 warns, being one of the two carried through", {
+  expect_warning(pjrt_buffer(NA_integer_, dtype = "i32"), "-2147483648")
+  expect_warning(pjrt_scalar(NA_integer_, dtype = "i32"), "-2147483648")
+  expect_warning(pjrt_buffer(c(NA_integer_, 1L, NA_integer_)), "2 .*NA")
+
+  # The default dtype for an integer vector is i32, so the bare call warns too.
+  expect_warning(pjrt_buffer(NA_integer_), "-2147483648")
+
+  # A logical reaches i32 through as.integer(), so its NA lands there too.
+  expect_warning(pjrt_buffer(NA, dtype = "i32"), "-2147483648")
+
+  # The count is of what was stored, not of what was passed: `shape` recycles
+  # the scalar to four elements, and all four carry the sentinel.
+  expect_warning(
+    pjrt_buffer(NA_integer_, dtype = "i32", shape = c(2L, 2L)),
+    "4 .*NA.* values"
+  )
+
+  # check = TRUE is the stronger form and errors before the warning is reached.
+  expect_error(pjrt_buffer(NA_integer_, check = TRUE), "missing")
+
+  # Nothing to warn about when there is no NA, or at a dtype that rejects it.
+  expect_no_warning(pjrt_buffer(1:3, dtype = "i32"))
+  expect_no_warning(pjrt_buffer(NA_real_, dtype = "f64"))
+})
+
+test_that("NA_integer64_ at i64 / ui64 warns, being the other one", {
+  # bit64's NA is INT64_MIN, which uploads zero-copy and is what bit64 reads
+  # back as NA -- the i32 case one width up, so it is reported the same way.
+  expect_warning(
+    pjrt_buffer(bit64::NA_integer64_, dtype = "i64"),
+    "-9223372036854775808"
+  )
+  expect_warning(
+    pjrt_scalar(bit64::NA_integer64_, dtype = "i64"),
+    "-9223372036854775808"
+  )
+  # At ui64 the same bit pattern is the ordinary value 2^63, which is what the
+  # device holds; it still materializes as NA through R's signed integer64.
+  expect_warning(
+    pjrt_buffer(bit64::NA_integer64_, dtype = "ui64"),
+    "9223372036854775808"
+  )
+  expect_true(
+    is.na(as_array(suppressWarnings(
+      pjrt_buffer(bit64::NA_integer64_, dtype = "i64")
+    )))
+  )
+
+  # check = TRUE reaches integer64 input too; it used to be an unused argument.
+  expect_error(
+    pjrt_buffer(bit64::NA_integer64_, dtype = "i64", check = TRUE),
+    "no representation at the XLA level"
+  )
+  expect_error(
+    pjrt_scalar(bit64::NA_integer64_, check = TRUE),
+    "no representation at the XLA level"
+  )
+  expect_no_warning(pjrt_buffer(bit64::as.integer64(c(1, 2)), dtype = "i64"))
+  expect_no_error(
+    pjrt_buffer(bit64::as.integer64(c(1, 2)), dtype = "i64", check = TRUE)
+  )
+})
+
+test_that("a missing value at pred is an error, whatever it arrived as", {
+  # TRUE and a lost NA are the same byte on the device, so unlike the i32 and
+  # i64 sentinels an NA here could never be recognised again.
+  expect_error(pjrt_buffer(NA, dtype = "pred"), "NA/NaN")
+  expect_error(pjrt_buffer(c(TRUE, NA), dtype = "pred"), "element 2")
+  expect_error(pjrt_buffer(NA_integer_, dtype = "pred"), "NA/NaN")
+  expect_error(pjrt_buffer(NA_real_, dtype = "pred"), "NA/NaN")
+  expect_error(pjrt_scalar(NA, dtype = "pred"), "NA/NaN")
+  # The default dtype for a logical vector is pred, so the bare call errors.
+  expect_error(pjrt_buffer(c(TRUE, NA)), "NA/NaN")
+  expect_error(pjrt_buffer(NA, dtype = "pred"), '"pred"')
+
+  expect_no_error(pjrt_buffer(c(TRUE, FALSE), dtype = "pred"))
+})
+
+test_that("a logical uploads at any element type, not just pred", {
+  # The logical and integer entry points cross-dispatch, so a source type is no
+  # longer tied to the element types that happen to be its natural target.
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "i32")),
+    array(c(1L, 0L), 2L)
+  )
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "f64")),
+    array(c(1, 0), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(TRUE, dtype = "ui8")), array(1L, 1L))
+
+  # It travels as.integer(), so NA follows the integer rules from there on.
+  expect_warning(pjrt_buffer(NA, dtype = "i32"), "-2147483648")
+  expect_error(pjrt_buffer(NA, dtype = "ui8"), "NA/NaN")
+  expect_error(pjrt_buffer(NA, dtype = "i64"), "NA/NaN")
+
+  # A dtype that does not exist still errors rather than being delegated away.
+  expect_error(pjrt_buffer(TRUE, dtype = "nope"), "Unsupported type")
+})
+
+test_that("an integer uploads at pred, like a double does", {
+  expect_equal(
+    as_array(pjrt_buffer(c(0L, 1L, 2L), dtype = "pred")),
+    array(c(FALSE, TRUE, TRUE), 3L)
+  )
+  expect_false(as_array(pjrt_scalar(0L, dtype = "pred")))
+  expect_true(as_array(pjrt_scalar(1L, dtype = "pred")))
+})
+
+test_that("NA_integer_ at a float dtype becomes NaN, as as.double() gives", {
+  # INT_MIN is an ordinary value once widened, so it is translated rather than
+  # cast: an f64 keeps R's NA payload, an f32 is too narrow and gets a NaN.
+  expect_true(is.na(as_array(pjrt_buffer(NA_integer_, dtype = "f64"))))
+  expect_true(is.na(as_array(pjrt_buffer(NA_integer_, dtype = "f32"))))
+  expect_equal(
+    as_array(pjrt_buffer(c(1L, NA_integer_, 3L), dtype = "f64")),
+    array(c(1, NA, 3), 3L)
+  )
+  # Neither rejected nor warned about -- a float dtype has somewhere to put it.
+  expect_no_warning(pjrt_buffer(NA_integer_, dtype = "f32"))
 })
 
 test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {
