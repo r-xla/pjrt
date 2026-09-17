@@ -14,8 +14,18 @@
 * Large buffer whose values are all integer-valued are now
   printed correctly.
 * Uploading a double at an integer dtype no longer narrows it through a 32-bit
-  intermediate first: `pjrt_buffer(2^40, dtype = "i64")` stored
-  `-2147483648`, and now stores `1099511627776`.
+  intermediate first.
+* Uploading a value an integer dtype cannot hold is now an error instead of a
+  wrapped or clamped result: `pjrt_buffer(300, dtype = "ui8")` and
+  `pjrt_buffer(300L, dtype = "ui8")` both abort. Fractional values still
+  truncate toward zero.
+* Uploading `NA_integer_` at `"i32"` now warns; it is the one missing value
+  still carried through, as `INT_MIN`.
+* `NA_integer_` at a floating-point dtype now stores `NaN` instead of
+  `-2147483648`.
+* Every R source type now uploads at every element type. `pjrt_buffer(0L,
+  dtype = "pred")` and `pjrt_buffer(TRUE, dtype = "i32")` raised
+  `Unsupported type`, and now work.
 
 ## Other
 

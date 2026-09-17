@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <limits>
+#include <type_traits>
 
 #include "buffer.h"
 #include "buffer_printer.h"
@@ -118,31 +120,112 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
   return xptr;
 }
 
-// Convert one R double to the integral element type T: as.integer()'s
-// truncation toward zero, but without R's 32-bit intermediate -- an i64 buffer
-// must be able to hold 2^40.
+// The R-facing name of an element type ("i32", "ui8", ...), for messages.
+static std::string dtype_name(PJRT_Buffer_Type type) {
+  return rpjrt::PJRTElementType(type).as_string();
+}
+
+// Locates the offending element in an error message. `len` is the length of
+// the buffer being filled, which recycle_data() has already expanded, so a
+// scalar argument given a shape still gets an index.
+static std::string element_suffix(int i, int len) {
+  return len > 1 ? " (element " + std::to_string(i + 1) + ")" : "";
+}
+
+// Spells a double for an error message the way R does, so that an infinity
+// reads "Inf" rather than C's "inf". Only reached on the error path.
+static std::string format_r_double(double v) {
+  if (!R_FINITE(v)) return v > 0 ? "Inf" : "-Inf";
+  char buf[64];
+  std::snprintf(buf, sizeof(buf), "%.15g", v);
+  return buf;
+}
+
+// Whether an R integer is representable in the integral type `T`. Folds to a
+// constant where T is at least as wide and as signed as R's int.
+template <typename T>
+constexpr bool r_int_fits(int v) {
+  if constexpr (std::is_signed_v<T>) {
+    return static_cast<int64_t>(v) >=
+               static_cast<int64_t>(std::numeric_limits<T>::lowest()) &&
+           static_cast<int64_t>(v) <=
+               static_cast<int64_t>(std::numeric_limits<T>::max());
+  } else {
+    return v >= 0 && static_cast<uint64_t>(v) <=
+                         static_cast<uint64_t>(std::numeric_limits<T>::max());
+  }
+}
+
+// Reject any element of `data` that the integral element type `T` cannot hold,
+// before a byte of the buffer is allocated. Every value that survives then
+// converts with a plain static_cast, which is defined only once the value is
+// known to be in range: casting a NaN or out-of-range double is undefined
+// behaviour, and what it yields in practice differs between x86 (INT_MIN) and
+// ARM (saturation). Rejecting rather than clamping is what torch and JAX both
+// do at this same host-to-device boundary.
 //
-// A value T cannot represent is not rejected. Buffer creation checks nothing
-// by design (see ?pjrt_buffer): NA input is `check = TRUE`'s business and a
-// corrupt result is as_array(check = TRUE)'s. It is still mapped to a defined
-// result, because a static_cast of a NaN or out-of-range double is undefined
-// behaviour, and undefined is not the same as unchecked -- lowest(), which for
-// the signed types is the NA sentinel both of those checks already look for.
+// A fractional double is not rejected -- it truncates toward zero, as
+// as.integer() does. The range is therefore tested on the truncated value, so
+// 255.7 still fits "ui8".
+template <typename T>
+void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
+  if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
+    if (TYPEOF(data) == REALSXP) {
+      // The bounds are compared in double space. lowest() is a power of two,
+      // and max() + 1 is spelled max() / 2 + 1 doubled -- also a power of two
+      // -- so both convert to double exactly and the half-open test is the
+      // correct one (max() itself is generally not representable as a double).
+      constexpr double kLo =
+          static_cast<double>(std::numeric_limits<T>::lowest());
+      constexpr double kHiExclusive =
+          2.0 * static_cast<double>(std::numeric_limits<T>::max() / 2 + 1);
+      const double *x = REAL(data);
+      for (int i = 0; i < len; ++i) {
+        if (ISNAN(x[i])) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+        const double t = std::trunc(x[i]);
+        if (!(t >= kLo && t < kHiExclusive)) {
+          Rcpp::stop(
+              "Value %s cannot be converted to \"%s\" without overflow%s.",
+              format_r_double(x[i]), dtype_name(type), element_suffix(i, len));
+        }
+      }
+    } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, a value R reserves, so no integer vector holds
+      // it legitimately and rejecting it is never a false positive. It has to
+      // be rejected explicitly for i64, which is wide enough to take it and
+      // would otherwise widen it to the ordinary value -2147483648 that
+      // as_array(check = TRUE) cannot tell apart from real data -- and a
+      // missing value should not depend on whether the caller wrote NA_real_
+      // or NA_integer_. An i32 buffer is the deliberate exception and never
+      // gets here: an INTSXP uploads to i32 zero-copy, carrying NA_integer_
+      // through as R's own NA for as_array(check = TRUE) to find.
+      const int *x = INTEGER(data);
+      for (int i = 0; i < len; ++i) {
+        if (x[i] == NA_INTEGER) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+        if (!r_int_fits<T>(x[i])) {
+          Rcpp::stop(
+              "Value %d cannot be converted to \"%s\" without overflow%s.",
+              x[i], dtype_name(type), element_suffix(i, len));
+        }
+      }
+    }
+  }
+}
+
+// Convert a double to the integral element type T, truncating toward zero like
+// as.integer() but without R's 32-bit intermediate -- an i64 buffer must be
+// able to hold 2^40. Defined only for a value validate_integral_input() has
+// already accepted: casting a NaN or out-of-range double is undefined
+// behaviour.
 template <typename T>
 T r_double_to_integral(double v) {
-  const double t = std::trunc(v);
-  // The bounds are compared in double space. lowest() is a power of two, and
-  // max() + 1 is spelled max() / 2 + 1 doubled -- also a power of two -- so
-  // both convert to double exactly and the half-open test is the correct one
-  // (max() itself is generally not representable as a double). Negated, so a
-  // NaN takes the same path as an out-of-range value.
-  constexpr double kLo = static_cast<double>(std::numeric_limits<T>::lowest());
-  constexpr double kHiExclusive =
-      2.0 * static_cast<double>(std::numeric_limits<T>::max() / 2 + 1);
-  if (!(t >= kLo && t < kHiExclusive)) {
-    return std::numeric_limits<T>::lowest();
-  }
-  return static_cast<T>(t);
+  return static_cast<T>(std::trunc(v));
 }
 
 // Copy R data into a pre-allocated typed destination buffer, performing
@@ -153,8 +236,14 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
     if (TYPEOF(data) == REALSXP) {
       std::copy(REAL(data), REAL(data) + len, dst);
     } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, an ordinary value once widened, so it has to be
+      // translated rather than cast -- as.double(NA_integer_) is NA_real_, and
+      // a float dtype has a missing value to land on. f64 keeps R's NA payload;
+      // f32 is too narrow for it and gets a plain NaN.
       for (int i = 0; i < len; ++i) {
-        dst[i] = static_cast<T>(INTEGER(data)[i]);
+        dst[i] = INTEGER(data)[i] == NA_INTEGER
+                     ? static_cast<T>(R_NaReal)
+                     : static_cast<T>(INTEGER(data)[i]);
       }
     } else {
       Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
@@ -276,6 +365,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
       Rcpp::stop("Data must be a non-empty vector.");
     }
   }
+
+  // Before any allocation, so a rejected upload neither allocates the buffer
+  // nor throws out of make_cpu_buffer()'s PROTECT region.
+  validate_integral_input<T>(data, len, dtype);
 
   auto byte_strides_opt = get_byte_strides(dims, row_major, sizeof(T));
 
@@ -1143,6 +1236,13 @@ Rcpp::List impl_loaded_executable_execute(
   return buffers;
 }
 
+// Declared ahead of impl_client_buffer_from_integer(): the two entry points
+// cross-dispatch, each delegating the dtypes that are the other's natural
+// target, so that every R source type reaches every element type.
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    SEXP data, std::vector<int64_t> dims, std::string dtype);
+
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
@@ -1187,6 +1287,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else if (dtype == "f64") {
     return create_buffer_from_array_async<double>(
         client, data, dims, PJRT_Buffer_Type_F64, false, device->device);
+  } else if (dtype == "pred") {
+    // as.logical() is the route an integer takes to pred, the same one
+    // impl_client_buffer_from_double() uses.
+    Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
+    return impl_client_buffer_from_logical(client, device, data_conv, dims,
+                                           dtype);
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
@@ -1223,9 +1329,14 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
   if (dtype == "pred") {
     return create_buffer_from_array_async<uint8_t>(
         client, data, dims, PJRT_Buffer_Type_PRED, false, device->device);
-  } else {
-    Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+  // Every other element type is a numeric one, reached through as.integer():
+  // FALSE/TRUE become 0/1 and NA becomes NA_integer_, which the integer entry
+  // point then treats like any other missing value. An unknown dtype string
+  // still falls through to its "Unsupported type" error.
+  Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
+  return impl_client_buffer_from_integer(client, device, data_conv, dims,
+                                         dtype);
 }
 
 // [[Rcpp::export()]]

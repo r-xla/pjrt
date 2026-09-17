@@ -18,8 +18,23 @@ is_buffer <- function(x) {
 #' To create an empty buffer (at least one dimension must be 0), use [`pjrt_empty`].
 #'
 #' **Important**:
-#' No checks are performed when creating the buffer, so you need to ensure that the data fits
-#' the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+#' Uploading a numeric vector at an integer element type rejects any value that
+#' type cannot hold: one outside its range, or a missing value, is an error
+#' rather than a wrapped or clamped result. A fractional value is *not* an
+#' error -- it truncates toward zero, as [`as.integer()`] does -- and the range
+#' is checked on the truncated value, so `255.7` still fits `"ui8"`.
+#'
+#' The one missing value that is *not* rejected is an `NA_integer_` uploaded
+#' at `"i32"`, which travels zero-copy and arrives as `INT_MIN`, R's own `NA`.
+#' That case warns, and [`as_array()`]'s `check` argument catches it on the way
+#' back. At every other integer element type a missing value is an error.
+#'
+#' At a floating-point element type a missing value is neither rejected nor
+#' warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
+#' alike, as [`as.double()`] would give.
+#'
+#' No other checks are performed when creating the buffer -- a double too large
+#' for `"f32"`, for instance, still becomes `Inf`.
 #'
 #' @section Extractors:
 #' * [`platform()`] -> `character(1)`: for the platform name of the buffer (`"cpu"`, `"cuda"`, ...).
@@ -99,6 +114,22 @@ pjrt_buffer <- function(
   ...
 ) {
   UseMethod("pjrt_buffer")
+}
+
+# NA_integer_ is INT_MIN, and an integer vector uploads to i32 zero-copy, so an
+# NA reaches the device as an ordinary -2147483648 and only looks like NA again
+# once it is back in R. Every other integer dtype rejects a missing value, so
+# this is the one case that would otherwise pass unremarked.
+warn_na_i32 <- function(data, dtype) {
+  if (identical(dtype, "i32") && anyNA(data)) {
+    n_na <- sum(is.na(data))
+    cli::cli_warn(c(
+      "Input {.arg data} contains {n_na} {.val NA} value{?s}, stored on the device as {.val -2147483648}.",
+      i = "The value materializes as {.val NA} again in R, and {.code as_array(check = TRUE)} reports it.",
+      i = "Set {.code check = TRUE} to make this an error, or use {.fn suppressWarnings} to silence it."
+    ))
+  }
+  invisible(NULL)
 }
 
 check_input_na <- function(data, check) {
@@ -248,6 +279,7 @@ pjrt_buffer.logical <- function(
 ) {
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -263,6 +295,7 @@ pjrt_buffer.integer <- function(
 ) {
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -351,6 +384,7 @@ pjrt_scalar.logical <- function(
   }
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -368,6 +402,7 @@ pjrt_scalar.integer <- function(
   }
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }

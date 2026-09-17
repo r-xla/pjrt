@@ -77,8 +77,23 @@ Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars
 To create an empty buffer (at least one dimension must be 0), use \code{\link{pjrt_empty}}.
 
 \strong{Important}:
-No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+Uploading a numeric vector at an integer element type rejects any value that
+type cannot hold: one outside its range, or a missing value, is an error
+rather than a wrapped or clamped result. A fractional value is \emph{not} an
+error -- it truncates toward zero, as \code{\link[=as.integer]{as.integer()}} does -- and the range
+is checked on the truncated value, so \code{255.7} still fits \code{"ui8"}.
+
+The one missing value that is \emph{not} rejected is an \code{NA_integer_} uploaded
+at \code{"i32"}, which travels zero-copy and arrives as \code{INT_MIN}, R's own \code{NA}.
+That case warns, and \code{\link[=as_array]{as_array()}}'s \code{check} argument catches it on the way
+back. At every other integer element type a missing value is an error.
+
+At a floating-point element type a missing value is neither rejected nor
+warned about: it becomes \code{NaN}, from an \code{NA_real_} and an \code{NA_integer_}
+alike, as \code{\link[=as.double]{as.double()}} would give.
+
+No other checks are performed when creating the buffer -- a double too large
+for \code{"f32"}, for instance, still becomes \code{Inf}.
 
 \code{pjrt_empty()} allocates a buffer of the given \code{shape} and \code{dtype} with
 \strong{unspecified contents}. The bytes should be treated as uninitialized —
