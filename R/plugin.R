@@ -16,7 +16,10 @@ the[["custom_calls"]] <- list()
 the[["config"]] <- list(
   cpu_device_count = 1L,
   cuda_r_package = "pjrt.cuda",
-  cuda_r_repos = "https://r-xla.r-universe.dev"
+  cuda_r_repos = "https://r-xla.r-universe.dev",
+  # CUDA toolkit version the CUDA plugin links against, i.e. the version
+  # shipped by the `cuda_r_package`.
+  cuda_version = "13.3"
 )
 
 #' @title Create PJRT Client
@@ -422,6 +425,10 @@ cuda_r_package <- function() {
 
 cuda_r_repos <- function() {
   the[["config"]][["cuda_r_repos"]]
+}
+
+cuda_version <- function() {
+  the[["config"]][["cuda_version"]]
 }
 
 # Discover installed cuda{X.Y} packages and pre-load CUDA shared libraries
