@@ -14,16 +14,34 @@
   `"ui64"`, which warn instead. In particular `pjrt_buffer(NA_integer_,
   dtype = "i64")` used to store `-2147483648` and `pjrt_buffer(NA,
   dtype = "pred")` used to store `TRUE`; both now abort.
+* Removed support for the ambiguity concept in the dispatcher and replaced
+  it with support for `rdata` objects.
+  This enables the improved precision semantics in anvl.
 
 ## New features
 
-* Added CUDA support for Linux ARM
+* `dispatcher()` gained a `context` resolver: a function called on every
+  dispatch whose `character()` result is part of the cache key and reaches the
+  compile callback as `info$context`. anvl uses it to key compiled programs on
+  the backend's default dtypes.
+* `RTree` objects can be compared with `==` and `!=`, which apply
+  `tree_equal()` structural comparison.
+* Added CUDA support for Linux ARM.
 * Added supoort for Intel Macs.
+
+## Performance
+
+* `pjrt_buffer()` reads its source vector through R's read-only accessors
+  (`DATAPTR_RO`, `INTEGER_RO`, `REAL_RO`, `LOGICAL_RO`) instead of the writable
+  `RAW()`, `INTEGER()`, `REAL()` and `LOGICAL()`. A writable pointer forces
+  copy-on-write materialization of ALTREP vectors (for example shared-memory
+  mappings), so every upload from such a source paid for a private duplicate of
+  the payload before the device copy. The source is now read in place on every
+  upload path.
 
 ## Bug fixes
 
-* Large buffer whose values are all integer-valued are now
-  printed correctly.
+* Large float buffers now print correctly.
 * Uploading a double at an integer dtype no longer narrows it through a 32-bit
   intermediate first: `pjrt_buffer(2^40, dtype = "i64")` stored
   `-2147483648`, and now stores `1099511627776`.

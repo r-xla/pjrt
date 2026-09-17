@@ -78,7 +78,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
     int capacity, SEXP compile_fn,
     Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
     std::string backend, bool move_inputs, SEXP default_device_fn,
-    SEXP extractor_fn) {
+    SEXP extractor_fn, SEXP context_fn) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
@@ -89,11 +89,16 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
   std::unique_ptr<Engine> eng =
       make_engine(engine, backend, move_inputs, extractor_fn);
-  if (default_device_fn != R_NilValue && TYPEOF(default_device_fn) != CLOSXP) {
+  if (default_device_fn != R_NilValue && !Rf_isFunction(default_device_fn)) {
     Rcpp::stop("default_device must be a function or NULL");
   }
   std::optional<Rcpp::Function> resolver;
   if (default_device_fn != R_NilValue) resolver.emplace(default_device_fn);
+  if (context_fn != R_NilValue && !Rf_isFunction(context_fn)) {
+    Rcpp::stop("context must be a function or NULL");
+  }
+  std::optional<Rcpp::Function> context;
+  if (context_fn != R_NilValue) context.emplace(context_fn);
   std::unordered_set<std::string> statics;
   if (static_names.isNotNull()) {
     for (const auto& nm : Rcpp::CharacterVector(static_names)) {
@@ -102,7 +107,8 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   }
   auto d = std::make_unique<Dispatcher>(
       static_cast<std::size_t>(capacity), compile_fn, std::move(statics),
-      std::move(eng), std::move(backend), move_inputs, std::move(resolver));
+      std::move(eng), std::move(backend), move_inputs, std::move(resolver),
+      std::move(context));
   Rcpp::XPtr<Dispatcher> ptr(d.release(), true);
   ptr.attr("class") = "Dispatcher";
   return ptr;
@@ -165,7 +171,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             "invalid static %s: a static argument must not be an AnvlArray",
             leaf_subject(in_tree, k));
       }
-      kl.kind = KeyLeaf::kStatic;
+      kl.is_static = true;
       kl.value = leaf;
       key.leaves.push_back(std::move(kl));
       continue;
@@ -189,7 +195,6 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             "invalid %s: expected an AnvlArray of backend \"%s\"; got \"%s\"",
             leaf_subject(in_tree, k), call_backend, leaf_backend);
       }
-      kl.kind = KeyLeaf::kArray;
       kl.aval = std::move(al->aval);
       if (al->device.isNULL()) {
         Rcpp::stop("invalid %s: an AnvlArray must carry $device",
@@ -217,7 +222,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       }
       key.leaves.push_back(std::move(kl));
       // `$data` is a field of a leaf of `args`, which roots it for the call.
-      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval, false});
+      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval});
       continue;
     }
     std::optional<RDataInfo> rd = classify_rdata(leaf);
@@ -228,12 +233,11 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
           leaf_subject(in_tree, k), r_class_name(leaf),
           static_cast<long long>(Rf_xlength(leaf)));
     }
-    kl.kind = KeyLeaf::kRData;
+    kl.aval.kind = AvalKind::kRData;
     kl.aval.dtype = rd->dtype;
     kl.aval.shape = std::move(rd->shape);
-    kl.aval.ambiguous = true;  // bare R data is dtype-ambiguous (to_avals)
     key.leaves.push_back(std::move(kl));
-    exec_inputs.push_back({leaf, &key.leaves.back().aval, true});
+    exec_inputs.push_back({leaf, &key.leaves.back().aval});
   }
 
   // 3. No array leaf named a device, so the call runs on the backend's
@@ -256,6 +260,27 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     key.device = static_cast<DeviceToken>(SEXP(default_device));
   }
 
+  // 3b. The caller's context: key material the compiled program depends on
+  // beyond its inputs (anvl's default dtypes). Resolved on every call, not only
+  // when nothing else names it -- any entry may depend on it -- so an entry
+  // compiled under one context is never served under another.
+  Rcpp::RObject context;  // the resolved vector, for the callback
+  if (const std::optional<Rcpp::Function>& resolve = d.context_fn()) {
+    context = (*resolve)();
+    if (TYPEOF(context) != STRSXP) {
+      Rcpp::stop("the `context` resolver must return a character vector");
+    }
+    const R_xlen_t n = Rf_xlength(context);
+    key.context.reserve(static_cast<std::size_t>(n));
+    for (R_xlen_t i = 0; i < n; ++i) {
+      SEXP el = STRING_ELT(context, i);
+      if (el == NA_STRING) {
+        Rcpp::stop("the `context` resolver must not return NA");
+      }
+      key.context.emplace_back(Rf_translateCharUTF8(el));
+    }
+  }
+
   // 4. Probe the cache; compile via the R callback on a miss.
   CacheEntry* entry = d.cache().get(key);
   if (entry == nullptr) {
@@ -272,14 +297,16 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       leaf_list[i] = leaves[i];
       static_mask[i] = is_static[i] ? TRUE : FALSE;
       const KeyLeaf& kl = key.leaves[i];
-      if (kl.kind == KeyLeaf::kStatic) continue;
+      if (kl.is_static) continue;
       Rcpp::IntegerVector shp(kl.aval.shape.begin(), kl.aval.shape.end());
       // Every dtype has a canonical name -- a leaf with none was rejected -- so
       // the callback always sees a string, whichever backend the leaf is from.
+      // `kind` saves the callback classifying the leaf a second time, and keeps
+      // it from reaching a different answer than the key was built with.
       avals[i] = Rcpp::List::create(
+          Rcpp::Named("kind") = aval_kind_name(kl.aval.kind),
           Rcpp::Named("dtype") = anvl_dtype_name(kl.aval.dtype),
-          Rcpp::Named("shape") = shp,
-          Rcpp::Named("ambiguous") = kl.aval.ambiguous);
+          Rcpp::Named("shape") = shp);
     }
     Rcpp::List info = Rcpp::List::create(
         Rcpp::Named("args") = args,
@@ -290,13 +317,19 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         // The device this call resolved when no array named one -- the device
         // the key was built on, so the callback compiles for it rather than
         // resolving a default of its own. NULL otherwise.
-        Rcpp::Named("default_device") = default_device);
+        Rcpp::Named("default_device") = default_device,
+        // The context the key was built on, for the same reason. NULL when the
+        // dispatcher has no `context` resolver.
+        Rcpp::Named("context") = context);
 
     Rcpp::List res = d.compile_fn()(info);
 
     // The engine validates the result and builds its entry material.
     CacheEntry e;
     engine.build_entry(res, e);
+    // Engine-agnostic: the dtype each input is supplied at, which the callback
+    // declares because only the compiled program knows what it takes.
+    read_input_dtypes(res, exec_inputs, engine.uploads_rdata(), e);
 
     // Root every SEXP the inserted key holds, so it outlives this call; the
     // entry drops them when it is evicted. The key's device token needs no
@@ -308,6 +341,23 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     entry = d.cache().get(key);
   }
 
-  // 5. The engine runs the call and returns the finished value.
+  // 5. Stamp each input with the dtype the entry was compiled to take it at,
+  // then let the engine run the call and return the finished value.
+  if (!entry->input_dtypes.empty()) {
+    // Sizes agree by construction: the key fixes which leaves are static, so
+    // every call filed under it supplies the same number of inputs as the one
+    // the entry was validated against.
+    if (entry->input_dtypes.size() != exec_inputs.size()) {
+      Rcpp::stop(
+          "internal error: cache entry declares %d input dtypes but this call "
+          "supplies %d %s",
+          static_cast<int>(entry->input_dtypes.size()),
+          static_cast<int>(exec_inputs.size()),
+          exec_inputs.size() == 1 ? "input" : "inputs");
+    }
+    for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
+      exec_inputs[k].dtype = entry->input_dtypes[k];
+    }
+  }
   return engine.run(*entry, exec_inputs);
 }

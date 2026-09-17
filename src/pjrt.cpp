@@ -180,7 +180,7 @@ void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
           static_cast<double>(std::numeric_limits<T>::lowest());
       constexpr double kHiExclusive =
           2.0 * static_cast<double>(std::numeric_limits<T>::max() / 2 + 1);
-      const double *x = REAL(data);
+      const double *x = REAL_RO(data);
       for (int i = 0; i < len; ++i) {
         if (ISNAN(x[i])) {
           Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
@@ -203,7 +203,7 @@ void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
       // or NA_integer_. An i32 buffer is the deliberate exception and never
       // gets here: an INTSXP uploads to i32 zero-copy, carrying NA_integer_
       // through as R's own NA for as_array(check = TRUE) to find.
-      const int *x = INTEGER(data);
+      const int *x = INTEGER_RO(data);
       for (int i = 0; i < len; ++i) {
         if (x[i] == NA_INTEGER) {
           Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
@@ -220,7 +220,7 @@ void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
       // there is no room for it in a byte and nothing downstream could tell it
       // from a real TRUE, so -- unlike i32's sentinel, which survives the round
       // trip -- it cannot be let through with a warning.
-      const int *x = LOGICAL(data);
+      const int *x = LOGICAL_RO(data);
       for (int i = 0; i < len; ++i) {
         if (x[i] == NA_LOGICAL) {
           Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
@@ -282,20 +282,26 @@ T r_double_to_integral(double v) {
 
 // Copy R data into a pre-allocated typed destination buffer, performing
 // type conversion as needed. T is the PJRT-side element type.
+//
+// The source is only read, so it is accessed through the *_RO accessors: the
+// writable INTEGER()/REAL()/LOGICAL() force copy-on-write materialization of
+// ALTREP vectors (e.g. shared-memory mappings), doubling the host cost of the
+// upload, whereas the read-only forms hand back the mapping in place.
 template <typename T>
 void convert_r_data_to_typed(SEXP data, T *dst, int len) {
   if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     if (TYPEOF(data) == REALSXP) {
-      std::copy(REAL(data), REAL(data) + len, dst);
+      const double *src = REAL_RO(data);
+      std::copy(src, src + len, dst);
     } else if (TYPEOF(data) == INTSXP) {
       // NA_integer_ is INT_MIN, an ordinary value once widened, so it has to be
       // translated rather than cast -- as.double(NA_integer_) is NA_real_, and
       // a float dtype has a missing value to land on. f64 keeps R's NA payload;
       // f32 is too narrow for it and gets a plain NaN.
+      const int *src = INTEGER_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = INTEGER(data)[i] == NA_INTEGER
-                     ? static_cast<T>(R_NaReal)
-                     : static_cast<T>(INTEGER(data)[i]);
+        dst[i] = src[i] == NA_INTEGER ? static_cast<T>(R_NaReal)
+                                      : static_cast<T>(src[i]);
       }
     } else {
       Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
@@ -308,24 +314,30 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
                        std::is_same_v<T, uint32_t> ||
                        std::is_same_v<T, uint64_t>) {
     if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = r_double_to_integral<T>(REAL(data)[i]);
+        dst[i] = r_double_to_integral<T>(src[i]);
       }
     } else {
-      std::copy(INTEGER(data), INTEGER(data) + len, dst);
+      const int *src = INTEGER_RO(data);
+      std::copy(src, src + len, dst);
     }
   } else if constexpr (std::is_same_v<T, bool>) {
-    std::copy(LOGICAL(data), LOGICAL(data) + len, dst);
+    const int *src = LOGICAL_RO(data);
+    std::copy(src, src + len, dst);
   } else if constexpr (std::is_same_v<T, uint8_t>) {
     if (TYPEOF(data) == LGLSXP) {
+      const int *src = LOGICAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = LOGICAL(data)[i] ? 1 : 0;
+        dst[i] = src[i] ? 1 : 0;
       }
     } else if (TYPEOF(data) == INTSXP) {
-      std::copy(INTEGER(data), INTEGER(data) + len, dst);
+      const int *src = INTEGER_RO(data);
+      std::copy(src, src + len, dst);
     } else if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = r_double_to_integral<uint8_t>(REAL(data)[i]);
+        dst[i] = r_double_to_integral<uint8_t>(src[i]);
       }
     } else {
       Rcpp::stop("Unsupported R type: %d", TYPEOF(data));
@@ -460,11 +472,16 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
 //
 // On non-CPU it is genuinely zero-copy: R's data is handed straight to PJRT and
 // the R object is kept alive only until the transfer completes.
+//
+// `data_ptr` comes from a read-only accessor (see convert_r_data_to_typed), so
+// an ALTREP `data` is not materialized. Both consumers only read the bytes: the
+// CPU path memcpys, and the async path uses kImmutableUntilTransferCompletes.
+//
 // `na_sentinel` / `na_count`: when the payload is one whose bit pattern can be
 // R's NA (an INTSXP at i32, a bit64::integer64 at i64 / ui64), the caller asks
 // for the missing values to be counted and `*na_count` receives the tally.
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, void *data_ptr,
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, const void *data_ptr,
     const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
     size_t element_size, bool row_major = false, PJRT_Device *device = nullptr,
     NaSentinel na_sentinel = NaSentinel::kNone, R_xlen_t *na_count = nullptr) {
@@ -513,9 +530,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
       break;
   }
 
-  // Hand R's data straight to PJRT (zero-copy).
-  auto result = client->buffer_from_host_async(data_ptr, dims, byte_strides_opt,
-                                               dtype, device);
+  // Hand R's data straight to PJRT (zero-copy). const_cast because
+  // buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result = client->buffer_from_host_async(
+      const_cast<void *>(data_ptr), dims, byte_strides_opt, dtype, device);
 
   if (result.event) {
     R_PreserveObject(data);
@@ -537,16 +555,24 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 
   if (client->is_cpu()) {
     // Copy the raw bytes into a fresh RAWSXP; don't alias the caller's vector.
+    // DATAPTR_RO: the source is only read, and a writable DATAPTR would force
+    // copy-on-write materialization of ALTREP raw vectors (e.g. shared-memory
+    // mappings), doubling the host cost of the upload. Unlike INTEGER_RO() and
+    // REAL_RO(), RAW_RO() is not a substitute: as of R 4.6 it forces ALTREP
+    // payloads like RAW() does.
     size_t total_bytes = static_cast<size_t>(Rf_length(data));
     return make_cpu_buffer(client, total_bytes, dims, byte_strides_opt, dtype,
                            device, [&](void *dst) {
                              if (total_bytes > 0)
-                               std::memcpy(dst, RAW(data), total_bytes);
+                               std::memcpy(dst, DATAPTR_RO(data), total_bytes);
                            });
   }
 
-  auto result = client->buffer_from_host_async(RAW(data), dims,
-                                               byte_strides_opt, dtype, device);
+  // kImmutableUntilTransferCompletes only reads the host bytes; const_cast
+  // because buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result =
+      client->buffer_from_host_async(const_cast<void *>(DATAPTR_RO(data)), dims,
+                                     byte_strides_opt, dtype, device);
 
   if (result.event) {
     R_PreserveObject(data);
@@ -1346,7 +1372,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
       // separate scan -- which is what `check = FALSE` promises.
       R_xlen_t n_na = 0;
       auto buffer = create_buffer_from_array_async_no_convert(
-          client, data, INTEGER(data), dims, PJRT_Buffer_Type_S32,
+          client, data, INTEGER_RO(data), dims, PJRT_Buffer_Type_S32,
           sizeof(int32_t), false, device->device, NaSentinel::kInt32, &n_na);
       warn_na_sentinel(n_na, "i32", "-2147483648");
       return buffer;
@@ -1413,7 +1439,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   // wrap separately -- but it too materializes as NA again.
   R_xlen_t n_na = 0;
   auto buffer = create_buffer_from_array_async_no_convert(
-      client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
+      client, data, REAL_RO(data), dims, buffer_type, sizeof(int64_t), false,
       device->device, NaSentinel::kInt64, &n_na);
   warn_na_sentinel(
       n_na, dtype,
@@ -1449,7 +1475,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     // Zero-copy optimization: use R's double data directly (no type conversion
     // needed)
     return create_buffer_from_array_async_no_convert(
-        client, data, REAL(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
+        client, data, REAL_RO(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
         false, device->device);
   } else if (dtype == "pred") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
