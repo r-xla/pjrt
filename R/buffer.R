@@ -24,10 +24,14 @@ is_buffer <- function(x) {
 #' error -- it truncates toward zero, as [`as.integer()`] does -- and the range
 #' is checked on the truncated value, so `255.7` still fits `"ui8"`.
 #'
-#' The one missing value that is *not* rejected is an `NA_integer_` uploaded
-#' at `"i32"`, which travels zero-copy and arrives as `INT_MIN`, R's own `NA`.
-#' That case warns, and [`as_array()`]'s `check` argument catches it on the way
-#' back. At every other integer element type a missing value is an error.
+#' A missing value travels only where R's own `NA` marker is *already* the
+#' target type's bit pattern, so that it materializes as `NA` again on the way
+#' back: an `NA_integer_` at `"i32"` (`INT_MIN`), and a [`bit64::integer64`]
+#' `NA` at `"i64"` or `"ui64"` (`INT64_MIN`). Both upload zero-copy, both warn,
+#' and [`as_array()`]'s `check` argument catches them on the way back. Any
+#' other combination is an error: an `NA_real_` at an integer element type, an
+#' `NA_integer_` at anything but `"i32"`, and a missing value at `"pred"`,
+#' where `TRUE` and a lost `NA` are indistinguishable.
 #'
 #' At a floating-point element type a missing value is neither rejected nor
 #' warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
@@ -89,12 +93,12 @@ is_buffer <- function(x) {
 #'   error rather than letting them through. Defaults to `FALSE` for
 #'   performance, since it scans the whole vector. Not applicable to `raw`
 #'   input. R's `NA` markers have no representation at the XLA level:
-#'   `NA_integer_` is just the bit pattern `-2147483648`, `NA` of `logical`
-#'   type is coerced to `TRUE`, and at a floating-point dtype an `NA` becomes
-#'   `NaN`.
+#'   `NA_integer_` is just the bit pattern `-2147483648`, and at a
+#'   floating-point dtype an `NA` becomes `NaN`.
 #'
 #'   A value the target dtype cannot hold is rejected whatever this is set to,
-#'   so the flag only governs missing values.
+#'   so the flag only governs the missing values that would otherwise be
+#'   carried through -- the two sentinel cases above, which warn by default.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:
@@ -127,25 +131,31 @@ pjrt_buffer <- function(
   UseMethod("pjrt_buffer")
 }
 
-# NA_integer_ is INT_MIN, and an integer vector uploads to i32 zero-copy, so an
-# NA reaches the device as an ordinary -2147483648 and only looks like NA again
-# once it is back in R. Every other integer dtype rejects a missing value, so
-# this is the one case that would otherwise pass unremarked.
-warn_na_i32 <- function(data, dtype) {
-  if (identical(dtype, "i32") && anyNA(data)) {
-    n_na <- sum(is.na(data))
-    cli::cli_warn(c(
-      "Input {.arg data} contains {n_na} {.val NA} value{?s}, stored on the device as {.val -2147483648}.",
-      i = "The value materializes as {.val NA} again in R, and {.code as_array(check = TRUE)} reports it.",
-      i = "Set {.code check = TRUE} to make this an error, or use {.fn suppressWarnings} to silence it."
-    ))
-  }
+# anyNA() on a bit64::integer64 would read its slots as doubles, where the NA
+# sentinel INT64_MIN is the bit pattern of -0 and looks like an ordinary value.
+# bit64 gained an anyNA() method in 4.8.0, but we do not require that version.
+any_na <- function(data) {
+  # jarl-ignore any_is_na: is.na() is the integer64-aware form
+  if (inherits(data, "integer64")) any(is.na(data)) else anyNA(data)
+}
+
+# The missing values a zero-copy upload carried through: NA_integer_ at "i32",
+# NA_integer64_ at "i64" / "ui64". Each is the bit pattern R itself reads back
+# as NA, so the value survives the round trip and is reported rather than
+# rejected -- every other integer element type has no room for it and errors.
+# Called from C++, which counts the NAs in the same pass that copies the data.
+warn_na_sentinel <- function(n_na, dtype, stored) {
+  cli::cli_warn(c(
+    "Input {.arg data} contains {n_na} {.val NA} value{?s}, stored on the device as {.val {stored}}.",
+    i = "The value materializes as {.val NA} again in R, and {.code as_array(check = TRUE)} reports it.",
+    i = "Set {.code check = TRUE} to make this an error, or use {.fn suppressWarnings} to silence it."
+  ))
   invisible(NULL)
 }
 
 check_input_na <- function(data, check) {
   assert_flag(check)
-  if (check && anyNA(data)) {
+  if (check && any_na(data)) {
     n_na <- sum(is.na(data))
     cli_abort(c(
       "Input {.arg data} contains {n_na} {.val NA} value{?s}, which {?has/have} no representation at the XLA level.",
@@ -154,7 +164,6 @@ check_input_na <- function(data, check) {
   }
   invisible(NULL)
 }
-
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   buf <- data
@@ -291,7 +300,6 @@ pjrt_buffer.logical <- function(
 ) {
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
-  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -307,7 +315,6 @@ pjrt_buffer.integer <- function(
 ) {
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
-  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -333,8 +340,10 @@ pjrt_buffer.integer64 <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  check = FALSE,
   ...
 ) {
+  check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "i64", ...)
   if (!args$dtype %in% c("i64", "ui64")) {
     cli_abort(
@@ -396,7 +405,6 @@ pjrt_scalar.logical <- function(
   }
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
-  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -414,7 +422,6 @@ pjrt_scalar.integer <- function(
   }
   check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
-  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -441,12 +448,20 @@ pjrt_scalar.integer64 <- function(
   data,
   dtype = NULL,
   device = NULL,
+  check = FALSE,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer(), ...)
+  pjrt_buffer.integer64(
+    data,
+    dtype = dtype,
+    device = device,
+    shape = integer(),
+    check = check,
+    ...
+  )
 }
 
 #' @export

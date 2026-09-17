@@ -61,12 +61,12 @@ If \code{TRUE}, scan \code{data} for \code{NA} values before transferring and ra
 error rather than letting them through. Defaults to \code{FALSE} for
 performance, since it scans the whole vector. Not applicable to \code{raw}
 input. R's \code{NA} markers have no representation at the XLA level:
-\code{NA_integer_} is just the bit pattern \code{-2147483648}, \code{NA} of \code{logical}
-type is coerced to \code{TRUE}, and at a floating-point dtype an \code{NA} becomes
-\code{NaN}.
+\code{NA_integer_} is just the bit pattern \code{-2147483648}, and at a
+floating-point dtype an \code{NA} becomes \code{NaN}.
 
 A value the target dtype cannot hold is rejected whatever this is set to,
-so the flag only governs missing values.}
+so the flag only governs the missing values that would otherwise be
+carried through -- the two sentinel cases above, which warn by default.}
 
 \item{...}{(any)\cr
 Additional arguments.
@@ -94,10 +94,14 @@ rather than a wrapped or clamped result. A fractional value is \emph{not} an
 error -- it truncates toward zero, as \code{\link[=as.integer]{as.integer()}} does -- and the range
 is checked on the truncated value, so \code{255.7} still fits \code{"ui8"}.
 
-The one missing value that is \emph{not} rejected is an \code{NA_integer_} uploaded
-at \code{"i32"}, which travels zero-copy and arrives as \code{INT_MIN}, R's own \code{NA}.
-That case warns, and \code{\link[=as_array]{as_array()}}'s \code{check} argument catches it on the way
-back. At every other integer element type a missing value is an error.
+A missing value travels only where R's own \code{NA} marker is \emph{already} the
+target type's bit pattern, so that it materializes as \code{NA} again on the way
+back: an \code{NA_integer_} at \code{"i32"} (\code{INT_MIN}), and a \code{\link[bit64:integer64]{bit64::integer64}}
+\code{NA} at \code{"i64"} or \code{"ui64"} (\code{INT64_MIN}). Both upload zero-copy, both warn,
+and \code{\link[=as_array]{as_array()}}'s \code{check} argument catches them on the way back. Any
+other combination is an error: an \code{NA_real_} at an integer element type, an
+\code{NA_integer_} at anything but \code{"i32"}, and a missing value at \code{"pred"},
+where \code{TRUE} and a lost \code{NA} are indistinguishable.
 
 At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes \code{NaN}, from an \code{NA_real_} and an \code{NA_integer_}

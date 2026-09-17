@@ -135,6 +135,7 @@ static std::string element_suffix(int i, int len) {
 // Spells a double for an error message the way R does, so that an infinity
 // reads "Inf" rather than C's "inf". Only reached on the error path.
 static std::string format_r_double(double v) {
+  if (ISNAN(v)) return "NaN";
   if (!R_FINITE(v)) return v > 0 ? "Inf" : "-Inf";
   char buf[64];
   std::snprintf(buf, sizeof(buf), "%.15g", v);
@@ -214,8 +215,59 @@ void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
               x[i], dtype_name(type), element_suffix(i, len));
         }
       }
+    } else if (TYPEOF(data) == LGLSXP) {
+      // The route to "pred": a logical NA is INT_MIN like NA_integer_, but
+      // there is no room for it in a byte and nothing downstream could tell it
+      // from a real TRUE, so -- unlike i32's sentinel, which survives the round
+      // trip -- it cannot be let through with a warning.
+      const int *x = LOGICAL(data);
+      for (int i = 0; i < len; ++i) {
+        if (x[i] == NA_LOGICAL) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+      }
     }
   }
+}
+
+// R's missing-value sentinel a zero-copy payload may be carrying, for the scan
+// that rides along with the copy. kNone skips the scan entirely.
+enum class NaSentinel { kNone, kInt32, kInt64 };
+
+// Copy `len` elements of type T while counting R's missing-value sentinel,
+// fused into the copy the CPU path performs anyway so that the default upload
+// does not pay a second pass over the data just to find out whether to warn.
+template <typename T>
+R_xlen_t copy_counting_na(void *dst, const void *src, int len, T sentinel) {
+  const T *in = static_cast<const T *>(src);
+  T *out = static_cast<T *>(dst);
+  R_xlen_t n_na = 0;
+  for (int i = 0; i < len; ++i) {
+    const T v = in[i];
+    n_na += (v == sentinel);
+    out[i] = v;
+  }
+  return n_na;
+}
+
+template <typename T>
+R_xlen_t count_na(const void *src, int len, T sentinel) {
+  const T *in = static_cast<const T *>(src);
+  R_xlen_t n_na = 0;
+  for (int i = 0; i < len; ++i) n_na += (in[i] == sentinel);
+  return n_na;
+}
+
+// Warn about the missing values a zero-copy upload carried through. Raised
+// from C++ so the scan can be fused with the copy, but worded in R, where cli
+// formats it; the call is only reached when there is something to say.
+static void warn_na_sentinel(R_xlen_t n_na, const std::string &dtype,
+                             const char *stored) {
+  if (n_na == 0) return;
+  Rcpp::Function warn("warn_na_sentinel",
+                      Rcpp::Environment::namespace_env("pjrt"));
+  warn(static_cast<double>(n_na), dtype, std::string(stored));
 }
 
 // Convert a double to the integral element type T, truncating toward zero like
@@ -408,11 +460,14 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
 //
 // On non-CPU it is genuinely zero-copy: R's data is handed straight to PJRT and
 // the R object is kept alive only until the transfer completes.
+// `na_sentinel` / `na_count`: when the payload is one whose bit pattern can be
+// R's NA (an INTSXP at i32, a bit64::integer64 at i64 / ui64), the caller asks
+// for the missing values to be counted and `*na_count` receives the tally.
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, void *data_ptr,
     const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
-    size_t element_size, bool row_major = false,
-    PJRT_Device *device = nullptr) {
+    size_t element_size, bool row_major = false, PJRT_Device *device = nullptr,
+    NaSentinel na_sentinel = NaSentinel::kNone, R_xlen_t *na_count = nullptr) {
   int len = Rf_length(data);
   if (len == 0) {
     if (!std::any_of(dims.begin(), dims.end(),
@@ -425,14 +480,40 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
 
   if (client->is_cpu()) {
     size_t total_bytes = static_cast<size_t>(len) * element_size;
-    return make_cpu_buffer(client, total_bytes, dims, byte_strides_opt, dtype,
-                           device, [&](void *dst) {
-                             if (total_bytes > 0)
-                               std::memcpy(dst, data_ptr, total_bytes);
-                           });
+    return make_cpu_buffer(
+        client, total_bytes, dims, byte_strides_opt, dtype, device,
+        [&](void *dst) {
+          if (total_bytes == 0) return;
+          switch (na_sentinel) {
+            case NaSentinel::kInt32:
+              *na_count =
+                  copy_counting_na<int32_t>(dst, data_ptr, len, NA_INTEGER);
+              break;
+            case NaSentinel::kInt64:
+              *na_count = copy_counting_na<int64_t>(
+                  dst, data_ptr, len, std::numeric_limits<int64_t>::min());
+              break;
+            case NaSentinel::kNone:
+              std::memcpy(dst, data_ptr, total_bytes);
+              break;
+          }
+        });
   }
 
-  // Non-CPU: hand R's data straight to PJRT (zero-copy).
+  // Non-CPU: nothing is copied, so the scan needs a pass of its own.
+  switch (na_sentinel) {
+    case NaSentinel::kInt32:
+      *na_count = count_na<int32_t>(data_ptr, len, NA_INTEGER);
+      break;
+    case NaSentinel::kInt64:
+      *na_count =
+          count_na<int64_t>(data_ptr, len, std::numeric_limits<int64_t>::min());
+      break;
+    case NaSentinel::kNone:
+      break;
+  }
+
+  // Hand R's data straight to PJRT (zero-copy).
   auto result = client->buffer_from_host_async(data_ptr, dims, byte_strides_opt,
                                                dtype, device);
 
@@ -1258,9 +1339,17 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
       // Zero-copy optimization: use R's integer data directly (R int = 32-bit)
       static_assert(sizeof(int) == sizeof(int32_t),
                     "R int must be 32-bit for zero-copy");
-      return create_buffer_from_array_async_no_convert(
+      // NA_integer_ travels here rather than being rejected: it is INT_MIN,
+      // which is what R reads back as NA, so the missing value survives the
+      // round trip. It still warns, since nothing on the device knows it is
+      // one. The count comes back from the copy itself, so the upload pays no
+      // separate scan -- which is what `check = FALSE` promises.
+      R_xlen_t n_na = 0;
+      auto buffer = create_buffer_from_array_async_no_convert(
           client, data, INTEGER(data), dims, PJRT_Buffer_Type_S32,
-          sizeof(int32_t), false, device->device);
+          sizeof(int32_t), false, device->device, NaSentinel::kInt32, &n_na);
+      warn_na_sentinel(n_na, "i32", "-2147483648");
+      return buffer;
     }
     // Doubles reach this from impl_client_buffer_from_double() and need the
     // per-element conversion; only an INTSXP is byte-compatible with S32.
@@ -1317,9 +1406,19 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
-  return create_buffer_from_array_async_no_convert(
+  // NA_integer64_ is INT64_MIN, the value bit64 reads back as NA, so like
+  // NA_integer_ at i32 it survives the round trip and is warned about rather
+  // than rejected. At ui64 the same bit pattern is the ordinary value 2^63,
+  // which R's signed integer64 cannot represent -- as_array() warns about that
+  // wrap separately -- but it too materializes as NA again.
+  R_xlen_t n_na = 0;
+  auto buffer = create_buffer_from_array_async_no_convert(
       client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
-      device->device);
+      device->device, NaSentinel::kInt64, &n_na);
+  warn_na_sentinel(
+      n_na, dtype,
+      dtype == "i64" ? "-9223372036854775808" : "9223372036854775808");
+  return buffer;
 }
 
 // [[Rcpp::export()]]
