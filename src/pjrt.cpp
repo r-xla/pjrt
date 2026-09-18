@@ -171,12 +171,27 @@ template <typename T>
 void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
   if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
     if (TYPEOF(data) == REALSXP) {
+      // Here we check whether an R double fits within the requested integral
+      // type T Problems can be:
+      // 1. It's NA/NaN
+      // 2. It's too large / small
       // The bounds are compared in double space. lowest() is a power of two,
       // and max() + 1 is spelled max() / 2 + 1 doubled -- also a power of two
       // -- so both convert to double exactly and the half-open test is the
       // correct one (max() itself is generally not representable as a double).
+
+      // to check whether it's too large, we need to compute the maximum value
+      // that fits into T in double space
+      // the maximum value of i32 is 2^63 - 1, so we do
       constexpr double kLo =
           static_cast<double>(std::numeric_limits<T>::lowest());
+
+      // for i64, max int is 2^63 - 1 and we want to get that faithfully in
+      // double. 2^62 can be perfectly represented in double, so we do (2^63 +
+      // 1) / 2 + 1  --> 2^62 (in i64)
+      // this value we can then convert to double (1.0 * 2^62) and then multiply
+      // by 2 to get 2^63. This is exclusive, any truncated R double must be
+      // smaller than it
       constexpr double kHiExclusive =
           2.0 * static_cast<double>(std::numeric_limits<T>::max() / 2 + 1);
       const double *x = REAL(data);
@@ -197,11 +212,11 @@ void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
       // it legitimately and rejecting it is never a false positive. It has to
       // be rejected explicitly for i64, which is wide enough to take it and
       // would otherwise widen it to the ordinary value -2147483648 that
-      // as_array(check = TRUE) cannot tell apart from real data -- and a
+      // as_array() reports but cannot tell apart from real data -- and a
       // missing value should not depend on whether the caller wrote NA_real_
       // or NA_integer_. An i32 buffer is the deliberate exception and never
       // gets here: an INTSXP uploads to i32 zero-copy, carrying NA_integer_
-      // through as R's own NA for as_array(check = TRUE) to find.
+      // through as R's own NA for as_array() to report.
       const int *x = INTEGER(data);
       for (int i = 0; i < len; ++i) {
         if (x[i] == NA_INTEGER) {

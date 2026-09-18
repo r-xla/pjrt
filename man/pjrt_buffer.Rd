@@ -6,16 +6,9 @@
 \alias{pjrt_empty}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(
-  data,
-  dtype = NULL,
-  device = NULL,
-  shape = NULL,
-  check = FALSE,
-  ...
-)
+pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
 
-pjrt_scalar(data, dtype = NULL, device = NULL, check = FALSE, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 }
@@ -49,24 +42,14 @@ wrapped or clamped result, and the range is tested after truncation, so
 A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...), in which
 case the first device for that platform is used.
 The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
-environment variable.}
+environment variable.
+A value the target dtype cannot hold is rejected whatever this is set to,
+so the flag only governs missing values.}
 
 \item{shape}{(\code{NULL} | \code{integer()})\cr
 The dimensions of the buffer.
 The default (\code{NULL}) is to infer them from the data if possible.
 The default (\code{NULL}) depends on the method.}
-
-\item{check}{(\code{logical(1)})\cr
-If \code{TRUE}, scan \code{data} for \code{NA} values before transferring and raise an
-error rather than letting them through. Defaults to \code{FALSE} for
-performance, since it scans the whole vector. Not applicable to \code{raw}
-input. R's \code{NA} markers have no representation at the XLA level:
-\code{NA_integer_} is just the bit pattern \code{-2147483648}, \code{NA} of \code{logical}
-type is coerced to \code{TRUE}, and at a floating-point dtype an \code{NA} becomes
-\code{NaN}.
-
-A value the target dtype cannot hold is rejected whatever this is set to,
-so the flag only governs missing values.}
 
 \item{...}{(any)\cr
 Additional arguments.
@@ -96,8 +79,9 @@ is checked on the truncated value, so \code{255.7} still fits \code{"ui8"}.
 
 The one missing value that is \emph{not} rejected is an \code{NA_integer_} uploaded
 at \code{"i32"}, which travels zero-copy and arrives as \code{INT_MIN}, R's own \code{NA}.
-That case warns, and \code{\link[=as_array]{as_array()}}'s \code{check} argument catches it on the way
-back. At every other integer element type a missing value is an error.
+That case warns, and \code{\link[=as_array]{as_array()}} warns about it again on the way back,
+its \code{check} argument defaulting to \code{"warn"}. At every other integer element
+type a missing value is an error.
 
 At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes \code{NaN}, from an \code{NA_real_} and an \code{NA_integer_}
