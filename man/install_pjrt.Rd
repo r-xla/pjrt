@@ -10,7 +10,7 @@ install_pjrt(cuda = NULL)
 \item{cuda}{(\code{logical(1)} | \code{NULL})\cr
 Whether to also install the CUDA plugin. When \code{NULL} (the default),
 CUDA support is auto-detected: the CUDA plugin is installed when an
-NVIDIA GPU is available on a Linux x86_64 machine.}
+NVIDIA GPU is available on a Linux machine (x86_64 or arm64).}
 }
 \value{
 (\code{character()})\cr

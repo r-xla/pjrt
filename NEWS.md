@@ -3,6 +3,9 @@
 ## Breaking changes
 
 * Updated the PJRT plugin version, which now requires CUDA 13.3.
+* Removed support for the ambiguity concept in the dispatcher and replaced
+  it with support for `rdata` objects.
+  This enables the improved precision semantics in anvl.
 * `as_array()`'s `check` argument is now `"warn"` (the default), `"err"` or
   `FALSE`, and a value R's type cannot hold is reported instead of returned
   silently. Write `check = "err"` where you wrote `check = TRUE`.
@@ -11,13 +14,28 @@
 
 ## New features
 
-* Added CUDA support for Linux ARM
+* `dispatcher()` gained a `context` resolver: a function called on every
+  dispatch whose `character()` result is part of the cache key and reaches the
+  compile callback as `info$context`. anvl uses it to key compiled programs on
+  the backend's default dtypes.
+* `RTree` objects can be compared with `==` and `!=`, which apply
+  `tree_equal()` structural comparison.
+* Added CUDA support for Linux ARM.
 * Added supoort for Intel Macs.
+
+## Performance
+
+* `pjrt_buffer()` reads its source vector through R's read-only accessors
+  (`DATAPTR_RO`, `INTEGER_RO`, `REAL_RO`, `LOGICAL_RO`) instead of the writable
+  `RAW()`, `INTEGER()`, `REAL()` and `LOGICAL()`. A writable pointer forces
+  copy-on-write materialization of ALTREP vectors (for example shared-memory
+  mappings), so every upload from such a source paid for a private duplicate of
+  the payload before the device copy. The source is now read in place on every
+  upload path.
 
 ## Bug fixes
 
-* Large buffer whose values are all integer-valued are now
-  printed correctly.
+* Large float buffers now print correctly.
 * Improved the buffer creation functions both in terms of features
   (from which R dtype one can build which buffer) as well as checks
   (NA, out of range).
