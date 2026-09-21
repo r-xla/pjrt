@@ -6,16 +6,9 @@
 \alias{pjrt_empty}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(
-  data,
-  dtype = NULL,
-  device = NULL,
-  shape = NULL,
-  check = FALSE,
-  ...
-)
+pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
 
-pjrt_scalar(data, dtype = NULL, device = NULL, check = FALSE, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 }
@@ -28,34 +21,35 @@ The type of the buffer.
 Currently supported types are:
 \itemize{
 \item \code{"pred"}: predicate (i.e. a boolean)
-\item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} data).
+\item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} or
+\code{double} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 The default (\code{NULL}) depends on the method:
 \item \code{logical} -> \code{"pred"}
 \item \code{integer} -> \code{"i32"}
 \item \code{double} -> \code{"f32"}
 \item \code{raw} -> must be supplied
-}}
+}
+
+A \code{double} at an integer dtype is truncated toward zero, like
+\code{\link[=as.integer]{as.integer()}} but without its 32-bit intermediate, so
+\code{pjrt_buffer(2^40, dtype = "i64")} stores \code{1099511627776} rather than
+overflowing. A value the dtype cannot hold is an error rather than a
+wrapped or clamped result, and the range is tested after truncation, so
+\code{255.7} still fits \code{"ui8"}.}
 
 \item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr
 A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...), in which
 case the first device for that platform is used.
 The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
-environment variable.}
+environment variable.
+A value the target dtype cannot hold is rejected whatever this is set to,
+so the flag only governs missing values.}
 
 \item{shape}{(\code{NULL} | \code{integer()})\cr
 The dimensions of the buffer.
 The default (\code{NULL}) is to infer them from the data if possible.
 The default (\code{NULL}) depends on the method.}
-
-\item{check}{(\code{logical(1)})\cr
-If \code{TRUE}, scan \code{data} for \code{NA} values before transferring to the device and
-raise an error if any are present. R's \code{NA} markers have no representation
-at the XLA level (e.g. \code{NA_integer_} is just the bit pattern \code{-2147483648},
-and \code{NA} of \code{logical} type is silently coerced to \code{TRUE}), so missing values
-are silently lost on transfer. Defaults to \code{FALSE} for performance; set to
-\code{TRUE} to fail loudly instead of silently corrupting data.
-Not applicable to \code{raw} input.}
 
 \item{...}{(any)\cr
 Additional arguments.
@@ -77,8 +71,24 @@ Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars
 To create an empty buffer (at least one dimension must be 0), use \code{\link{pjrt_empty}}.
 
 \strong{Important}:
-No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+Uploading a numeric vector at an integer element type rejects any value that
+type cannot hold: one outside its range, or a missing value, is an error
+rather than a wrapped or clamped result. A fractional value is \emph{not} an
+error -- it truncates toward zero, as \code{\link[=as.integer]{as.integer()}} does -- and the range
+is checked on the truncated value, so \code{255.7} still fits \code{"ui8"}.
+
+The one missing value that is \emph{not} rejected is an \code{NA_integer_} uploaded
+at \code{"i32"}, which travels zero-copy and arrives as \code{INT_MIN}, R's own \code{NA}.
+That case warns, and \code{\link[=as_array]{as_array()}} warns about it again on the way back,
+its \code{check} argument defaulting to \code{"warn"}. At every other integer element
+type a missing value is an error.
+
+At a floating-point element type a missing value is neither rejected nor
+warned about: it becomes \code{NaN}, from an \code{NA_real_} and an \code{NA_integer_}
+alike, as \code{\link[=as.double]{as.double()}} would give.
+
+No other checks are performed when creating the buffer -- a double too large
+for \code{"f32"}, for instance, still becomes \code{Inf}.
 
 \code{pjrt_empty()} allocates a buffer of the given \code{shape} and \code{dtype} with
 \strong{unspecified contents}. The bytes should be treated as uninitialized —

@@ -6,6 +6,11 @@
 * Removed support for the ambiguity concept in the dispatcher and replaced
   it with support for `rdata` objects.
   This enables the improved precision semantics in anvl.
+* `as_array()`'s `check` argument is now `"warn"` (the default), `"err"` or
+  `FALSE`, and a value R's type cannot hold is reported instead of returned
+  silently. Write `check = "err"` where you wrote `check = TRUE`.
+* `pjrt_buffer()` and `pjrt_scalar()` no longer take a `check` argument; what
+  happens to an `NA` is fixed by the dtype.
 
 ## New features
 
@@ -31,6 +36,9 @@
 ## Bug fixes
 
 * Large float buffers now print correctly.
+* Improved the buffer creation functions both in terms of features
+  (from which R dtype one can build which buffer) as well as checks
+  (NA, out of range).
 
 ## Other
 
