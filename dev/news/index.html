@@ -59,6 +59,8 @@
 <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>’s <code>check</code> argument is now <code>"warn"</code> (the default), <code>"err"</code> or <code>FALSE</code>, and a value R’s type cannot hold is reported instead of returned silently. Write <code>check = "err"</code> where you wrote <code>check = TRUE</code>.</li>
 <li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> and <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code> no longer take a <code>check</code> argument; what happens to an <code>NA</code> is fixed by the dtype.</li>
+<li>Uploading an <code>NA</code> at dtype <code>"pred"</code> is now an error. It previously became <code>TRUE</code>, silently.</li>
+<li>Uploading a <code><a href="https://bit64.r-lib.org/reference/bit64-package.html" class="external-link">bit64::integer64</a></code> <code>NA</code> is no longer silent. At dtype <code>"i64"</code> it warns, like an <code>NA_integer_</code> at <code>"i32"</code> does, since <code>INT64_MIN</code> travels zero-copy and materializes as <code>NA</code> again. At dtype <code>"ui64"</code> it is now an error: the same bits read unsigned are the ordinary value <code>2^63</code>.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>

@@ -16,11 +16,14 @@ type cannot hold: one outside its range, or a missing value, is an error
 rather than a wrapped or clamped result. A fractional value is not an
 error – it truncates toward zero, as as.integer() does – and the range
 is checked on the truncated value, so 255.7 still fits &quot;ui8&quot;.
-The one missing value that is not rejected is an NA_integer_ uploaded
-at &quot;i32&quot;, which travels zero-copy and arrives as INT_MIN, R's own NA.
-That case warns, and as_array() warns about it again on the way back,
-its check argument defaulting to &quot;warn&quot;. At every other integer element
-type a missing value is an error.
+A missing value is not rejected where R's own NA and the element type
+already share a bit pattern and the vector travels zero-copy: an
+NA_integer_ at &quot;i32&quot; arrives as INT_MIN, and a bit64::integer64
+NA at &quot;i64&quot; arrives as INT64_MIN. Both warn, and as_array() warns
+about them again on the way back, its check argument defaulting to
+&quot;warn&quot;. At every other integer element type, and at &quot;pred&quot;, a missing
+value is an error – including an integer64 NA at &quot;ui64&quot;, where those
+same bits are the ordinary value 2^63.
 At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes NaN, from an NA_real_ and an NA_integer_
 alike, as as.double() would give.
@@ -41,11 +44,14 @@ type cannot hold: one outside its range, or a missing value, is an error
 rather than a wrapped or clamped result. A fractional value is not an
 error – it truncates toward zero, as as.integer() does – and the range
 is checked on the truncated value, so 255.7 still fits &quot;ui8&quot;.
-The one missing value that is not rejected is an NA_integer_ uploaded
-at &quot;i32&quot;, which travels zero-copy and arrives as INT_MIN, R's own NA.
-That case warns, and as_array() warns about it again on the way back,
-its check argument defaulting to &quot;warn&quot;. At every other integer element
-type a missing value is an error.
+A missing value is not rejected where R's own NA and the element type
+already share a bit pattern and the vector travels zero-copy: an
+NA_integer_ at &quot;i32&quot; arrives as INT_MIN, and a bit64::integer64
+NA at &quot;i64&quot; arrives as INT64_MIN. Both warn, and as_array() warns
+about them again on the way back, its check argument defaulting to
+&quot;warn&quot;. At every other integer element type, and at &quot;pred&quot;, a missing
+value is an error – including an integer64 NA at &quot;ui64&quot;, where those
+same bits are the ordinary value 2^63.
 At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes NaN, from an NA_real_ and an NA_integer_
 alike, as as.double() would give.
@@ -112,11 +118,14 @@ type cannot hold: one outside its range, or a missing value, is an error
 rather than a wrapped or clamped result. A fractional value is <em>not</em> an
 error – it truncates toward zero, as <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer()</a></code> does – and the range
 is checked on the truncated value, so <code>255.7</code> still fits <code>"ui8"</code>.</p>
-<p>The one missing value that is <em>not</em> rejected is an <code>NA_integer_</code> uploaded
-at <code>"i32"</code>, which travels zero-copy and arrives as <code>INT_MIN</code>, R's own <code>NA</code>.
-That case warns, and <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> warns about it again on the way back,
-its <code>check</code> argument defaulting to <code>"warn"</code>. At every other integer element
-type a missing value is an error.</p>
+<p>A missing value is <em>not</em> rejected where R's own <code>NA</code> and the element type
+already share a bit pattern and the vector travels zero-copy: an
+<code>NA_integer_</code> at <code>"i32"</code> arrives as <code>INT_MIN</code>, and a <code><a href="https://bit64.r-lib.org/reference/bit64-package.html" class="external-link">bit64::integer64</a></code>
+<code>NA</code> at <code>"i64"</code> arrives as <code>INT64_MIN</code>. Both warn, and <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> warns
+about them again on the way back, its <code>check</code> argument defaulting to
+<code>"warn"</code>. At every other integer element type, and at <code>"pred"</code>, a missing
+value is an error – including an <code>integer64</code> <code>NA</code> at <code>"ui64"</code>, where those
+same bits are the ordinary value <code>2^63</code>.</p>
 <p>At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes <code>NaN</code>, from an <code>NA_real_</code> and an <code>NA_integer_</code>
 alike, as <code><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double()</a></code> would give.</p>
@@ -261,8 +270,8 @@ To create a 0-dimensional buffer, use <code>pjrt_scalar</code> where the resulti
 <span class="r-in"><span><span class="va">empty</span> <span class="op">&lt;-</span> <span class="fu">pjrt_empty</span><span class="op">(</span>dtype <span class="op">=</span> <span class="st">"f32"</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">empty</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PJRTBuffer </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  -7.9568e-35  3.0885e-41 -5.4518e-38</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   3.0885e-41 -5.4518e-38  3.0885e-41</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  -3.1738e+38  3.0651e-41 -2.8162e+38</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   3.0651e-41 -2.5557e+38  3.0651e-41</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{2x3} ] </span>
 </code></pre></div>
     </div>

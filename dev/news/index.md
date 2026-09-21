@@ -17,6 +17,14 @@
   [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)
   no longer take a `check` argument; what happens to an `NA` is fixed by
   the dtype.
+- Uploading an `NA` at dtype `"pred"` is now an error. It previously
+  became `TRUE`, silently.
+- Uploading a
+  [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
+  `NA` is no longer silent. At dtype `"i64"` it warns, like an
+  `NA_integer_` at `"i32"` does, since `INT64_MIN` travels zero-copy and
+  materializes as `NA` again. At dtype `"ui64"` it is now an error: the
+  same bits read unsigned are the ordinary value `2^63`.
 
 ### New features
 

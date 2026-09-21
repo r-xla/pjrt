@@ -110,6 +110,9 @@ Authors:
 
 Other contributors:
 
+- Hugh Graham <hugh@belian.earth>
+  ([ORCID](https://orcid.org/0000-0001-9451-5010)) \[contributor\]
+
 - Daniel James (Author of the Boost.ContainerHash hash_combine copied in
   src/hash.h (BSL-1.0); see inst/COPYRIGHTS) \[copyright holder\]
 

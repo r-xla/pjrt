@@ -16,13 +16,16 @@ fractional value is *not* an error – it truncates toward zero, as
 [`as.integer()`](https://rdrr.io/r/base/integer.html) does – and the
 range is checked on the truncated value, so `255.7` still fits `"ui8"`.
 
-The one missing value that is *not* rejected is an `NA_integer_`
-uploaded at `"i32"`, which travels zero-copy and arrives as `INT_MIN`,
-R's own `NA`. That case warns, and
+A missing value is *not* rejected where R's own `NA` and the element
+type already share a bit pattern and the vector travels zero-copy: an
+`NA_integer_` at `"i32"` arrives as `INT_MIN`, and a
+[`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
+`NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and
 [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
-warns about it again on the way back, its `check` argument defaulting to
-`"warn"`. At every other integer element type a missing value is an
-error.
+warns about them again on the way back, its `check` argument defaulting
+to `"warn"`. At every other integer element type, and at `"pred"`, a
+missing value is an error – including an `integer64` `NA` at `"ui64"`,
+where those same bits are the ordinary value `2^63`.
 
 At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
@@ -189,7 +192,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  -7.9568e-35  3.0885e-41 -5.4518e-38
-#>   3.0885e-41 -5.4518e-38  3.0885e-41
+#>  -3.1738e+38  3.0651e-41 -2.8162e+38
+#>   3.0651e-41 -2.5557e+38  3.0651e-41
 #> [ CPUf32{2x3} ] 
 ```
