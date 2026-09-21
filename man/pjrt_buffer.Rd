@@ -77,11 +77,14 @@ rather than a wrapped or clamped result. A fractional value is \emph{not} an
 error -- it truncates toward zero, as \code{\link[=as.integer]{as.integer()}} does -- and the range
 is checked on the truncated value, so \code{255.7} still fits \code{"ui8"}.
 
-The one missing value that is \emph{not} rejected is an \code{NA_integer_} uploaded
-at \code{"i32"}, which travels zero-copy and arrives as \code{INT_MIN}, R's own \code{NA}.
-That case warns, and \code{\link[=as_array]{as_array()}} warns about it again on the way back,
-its \code{check} argument defaulting to \code{"warn"}. At every other integer element
-type a missing value is an error.
+A missing value is \emph{not} rejected where R's own \code{NA} and the element type
+already share a bit pattern and the vector travels zero-copy: an
+\code{NA_integer_} at \code{"i32"} arrives as \code{INT_MIN}, and a \code{bit64::integer64}
+\code{NA} at \code{"i64"} arrives as \code{INT64_MIN}. Both warn, and \code{\link[=as_array]{as_array()}} warns
+about them again on the way back, its \code{check} argument defaulting to
+\code{"warn"}. At every other integer element type, and at \code{"pred"}, a missing
+value is an error -- including an \code{integer64} \code{NA} at \code{"ui64"}, where those
+same bits are the ordinary value \code{2^63}.
 
 At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes \code{NaN}, from an \code{NA_real_} and an \code{NA_integer_}

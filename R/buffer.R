@@ -24,11 +24,14 @@ is_buffer <- function(x) {
 #' error -- it truncates toward zero, as [`as.integer()`] does -- and the range
 #' is checked on the truncated value, so `255.7` still fits `"ui8"`.
 #'
-#' The one missing value that is *not* rejected is an `NA_integer_` uploaded
-#' at `"i32"`, which travels zero-copy and arrives as `INT_MIN`, R's own `NA`.
-#' That case warns, and [`as_array()`] warns about it again on the way back,
-#' its `check` argument defaulting to `"warn"`. At every other integer element
-#' type a missing value is an error.
+#' A missing value is *not* rejected where R's own `NA` and the element type
+#' already share a bit pattern and the vector travels zero-copy: an
+#' `NA_integer_` at `"i32"` arrives as `INT_MIN`, and a `bit64::integer64`
+#' `NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and [`as_array()`] warns
+#' about them again on the way back, its `check` argument defaulting to
+#' `"warn"`. At every other integer element type, and at `"pred"`, a missing
+#' value is an error -- including an `integer64` `NA` at `"ui64"`, where those
+#' same bits are the ordinary value `2^63`.
 #'
 #' At a floating-point element type a missing value is neither rejected nor
 #' warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
@@ -124,14 +127,34 @@ pjrt_buffer <- function(
 # this is the one case that would otherwise pass unremarked.
 warn_na_i32 <- function(data, dtype) {
   if (identical(dtype, "i32") && anyNA(data)) {
-    n_na <- sum(is.na(data))
-    cli::cli_warn(c(
-      "Input {.arg data} contains {n_na} {.val NA} value{?s}, stored on the device as {.val -2147483648}.",
-      i = "The value materializes as {.val NA} again in R, which {.code as_array()} reports on the way back.",
-      i = "Use {.fn suppressWarnings} to silence this."
-    ))
+    warn_na_kept(data, "-2147483648")
   }
   invisible(NULL)
+}
+
+# The same carve-out one width up: NA_integer64_ is INT64_MIN, and a
+# bit64::integer64 vector uploads to i64 zero-copy. Only an integer64 source
+# gets here -- an `integer` or a `double` at i64 is converted rather than
+# passed through, and its NA is rejected in C++ -- so the dtype test alone is
+# enough to tell the passthrough apart. `anyNA()` is safe on an integer64: it
+# falls back to bit64's `is.na()`, so it tests for INT64_MIN and not for a
+# double NaN, which some legitimate int64 values reinterpret to.
+warn_na_i64 <- function(data, dtype) {
+  if (identical(dtype, "i64") && anyNA(data)) {
+    warn_na_kept(data, "-9223372036854775808")
+  }
+  invisible(NULL)
+}
+
+# `sentinel` is the value the NA lands on, as a string: -9223372036854775808
+# has no exact double to format from.
+warn_na_kept <- function(data, sentinel) {
+  n_na <- sum(is.na(data))
+  cli::cli_warn(c(
+    "Input {.arg data} contains {n_na} {.val NA} value{?s}, stored on the device as {.val {sentinel}}.",
+    i = "The value materializes as {.val NA} again in R, which {.code as_array()} reports on the way back.",
+    i = "Use {.fn suppressWarnings} to silence this."
+  ))
 }
 
 
@@ -314,6 +337,10 @@ pjrt_buffer.integer64 <- function(
       "{.cls integer64} input only supports {.val i64} or {.val ui64} dtype, got {.val {args$dtype}}."
     )
   }
+  # i64 is the passthrough; at ui64 the same bit pattern is the ordinary value
+  # 2^63, so a missing value is rejected there instead (in C++, with the
+  # message every other rejected NA gets).
+  warn_na_i64(args$data, args$dtype)
   impl_client_buffer_from_integer64(
     client = args$client,
     device = args$device,

@@ -11,6 +11,12 @@
   silently. Write `check = "err"` where you wrote `check = TRUE`.
 * `pjrt_buffer()` and `pjrt_scalar()` no longer take a `check` argument; what
   happens to an `NA` is fixed by the dtype.
+* Uploading an `NA` at dtype `"pred"` is now an error. It previously became
+  `TRUE`, silently.
+* Uploading a `bit64::integer64` `NA` is no longer silent. At dtype `"i64"`
+  it warns, like an `NA_integer_` at `"i32"` does, since `INT64_MIN` travels
+  zero-copy and materializes as `NA` again. At dtype `"ui64"` it is now an
+  error: the same bits read unsigned are the ordinary value `2^63`.
 
 ## New features
 
