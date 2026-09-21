@@ -229,6 +229,21 @@ void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
               x[i], dtype_name(type), element_suffix(i, len));
         }
       }
+    } else if (TYPEOF(data) == LGLSXP) {
+      // "pred" is the only element type an LGLSXP reaches intact -- every
+      // other one converts through as.integer() first, where NA_LOGICAL
+      // becomes the NA_integer_ the branch above rejects. Without this,
+      // convert_r_data_to_typed()'s `src[i] ? 1 : 0` would read NA_LOGICAL's
+      // INT_MIN as truthy and store a missing value as TRUE. pred has no
+      // missing value to land on, so it is rejected like any other dtype
+      // that cannot hold one.
+      const int *x = LOGICAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        if (x[i] == NA_LOGICAL) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+      }
     }
   }
 }
@@ -1357,6 +1372,25 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+
+  // bit64 spells NA_integer64_ as INT64_MIN. At "i64" that is R's own NA and
+  // the whole point of the zero-copy path: it travels through untouched and
+  // as_array() reports it on the way back, with the R caller warning about it
+  // on the way in. At "ui64" the same bits read as the ordinary value 2^63, so
+  // a missing value would arrive as real data; it is rejected here like any
+  // other dtype that cannot hold one. Nothing legitimate is turned away --
+  // bit64 cannot express 2^63 either, that bit pattern *is* its NA.
+  if (buffer_type == PJRT_Buffer_Type_U64) {
+    int len = Rf_length(data);
+    const int64_t *x = reinterpret_cast<const int64_t *>(REAL_RO(data));
+    for (int i = 0; i < len; ++i) {
+      if (x[i] == std::numeric_limits<int64_t>::min()) {
+        Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                   dtype_name(buffer_type), element_suffix(i, len));
+      }
+    }
+  }
+
   return create_buffer_from_array_async_no_convert(
       client, data, REAL_RO(data), dims, buffer_type, sizeof(int64_t), false,
       device->device);

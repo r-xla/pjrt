@@ -202,10 +202,9 @@ test_that("pjrt_buffer handles edge cases", {
 
 test_that("an NA an integer dtype does not reject travels to the device", {
   # NAs that are not rejected on the way in become dtype-specific bit patterns.
-  # A double lands on NaN and a logical on TRUE, both silently; an integer at
-  # i32 lands on INT_MIN, which is the one case that warns.
+  # A double lands on NaN silently; an integer at i32 lands on INT_MIN, which
+  # is the one case that warns.
   expect_no_error(pjrt_buffer(c(1, NA, 3)))
-  expect_no_error(pjrt_buffer(c(TRUE, NA, FALSE)))
   expect_warning(pjrt_buffer(c(1L, NA_integer_, 3L)), "-2147483648")
   expect_warning(pjrt_scalar(NA_integer_), "-2147483648")
 
@@ -274,14 +273,24 @@ test_that("pjrt_buffer preserves 3d dimensions", {
 })
 
 test_that("pjrt_buffer dispatches on integer64 to i64", {
-  x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
+  x <- c(
+    bit64::as.integer64(c(1, 2^32, -2^40)),
+    # Through character: as a double literal, 9223372036854775000 rounds up
+    # past INT64_MAX and bit64 hands back NA_integer64_ instead.
+    bit64::as.integer64("9223372036854775000")
+  )
   buf <- pjrt_buffer(x)
   expect_equal(as.character(elt_type(buf)), "i64")
   expect_equal(shape(buf), 4L)
 })
 
 test_that("pjrt_buffer / as_array round-trip i64 with full 64-bit range", {
-  x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
+  x <- c(
+    bit64::as.integer64(c(1, 2^32, -2^40)),
+    # Through character: as a double literal, 9223372036854775000 rounds up
+    # past INT64_MAX and bit64 hands back NA_integer64_ instead.
+    bit64::as.integer64("9223372036854775000")
+  )
   buf <- pjrt_buffer(x)
   # `x` carries an NA_integer64_ that bit64 could not represent, so the bit
   # pattern under test is the one the readback check reports; here we want it
@@ -432,7 +441,12 @@ test_that("a double at the edge of an integer dtype's range is accepted", {
 test_that("NA_integer_ at i32 warns, being the one carried through", {
   expect_warning(pjrt_buffer(NA_integer_, dtype = "i32"), "-2147483648")
   expect_warning(pjrt_scalar(NA_integer_, dtype = "i32"), "-2147483648")
-  expect_warning(pjrt_buffer(c(NA_integer_, 1L, NA_integer_)), "2 .*NA")
+  # Several NAs still warn exactly once, and the message does not count them:
+  # the check is an anyNA() that stops at the first one.
+  expect_warning(
+    pjrt_buffer(c(NA_integer_, 1L, NA_integer_)),
+    "contains at least one .NA."
+  )
 
   # The default dtype for an integer vector is i32, so the bare call warns too.
   expect_warning(pjrt_buffer(NA_integer_), "-2147483648")
@@ -472,6 +486,21 @@ test_that("an integer uploads at pred, like a double does", {
   expect_true(as_array(pjrt_scalar(1L, dtype = "pred")))
 })
 
+describe("a missing value at pred", {
+  it("is rejected, whatever the source type it arrives as", {
+    # pred is the one element type an LGLSXP reaches intact -- every other
+    # dtype converts through as.integer() first, where NA_LOGICAL becomes the
+    # NA_integer_ the integer check already rejects. An integer and a double
+    # source converge on the same LGLSXP on their way to pred, so all three
+    # are held to the same rule.
+    expect_snapshot(pjrt_buffer(NA), error = TRUE)
+    expect_snapshot(pjrt_buffer(c(TRUE, NA, FALSE)), error = TRUE)
+    expect_snapshot(pjrt_scalar(NA), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_integer_, dtype = "pred"), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_real_, dtype = "pred"), error = TRUE)
+  })
+})
+
 test_that("NA_integer_ at a float dtype becomes NaN, as as.double() gives", {
   # INT_MIN is an ordinary value once widened, so it is translated rather than
   # cast: an f64 keeps R's NA payload, an f32 is too narrow and gets a NaN.
@@ -486,7 +515,7 @@ test_that("NA_integer_ at a float dtype becomes NaN, as as.double() gives", {
 })
 
 test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {
-  x <- bit64::as.integer64(9223372036854775000)
+  x <- bit64::as.integer64("9223372036854775000")
   buf <- pjrt_scalar(x)
   expect_equal(shape(buf), integer())
   expect_equal(as.character(elt_type(buf)), "i64")
@@ -505,6 +534,38 @@ test_that("pjrt_buffer.integer64 rejects non-i64/ui64 dtype", {
   )
 })
 
+describe("a missing bit64::integer64 value", {
+  it("warns at i64, where INT64_MIN is R's own NA", {
+    # NA_integer64_ is INT64_MIN and an integer64 vector uploads to i64
+    # zero-copy, so the NA reaches the device as an ordinary
+    # -9223372036854775808 and only looks like NA again once it is back in R.
+    # That is the NA_integer_-at-i32 carve-out, one width up.
+    expect_warning(buf <- pjrt_buffer(bit64::NA_integer64_), "-9223372036854775808")
+    expect_equal(as.character(elt_type(buf)), "i64")
+    expect_warning(back <- as_array(buf), "distinguish from")
+    expect_true(is.na(back))
+
+    expect_warning(
+      pjrt_buffer(bit64::as.integer64(c(1, NA)), dtype = "i64"),
+      "contains at least one .NA."
+    )
+    expect_warning(pjrt_scalar(bit64::NA_integer64_), "-9223372036854775808")
+  })
+
+  it("is rejected at ui64, which has no missing value to land on", {
+    # Read unsigned, INT64_MIN is the ordinary value 2^63, so an NA would
+    # arrive as real data rather than as a missing one. Nothing legitimate is
+    # turned away: bit64 cannot express 2^63 either -- that bit pattern *is*
+    # NA_integer64_.
+    expect_snapshot(pjrt_buffer(bit64::NA_integer64_, dtype = "ui64"), error = TRUE)
+    expect_snapshot(
+      pjrt_buffer(bit64::as.integer64(c(1, NA)), dtype = "ui64"),
+      error = TRUE
+    )
+    expect_snapshot(pjrt_scalar(bit64::NA_integer64_, dtype = "ui64"), error = TRUE)
+  })
+})
+
 test_that("ui64 buffers also materialize as integer64", {
   # bit64::integer64 is signed; ui64 -> integer64 preserves bit pattern but
   # values >= 2^63 will appear as negative integer64.
@@ -515,7 +576,10 @@ test_that("ui64 buffers also materialize as integer64", {
 })
 
 test_that("pjrt_buffer / as_array round-trip ui64 with full 64-bit range", {
-  x <- bit64::as.integer64(c(0, 1, 2^32, -2^40, 9223372036854775000))
+  x <- c(
+    bit64::as.integer64(c(0, 1, 2^32, -2^40)),
+    bit64::as.integer64("9223372036854775000")
+  )
   dim(x) <- 5L
   buf <- pjrt_buffer(x, dtype = "ui64")
   expect_equal(as.character(elt_type(buf)), "ui64")

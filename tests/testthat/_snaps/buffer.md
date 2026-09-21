@@ -168,6 +168,70 @@
       Error:
       ! Unsupported type: nope
 
+# a missing value at pred / is rejected, whatever the source type it arrives as
+
+    Code
+      pjrt_buffer(NA)
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "pred".
+
+---
+
+    Code
+      pjrt_buffer(c(TRUE, NA, FALSE))
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "pred" (element 2).
+
+---
+
+    Code
+      pjrt_scalar(NA)
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "pred".
+
+---
+
+    Code
+      pjrt_buffer(NA_integer_, dtype = "pred")
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "pred".
+
+---
+
+    Code
+      pjrt_buffer(NA_real_, dtype = "pred")
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "pred".
+
+# a missing bit64::integer64 value / is rejected at ui64, which has no missing value to land on
+
+    Code
+      pjrt_buffer(bit64::NA_integer64_, dtype = "ui64")
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "ui64".
+
+---
+
+    Code
+      pjrt_buffer(bit64::as.integer64(c(1, NA)), dtype = "ui64")
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "ui64" (element 2).
+
+---
+
+    Code
+      pjrt_scalar(bit64::NA_integer64_, dtype = "ui64")
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "ui64".
+
 # device works
 
     Code
