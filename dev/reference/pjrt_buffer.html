@@ -11,8 +11,21 @@ pjrt_buffer will create a array with dimensions (1) for a vector of length 1, wh
 pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
 To create an empty buffer (at least one dimension must be 0), use pjrt_empty.
 Important:
-No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+Uploading a numeric vector at an integer element type rejects any value that
+type cannot hold: one outside its range, or a missing value, is an error
+rather than a wrapped or clamped result. A fractional value is not an
+error – it truncates toward zero, as as.integer() does – and the range
+is checked on the truncated value, so 255.7 still fits &quot;ui8&quot;.
+The one missing value that is not rejected is an NA_integer_ uploaded
+at &quot;i32&quot;, which travels zero-copy and arrives as INT_MIN, R's own NA.
+That case warns, and as_array() warns about it again on the way back,
+its check argument defaulting to &quot;warn&quot;. At every other integer element
+type a missing value is an error.
+At a floating-point element type a missing value is neither rejected nor
+warned about: it becomes NaN, from an NA_real_ and an NA_integer_
+alike, as as.double() would give.
+No other checks are performed when creating the buffer – a double too large
+for &quot;f32&quot;, for instance, still becomes Inf.
 pjrt_empty() allocates a buffer of the given shape and dtype with
 unspecified contents. The bytes should be treated as uninitialized —
 read them only after they have been written to (e.g. as a donated output
@@ -23,8 +36,21 @@ pjrt_buffer will create a array with dimensions (1) for a vector of length 1, wh
 pjrt_scalar will create a 0-dimensional array for an R vector of length 1.
 To create an empty buffer (at least one dimension must be 0), use pjrt_empty.
 Important:
-No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+Uploading a numeric vector at an integer element type rejects any value that
+type cannot hold: one outside its range, or a missing value, is an error
+rather than a wrapped or clamped result. A fractional value is not an
+error – it truncates toward zero, as as.integer() does – and the range
+is checked on the truncated value, so 255.7 still fits &quot;ui8&quot;.
+The one missing value that is not rejected is an NA_integer_ uploaded
+at &quot;i32&quot;, which travels zero-copy and arrives as INT_MIN, R's own NA.
+That case warns, and as_array() warns about it again on the way back,
+its check argument defaulting to &quot;warn&quot;. At every other integer element
+type a missing value is an error.
+At a floating-point element type a missing value is neither rejected nor
+warned about: it becomes NaN, from an NA_real_ and an NA_integer_
+alike, as as.double() would give.
+No other checks are performed when creating the buffer – a double too large
+for &quot;f32&quot;, for instance, still becomes Inf.
 pjrt_empty() allocates a buffer of the given shape and dtype with
 unspecified contents. The bytes should be treated as uninitialized —
 read them only after they have been written to (e.g. as a donated output
@@ -37,7 +63,7 @@ are supported as a degenerate case (the buffer holds zero elements)."><meta name
 
     <a class="navbar-brand me-2" href="../index.html">pjrt</a>
 
-    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.5.0.9000</small>
+    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.5.0.9001</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,8 +107,21 @@ Any numeric PJRT buffer is an array and 0-dimensional arrays are used as scalars
 <code>pjrt_scalar</code> will create a 0-dimensional array for an R vector of length 1.</p>
 <p>To create an empty buffer (at least one dimension must be 0), use <code>pjrt_empty</code>.</p>
 <p><strong>Important</strong>:
-No checks are performed when creating the buffer, so you need to ensure that the data fits
-the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.</p>
+Uploading a numeric vector at an integer element type rejects any value that
+type cannot hold: one outside its range, or a missing value, is an error
+rather than a wrapped or clamped result. A fractional value is <em>not</em> an
+error – it truncates toward zero, as <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer()</a></code> does – and the range
+is checked on the truncated value, so <code>255.7</code> still fits <code>"ui8"</code>.</p>
+<p>The one missing value that is <em>not</em> rejected is an <code>NA_integer_</code> uploaded
+at <code>"i32"</code>, which travels zero-copy and arrives as <code>INT_MIN</code>, R's own <code>NA</code>.
+That case warns, and <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> warns about it again on the way back,
+its <code>check</code> argument defaulting to <code>"warn"</code>. At every other integer element
+type a missing value is an error.</p>
+<p>At a floating-point element type a missing value is neither rejected nor
+warned about: it becomes <code>NaN</code>, from an <code>NA_real_</code> and an <code>NA_integer_</code>
+alike, as <code><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double()</a></code> would give.</p>
+<p>No other checks are performed when creating the buffer – a double too large
+for <code>"f32"</code>, for instance, still becomes <code>Inf</code>.</p>
 <p><code>pjrt_empty()</code> allocates a buffer of the given <code>shape</code> and <code>dtype</code> with
 <strong>unspecified contents</strong>. The bytes should be treated as uninitialized —
 read them only after they have been written to (e.g. as a donated output
@@ -92,16 +131,9 @@ are supported as a degenerate case (the buffer holds zero elements).</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span></span>
-<span>  <span class="va">data</span>,</span>
-<span>  dtype <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  device <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  shape <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  check <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  <span class="va">...</span></span>
-<span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_buffer</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, shape <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, check <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">pjrt_scalar</span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="cn">NULL</span>, device <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">pjrt_empty</span><span class="op">(</span><span class="va">dtype</span>, <span class="va">shape</span>, device <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -119,14 +151,20 @@ Data to convert to a <code>PJRTBuffer</code>.</p></dd>
 <dd><p>(<code>NULL</code> | <code>character(1)</code> | <code><a href="https://r-xla.github.io/tengen/reference/DataType.html" class="external-link">DataType</a></code>)<br>
 The type of the buffer.
 Currently supported types are:</p><ul><li><p><code>"pred"</code>: predicate (i.e. a boolean)</p></li>
-<li><p><code>"{s,u}{8,16,32,64}"</code>: Signed and unsigned integer (for <code>integer</code> data).</p></li>
+<li><p><code>"{s,u}{8,16,32,64}"</code>: Signed and unsigned integer (for <code>integer</code> or
+<code>double</code> data).</p></li>
 <li><p><code>"f{32,64}"</code>: Floating point (for <code>double</code> or <code>integer</code> data).
 The default (<code>NULL</code>) depends on the method:</p></li>
 <li><p><code>logical</code> -&gt; <code>"pred"</code></p></li>
 <li><p><code>integer</code> -&gt; <code>"i32"</code></p></li>
 <li><p><code>double</code> -&gt; <code>"f32"</code></p></li>
 <li><p><code>raw</code> -&gt; must be supplied</p></li>
-</ul></dd>
+</ul><p>A <code>double</code> at an integer dtype is truncated toward zero, like
+<code><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer()</a></code> but without its 32-bit intermediate, so
+<code>pjrt_buffer(2^40, dtype = "i64")</code> stores <code>1099511627776</code> rather than
+overflowing. A value the dtype cannot hold is an error rather than a
+wrapped or clamped result, and the range is tested after truncation, so
+<code>255.7</code> still fits <code>"ui8"</code>.</p></dd>
 
 
 <dt id="arg-device">device<a class="anchor" aria-label="anchor" href="#arg-device"></a></dt>
@@ -134,7 +172,9 @@ The default (<code>NULL</code>) depends on the method:</p></li>
 A <code>PJRTDevice</code> object or the name of the platform to use ("cpu", "cuda", ...), in which
 case the first device for that platform is used.
 The default is to use the CPU platform, but this can be configured via the <code>PJRT_PLATFORM</code>
-environment variable.</p></dd>
+environment variable.
+A value the target dtype cannot hold is rejected whatever this is set to,
+so the flag only governs missing values.</p></dd>
 
 
 <dt id="arg-shape">shape<a class="anchor" aria-label="anchor" href="#arg-shape"></a></dt>
@@ -142,17 +182,6 @@ environment variable.</p></dd>
 The dimensions of the buffer.
 The default (<code>NULL</code>) is to infer them from the data if possible.
 The default (<code>NULL</code>) depends on the method.</p></dd>
-
-
-<dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>
-<dd><p>(<code>logical(1)</code>)<br>
-If <code>TRUE</code>, scan <code>data</code> for <code>NA</code> values before transferring to the device and
-raise an error if any are present. R's <code>NA</code> markers have no representation
-at the XLA level (e.g. <code>NA_integer_</code> is just the bit pattern <code>-2147483648</code>,
-and <code>NA</code> of <code>logical</code> type is silently coerced to <code>TRUE</code>), so missing values
-are silently lost on transfer. Defaults to <code>FALSE</code> for performance; set to
-<code>TRUE</code> to fail loudly instead of silently corrupting data.
-Not applicable to <code>raw</code> input.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -232,8 +261,8 @@ To create a 0-dimensional buffer, use <code>pjrt_scalar</code> where the resulti
 <span class="r-in"><span><span class="va">empty</span> <span class="op">&lt;-</span> <span class="fu">pjrt_empty</span><span class="op">(</span>dtype <span class="op">=</span> <span class="st">"f32"</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">empty</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PJRTBuffer </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  -2.4583e+34  3.0656e-41 -2.4580e+34</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   3.0656e-41 -1.9568e+37  3.0656e-41</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  -7.9568e-35  3.0885e-41 -5.4518e-38</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   3.0885e-41 -5.4518e-38  3.0885e-41</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{2x3} ] </span>
 </code></pre></div>
     </div>

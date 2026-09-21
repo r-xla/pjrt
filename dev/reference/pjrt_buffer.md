@@ -9,9 +9,28 @@ length 1.
 To create an empty buffer (at least one dimension must be 0), use
 `pjrt_empty`.
 
-**Important**: No checks are performed when creating the buffer, so you
-need to ensure that the data fits the selected element type (e.g., to
-prevent buffer overflow) and that no NA values are present.
+**Important**: Uploading a numeric vector at an integer element type
+rejects any value that type cannot hold: one outside its range, or a
+missing value, is an error rather than a wrapped or clamped result. A
+fractional value is *not* an error – it truncates toward zero, as
+[`as.integer()`](https://rdrr.io/r/base/integer.html) does – and the
+range is checked on the truncated value, so `255.7` still fits `"ui8"`.
+
+The one missing value that is *not* rejected is an `NA_integer_`
+uploaded at `"i32"`, which travels zero-copy and arrives as `INT_MIN`,
+R's own `NA`. That case warns, and
+[`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
+warns about it again on the way back, its `check` argument defaulting to
+`"warn"`. At every other integer element type a missing value is an
+error.
+
+At a floating-point element type a missing value is neither rejected nor
+warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
+alike, as [`as.double()`](https://rdrr.io/r/base/double.html) would
+give.
+
+No other checks are performed when creating the buffer – a double too
+large for `"f32"`, for instance, still becomes `Inf`.
 
 `pjrt_empty()` allocates a buffer of the given `shape` and `dtype` with
 **unspecified contents**. The bytes should be treated as uninitialized —
@@ -24,16 +43,9 @@ degenerate case (the buffer holds zero elements).
 ## Usage
 
 ``` r
-pjrt_buffer(
-  data,
-  dtype = NULL,
-  device = NULL,
-  shape = NULL,
-  check = FALSE,
-  ...
-)
+pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
 
-pjrt_scalar(data, dtype = NULL, device = NULL, check = FALSE, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 ```
@@ -53,8 +65,8 @@ pjrt_empty(dtype, shape, device = NULL)
 
   - `"pred"`: predicate (i.e. a boolean)
 
-  - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer`
-    data).
+  - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
+    `double` data).
 
   - `"f{32,64}"`: Floating point (for `double` or `integer` data). The
     default (`NULL`) depends on the method:
@@ -67,30 +79,28 @@ pjrt_empty(dtype, shape, device = NULL)
 
   - `raw` -\> must be supplied
 
+  A `double` at an integer dtype is truncated toward zero, like
+  [`as.integer()`](https://rdrr.io/r/base/integer.html) but without its
+  32-bit intermediate, so `pjrt_buffer(2^40, dtype = "i64")` stores
+  `1099511627776` rather than overflowing. A value the dtype cannot hold
+  is an error rather than a wrapped or clamped result, and the range is
+  tested after truncation, so `255.7` still fits `"ui8"`.
+
 - device:
 
   (`NULL` \| `PJRTDevice` \| `character(1)`)  
   A `PJRTDevice` object or the name of the platform to use ("cpu",
   "cuda", ...), in which case the first device for that platform is
   used. The default is to use the CPU platform, but this can be
-  configured via the `PJRT_PLATFORM` environment variable.
+  configured via the `PJRT_PLATFORM` environment variable. A value the
+  target dtype cannot hold is rejected whatever this is set to, so the
+  flag only governs missing values.
 
 - shape:
 
   (`NULL` \| [`integer()`](https://rdrr.io/r/base/integer.html))  
   The dimensions of the buffer. The default (`NULL`) is to infer them
   from the data if possible. The default (`NULL`) depends on the method.
-
-- check:
-
-  (`logical(1)`)  
-  If `TRUE`, scan `data` for `NA` values before transferring to the
-  device and raise an error if any are present. R's `NA` markers have no
-  representation at the XLA level (e.g. `NA_integer_` is just the bit
-  pattern `-2147483648`, and `NA` of `logical` type is silently coerced
-  to `TRUE`), so missing values are silently lost on transfer. Defaults
-  to `FALSE` for performance; set to `TRUE` to fail loudly instead of
-  silently corrupting data. Not applicable to `raw` input.
 
 - ...:
 
@@ -179,7 +189,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  -2.4583e+34  3.0656e-41 -2.4580e+34
-#>   3.0656e-41 -1.9568e+37  3.0656e-41
+#>  -7.9568e-35  3.0885e-41 -5.4518e-38
+#>   3.0885e-41 -5.4518e-38  3.0885e-41
 #> [ CPUf32{2x3} ] 
 ```

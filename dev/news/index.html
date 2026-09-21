@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">pjrt</a>
 
-    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.5.0.9000</small>
+    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.5.0.9001</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,6 +55,10 @@
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
 <ul><li>Updated the PJRT plugin version, which now requires CUDA 13.3.</li>
 <li>Removed support for the ambiguity concept in the dispatcher and replaced it with support for <code>rdata</code> objects. This enables the improved precision semantics in anvl.</li>
+<li>
+<code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>’s <code>check</code> argument is now <code>"warn"</code> (the default), <code>"err"</code> or <code>FALSE</code>, and a value R’s type cannot hold is reported instead of returned silently. Write <code>check = "err"</code> where you wrote <code>check = TRUE</code>.</li>
+<li>
+<code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> and <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code> no longer take a <code>check</code> argument; what happens to an <code>NA</code> is fixed by the dtype.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
@@ -73,6 +77,7 @@
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>Large float buffers now print correctly.</li>
+<li>Improved the buffer creation functions both in terms of features (from which R dtype one can build which buffer) as well as checks (NA, out of range).</li>
 </ul></div>
 <div class="section level3">
 <h3 id="other-development-version">Other<a class="anchor" aria-label="anchor" href="#other-development-version"></a></h3>
