@@ -127,7 +127,7 @@ pjrt_buffer <- function(
 # this is the one case that would otherwise pass unremarked.
 warn_na_i32 <- function(data, dtype) {
   if (identical(dtype, "i32") && anyNA(data)) {
-    warn_na_kept(data, "-2147483648")
+    warn_na_kept("-2147483648")
   }
   invisible(NULL)
 }
@@ -141,17 +141,19 @@ warn_na_i32 <- function(data, dtype) {
 # double NaN, which some legitimate int64 values reinterpret to.
 warn_na_i64 <- function(data, dtype) {
   if (identical(dtype, "i64") && anyNA(data)) {
-    warn_na_kept(data, "-9223372036854775808")
+    warn_na_kept("-9223372036854775808")
   }
   invisible(NULL)
 }
 
 # `sentinel` is the value the NA lands on, as a string: -9223372036854775808
-# has no exact double to format from.
-warn_na_kept <- function(data, sentinel) {
-  n_na <- sum(is.na(data))
+# has no exact double to format from. The message does not say how many NAs
+# there are: the callers test with anyNA(), which stops at the first one, and
+# counting them would mean a second full pass over the input on what is
+# otherwise a zero-copy upload.
+warn_na_kept <- function(sentinel) {
   cli::cli_warn(c(
-    "Input {.arg data} contains {n_na} {.val NA} value{?s}, stored on the device as {.val {sentinel}}.",
+    "Input {.arg data} contains at least one {.val NA}, stored on the device as {.val {sentinel}}.",
     i = "The value materializes as {.val NA} again in R, which {.code as_array()} reports on the way back.",
     i = "Use {.fn suppressWarnings} to silence this."
   ))

@@ -441,7 +441,12 @@ test_that("a double at the edge of an integer dtype's range is accepted", {
 test_that("NA_integer_ at i32 warns, being the one carried through", {
   expect_warning(pjrt_buffer(NA_integer_, dtype = "i32"), "-2147483648")
   expect_warning(pjrt_scalar(NA_integer_, dtype = "i32"), "-2147483648")
-  expect_warning(pjrt_buffer(c(NA_integer_, 1L, NA_integer_)), "2 .*NA")
+  # Several NAs still warn exactly once, and the message does not count them:
+  # the check is an anyNA() that stops at the first one.
+  expect_warning(
+    pjrt_buffer(c(NA_integer_, 1L, NA_integer_)),
+    "contains at least one .NA."
+  )
 
   # The default dtype for an integer vector is i32, so the bare call warns too.
   expect_warning(pjrt_buffer(NA_integer_), "-2147483648")
@@ -542,7 +547,7 @@ describe("a missing bit64::integer64 value", {
 
     expect_warning(
       pjrt_buffer(bit64::as.integer64(c(1, NA)), dtype = "i64"),
-      "contains 1 .NA. value"
+      "contains at least one .NA."
     )
     expect_warning(pjrt_scalar(bit64::NA_integer64_), "-9223372036854775808")
   })
