@@ -89,22 +89,25 @@ new_dispatcher <- function(capacity, miss, static, engine, backend, move, defaul
 
 # Elementwise `x <op> y` over two tensors of one type.
 binop_exec <- function(ty = "tensor<2xf32>", op = "stablehlo.add", device = NULL) {
-  pjrt_compile(pjrt_program(
-    src = sprintf(
-      'func.func @main(%%x: %s, %%y: %s) -> %s {
+  pjrt_compile(
+    pjrt_program(
+      src = sprintf(
+        'func.func @main(%%x: %s, %%y: %s) -> %s {
        %%0 = "%s"(%%x, %%y) : (%s, %s) -> %s
        "func.return"(%%0): (%s) -> ()
      }',
-      ty,
-      ty,
-      ty,
-      op,
-      ty,
-      ty,
-      ty,
-      ty
-    )
-  ), device = device)
+        ty,
+        ty,
+        ty,
+        op,
+        ty,
+        ty,
+        ty,
+        ty
+      )
+    ),
+    device = device
+  )
 }
 
 # Identity over one tensor, for tests that only care about the input's aval.
