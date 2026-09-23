@@ -4,7 +4,7 @@
 # identical() as a fallback to object identity, so equal-but-distinct devices
 # still collapse to one. The identity fast path is exercised where a test reuses
 # one object (see "devices are canonicalized").
-test_pjrt_device <- function() pjrt_device("cpu:0")
+test_pjrt_device <- function() pjrt_device(default_platform())
 test_device <- function(id = "cpu") structure(list(device = id), class = "QuickrDevice")
 test_quickr_device <- function() test_device("cpu")
 
@@ -25,11 +25,11 @@ pjrt_entry <- function(
   ...,
   out_tree = build_tree(0),
   out_avals = list(oav()),
-  device = pjrt_device("cpu:0")
+  device = test_pjrt_device()
 ) {
   list(
     exec = exec,
-    client = pjrt_client("cpu"),
+    client = client_from_device(device),
     device = device,
     out_tree = out_tree,
     out_avals = out_avals,
@@ -88,7 +88,7 @@ new_dispatcher <- function(capacity, miss, static, engine, backend, move, defaul
 # ---------------------------------------------------------------------------
 
 # Elementwise `x <op> y` over two tensors of one type.
-binop_exec <- function(ty = "tensor<2xf32>", op = "stablehlo.add") {
+binop_exec <- function(ty = "tensor<2xf32>", op = "stablehlo.add", device = NULL) {
   pjrt_compile(pjrt_program(
     src = sprintf(
       'func.func @main(%%x: %s, %%y: %s) -> %s {
@@ -104,7 +104,7 @@ binop_exec <- function(ty = "tensor<2xf32>", op = "stablehlo.add") {
       ty,
       ty
     )
-  ))
+  ), device = device)
 }
 
 # Identity over one tensor, for tests that only care about the input's aval.
@@ -457,7 +457,7 @@ test_that("move_inputs copies a pjrt input to the entry's device", {
   dev0 <- pjrt_device("cpu:0")
   d <- dispatcher(
     10L,
-    function(info) pjrt_entry(binop_exec(), device = dev0),
+    function(info) pjrt_entry(binop_exec(device = dev0), device = dev0),
     move_inputs = TRUE
   )
   x0 <- parr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0"))
@@ -1155,7 +1155,7 @@ test_that("the pjrt engine validates the compile callback's entry", {
   # A missing client (needed for uploads, phantoms, and the wrap's device) is a
   # clear error, not a crash at input-assembly time.
   d_bad <- mk(function(info) {
-    list(exec = exec, device = pjrt_device("cpu:0"), out_tree = build_tree(0))
+    list(exec = exec, device = test_pjrt_device(), out_tree = build_tree(0))
   })
   expect_error(impl_dispatch_run(d_bad, list(x)), "must return `client`")
 
