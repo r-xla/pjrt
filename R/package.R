@@ -56,6 +56,10 @@ NULL
 #'   Defaults to the value of `r cuda_r_package()`.
 #'   Set this to use a different CUDA toolkit package, but note that other
 #'   versions may not work with the XLA plugin.
+#' * `PJRT_CUDA_CACHE`: Directory in which CUDA modules compiled from source
+#'   (see [`pjrt_cuda_module()`]) are cached. Defaults to a `cuda-kernels`
+#'   directory in `tools::R_user_dir("pjrt", "cache")`; set it to `""` to
+#'   disable the cache.
 #'
 #' * `PJRT_DEBUG`: If set (to any non-empty value), enables verbose debug output
 #'   via `cli::cli_inform()`.

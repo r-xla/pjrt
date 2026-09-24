@@ -60,6 +60,10 @@ This is primarily intended for testing purposes.
 Defaults to the value of pjrt.cuda.
 Set this to use a different CUDA toolkit package, but note that other
 versions may not work with the XLA plugin.
+\item \code{PJRT_CUDA_CACHE}: Directory in which CUDA modules compiled from source
+(see \code{\link[=pjrt_cuda_module]{pjrt_cuda_module()}}) are cached. Defaults to a \code{cuda-kernels}
+directory in \code{tools::R_user_dir("pjrt", "cache")}; set it to \code{""} to
+disable the cache.
 \item \code{PJRT_DEBUG}: If set (to any non-empty value), enables verbose debug output
 via \code{cli::cli_inform()}.
 }

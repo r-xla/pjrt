@@ -51,6 +51,7 @@ Collate:
     'buffer.R'
     'catch-routine-registration.R'
     'compare.R'
+    'cuda_kernel.R'
     'custom_call.R'
     'device.R'
     'dispatch.R'

@@ -5,6 +5,22 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
+get_cuda_kernel_handler <- function() {
+    .Call(`_pjrt_get_cuda_kernel_handler`)
+}
+
+get_cuda_kernel_handler_host <- function() {
+    .Call(`_pjrt_get_cuda_kernel_handler_host`)
+}
+
+impl_cuda_module_register <- function(source, filename, options, kernels, image, cache_dir) {
+    .Call(`_pjrt_impl_cuda_module_register`, source, filename, options, kernels, image, cache_dir)
+}
+
+impl_cuda_module_refresh <- function(id, cache_dir) {
+    .Call(`_pjrt_impl_cuda_module_refresh`, id, cache_dir)
+}
+
 impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn) {
     .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn)
 }

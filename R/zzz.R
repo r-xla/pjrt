@@ -82,6 +82,14 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
     .package = pkgname
   )
 
+  # Launches kernels from pjrt_cuda_module()s; the host handler only exists
+  # to reject programs compiled for the CPU with a clear error.
+  pjrt_register_custom_call(
+    "pjrt_cuda_kernel",
+    list(host = get_cuda_kernel_handler_host(), cuda = get_cuda_kernel_handler()),
+    .package = pkgname
+  )
+
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(
       "safetensors_frameworks",

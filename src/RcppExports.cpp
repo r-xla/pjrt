@@ -21,6 +21,54 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_cuda_kernel_handler
+SEXP get_cuda_kernel_handler();
+RcppExport SEXP _pjrt_get_cuda_kernel_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_cuda_kernel_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_cuda_kernel_handler_host
+SEXP get_cuda_kernel_handler_host();
+RcppExport SEXP _pjrt_get_cuda_kernel_handler_host() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_cuda_kernel_handler_host());
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_cuda_module_register
+std::string impl_cuda_module_register(std::string source, std::string filename, std::vector<std::string> options, std::vector<std::string> kernels, Rcpp::RawVector image, std::string cache_dir);
+RcppExport SEXP _pjrt_impl_cuda_module_register(SEXP sourceSEXP, SEXP filenameSEXP, SEXP optionsSEXP, SEXP kernelsSEXP, SEXP imageSEXP, SEXP cache_dirSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type source(sourceSEXP);
+    Rcpp::traits::input_parameter< std::string >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< std::vector<std::string> >::type options(optionsSEXP);
+    Rcpp::traits::input_parameter< std::vector<std::string> >::type kernels(kernelsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::RawVector >::type image(imageSEXP);
+    Rcpp::traits::input_parameter< std::string >::type cache_dir(cache_dirSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_cuda_module_register(source, filename, options, kernels, image, cache_dir));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_cuda_module_refresh
+bool impl_cuda_module_refresh(std::string id, std::string cache_dir);
+RcppExport SEXP _pjrt_impl_cuda_module_refresh(SEXP idSEXP, SEXP cache_dirSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type id(idSEXP);
+    Rcpp::traits::input_parameter< std::string >::type cache_dir(cache_dirSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_cuda_module_refresh(id, cache_dir));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_dispatcher_create
 Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(int capacity, SEXP compile_fn, Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn, SEXP extractor_fn, SEXP context_fn);
 RcppExport SEXP _pjrt_impl_dispatcher_create(SEXP capacitySEXP, SEXP compile_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP, SEXP extractor_fnSEXP, SEXP context_fnSEXP) {
@@ -962,6 +1010,10 @@ RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_cpp_tests_enabled", (DL_FUNC) &_pjrt_cpp_tests_enabled, 0},
+    {"_pjrt_get_cuda_kernel_handler", (DL_FUNC) &_pjrt_get_cuda_kernel_handler, 0},
+    {"_pjrt_get_cuda_kernel_handler_host", (DL_FUNC) &_pjrt_get_cuda_kernel_handler_host, 0},
+    {"_pjrt_impl_cuda_module_register", (DL_FUNC) &_pjrt_impl_cuda_module_register, 6},
+    {"_pjrt_impl_cuda_module_refresh", (DL_FUNC) &_pjrt_impl_cuda_module_refresh, 2},
     {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 9},
     {"_pjrt_impl_dispatcher_size", (DL_FUNC) &_pjrt_impl_dispatcher_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},

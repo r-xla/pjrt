@@ -367,6 +367,70 @@ failure modes:
 We pass `devInfo` because we have to, but don't read it, as it forces 
 synchronization. Again, we follow jaxlib in this decision.
 
+## Launching CUDA Kernels Without a Handler
+
+Everything above is needed to call a *library* such as cuSOLVER.
+To run a kernel you wrote yourself, you need none of it: {pjrt} registers a
+generic custom call, `pjrt_cuda_kernel`, that launches any kernel from a
+[`pjrt_cuda_module()`].
+It follows the model of jaxlib's `triton_kernel_call` and CuPy's
+`RawKernel`.
+
+```{r}
+mod <- pjrt_cuda_module(r"(
+extern "C" __global__ void axpy(const float *x, const float *y, float *out,
+                                float a, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) out[i] = a * x[i] + y[i];
+}
+)")
+attrs <- pjrt_cuda_launch_attrs(
+  mod, "axpy",
+  grid = 1L, block = 256L,
+  scalars = list(pjrt_cuda_scalar(2, "f32"), 3L)
+)
+str(attrs)
+```
+
+The module is compiled with NVRTC -- shipped by the CUDA R package, so the
+package still builds without CUDA -- the first time the kernel runs, for the
+architecture of the GPU it runs on, and the result is cached on disk.
+The kernel receives the custom call's operands, then its results, as device
+pointers, followed by the scalars, and [`pjrt_cuda_launch_attrs()`] builds
+the `backend_config` that says which kernel to launch and how:
+
+```{r, eval = FALSE}
+cfg <- paste(
+  sprintf(
+    "%s = %s", names(attrs),
+    ifelse(vapply(attrs, is.character, logical(1L)),
+           sprintf("\"%s\"", attrs), sprintf("%s : i32", attrs))
+  ),
+  collapse = ", "
+)
+src <- sprintf(r"(
+func.func @main(%%x: tensor<3xf32>, %%y: tensor<3xf32>) -> tensor<3xf32> {
+  %%0 = stablehlo.custom_call @pjrt_cuda_kernel(%%x, %%y) {
+    call_target_name = "pjrt_cuda_kernel",
+    api_version = 4 : i32,
+    backend_config = {%s},
+    operand_layouts = [dense<0> : tensor<1xindex>, dense<0> : tensor<1xindex>],
+    result_layouts = [dense<0> : tensor<1xindex>]
+  } : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  "func.return"(%%0) : (tensor<3xf32>) -> ()
+}
+)", cfg)
+exec <- pjrt_compile(pjrt_program(src), device = "cuda")
+x <- pjrt_buffer(c(1, 2, 3), dtype = "f32", device = "cuda")
+pjrt_execute(exec, x, x)
+```
+
+Before launching, the handler checks the call against the kernel's compiled
+signature, so a wrong number of arguments or a scalar of the wrong size is
+an error rather than garbage.
+In practice a front end emits the custom call; anvl's `cuda_kernel()` does
+it for `nv_custom_call()`.
+
 ## Additional things to pay attention to
 
 There are a few other things to be aware of when implementing custom calls.
