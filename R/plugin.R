@@ -114,6 +114,9 @@ pjrt_plugin <- function(platform) {
 
   class(plugin) <- "PJRTPlugin"
   the[["plugins"]][[platform]] <- plugin
+  if (platform == "cuda") {
+    cuda_attach_prebuilt_all()
+  }
   plugin
 }
 

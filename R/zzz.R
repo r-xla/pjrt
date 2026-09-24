@@ -90,6 +90,19 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
     .package = pkgname
   )
 
+  # LU pivots -> permutation: a loop on the CPU, and on CUDA pjrt's own
+  # shipped kernel (inst/cuda), which a `while` loop would make slow there.
+  lu_perm <- pjrt_cuda_module(
+    file = system.file("cuda", "lu_pivots_to_permutation.cu", package = pkgname),
+    package = pkgname
+  )
+  impl_cuda_set_named_module("lu_pivots_to_permutation", lu_perm$id)
+  pjrt_register_custom_call(
+    "lu_pivots_to_permutation",
+    list(host = get_lu_pivots_to_permutation_handler(), cuda = get_lu_pivots_to_permutation_handler_cuda()),
+    .package = pkgname
+  )
+
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(
       "safetensors_frameworks",

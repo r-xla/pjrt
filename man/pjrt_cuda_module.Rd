@@ -8,7 +8,8 @@ pjrt_cuda_module(
   code = NULL,
   file = NULL,
   kernels = character(),
-  options = character()
+  options = character(),
+  package = NULL
 )
 }
 \arguments{
@@ -28,6 +29,12 @@ Ignored for images.}
 \item{options}{(\code{character()})\cr
 Additional NVRTC options, e.g. \code{"-DBLOCK=256"} or \code{"--use_fast_math"}.
 The GPU architecture is set automatically.}
+
+\item{package}{(\code{character(1)} | \code{NULL})\cr
+The package shipping the module, when a package creates it in its
+\code{.onLoad()}. Its prebuilt kernels (see \code{\link[=pjrt_cuda_build_kernels]{pjrt_cuda_build_kernels()}})
+are then used in place of compiling the module on the user's machine,
+whenever they cover the GPU.}
 }
 \value{
 \code{PJRTCudaModule}
@@ -42,7 +49,8 @@ compiled with NVRTC -- which ships with the CUDA R package the CUDA plugin
 uses, so no CUDA toolkit is needed -- the first time one of its kernels
 runs on a device, for exactly that device's GPU architecture. The result
 is cached on disk (see \code{\link[=pjrt_cuda_cache_dir]{pjrt_cuda_cache_dir()}}), so a module is compiled
-once per machine rather than once per session.
+once per machine rather than once per session. A package can instead ship
+its modules precompiled, see \code{package} and \code{\link[=pjrt_cuda_build_kernels]{pjrt_cuda_build_kernels()}}.
 
 Creating a module needs neither a GPU nor the CUDA plugin; it only
 records the module so that the programs referring to it can find it.

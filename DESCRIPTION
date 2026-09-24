@@ -40,6 +40,7 @@ LinkingTo:
     testthat
 Additional_repositories: https://r-xla.r-universe.dev
 Config/build/compilation-database: true
+Config/pjrt/cuda-kernels: https://github.com/r-xla/pjrt/releases/download/v{version}/pjrt-cuda-kernels-{version}.tar.gz
 Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -52,6 +53,7 @@ Collate:
     'catch-routine-registration.R'
     'compare.R'
     'cuda_kernel.R'
+    'cuda_prebuilt.R'
     'custom_call.R'
     'device.R'
     'dispatch.R'

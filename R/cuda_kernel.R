@@ -9,7 +9,8 @@
 #' uses, so no CUDA toolkit is needed -- the first time one of its kernels
 #' runs on a device, for exactly that device's GPU architecture. The result
 #' is cached on disk (see [`pjrt_cuda_cache_dir()`]), so a module is compiled
-#' once per machine rather than once per session.
+#' once per machine rather than once per session. A package can instead ship
+#' its modules precompiled, see `package` and [`pjrt_cuda_build_kernels()`].
 #'
 #' Creating a module needs neither a GPU nor the CUDA plugin; it only
 #' records the module so that the programs referring to it can find it.
@@ -46,6 +47,11 @@
 #' @param options (`character()`)\cr
 #'   Additional NVRTC options, e.g. `"-DBLOCK=256"` or `"--use_fast_math"`.
 #'   The GPU architecture is set automatically.
+#' @param package (`character(1)` | `NULL`)\cr
+#'   The package shipping the module, when a package creates it in its
+#'   `.onLoad()`. Its prebuilt kernels (see [`pjrt_cuda_build_kernels()`])
+#'   are then used in place of compiling the module on the user's machine,
+#'   whenever they cover the GPU.
 #' @return `PJRTCudaModule`
 #' @seealso [pjrt_cuda_launch_attrs()]
 #' @examples
@@ -56,9 +62,16 @@
 #' })")
 #' mod
 #' @export
-pjrt_cuda_module <- function(code = NULL, file = NULL, kernels = character(), options = character()) {
+pjrt_cuda_module <- function(
+  code = NULL,
+  file = NULL,
+  kernels = character(),
+  options = character(),
+  package = NULL
+) {
   checkmate::assert_character(kernels, any.missing = FALSE)
   checkmate::assert_character(options, any.missing = FALSE)
+  checkmate::assert_string(package, null.ok = TRUE)
   if (is.null(code) == is.null(file)) {
     cli_abort("Pass exactly one of {.arg code} and {.arg file}.")
   }
@@ -81,7 +94,7 @@ pjrt_cuda_module <- function(code = NULL, file = NULL, kernels = character(), op
     code <- paste(code, collapse = "\n")
   }
 
-  structure(
+  module <- structure(
     list(
       code = if (length(image)) "" else code,
       filename = filename,
@@ -92,6 +105,10 @@ pjrt_cuda_module <- function(code = NULL, file = NULL, kernels = character(), op
     ),
     class = "PJRTCudaModule"
   )
+  if (!is.null(package) && !length(image)) {
+    cuda_record_module(module, package)
+  }
+  module
 }
 
 cuda_module_register <- function(code, filename, options, kernels, image) {

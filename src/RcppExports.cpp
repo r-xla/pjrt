@@ -41,6 +41,37 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_lu_pivots_to_permutation_handler
+SEXP get_lu_pivots_to_permutation_handler();
+RcppExport SEXP _pjrt_get_lu_pivots_to_permutation_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_lu_pivots_to_permutation_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_lu_pivots_to_permutation_handler_cuda
+SEXP get_lu_pivots_to_permutation_handler_cuda();
+RcppExport SEXP _pjrt_get_lu_pivots_to_permutation_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_lu_pivots_to_permutation_handler_cuda());
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_cuda_set_named_module
+void impl_cuda_set_named_module(std::string name, std::string id);
+RcppExport SEXP _pjrt_impl_cuda_set_named_module(SEXP nameSEXP, SEXP idSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type id(idSEXP);
+    impl_cuda_set_named_module(name, id);
+    return R_NilValue;
+END_RCPP
+}
 // impl_cuda_module_register
 std::string impl_cuda_module_register(std::string source, std::string filename, std::vector<std::string> options, std::vector<std::string> kernels, Rcpp::RawVector image, std::string cache_dir);
 RcppExport SEXP _pjrt_impl_cuda_module_register(SEXP sourceSEXP, SEXP filenameSEXP, SEXP optionsSEXP, SEXP kernelsSEXP, SEXP imageSEXP, SEXP cache_dirSEXP) {
@@ -66,6 +97,45 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string >::type id(idSEXP);
     Rcpp::traits::input_parameter< std::string >::type cache_dir(cache_dirSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_cuda_module_refresh(id, cache_dir));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_cuda_module_add_prebuilt
+void impl_cuda_module_add_prebuilt(std::string id, std::vector<std::string> targets, Rcpp::List images, Rcpp::CharacterVector lowered);
+RcppExport SEXP _pjrt_impl_cuda_module_add_prebuilt(SEXP idSEXP, SEXP targetsSEXP, SEXP imagesSEXP, SEXP loweredSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type id(idSEXP);
+    Rcpp::traits::input_parameter< std::vector<std::string> >::type targets(targetsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type images(imagesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type lowered(loweredSEXP);
+    impl_cuda_module_add_prebuilt(id, targets, images, lowered);
+    return R_NilValue;
+END_RCPP
+}
+// impl_cuda_module_origins
+std::vector<std::string> impl_cuda_module_origins(std::string id);
+RcppExport SEXP _pjrt_impl_cuda_module_origins(SEXP idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type id(idSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_cuda_module_origins(id));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_cuda_compile
+Rcpp::List impl_cuda_compile(std::string source, std::string filename, std::vector<std::string> options, std::vector<std::string> kernels, std::string target);
+RcppExport SEXP _pjrt_impl_cuda_compile(SEXP sourceSEXP, SEXP filenameSEXP, SEXP optionsSEXP, SEXP kernelsSEXP, SEXP targetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type source(sourceSEXP);
+    Rcpp::traits::input_parameter< std::string >::type filename(filenameSEXP);
+    Rcpp::traits::input_parameter< std::vector<std::string> >::type options(optionsSEXP);
+    Rcpp::traits::input_parameter< std::vector<std::string> >::type kernels(kernelsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type target(targetSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_cuda_compile(source, filename, options, kernels, target));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1012,8 +1082,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_cpp_tests_enabled", (DL_FUNC) &_pjrt_cpp_tests_enabled, 0},
     {"_pjrt_get_cuda_kernel_handler", (DL_FUNC) &_pjrt_get_cuda_kernel_handler, 0},
     {"_pjrt_get_cuda_kernel_handler_host", (DL_FUNC) &_pjrt_get_cuda_kernel_handler_host, 0},
+    {"_pjrt_get_lu_pivots_to_permutation_handler", (DL_FUNC) &_pjrt_get_lu_pivots_to_permutation_handler, 0},
+    {"_pjrt_get_lu_pivots_to_permutation_handler_cuda", (DL_FUNC) &_pjrt_get_lu_pivots_to_permutation_handler_cuda, 0},
+    {"_pjrt_impl_cuda_set_named_module", (DL_FUNC) &_pjrt_impl_cuda_set_named_module, 2},
     {"_pjrt_impl_cuda_module_register", (DL_FUNC) &_pjrt_impl_cuda_module_register, 6},
     {"_pjrt_impl_cuda_module_refresh", (DL_FUNC) &_pjrt_impl_cuda_module_refresh, 2},
+    {"_pjrt_impl_cuda_module_add_prebuilt", (DL_FUNC) &_pjrt_impl_cuda_module_add_prebuilt, 4},
+    {"_pjrt_impl_cuda_module_origins", (DL_FUNC) &_pjrt_impl_cuda_module_origins, 1},
+    {"_pjrt_impl_cuda_compile", (DL_FUNC) &_pjrt_impl_cuda_compile, 5},
     {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 9},
     {"_pjrt_impl_dispatcher_size", (DL_FUNC) &_pjrt_impl_dispatcher_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},

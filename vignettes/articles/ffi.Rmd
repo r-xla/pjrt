@@ -431,6 +431,39 @@ an error rather than garbage.
 In practice a front end emits the custom call; anvl's `cuda_kernel()` does
 it for `nv_custom_call()`.
 
+### Shipping prebuilt kernels
+
+A package that ships kernels -- pjrt itself does, for
+`lu_pivots_to_permutation` -- need not have every user compile them.
+It keeps their source in `inst/cuda/` and creates their modules when it
+loads, naming itself as their `package`:
+
+```r
+.onLoad <- function(libname, pkgname) {
+  the$perm <- pjrt::pjrt_cuda_module(
+    file = system.file("cuda", "my_kernel.cu", package = pkgname),
+    package = pkgname
+  )
+}
+```
+
+For each release, [`pjrt_cuda_build_kernels()`] compiles those modules ahead
+of time -- a cubin per GPU architecture, plus PTX for later ones -- into a
+tarball that is attached to the release; pjrt's `cuda-kernels` GitHub
+workflow shows how, and needs no GPU.
+The package names the tarball's URL in its DESCRIPTION, `{version}` standing
+for its version:
+
+```
+Config/pjrt/cuda-kernels: https://github.com/org/pkg/releases/download/v{version}/pkg-cuda-kernels-{version}.tar.gz
+```
+
+When the CUDA plugin loads, pjrt downloads each such tarball once, under the
+same `PJRT_INSTALL` rules as the plugin, verifies it and uses its images.
+A module the tarball does not cover -- a development version, a GPU
+architecture it was not built for, a machine without network -- is compiled
+with NVRTC as before, so the prebuilt kernels are only ever a shortcut.
+
 ## Additional things to pay attention to
 
 There are a few other things to be aware of when implementing custom calls.

@@ -1,0 +1,61 @@
+# Builds pjrt's prebuilt CUDA kernels (inst/cuda) with pjrt_cuda_build_kernels()
+# and, for a release, attaches them to it -- the URL the DESCRIPTION field
+# `Config/pjrt/cuda-kernels` points at. Compiling needs NVRTC but no GPU, so
+# this runs on a regular runner; on pull requests it only checks the build.
+on:
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - "inst/cuda/**"
+      - "src/cuda_kernel.cpp"
+      - "R/cuda_prebuilt.R"
+      - ".github/workflows/cuda-kernels.yaml"
+  workflow_dispatch:
+
+name: cuda-kernels
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # NVRTC is all the build needs of the CUDA toolkit
+      PJRT_CUDA_COMPONENTS: nvrtc
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install protobuf
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+          extra-repositories: https://r-xla.r-universe.dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"hard"'
+          extra-packages: pjrt.cuda
+
+      - name: Install pjrt
+        run: R CMD INSTALL .
+
+      - name: Build the kernels
+        run: |
+          mkdir dist
+          Rscript -e 'pjrt::pjrt_cuda_build_kernels("pjrt", dest = "dist")'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cuda-kernels
+          path: dist/*.tar.gz
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/*.tar.gz --clobber

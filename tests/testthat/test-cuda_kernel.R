@@ -281,3 +281,54 @@ describe("the pjrt_cuda_kernel custom call", {
     expect_identical(file.size(entry), size)
   })
 })
+
+# The permutation LAPACK's getrf pivots amount to, computed in R.
+pivots_to_perm_r <- function(pivots, m) {
+  perm <- seq_len(m)
+  for (i in seq_along(pivots)) {
+    j <- pivots[[i]]
+    perm[c(i, j)] <- perm[c(j, i)]
+  }
+  perm
+}
+
+run_lu_pivots <- function(pivots, m) {
+  k <- length(pivots)
+  src <- sprintf(
+    r"(func.func @main(%%p: tensor<%dxi32>) -> tensor<%dxi32> {
+  %%0 = stablehlo.custom_call @lu_pivots_to_permutation(%%p) {
+    call_target_name = "lu_pivots_to_permutation",
+    api_version = 4 : i32,
+    operand_layouts = [dense<0> : tensor<1xindex>],
+    result_layouts = [dense<0> : tensor<1xindex>]
+  } : (tensor<%dxi32>) -> tensor<%dxi32>
+  "func.return"(%%0) : (tensor<%dxi32>) -> ()
+})",
+    k,
+    m,
+    k,
+    m,
+    m
+  )
+  exec <- pjrt_compile(pjrt_program(src))
+  as.vector(as_array(pjrt_execute(exec, pjrt_buffer(as.integer(pivots), dtype = "i32"))))
+}
+
+describe("the lu_pivots_to_permutation custom call", {
+  it("applies the swaps in order", {
+    skip_if_metal()
+    expect_identical(run_lu_pivots(c(3L, 3L, 3L), 3L), pivots_to_perm_r(c(3L, 3L, 3L), 3L))
+    expect_identical(run_lu_pivots(c(2L, 2L), 4L), c(2L, 1L, 3L, 4L))
+    withr::local_seed(1L)
+    m <- 50L
+    pivots <- vapply(seq_len(m), function(i) sample(i:m, 1L), integer(1L))
+    expect_identical(run_lu_pivots(pivots, m), pivots_to_perm_r(pivots, m))
+  })
+
+  it("runs pjrt's shipped kernel on CUDA", {
+    skip_if(!is_cuda())
+    run_lu_pivots(c(2L, 2L), 4L)
+    origins <- impl_cuda_module_origins(the[["cuda_modules"]][["pjrt"]][[1L]]$id)
+    expect_true(length(origins) >= 1L)
+  })
+})
