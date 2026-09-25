@@ -453,6 +453,24 @@ module @double_inplace {
     expect_error(as_array(x), "called on deleted or donated buffer")
   })
 
+  it("raises a clean R-level error when reading back a donated input with several axes", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<2x2xf32> {tf.aliasing_output = 0 : i32}) -> tensor<2x2xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<2x2xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<2x2xf32>
+    return %out : tensor<2x2xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(matrix(c(1, 2, 3, 4), nrow = 2), dtype = "f32")
+    pjrt_execute(exec, x)
+    expect_error(as_array(x), "called on deleted or donated buffer")
+  })
+
   # tf.aliasing_output is a *may*-alias: PJRT donates the input only if it is
   # donatable at runtime, otherwise it copies and leaves the input valid.
   it("leaves the input untouched when a may-alias is not donated", {

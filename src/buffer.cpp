@@ -151,7 +151,7 @@ std::vector<int64_t> PJRTBuffer::minor_to_major() {
 
   PJRT_Buffer_GetMemoryLayout_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_GetMemoryLayout_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_GetMemoryLayout_(&args));
 
   // Our readback can only faithfully reorder a dense, untiled layout expressed
