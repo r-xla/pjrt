@@ -78,7 +78,9 @@
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
-<ul><li>Large float buffers now print correctly.</li>
+<ul><li>
+<code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> on a donated buffer with two or more axes now errors instead of crashing R.</li>
+<li>Large float buffers now print correctly.</li>
 <li>Improved the buffer creation functions both in terms of features (from which R dtype one can build which buffer) as well as checks (NA, out of range).</li>
 </ul></div>
 <div class="section level3">
