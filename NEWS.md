@@ -41,6 +41,8 @@
 
 ## Bug fixes
 
+* `as_array()` on a donated buffer with two or more axes now errors instead
+  of crashing R.
 * Large float buffers now print correctly.
 * Improved the buffer creation functions both in terms of features
   (from which R dtype one can build which buffer) as well as checks
