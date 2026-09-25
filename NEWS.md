@@ -20,6 +20,14 @@
 
 ## New features
 
+* New `pjrt_cuda_module()` and the built-in `pjrt_cuda_kernel` custom call
+  launch hand-written CUDA kernels without an FFI handler. Source is compiled
+  with NVRTC on first use and cached on disk (`PJRT_CUDA_CACHE`).
+* Packages can ship CUDA kernels precompiled: `pjrt_cuda_build_kernels()`
+  builds a release tarball, which pjrt downloads when the CUDA plugin loads,
+  falling back to compiling locally.
+* New `lu_pivots_to_permutation` custom call, a loop on CPU and a prebuilt
+  kernel on CUDA.
 * `dispatcher()` gained a `context` resolver: a function called on every
   dispatch whose `character()` result is part of the cache key and reaches the
   compile callback as `info$context`. anvl uses it to key compiled programs on

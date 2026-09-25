@@ -36,6 +36,8 @@ install_pjrt <- function(cuda = NULL) {
 
   if (cuda) {
     install_cuda_r_package()
+    # pjrt's prebuilt CUDA kernels; without them they are compiled locally
+    cuda_prebuilt_fetch("pjrt", confirmed = TRUE)
   }
 
   cli::cli_inform(c(v = "Installed PJRT plugin{?s}: {.val {platforms}}."))
