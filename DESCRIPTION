@@ -14,8 +14,8 @@ Authors@R: c(
            comment = "Authors of the PJRT C API and XLA FFI headers in inst/include and the XLA protobuf definitions in inst/proto (Apache-2.0); see inst/COPYRIGHTS")
   )
 Description: Provides an R interface to PJRT (Pluggable Jit RunTime),
-    which allows you to run XLA or stableHLO programs on a
-    variety of hardware backends including CPU, GPU, and TPU.
+    which compiles StableHLO and HLO programs with the XLA compiler and
+    runs them on hardware backends such as CPU and GPU.
 License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
 BugReports: https://github.com/r-xla/pjrt/issues
@@ -60,6 +60,7 @@ Collate:
     'install.R'
     'loaded_executable.R'
     'package.R'
+    'platform.R'
     'plugin.R'
     'program.R'
     'reexports.R'

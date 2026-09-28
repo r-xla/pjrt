@@ -1,5 +1,3 @@
-skip_if_metal("linalg custom_calls are CPU/CUDA only")
-
 describe("qr (geqrf + orgqr)", {
   # Exercises the `geqrf` + `orgqr` LAPACK / cuSOLVER custom calls: QR
   # factorisation of tall, wide, and square matrices in f32 / f64, plus

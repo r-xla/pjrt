@@ -73,7 +73,7 @@ check_plugin <- function(plugin) {
 #' * [`plugin_attributes()`] -> `list()`: for the attributes of the plugin.
 #'
 #' @param platform (`character(1)`)\cr
-#'   Platform name (e.g., "cpu", "cuda", "metal").
+#'   Platform name (e.g., "cpu", "cuda").
 #' @return `PJRTPlugin`
 #' @examplesIf plugins_downloaded("cpu")
 #' plugin <- pjrt_plugin("cpu")
@@ -108,9 +108,7 @@ pjrt_plugin <- function(platform) {
   )
   attributes(plugin) <- list(platform = platform)
 
-  if (platform != "metal") {
-    drain_custom_calls(plugin, platform)
-  }
+  drain_custom_calls(plugin, platform)
 
   class(plugin) <- "PJRTPlugin"
   the[["plugins"]][[platform]] <- plugin
@@ -138,10 +136,10 @@ plugins_downloaded <- function(platforms = NULL) {
 }
 
 plugin_path <- function(platform) {
-  if (!(platform %in% c("cpu", "cuda", "metal"))) {
+  if (!(platform %in% c("cpu", "cuda"))) {
     cli_abort(c(
       i = "Invalid platform: {.val {platform}}",
-      x = "Must be one of: {.val cpu}, {.val cuda}, {.val metal}"
+      x = "Must be one of: {.val cpu}, {.val cuda}"
     ))
   }
   envvar <- Sys.getenv(paste0("PJRT_PLUGIN_PATH_", toupper(platform)), "")
@@ -260,27 +258,6 @@ plugin_url <- function(platform) {
   os <- plugin_os()
   arch <- plugin_arch()
   zml_version <- plugin_version()
-
-  if (platform == "metal") {
-    stopifnot(os == "darwin")
-    url <- if (arch == "arm64") {
-      "https://files.pythonhosted.org/packages/09/dc/6d8fbfc29d902251cf333414cf7dcfaf4b252a9920c881354584ed36270d/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl" # nolint
-    } else {
-      "https://files.pythonhosted.org/packages/87/ec/9bb7f7f0ffd06c3fb89813126b2f698636ac7a4263ed7bdd1ff7d7c94f8f/jax_metal-0.1.1-py3-none-macosx_10_14_x86_64.whl" # nolint
-    }
-    attr(url, "extract") <- function(path, cache_dir) {
-      tmp <- tempfile()
-      dir.create(tmp)
-      utils::unzip(path, exdir = tmp)
-      plugin_path <- list.files(
-        file.path(tmp, "jax_plugins", "metal_plugin"),
-        pattern = "*.dylib",
-        full.names = TRUE
-      )
-      fs::file_move(plugin_path, cache_dir)
-    }
-    return(url)
-  }
 
   if (os == "windows") {
     if (arch != "amd64") {
