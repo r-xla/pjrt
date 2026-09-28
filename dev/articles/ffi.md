@@ -1,9 +1,9 @@
 # Adding Custom Calls
 
-The {pjrt} package can compile and run stablehlo programs. However, some
-operations are not directly covered by stablehlo and composing them of
-other stablehlo ops would be inefficient. For this reason, PJRT supports
-custom calls. In a stablehlo program such a custom call can be executed
+The {pjrt} package can compile and run StableHLO programs. However, some
+operations are not directly covered by StableHLO and composing them of
+other StableHLO ops would be inefficient. For this reason, PJRT supports
+custom calls. In a StableHLO program such a custom call can be executed
 via: `stablehlo.custom_call @<target>(...)`. In this vignette we will
 explain how to use and create custom calls on CPU and CUDA and how to
 make use of LAPACK on CPU and cuSOLVE on CUDA.

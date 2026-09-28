@@ -4,6 +4,7 @@
 
 ### Breaking changes
 
+- Removed support for the Metal backend.
 - Updated the PJRT plugin version, which now requires CUDA 13.3.
 - Removed support for the ambiguity concept in the dispatcher and
   replaced it with support for `rdata` objects. This enables the
@@ -28,6 +29,10 @@
 
 ### New features
 
+- New
+  [`platform_support()`](https://r-xla.github.io/pjrt/dev/reference/platform_support.md)
+  lists which backends are available on which operating system and
+  architecture.
 - [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)
   gained a `context` resolver: a function called on every dispatch whose
   [`character()`](https://rdrr.io/r/base/character.html) result is part

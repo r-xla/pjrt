@@ -1,8 +1,8 @@
 # pjrt: R Interface to PJRT
 
-Provides an R interface to PJRT (Pluggable Jit RunTime), which allows
-you to run XLA or stableHLO programs on a variety of hardware backends
-including CPU, GPU, and TPU.
+Provides an R interface to PJRT (Pluggable Jit RunTime), which compiles
+StableHLO and HLO programs with the XLA compiler and runs them on
+hardware backends such as CPU and GPU.
 
 ## Environment Variables
 
@@ -42,13 +42,13 @@ scattered across various websites. The options include:
 
 - `PJRT_PLUGIN_PATH_<PLATFORM>`: Path to custom plugin library file for
   a specific platform (e.g., `PJRT_PLUGIN_PATH_CPU`,
-  `PJRT_PLUGIN_PATH_CUDA`, `PJRT_PLUGIN_PATH_METAL`). If set, the
-  package will use this path instead of downloading the plugin.
+  `PJRT_PLUGIN_PATH_CUDA`). If set, the package will use this path
+  instead of downloading the plugin.
 
 - `PJRT_PLUGIN_URL_<PLATFORM>`: URL to download plugin from for a
   specific platform (e.g., `PJRT_PLUGIN_URL_CPU`,
-  `PJRT_PLUGIN_URL_CUDA`, `PJRT_PLUGIN_URL_METAL`). If set, overrides
-  the default plugin download URL.
+  `PJRT_PLUGIN_URL_CUDA`). If set, overrides the default plugin download
+  URL.
 
 - `PJRT_INSTALL`: Controls whether plugins may be downloaded
   automatically. Set this to `"1"` to always download without asking

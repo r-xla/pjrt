@@ -87,8 +87,8 @@
 <p>The {pjrt} package provides an R interface to <a href="https://openxla.org/xla/pjrt" class="external-link">PJRT</a>, part of the <a href="https://openxla.org/" class="external-link">OpenXLA</a> project. PJRT is a portability
 layer that allows frameworks to work with different hardware backends
 through a standardized interface. Anyone can implement a PJRT plugin for
-a specific hardware backend, and this package currently supports CPU,
-NVIDIA GPU, and Metal (Apple GPU; experimental) plugins.</p>
+a specific hardware backend, and this package currently supports CPU and
+NVIDIA GPU (CUDA) plugins.</p>
 <p>A key design principle of pjrt is <strong>asynchronous
 dispatch</strong>: operations like buffer creation and program execution
 return immediately with <code>PJRTBuffer</code> objects that may not be

@@ -6,7 +6,7 @@
 
 `pjrt` is the runtime layer of the r-xla stack. It compiles
 StableHLO/MLIR programs to hardware-specific executables and runs them
-via the PJRT C API. It supports CPU, CUDA, and Metal backends through
+via the PJRT C API. It supports CPU and CUDA backends through
 dynamically loaded plugins.
 
 Beyond the runtime, pjrt also owns the **Rtree module**

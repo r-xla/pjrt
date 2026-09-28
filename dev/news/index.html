@@ -53,7 +53,8 @@
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
 <div class="section level3">
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
-<ul><li>Updated the PJRT plugin version, which now requires CUDA 13.3.</li>
+<ul><li>Removed support for the Metal backend.</li>
+<li>Updated the PJRT plugin version, which now requires CUDA 13.3.</li>
 <li>Removed support for the ambiguity concept in the dispatcher and replaced it with support for <code>rdata</code> objects. This enables the improved precision semantics in anvl.</li>
 <li>
 <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>’s <code>check</code> argument is now <code>"warn"</code> (the default), <code>"err"</code> or <code>FALSE</code>, and a value R’s type cannot hold is reported instead of returned silently. Write <code>check = "err"</code> where you wrote <code>check = TRUE</code>.</li>
@@ -64,7 +65,8 @@
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
-<ul><li>
+<ul><li>New <code><a href="../reference/platform_support.html">platform_support()</a></code> lists which backends are available on which operating system and architecture.</li>
+<li>
 <code><a href="../reference/dispatcher.html">dispatcher()</a></code> gained a <code>context</code> resolver: a function called on every dispatch whose <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> result is part of the cache key and reaches the compile callback as <code>info$context</code>. anvl uses it to key compiled programs on the backend’s default dtypes.</li>
 <li>
 <code>RTree</code> objects can be compared with <code>==</code> and <code>!=</code>, which apply <code><a href="../reference/tree_equal.html">tree_equal()</a></code> structural comparison.</li>

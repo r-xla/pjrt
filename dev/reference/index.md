@@ -103,6 +103,9 @@
 - [`platform()`](https://r-xla.github.io/pjrt/dev/reference/platform.md)
   : Platform Name
 
+- [`platform_support()`](https://r-xla.github.io/pjrt/dev/reference/platform_support.md)
+  : Platform Support
+
 - [`plugin_attributes()`](https://r-xla.github.io/pjrt/dev/reference/plugin_attributes.md)
   : Get Plugin Attributes
 

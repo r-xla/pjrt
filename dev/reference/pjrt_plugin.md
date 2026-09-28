@@ -13,7 +13,7 @@ pjrt_plugin(platform)
 - platform:
 
   (`character(1)`)  
-  Platform name (e.g., "cpu", "cuda", "metal").
+  Platform name (e.g., "cpu", "cuda").
 
 ## Value
 
