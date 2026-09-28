@@ -14,7 +14,7 @@ A PJRT buffer object.}
 \code{character()} A character vector containing the formatted elements.
 }
 \description{
-Formats buffer data into a character vector of string representations of individual elements suitable for stableHLO.
+Formats buffer data into a character vector of string representations of individual elements suitable for StableHLO.
 }
 \examples{
 \dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}

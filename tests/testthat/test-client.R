@@ -1,6 +1,4 @@
 test_that("compile program with one input", {
-  skip_if_metal("only works with MLIR programs")
-
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
@@ -62,9 +60,7 @@ test_that("can execute mlir program", {
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
   client <- pjrt_client()
-  if (!is_metal()) {
-    check_client_device(client)
-  }
+  check_client_device(client)
 
   data <- 3.0
   scalar_buffer <- pjrt_scalar(data)
@@ -76,10 +72,9 @@ test_that("can execute mlir program", {
 })
 
 test_that("can use more than one client", {
-  skip_if(!is_metal() || !is_cuda())
-  is_metal() && skip_on_ci()
+  skip_if(!is_cuda())
 
-  device <- if (is_metal()) "metal" else "cuda"
+  device <- "cuda"
 
   pjrt_buffer(1, pjrt_client(device))
 

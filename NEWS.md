@@ -2,6 +2,7 @@
 
 ## Breaking changes
 
+* Removed support for the Metal backend.
 * Updated the PJRT plugin version, which now requires CUDA 13.3.
 * Removed support for the ambiguity concept in the dispatcher and replaced
   it with support for `rdata` objects.
@@ -20,6 +21,8 @@
 
 ## New features
 
+* New `platform_support()` lists which backends are available on which
+  operating system and architecture.
 * `dispatcher()` gained a `context` resolver: a function called on every
   dispatch whose `character()` result is part of the cache key and reaches the
   compile callback as `info$context`. anvl uses it to key compiled programs on
