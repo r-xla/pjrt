@@ -1,4 +1,4 @@
-# pjrt (development version)
+# pjrt 0.6.0
 
 ## Breaking changes
 
@@ -12,14 +12,8 @@
   silently. Write `check = "err"` where you wrote `check = TRUE`.
 * `pjrt_buffer()` and `pjrt_scalar()` no longer take a `check` argument; what
   happens to an `NA` is fixed by the dtype.
-* Uploading an `NA` at dtype `"pred"` is now an error. It previously became
-  `TRUE`, silently.
-* Uploading a `bit64::integer64` `NA` is no longer silent. At dtype `"i64"`
-  it warns, like an `NA_integer_` at `"i32"` does, since `INT64_MIN` travels
-  zero-copy and materializes as `NA` again. At dtype `"ui64"` it is now an
-  error: the same bits read unsigned are the ordinary value `2^63`.
 
-## New features
+## Fetures
 
 * New `platform_support()` lists which backends are available on which
   operating system and architecture.
@@ -30,7 +24,9 @@
 * `RTree` objects can be compared with `==` and `!=`, which apply
   `tree_equal()` structural comparison.
 * Added CUDA support for Linux ARM.
-* Added supoort for Intel Macs.
+* Added support for Intel Macs.
+* More (R type, PJRT data type) combinations are now supported during
+  buffer creation.
 
 ## Performance
 
@@ -44,12 +40,16 @@
 
 ## Bug fixes
 
+* Uploading a `bit64::integer64` `NA` is no longer silent. At dtype `"i64"`
+  it warns, like an `NA_integer_` at `"i32"` does, since `INT64_MIN` travels
+  zero-copy and materializes as `NA` again. At dtype `"ui64"` it is now an
+  error: the same bits read unsigned are the ordinary value `2^63`.
+* Uploading an `NA` at dtype `"pred"` is now an error. It previously became
+  `TRUE`, silently.
 * `as_array()` on a donated buffer with two or more axes now errors instead
   of crashing R.
 * Large float buffers now print correctly.
-* Improved the buffer creation functions both in terms of features
-  (from which R dtype one can build which buffer) as well as checks
-  (NA, out of range).
+* Improved input checks in buffer creation functions.
 
 ## Other
 

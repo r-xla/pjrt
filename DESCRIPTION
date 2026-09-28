@@ -1,6 +1,6 @@
 Package: pjrt
 Title: R Interface to PJRT
-Version: 0.5.0.9001
+Version: 0.6.0
 Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = c("cre", "aut"),
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197")),
@@ -30,7 +30,7 @@ Imports:
     rlang,
     safetensors(>= 0.2.0),
     withr,
-    tengen (>= 0.2.0)
+    tengen (>= 0.3.0)
 Suggests:
     callr,
     testthat (>= 3.0.0),
