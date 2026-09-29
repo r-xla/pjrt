@@ -25,20 +25,45 @@
 - [`await()`](https://r-xla.github.io/pjrt/reference/await.md) : Await
   an async operation
 
+- [`build_tree()`](https://r-xla.github.io/pjrt/reference/build_tree.md)
+  : Build Tree
+
 - [`copy_buffer()`](https://r-xla.github.io/pjrt/reference/copy_buffer.md)
   : Copy Buffer to Device
 
 - [`devices()`](https://r-xla.github.io/pjrt/reference/devices.md) :
   Devices
 
+- [`dispatch()`](https://r-xla.github.io/pjrt/reference/dispatch.md)
+  [`dispatcher_size()`](https://r-xla.github.io/pjrt/reference/dispatch.md)
+  : Native eager-dispatch fast path
+
+- [`dispatcher()`](https://r-xla.github.io/pjrt/reference/dispatcher.md)
+  : Dispatcher
+
 - [`elt_type()`](https://r-xla.github.io/pjrt/reference/elt_type.md) :
   Element Type
+
+- [`flatten()`](https://r-xla.github.io/pjrt/reference/flatten.md) :
+  Flatten
+
+- [`flatten_fun()`](https://r-xla.github.io/pjrt/reference/flatten_fun.md)
+  : Flatten a Function
 
 - [`format_buffer()`](https://r-xla.github.io/pjrt/reference/format_buffer.md)
   : Format Buffer Data
 
+- [`inspect_hlo()`](https://r-xla.github.io/pjrt/reference/inspect_hlo.md)
+  : Inspect the HLO Source of a Program
+
+- [`install_pjrt()`](https://r-xla.github.io/pjrt/reference/install_pjrt.md)
+  : Install PJRT Plugins
+
 - [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md) :
   Check if an async operation is ready
+
+- [`map_tree()`](https://r-xla.github.io/pjrt/reference/map_tree.md) :
+  Map Over a Tree
 
 - [`pjrt`](https://r-xla.github.io/pjrt/reference/pjrt-package.md)
   [`pjrt-package`](https://r-xla.github.io/pjrt/reference/pjrt-package.md)
@@ -78,6 +103,9 @@
 - [`platform()`](https://r-xla.github.io/pjrt/reference/platform.md) :
   Platform Name
 
+- [`platform_support()`](https://r-xla.github.io/pjrt/reference/platform_support.md)
+  : Platform Support
+
 - [`plugin_attributes()`](https://r-xla.github.io/pjrt/reference/plugin_attributes.md)
   : Get Plugin Attributes
 
@@ -87,8 +115,53 @@
 - [`plugins_downloaded()`](https://r-xla.github.io/pjrt/reference/plugins_downloaded.md)
   : Check if Plugin is Downloaded
 
+- [`pmap_tree()`](https://r-xla.github.io/pjrt/reference/pmap_tree.md) :
+  Map Over Multiple Trees
+
 - [`print(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/reference/print.PJRTBuffer.md)
   : Print a PJRT Buffer
+
+- [`tree_child_kinds()`](https://r-xla.github.io/pjrt/reference/tree_child_kinds.md)
+  : Top-Level Child Kinds
+
+- [`tree_child_names()`](https://r-xla.github.io/pjrt/reference/tree_child_names.md)
+  : Top-Level Child Names
+
+- [`tree_child_sizes()`](https://r-xla.github.io/pjrt/reference/tree_child_sizes.md)
+  : Top-Level Child Sizes
+
+- [`tree_concat()`](https://r-xla.github.io/pjrt/reference/tree_concat.md)
+  : Concatenate Trees Under a New Root
+
+- [`tree_diff()`](https://r-xla.github.io/pjrt/reference/tree_diff.md) :
+  Difference Between Trees
+
+- [`tree_equal()`](https://r-xla.github.io/pjrt/reference/tree_equal.md)
+  : Compare Tree Structures
+
+- [`tree_filter_by_names()`](https://r-xla.github.io/pjrt/reference/tree_filter_by_names.md)
+  : Filter a Tree by Top-Level Names
+
+- [`tree_hash()`](https://r-xla.github.io/pjrt/reference/tree_hash.md) :
+  Structural Tree Hash
+
+- [`tree_leaf_mask()`](https://r-xla.github.io/pjrt/reference/tree_leaf_mask.md)
+  : Per-Leaf Mask From Top-Level Groups
+
+- [`tree_path()`](https://r-xla.github.io/pjrt/reference/tree_path.md) :
+  Tree Path
+
+- [`tree_repr()`](https://r-xla.github.io/pjrt/reference/tree_repr.md) :
+  Canonical Tree Representation
+
+- [`tree_root_kind()`](https://r-xla.github.io/pjrt/reference/tree_root_kind.md)
+  : Tree Root Node Kind
+
+- [`tree_size()`](https://r-xla.github.io/pjrt/reference/tree_size.md) :
+  Tree Size
+
+- [`unflatten()`](https://r-xla.github.io/pjrt/reference/unflatten.md) :
+  Unflatten
 
 - [`value()`](https://r-xla.github.io/pjrt/reference/value.md) : Get the
   value of an async operation

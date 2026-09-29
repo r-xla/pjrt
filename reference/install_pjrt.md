@@ -1,0 +1,33 @@
+# Install PJRT Plugins
+
+Download and cache the PJRT plugins needed to run `pjrt`. The CPU plugin
+is always installed. The CUDA plugin is installed in addition when a
+CUDA-capable GPU is detected, or when `cuda = TRUE` is passed
+explicitly. Installing the CUDA plugin also installs the R package
+providing the CUDA libraries it links against (CUDA 13.3, shipped by
+pjrt.cuda by default, see `PJRT_CUDA_R_PACKAGE` in
+[pjrt-package](https://r-xla.github.io/pjrt/reference/pjrt-package.md)).
+
+Plugins are otherwise downloaded lazily the first time a client is
+created, but the download requires user confirmation, unless the
+environment variable `PJRT_INSTALL=1`.
+
+## Usage
+
+``` r
+install_pjrt(cuda = NULL)
+```
+
+## Arguments
+
+- cuda:
+
+  (`logical(1)` \| `NULL`)  
+  Whether to also install the CUDA plugin. When `NULL` (the default),
+  CUDA support is auto-detected: the CUDA plugin is installed when an
+  NVIDIA GPU is available on a Linux machine (x86_64 or arm64).
+
+## Value
+
+([`character()`](https://rdrr.io/r/base/character.html))  
+The platforms that were installed, invisibly.

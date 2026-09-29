@@ -29,7 +29,7 @@ Use as_array_async() to chain async buffer-to-host transfer."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">pjrt</a>
 
-    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.0</small>
+    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,7 +80,13 @@ Use <code><a href="as_array_async.html">as_array_async()</a></code> to chain asy
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_execute</span><span class="op">(</span><span class="va">executable</span>, <span class="va">...</span>, execution_options <span class="op">=</span> <span class="cn">NULL</span>, simplify <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pjrt_execute</span><span class="op">(</span></span>
+<span>  <span class="va">executable</span>,</span>
+<span>  <span class="va">...</span>,</span>
+<span>  execution_options <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  simplify <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  check <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -108,6 +114,15 @@ Optional execution options for configuring buffer donation and other settings.</
 If <code>TRUE</code> (default), a single output is returned as a <code>PJRTBuffer</code>.
 If <code>FALSE</code>, a single output is returned as a <code>list</code> of length 1 containing a <code>PJRTBuffer</code>.</p></dd>
 
+
+<dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>
+<dd><p>(<code>logical(1)</code>)<br>
+If <code>TRUE</code> (default), validate the arguments (executable type, that all
+inputs are <code>PJRTBuffer</code>s and unnamed, execution options, and <code>simplify</code>).
+Trusted callers on a hot dispatch path can pass <code>FALSE</code> to skip this
+validation; the caller is then responsible for guaranteeing that
+<code>executable</code>, the inputs, and <code>execution_options</code> are valid.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -133,7 +148,7 @@ If <code>FALSE</code>, a single output is returned as a <code>list</code> of len
 <span class="r-in"><span><span class="va">prog</span> <span class="op">&lt;-</span> <span class="fu"><a href="pjrt_program.html">pjrt_program</a></span><span class="op">(</span>src <span class="op">=</span> <span class="va">src</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">exec</span> <span class="op">&lt;-</span> <span class="fu"><a href="pjrt_compile.html">pjrt_compile</a></span><span class="op">(</span><span class="va">prog</span><span class="op">)</span></span></span>
 <span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error:</span> -:3:3: error: unexpected character</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> &lt;unknown&gt;:0: error: Failed to parse using StableHLO v1.13.2, this could indicate forward incompatibility, &gt;12w old unsupported plugin, or a portable artifact that needs to be further downgraded.</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> &lt;unknown&gt;:0: error: Failed to parse using StableHLO v1.18.0, this could indicate forward incompatibility, &gt;12w old unsupported plugin, or a portable artifact that needs to be further downgraded.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Execute with input</span></span></span>
 <span class="r-in"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">2.0</span>, <span class="fl">3.0</span>, <span class="fl">4.0</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span></span>
@@ -151,7 +166,7 @@ If <code>FALSE</code>, a single output is returned as a <code>list</code> of len
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

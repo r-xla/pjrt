@@ -6,7 +6,7 @@ Transfer buffer data from device to host and return an R array.
 
 ``` r
 # S3 method for class 'PJRTBuffer'
-as_array(x, check = FALSE, ...)
+as_array(x, check = "warn", ...)
 ```
 
 ## Arguments
@@ -18,10 +18,13 @@ as_array(x, check = FALSE, ...)
 
 - check:
 
-  (`logical(1)`)  
-  If `TRUE`, sanity-check the materialized R vector against losing
-  information across the device-to-host boundary, and abort if any
-  problematic value is detected:
+  (`character(1)` \| `FALSE`)  
+  How to report a materialized value that R's type cannot hold: `"warn"`
+  (the default) warns and returns it anyway, `"err"` aborts, and `FALSE`
+  skips the scan altogether. `TRUE` is not accepted — with two levels of
+  strictness it does not say which one is meant.
+
+  The cases scanned for are:
 
   - **`i32` / `i64`**: any `NA` in the result. R's `NA_integer_` shares
     the bit pattern `INT_MIN`; `bit64`'s `NA_integer64_` shares
@@ -34,9 +37,13 @@ as_array(x, check = FALSE, ...)
     `2^63` becomes `NA_integer64_`, anything above becomes a non-NA
     negative integer64.
 
+  Each case is a value the R type genuinely cannot hold, so the check
+  has no false positives: it fires exactly when the returned vector
+  would misrepresent the buffer.
+
   No-op for float, boolean, and small/unsigned-32 integer dtypes —
-  `ui32` is now stored as `integer64` and has full headroom, so it
-  cannot produce a wrapped or NA value.
+  `ui32` is stored as `integer64` and has full headroom, so it cannot
+  produce a wrapped or NA value.
 
 - ...:
 

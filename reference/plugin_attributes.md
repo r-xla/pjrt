@@ -35,7 +35,7 @@ plugin_attributes("cpu")
 #> [1] 2
 #> 
 #> $stablehlo_current_version
-#> [1]  1 13  2
+#> [1]  1 18  0
 #> 
 #> $stablehlo_minimum_version
 #> [1] 0 9 0

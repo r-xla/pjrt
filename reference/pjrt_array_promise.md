@@ -8,7 +8,7 @@ instead.
 ## Usage
 
 ``` r
-pjrt_array_promise(data, dtype, shape)
+pjrt_array_promise(data, dtype, shape, minor_to_major)
 ```
 
 ## Arguments
@@ -24,6 +24,11 @@ pjrt_array_promise(data, dtype, shape)
 - shape:
 
   Integer vector of dimensions.
+
+- minor_to_major:
+
+  Integer vector giving the device buffer's layout (minor-to-major
+  dimension order), used to reorder the bytes on readback.
 
 ## Value
 

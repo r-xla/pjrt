@@ -9,23 +9,46 @@ length 1.
 To create an empty buffer (at least one dimension must be 0), use
 `pjrt_empty`.
 
-**Important**: No checks are performed when creating the buffer, so you
-need to ensure that the data fits the selected element type (e.g., to
-prevent buffer overflow) and that no NA values are present.
+**Important**: Uploading a numeric vector at an integer element type
+rejects any value that type cannot hold: one outside its range, or a
+missing value, is an error rather than a wrapped or clamped result. A
+fractional value is *not* an error – it truncates toward zero, as
+[`as.integer()`](https://rdrr.io/r/base/integer.html) does – and the
+range is checked on the truncated value, so `255.7` still fits `"ui8"`.
+
+A missing value is *not* rejected where R's own `NA` and the element
+type already share a bit pattern and the vector travels zero-copy: an
+`NA_integer_` at `"i32"` arrives as `INT_MIN`, and a
+[`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
+`NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and
+[`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) warns
+about them again on the way back, its `check` argument defaulting to
+`"warn"`. At every other integer element type, and at `"pred"`, a
+missing value is an error – including an `integer64` `NA` at `"ui64"`,
+where those same bits are the ordinary value `2^63`.
+
+At a floating-point element type a missing value is neither rejected nor
+warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
+alike, as [`as.double()`](https://rdrr.io/r/base/double.html) would
+give.
+
+No other checks are performed when creating the buffer – a double too
+large for `"f32"`, for instance, still becomes `Inf`.
+
+`pjrt_empty()` allocates a buffer of the given `shape` and `dtype` with
+**unspecified contents**. The bytes should be treated as uninitialized —
+read them only after they have been written to (e.g. as a donated output
+of
+[`pjrt_execute()`](https://r-xla.github.io/pjrt/reference/pjrt_execute.md)).
+Shapes with at least one zero-sized dimension are supported as a
+degenerate case (the buffer holds zero elements).
 
 ## Usage
 
 ``` r
-pjrt_buffer(
-  data,
-  dtype = NULL,
-  device = NULL,
-  shape = NULL,
-  check = FALSE,
-  ...
-)
+pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
 
-pjrt_scalar(data, dtype = NULL, device = NULL, check = FALSE, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 ```
@@ -40,13 +63,13 @@ pjrt_empty(dtype, shape, device = NULL)
 - dtype:
 
   (`NULL` \| `character(1)` \|
-  [`DataType`](https://r-xla.github.io/tengen/reference/DataType.html))  
+  [`DataType`](https://rdrr.io/pkg/xlamisc/man/DataType.html))  
   The type of the buffer. Currently supported types are:
 
   - `"pred"`: predicate (i.e. a boolean)
 
-  - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer`
-    data).
+  - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
+    `double` data).
 
   - `"f{32,64}"`: Floating point (for `double` or `integer` data). The
     default (`NULL`) depends on the method:
@@ -59,30 +82,28 @@ pjrt_empty(dtype, shape, device = NULL)
 
   - `raw` -\> must be supplied
 
+  A `double` at an integer dtype is truncated toward zero, like
+  [`as.integer()`](https://rdrr.io/r/base/integer.html) but without its
+  32-bit intermediate, so `pjrt_buffer(2^40, dtype = "i64")` stores
+  `1099511627776` rather than overflowing. A value the dtype cannot hold
+  is an error rather than a wrapped or clamped result, and the range is
+  tested after truncation, so `255.7` still fits `"ui8"`.
+
 - device:
 
   (`NULL` \| `PJRTDevice` \| `character(1)`)  
   A `PJRTDevice` object or the name of the platform to use ("cpu",
   "cuda", ...), in which case the first device for that platform is
   used. The default is to use the CPU platform, but this can be
-  configured via the `PJRT_PLATFORM` environment variable.
+  configured via the `PJRT_PLATFORM` environment variable. A value the
+  target dtype cannot hold is rejected whatever this is set to, so the
+  flag only governs missing values.
 
 - shape:
 
   (`NULL` \| [`integer()`](https://rdrr.io/r/base/integer.html))  
   The dimensions of the buffer. The default (`NULL`) is to infer them
   from the data if possible. The default (`NULL`) depends on the method.
-
-- check:
-
-  (`logical(1)`)  
-  If `TRUE`, scan `data` for `NA` values before transferring to the
-  device and raise an error if any are present. R's `NA` markers have no
-  representation at the XLA level (e.g. `NA_integer_` is just the bit
-  pattern `-2147483648`, and `NA` of `logical` type is silently coerced
-  to `TRUE`), so missing values are silently lost on transfer. Defaults
-  to `FALSE` for performance; set to `TRUE` to fail loudly instead of
-  silently corrupting data. Not applicable to `raw` input.
 
 - ...:
 
@@ -102,25 +123,25 @@ pjrt_empty(dtype, shape, device = NULL)
   `character(1)`: for the platform name of the buffer (`"cpu"`,
   `"cuda"`, ...).
 
-- [`device()`](https://r-xla.github.io/tengen/reference/device.html) -\>
+- [`device()`](https://rdrr.io/pkg/xlamisc/man/device.html) -\>
   `PJRTDevice`: for the device of the buffer (also includes device
   number)
 
 - [`elt_type()`](https://r-xla.github.io/pjrt/reference/elt_type.md) -\>
   `PJRTElementType`: for the element type of the buffer.
 
-- [`shape()`](https://r-xla.github.io/tengen/reference/shape.html) -\>
+- [`shape()`](https://rdrr.io/pkg/xlamisc/man/shape.html) -\>
   [`integer()`](https://rdrr.io/r/base/integer.html): for the shape of
   the buffer.
 
 ## Converters
 
-- [`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html)
-  -\> `array` \| `vector`: for converting back to R (`vector` is only
-  used for shape [`integer()`](https://rdrr.io/r/base/integer.html)).
+- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) -\>
+  `array` \| `vector`: for converting back to R (`vector` is only used
+  for shape [`integer()`](https://rdrr.io/r/base/integer.html)).
 
-- [`as_raw()`](https://r-xla.github.io/tengen/reference/as_raw.html) -\>
-  `raw` for a raw vector.
+- [`as_raw()`](https://rdrr.io/pkg/xlamisc/man/as_raw.html) -\> `raw`
+  for a raw vector.
 
 ## Reading and Writing
 
@@ -167,9 +188,11 @@ scalar
 #> PJRTBuffer 
 #>  42
 #> [ CPUf32{} ] 
-# Create an empty buffer
-empty <- pjrt_empty(dtype = "f32", shape = c(0, 3))
+# Allocate an uninitialized 2x3 f32 buffer (contents are unspecified)
+empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#> [ CPUf32{0x3} ] 
+#>  5.9156e+17 3.0733e-41 1.5168e+16
+#>  3.0733e-41 2.3204e+17 3.0733e-41
+#> [ CPUf32{2x3} ] 
 ```

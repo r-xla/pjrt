@@ -32,7 +32,7 @@ R array.
 
 ## See also
 
-[`as_array()`](https://r-xla.github.io/tengen/reference/as_array.html),
+[`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html),
 [`value()`](https://r-xla.github.io/pjrt/reference/value.md),
 [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md),
 [`pjrt_execute()`](https://r-xla.github.io/pjrt/reference/pjrt_execute.md),

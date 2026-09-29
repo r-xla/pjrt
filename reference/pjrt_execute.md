@@ -19,7 +19,13 @@ to chain async buffer-to-host transfer.
 ## Usage
 
 ``` r
-pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
+pjrt_execute(
+  executable,
+  ...,
+  execution_options = NULL,
+  simplify = TRUE,
+  check = TRUE
+)
 ```
 
 ## Arguments
@@ -48,6 +54,16 @@ pjrt_execute(executable, ..., execution_options = NULL, simplify = TRUE)
   `FALSE`, a single output is returned as a `list` of length 1
   containing a `PJRTBuffer`.
 
+- check:
+
+  (`logical(1)`)  
+  If `TRUE` (default), validate the arguments (executable type, that all
+  inputs are `PJRTBuffer`s and unnamed, execution options, and
+  `simplify`). Trusted callers on a hot dispatch path can pass `FALSE`
+  to skip this validation; the caller is then responsible for
+  guaranteeing that `executable`, the inputs, and `execution_options`
+  are valid.
+
 ## Value
 
 `PJRTBuffer` \| `list` of `PJRTBuffer`s
@@ -74,7 +90,7 @@ func.func @main(
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
 #> Error: -:3:3: error: unexpected character
-#> <unknown>:0: error: Failed to parse using StableHLO v1.13.2, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
+#> <unknown>:0: error: Failed to parse using StableHLO v1.18.0, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 
 # Execute with input
 x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")

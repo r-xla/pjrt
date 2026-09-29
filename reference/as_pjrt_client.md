@@ -14,8 +14,7 @@ as_pjrt_client(x)
 - x:
 
   (`PJRTClient` \| `character(1)`)  
-  Either a PJRT client object or a platform name (e.g., "cpu", "cuda",
-  "metal").
+  Either a PJRT client object or a platform name (e.g., "cpu", "cuda").
 
 ## Value
 

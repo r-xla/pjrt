@@ -13,8 +13,8 @@ pjrt_client(platform = NULL, ...)
 - platform:
 
   (`character(1)` \| `NULL`)  
-  Platform name (e.g., "cpu", "cuda", "metal"). If `NULL`, use
-  `PJRT_PLATFORM` environment variable or default to "cpu".
+  Platform name (e.g., "cpu", "cuda"). If `NULL`, use `PJRT_PLATFORM`
+  environment variable or default to "cpu".
 
 - ...:
 
