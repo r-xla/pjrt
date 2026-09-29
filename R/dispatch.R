@@ -161,7 +161,7 @@
 #' @param extractor (`function` | `NULL`)\cr
 #'   Reads a non-`"pjrt"` array's metadata via the backend's accessors, called as
 #'   `extractor(leaf)` and returning `list(aval = list(dtype, shape), device,
-#'   backend)` -- `dtype` a tengen `DataType`, `shape` an `integer()`. The
+#'   backend)` -- `dtype` a xlamisc `DataType`, `shape` an `integer()`. The
 #'   aval's kind is not the extractor's to say: whatever it returns is an array
 #'   leaf.
 #'   Required for any backend other than `"pjrt"`; ignored for `"pjrt"` (see

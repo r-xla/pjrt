@@ -60,7 +60,7 @@ is_buffer <- function(x) {
 #'
 #' @param data (any)\cr
 #'  Data to convert to a `PJRTBuffer`.
-#' @param dtype (`NULL` | `character(1)` | [`DataType`][tengen::DataType])\cr
+#' @param dtype (`NULL` | `character(1)` | [`DataType`][xlamisc::DataType])\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
 #'   - `"pred"`: predicate (i.e. a boolean)

@@ -15,7 +15,7 @@
 namespace {
 
 using rpjrt::anvl_dtype_from_pjrt;
-using rpjrt::anvl_dtype_from_tengen;
+using rpjrt::anvl_dtype_from_xlamisc;
 using rpjrt::anvl_dtype_name;
 using rpjrt::AnvlDtype;
 using rpjrt::Aval;
@@ -88,8 +88,8 @@ const int kDeviceB = 0;
 const rpjrt::DeviceToken kDevA = &kDeviceA;
 const rpjrt::DeviceToken kDevB = &kDeviceB;
 
-// A tengen DataType: length-1 STRSXP classed "DataType".
-inline Rcpp::CharacterVector tengen_dtype(const char* name) {
+// A xlamisc DataType: length-1 STRSXP classed "DataType".
+inline Rcpp::CharacterVector xlamisc_dtype(const char* name) {
   Rcpp::CharacterVector s(1);
   s[0] = name;
   s.attr("class") = "DataType";
@@ -107,37 +107,43 @@ Rcpp::CharacterVector str_ce(const char* bytes, int len, cetype_t enc) {
 }  // namespace
 
 context("AnvlDtype") {
-  test_that("every tengen dtype maps to a distinct AnvlDtype") {
+  test_that("every xlamisc dtype maps to a distinct AnvlDtype") {
     // A fall-through here would key two dtypes alike and run one's program for
     // the other. It has happened; hence one assertion per width.
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("bool")) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("bool")) ==
                 AnvlDtype::kBool);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("i8")) == AnvlDtype::kI8);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("i16")) == AnvlDtype::kI16);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("i32")) == AnvlDtype::kI32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("i64")) == AnvlDtype::kI64);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui8")) == AnvlDtype::kU8);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui16")) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i8")) == AnvlDtype::kI8);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i16")) ==
+                AnvlDtype::kI16);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i32")) ==
+                AnvlDtype::kI32);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i64")) ==
+                AnvlDtype::kI64);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui8")) ==
+                AnvlDtype::kU8);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui16")) ==
                 AnvlDtype::kU16);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui32")) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui32")) ==
                 AnvlDtype::kU32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("ui64")) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui64")) ==
                 AnvlDtype::kU64);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("f32")) == AnvlDtype::kF32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("f64")) == AnvlDtype::kF64);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("f32")) ==
+                AnvlDtype::kF32);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("f64")) ==
+                AnvlDtype::kF64);
   }
 
   test_that(
       "a dtype AnvlDtype cannot name yields kInvalid, never a neighbour") {
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("f16")) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("f16")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("bf16")) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("bf16")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("c64")) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("c64")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(Rcpp::CharacterVector::create("f32")) ==
+    expect_true(anvl_dtype_from_xlamisc(Rcpp::CharacterVector::create("f32")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(Rcpp::IntegerVector::create(32)) ==
+    expect_true(anvl_dtype_from_xlamisc(Rcpp::IntegerVector::create(32)) ==
                 AnvlDtype::kInvalid);
   }
 

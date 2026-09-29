@@ -15,6 +15,6 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{tengen}{\code{\link[tengen:as_array]{as_array()}}, \code{\link[tengen:as_raw]{as_raw()}}, \code{\link[tengen:device]{device()}}, \code{\link[tengen:dtype]{dtype()}}, \code{\link[tengen:shape]{shape()}}}
+  \item{xlamisc}{\code{\link[xlamisc:as_array]{as_array()}}, \code{\link[xlamisc:as_raw]{as_raw()}}, \code{\link[xlamisc:device]{device()}}, \code{\link[xlamisc:dtype]{dtype()}}, \code{\link[xlamisc:shape]{shape()}}}
 }}
 
