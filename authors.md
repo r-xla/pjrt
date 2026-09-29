@@ -23,7 +23,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/r-xla/pjrt/blob/v0.6.0/DESCRIPTION)
 
 Fischer S, Falbel D (2026). *pjrt: R Interface to PJRT*. R package
 version 0.6.0, <https://r-xla.github.io/pjrt/>.
