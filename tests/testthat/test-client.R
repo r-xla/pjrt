@@ -76,14 +76,14 @@ test_that("can use more than one client", {
 
   device <- "cuda"
 
-  pjrt_buffer(1, pjrt_client(device))
+  pjrt_buffer(1, device = device)
 
   expect_permutation(c(device, "cpu"), names(the[["clients"]]))
   expect_permutation(c(device, "cpu"), names(the[["plugins"]]))
 
   # not they are loaded and global env 'the' is not changed
-  pjrt_buffer(1, pjrt_client("cpu"))
-  pjrt_buffer(1, pjrt_client(device))
+  pjrt_buffer(1, device = "cpu")
+  pjrt_buffer(1, device = device)
 
   expect_permutation(c(device, "cpu"), names(the[["clients"]]))
   expect_permutation(c(device, "cpu"), names(the[["plugins"]]))
