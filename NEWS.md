@@ -2,6 +2,8 @@
 
 ## Breaking changes
 
+* The tensor generics and `DataType` now come from xlamisc, which absorbed
+  tengen; pjrt now depends on xlamisc instead of tengen.
 * Removed support for the Metal backend.
 * Updated the PJRT plugin version, which now requires CUDA 13.3.
 * Removed support for the ambiguity concept in the dispatcher and replaced

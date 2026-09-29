@@ -1,6 +1,5 @@
 // A generic least-recently-used cache: a hashmap for lookup plus a
-// doubly-linked list ordering entries most- to least-recently-used (mirrors
-// xlamisc::LRUCache).
+// doubly-linked list ordering entries most- to least-recently-used.
 
 #pragma once
 

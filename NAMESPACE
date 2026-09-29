@@ -122,7 +122,8 @@ importFrom(safetensors,
   safe_tensor_buffer,
   safe_tensor_meta
 )
-importFrom(tengen,
+importFrom(utils,hashtab)
+importFrom(xlamisc,
   as_array,
   as_dtype,
   as_raw,
@@ -130,5 +131,4 @@ importFrom(tengen,
   dtype,
   shape
 )
-importFrom(utils,hashtab)
 useDynLib(pjrt, .registration = TRUE)

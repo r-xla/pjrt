@@ -280,7 +280,7 @@ SEXP Engine::canonical_device(SEXP device) {
 
 // Reject an Aval whose dtype could not be represented: every such leaf would
 // share one Aval, and two calls on different dtypes would then run each other's
-// program. Neither tengen nor pjrt's own dtype table can produce one, so this
+// program. Neither xlamisc nor pjrt's own dtype table can produce one, so this
 // is a guard, not a path.
 static void check_dtype_representable(const Aval& a, const RTree& in_tree,
                                       std::size_t leaf_index) {
@@ -290,10 +290,10 @@ static void check_dtype_representable(const Aval& a, const RTree& in_tree,
   }
 }
 
-// Build an Aval from a backend extractor's outputs: a tengen DataType object
+// Build an Aval from a backend extractor's outputs: a xlamisc DataType object
 // and an integer shape.
-static Aval aval_from_tengen(SEXP dtype, SEXP shape, const RTree& in_tree,
-                             std::size_t leaf_index) {
+static Aval aval_from_xlamisc(SEXP dtype, SEXP shape, const RTree& in_tree,
+                              std::size_t leaf_index) {
   if (dtype == R_NilValue || TYPEOF(shape) != INTSXP) {
     Rcpp::stop(
         "invalid %s: the backend extractor must return an aval with a dtype "
@@ -301,7 +301,7 @@ static Aval aval_from_tengen(SEXP dtype, SEXP shape, const RTree& in_tree,
         leaf_subject(in_tree, leaf_index));
   }
   Aval a;
-  a.dtype = anvl_dtype_from_tengen(dtype);
+  a.dtype = anvl_dtype_from_xlamisc(dtype);
   const R_xlen_t nd = XLENGTH(shape);
   a.shape.reserve(nd);
   for (R_xlen_t j = 0; j < nd; ++j) a.shape.push_back(INTEGER(shape)[j]);
@@ -363,7 +363,7 @@ class ClosureEngine : public Engine {
       Rcpp::List av = meta["aval"];
       SEXP dtype = av.containsElementNamed("dtype") ? av["dtype"] : R_NilValue;
       SEXP shape = av.containsElementNamed("shape") ? av["shape"] : R_NilValue;
-      al.aval = aval_from_tengen(dtype, shape, in_tree, leaf_index);
+      al.aval = aval_from_xlamisc(dtype, shape, in_tree, leaf_index);
     }
     return al;
   }
@@ -554,7 +554,7 @@ class PjrtEngine : public Engine {
 
     // The phantom specs are parsed before the templates are built, so a
     // callback that declares a bad dtype is reported against `phantom_specs`
-    // (pjrt's own dtype table) rather than against `out_avals` (tengen's).
+    // (pjrt's own dtype table) rather than against `out_avals` (xlamisc's).
     std::vector<PhantomSpec> phantom_specs;
     if (res.containsElementNamed("phantom_specs")) {
       Rcpp::List specs = res["phantom_specs"];
@@ -562,7 +562,7 @@ class PjrtEngine : public Engine {
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
-        // Normalize the boolean aliases the R layer also accepts (tengen's
+        // Normalize the boolean aliases the R layer also accepts (xlamisc's
         // canonical name is "bool"; pjrt's canonical name is "pred").
         std::string dt = Rcpp::as<std::string>(spec["dtype"]);
         if (dt == "bool" || dt == "i1") dt = "pred";
@@ -689,8 +689,8 @@ class PjrtEngine : public Engine {
   // ?dispatcher.
   Rcpp::List build_templates(SEXP out_avals, SEXP device) const {
     const R_xlen_t n_out = XLENGTH(out_avals);
-    Rcpp::Environment tengen = Rcpp::Environment::namespace_env("tengen");
-    Rcpp::Function as_dtype = tengen["as_dtype"];
+    Rcpp::Environment xlamisc = Rcpp::Environment::namespace_env("xlamisc");
+    Rcpp::Function as_dtype = xlamisc["as_dtype"];
     Rcpp::CharacterVector cls = Rcpp::CharacterVector::create("AnvlArray");
     Rcpp::CharacterVector backend = Rcpp::CharacterVector::create(backend_);
     Rcpp::List templates(n_out);
@@ -707,8 +707,8 @@ class PjrtEngine : public Engine {
                    static_cast<int>(i) + 1);
       }
       std::string dt = Rcpp::as<std::string>(aval["dtype"]);
-      // The wrapper's $dtype is a tengen object, so the name goes to
-      // tengen::as_dtype(): canonicalize to AnvlDtype's "bool" (pjrt's own
+      // The wrapper's $dtype is a xlamisc object, so the name goes to
+      // xlamisc::as_dtype(): canonicalize to AnvlDtype's "bool" (pjrt's own
       // C-API spelling "pred" and the MLIR spelling "i1" are accepted aliases).
       if (dt == "pred" || dt == "i1") dt = "bool";
       Rcpp::IntegerVector shape = Rcpp::as<Rcpp::IntegerVector>(aval["shape"]);

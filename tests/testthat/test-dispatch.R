@@ -40,7 +40,7 @@ pjrt_entry <- function(
 # A pjrt array leaf, as anvl builds them: an "AnvlArray" whose $data is a buffer.
 parr <- function(buf) {
   structure(
-    list(data = buf, device = tengen::device(buf), backend = "pjrt"),
+    list(data = buf, device = xlamisc::device(buf), backend = "pjrt"),
     class = "AnvlArray"
   )
 }
@@ -50,7 +50,7 @@ qarr <- function(v, dtype = "f64", device = test_quickr_device(), backend = "qui
   structure(
     list(
       data = v,
-      dtype = if (is.character(dtype)) tengen::as_dtype(dtype) else dtype,
+      dtype = if (is.character(dtype)) xlamisc::as_dtype(dtype) else dtype,
       shape = as.integer(length(v)),
       device = device,
       backend = backend
@@ -61,7 +61,7 @@ qarr <- function(v, dtype = "f64", device = test_quickr_device(), backend = "qui
 
 # With a leaf out_tree, dispatch() returns the single output as one wrapped
 # array: an "AnvlArray" list whose $data is the output buffer.
-out <- function(res) as.numeric(tengen::as_array(await(res$data)))
+out <- function(res) as.numeric(xlamisc::as_array(await(res$data)))
 
 # The closure engine reads a leaf's metadata through a backend-supplied
 # extractor rather than by reaching for fields. The test arrays (qarr) do store
@@ -387,7 +387,7 @@ test_that("bare R data is keyed by its R storage type and uploaded column-major"
 
   # An R array uploads column-major, like pjrt_buffer().
   m <- matrix(c(1, 2, 3, 4), nrow = 2)
-  expect_equal(tengen::as_array(await(dispatch(d, list(x = m))$data)), m)
+  expect_equal(xlamisc::as_array(await(dispatch(d, list(x = m))$data)), m)
 })
 
 test_that("every dtype the engine can represent is its own cache entry", {
@@ -1041,9 +1041,9 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
 
   # A dtype object AnvlDtype cannot name is rejected, not keyed approximately:
   # two such dtypes would otherwise share an aval and run each other's program.
-  # tengen names more dtypes than the dispatcher can represent; this is a real
+  # xlamisc names more dtypes than the dispatcher can represent; this is a real
   # one it cannot key.
-  weird <- tengen::as_dtype("f16")
+  weird <- xlamisc::as_dtype("f16")
   expect_error(
     impl_dispatch_run(mk("closure"), list(x = qarr(c(1, 2), dtype = weird))),
     "invalid input `x`.*dtype is not one anvl can represent"
@@ -1061,7 +1061,7 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
   dev <- test_device("cpu")
   extractor <- function(leaf) {
     list(
-      aval = list(dtype = tengen::as_dtype("f64"), shape = length(leaf$data)),
+      aval = list(dtype = xlamisc::as_dtype("f64"), shape = length(leaf$data)),
       device = dev,
       backend = "quickr"
     )
@@ -1125,8 +1125,8 @@ test_that("out_avals and out_tree are the callback's claim, and are honoured", {
   res <- impl_dispatch_run(d, list(x, y))
   expect_equal(out(res$sum), c(4, 6))
   expect_equal(out(res$rest$prod), c(3, 8))
-  expect_identical(res$sum$dtype, tengen::as_dtype("f64"))
-  expect_identical(res$rest$prod$dtype, tengen::as_dtype("f32"))
+  expect_identical(res$sum$dtype, xlamisc::as_dtype("f64"))
+  expect_identical(res$rest$prod$dtype, xlamisc::as_dtype("f32"))
   expect_identical(res$sum$shape, 2L)
 
   # An out_tree whose leaf count disagrees with the executable's actual output
@@ -1248,11 +1248,11 @@ test_that("`input_dtypes` decides the dtype a bare R leaf is uploaded at", {
   d <- dispatcher(10L, entry("f64"), default_device = test_pjrt_device)
   res <- dispatch(d, list(x = sqrt(2)))
   # Exact to the last bit: the R double was uploaded as f64, not widened from f32.
-  expect_identical(as.numeric(tengen::as_array(await(res$data))), sqrt(2))
+  expect_identical(as.numeric(xlamisc::as_array(await(res$data))), sqrt(2))
 
   # The same call keys the same entry whatever the value, so a second value
   # is served by the entry compiled for the first one.
-  expect_identical(as.numeric(tengen::as_array(await(dispatch(d, list(x = pi))$data))), pi)
+  expect_identical(as.numeric(xlamisc::as_array(await(dispatch(d, list(x = pi))$data))), pi)
   expect_equal(dispatcher_size(d), 1L)
 
   # There is no default to fall back on: an entry that declares nothing for a
@@ -1359,7 +1359,7 @@ test_that("`input_dtypes` may not name a dtype the R value cannot upload at", {
   accept <- function(x, dtype, ty, expected) {
     d <- dispatcher(10L, cb(dtype, ty), default_device = test_pjrt_device)
     expect_equal(
-      as.vector(tengen::as_array(await(dispatch(d, list(x = x))$data))),
+      as.vector(xlamisc::as_array(await(dispatch(d, list(x = x))$data))),
       expected
     )
   }
@@ -1439,7 +1439,7 @@ test_that("`input_dtypes` is indexed by dynamic leaf, skipping statics", {
   }
   # One entry, for the single dynamic leaf -- not two for the two arguments.
   res <- dispatch(mk("f64"), list(s = 42L, x = sqrt(2)))
-  expect_identical(as.numeric(tengen::as_array(await(res$data))), sqrt(2))
+  expect_identical(as.numeric(xlamisc::as_array(await(res$data))), sqrt(2))
   # `info$avals` is the other indexing: per leaf, NULL where a static sits.
   expect_length(seen, 2L)
   expect_null(seen[[1L]])
@@ -1477,7 +1477,7 @@ test_that("`input_dtypes` may not declare a dtype for an array input", {
   # NA is the entry an array takes, and leaves the buffer alone.
   d <- dispatcher(10L, cb(NA_character_), default_device = test_pjrt_device)
   expect_identical(
-    as.numeric(tengen::as_array(await(dispatch(d, list(x = arr))$data))),
+    as.numeric(xlamisc::as_array(await(dispatch(d, list(x = arr))$data))),
     1
   )
 })
