@@ -88,7 +88,7 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 <span><span class="va">exec</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_compile.html">pjrt_compile</a></span><span class="op">(</span><span class="va">prog</span>, device <span class="op">=</span> <span class="st">"cpu"</span><span class="op">)</span>        <span class="co"># PJRTLoadedExecutable</span></span>
 <span><span class="va">buf</span>  <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="va">data</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span>           <span class="co"># PJRTBuffer (host → device)</span></span>
 <span><span class="va">out</span>  <span class="op">&lt;-</span> <span class="fu"><a href="reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">exec</span>, <span class="va">buf</span><span class="op">)</span>                    <span class="co"># PJRTBuffer (on device, may not be ready)</span></span>
-<span><span class="va">arr</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">out</span><span class="op">)</span>                              <span class="co"># R array (device → host, blocks)</span></span></code></pre></div>
+<span><span class="va">arr</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">out</span><span class="op">)</span>                              <span class="co"># R array (device → host, blocks)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="async-model">Async Model<a class="anchor" aria-label="anchor" href="#async-model"></a></h3>
@@ -133,7 +133,7 @@ PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)</code><
 <li>
 <code>safetensors.R</code> – safetensors read/write integration</li>
 <li>
-<code>reexports.R</code> – tengen re-exports</li>
+<code>reexports.R</code> – xlamisc re-exports</li>
 <li>
 <code>src/</code> – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options</li>
 </ul><p><strong>Important:</strong> Do not call <code>devtools::load_all()</code> and <code>devtools::test()</code> in the same R process. The protobuf descriptors get registered twice, causing a fatal <code>CHECK failed: GeneratedDatabase()-&gt;Add(...)</code> crash. Use separate <code>Rscript -e</code> calls instead.</p>

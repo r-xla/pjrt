@@ -210,7 +210,7 @@ object a backend hands out stays alive for the dispatcher's lifetime.</p></dd>
 <dt id="arg-extractor">extractor<a class="anchor" aria-label="anchor" href="#arg-extractor"></a></dt>
 <dd><p>(<code>function</code> | <code>NULL</code>)<br>
 Reads a non-<code>"pjrt"</code> array's metadata via the backend's accessors, called as
-<code>extractor(leaf)</code> and returning <code>list(aval = list(dtype, shape), device, backend)</code> – <code>dtype</code> a tengen <code>DataType</code>, <code>shape</code> an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>. The
+<code>extractor(leaf)</code> and returning <code>list(aval = list(dtype, shape), device, backend)</code> – <code>dtype</code> a xlamisc <code>DataType</code>, <code>shape</code> an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>. The
 aval's kind is not the extractor's to say: whatever it returns is an array
 leaf.
 Required for any backend other than <code>"pjrt"</code>; ignored for <code>"pjrt"</code> (see

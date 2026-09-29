@@ -199,7 +199,7 @@ dispatcher(
   (`function` \| `NULL`)  
   Reads a non-`"pjrt"` array's metadata via the backend's accessors,
   called as `extractor(leaf)` and returning
-  `list(aval = list(dtype, shape), device, backend)` – `dtype` a tengen
+  `list(aval = list(dtype, shape), device, backend)` – `dtype` a xlamisc
   `DataType`, `shape` an
   [`integer()`](https://rdrr.io/r/base/integer.html). The aval's kind is
   not the extractor's to say: whatever it returns is an array leaf.

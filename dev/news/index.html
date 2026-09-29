@@ -53,11 +53,12 @@
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
 <div class="section level3">
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
-<ul><li>Removed support for the Metal backend.</li>
+<ul><li>The tensor generics and <code>DataType</code> now come from xlamisc, which absorbed tengen; pjrt now depends on xlamisc instead of tengen.</li>
+<li>Removed support for the Metal backend.</li>
 <li>Updated the PJRT plugin version, which now requires CUDA 13.3.</li>
 <li>Removed support for the ambiguity concept in the dispatcher and replaced it with support for <code>rdata</code> objects. This enables the improved precision semantics in anvl.</li>
 <li>
-<code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>’s <code>check</code> argument is now <code>"warn"</code> (the default), <code>"err"</code> or <code>FALSE</code>, and a value R’s type cannot hold is reported instead of returned silently. Write <code>check = "err"</code> where you wrote <code>check = TRUE</code>.</li>
+<code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code>’s <code>check</code> argument is now <code>"warn"</code> (the default), <code>"err"</code> or <code>FALSE</code>, and a value R’s type cannot hold is reported instead of returned silently. Write <code>check = "err"</code> where you wrote <code>check = TRUE</code>.</li>
 <li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> and <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code> no longer take a <code>check</code> argument; what happens to an <code>NA</code> is fixed by the dtype.</li>
 <li>Uploading an <code>NA</code> at dtype <code>"pred"</code> is now an error. It previously became <code>TRUE</code>, silently.</li>
@@ -81,7 +82,7 @@
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
-<code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> on a donated buffer with two or more axes now errors instead of crashing R.</li>
+<code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code> on a donated buffer with two or more axes now errors instead of crashing R.</li>
 <li>Large float buffers now print correctly.</li>
 <li>Improved the buffer creation functions both in terms of features (from which R dtype one can build which buffer) as well as checks (NA, out of range).</li>
 </ul></div>
@@ -126,9 +127,9 @@
 <li>Added an vignette on how to register custom calls via the FFI registration mechanisms with coverage of both CUDA and CPU-specific aspects.</li>
 <li>Added support for the <code>bit64</code> package to better support long integers.</li>
 <li>
-<code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>, <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code>, and <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> gain a <code>check</code> argument (default <code>FALSE</code>). When <code>TRUE</code>, the call errors instead of silently losing information: on input if <code>data</code> contains <code>NA</code>s, on output if the materialized R vector contains a value that’s indistinguishable from <code>NA</code> or that has wrapped through the integer container.</li>
+<code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code>, <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code>, and <code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code> gain a <code>check</code> argument (default <code>FALSE</code>). When <code>TRUE</code>, the call errors instead of silently losing information: on input if <code>data</code> contains <code>NA</code>s, on output if the materialized R vector contains a value that’s indistinguishable from <code>NA</code> or that has wrapped through the integer container.</li>
 <li>
-<code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> on a <code>ui32</code> buffer now returns a <code><a href="https://bit64.r-lib.org/reference/bit64-package.html" class="external-link">bit64::integer64</a></code> instead of a base <code>integer</code>, so values <code>&gt;= 2^31</code> round-trip losslessly rather than wrapping to negative.</li>
+<code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code> on a <code>ui32</code> buffer now returns a <code><a href="https://bit64.r-lib.org/reference/bit64-package.html" class="external-link">bit64::integer64</a></code> instead of a base <code>integer</code>, so values <code>&gt;= 2^31</code> round-trip losslessly rather than wrapping to negative.</li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -159,7 +160,7 @@
 <ul><li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> return immediately, but the returned buffer is not necessarily ready. To await a transfer or computation of a buffer, use <code><a href="../reference/await.html">await()</a></code>. However, this is handled within PJRT, so this function never has to be called by a user.</li>
 <li>
-<code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> is still synchronous, but there is now the asynchronous version <code><a href="../reference/as_array_async.html">as_array_async()</a></code> but this is rarely needed. If used, it returns a <code>PJRTArrayPromise</code> object which can be converted to an R <code>array</code>/<code>vector</code> via <code><a href="../reference/value.html">value()</a></code>.</li>
+<code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code> is still synchronous, but there is now the asynchronous version <code><a href="../reference/as_array_async.html">as_array_async()</a></code> but this is rarely needed. If used, it returns a <code>PJRTArrayPromise</code> object which can be converted to an R <code>array</code>/<code>vector</code> via <code><a href="../reference/value.html">value()</a></code>.</li>
 <li>To check whether a <code>PJRTBuffer</code> or <code>PJRTArrayPromise</code> is ready, use <code><a href="../reference/is_ready.html">is_ready()</a></code>.</li>
 </ul></div>
 <div class="section level3">

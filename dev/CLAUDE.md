@@ -137,7 +137,7 @@ buffers.
   [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md);
   the engine itself is C++ (`src/dispatch*.{h,cpp}`)
 - `safetensors.R` – safetensors read/write integration
-- `reexports.R` – tengen re-exports
+- `reexports.R` – xlamisc re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for
   compile options
 

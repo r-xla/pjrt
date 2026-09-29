@@ -149,16 +149,16 @@ does not block.</p>
 these operations are non-blocking because the metadata is available
 immediately:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/shape.html" class="external-link">shape</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/shape.html" class="external-link">shape</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 2 2</span></span>
 <span><span class="fu"><a href="../reference/elt_type.html">elt_type</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;f32&gt;</span></span>
-<span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/device.html" class="external-link">device</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/device.html" class="external-link">device</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;CpuDevice(id=0)&gt;</span></span></code></pre></div>
-<p>To move data back to the host, use <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>. This
+<p>To move data back to the host, use <code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code>. This
 blocks until the data is available:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      [,1] [,2]</span></span>
 <span><span class="co">#&gt; [1,]    1    3</span></span>
 <span><span class="co">#&gt; [2,]    2    4</span></span></code></pre></div>
@@ -208,9 +208,9 @@ background.</p>
 <p>Single outputs are unpacked by default; set
 <code>simplify = FALSE</code> to always get a list.</p>
 <p>To retrieve the result as an R array, call
-<code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>:</p>
+<code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code>:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      [,1] [,2]</span></span>
 <span><span class="co">#&gt; [1,]    6   10</span></span>
 <span><span class="co">#&gt; [2,]    8   12</span></span></code></pre></div>
@@ -234,7 +234,7 @@ and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> ret
 immediately without blocking R. The buffer may not be ready yet, but you
 can pass it directly to other operations. You only pay the
 synchronization cost when you actually need the host-side result
-(e.g. calling <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code>).</p>
+(e.g. calling <code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code>).</p>
 </div>
 <div class="section level3">
 <h3 id="async-types">Async types<a class="anchor" aria-label="anchor" href="#async-types"></a>
@@ -299,7 +299,7 @@ PJRT handles the dependencies internally:</p>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">buf1</span>, <span class="va">buf2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Only block when we need the R array</span></span>
-<span><span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      [,1] [,2]</span></span>
 <span><span class="co">#&gt; [1,]    6   10</span></span>
 <span><span class="co">#&gt; [2,]    8   12</span></span></code></pre></div>
@@ -331,13 +331,13 @@ PJRT handles the dependencies internally:</p>
 <p>Blocking occurs when:</p>
 <ol style="list-style-type: decimal">
 <li>Calling <code><a href="../reference/await.html">await()</a></code> on a buffer</li>
-<li>Calling <code><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array()</a></code> on a buffer</li>
+<li>Calling <code><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array()</a></code> on a buffer</li>
 <li>Calling <code><a href="../reference/value.html">value()</a></code> on a <code>PJRTArrayPromise</code>
 </li>
 <li>Printing a buffer (needs to read values to display them)</li>
 </ol>
-<p>Operations like <code><a href="https://r-xla.github.io/tengen/reference/shape.html" class="external-link">shape()</a></code>, <code><a href="../reference/elt_type.html">elt_type()</a></code>, and
-<code><a href="https://r-xla.github.io/tengen/reference/device.html" class="external-link">device()</a></code> do <strong>not</strong> block — buffer metadata is
+<p>Operations like <code><a href="https://rdrr.io/pkg/xlamisc/man/shape.html" class="external-link">shape()</a></code>, <code><a href="../reference/elt_type.html">elt_type()</a></code>, and
+<code><a href="https://rdrr.io/pkg/xlamisc/man/device.html" class="external-link">device()</a></code> do <strong>not</strong> block — buffer metadata is
 available immediately.</p>
 </div>
 <div class="section level3">
@@ -347,7 +347,7 @@ available immediately.</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_iterations</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">input</span><span class="op">)</span></span>
-<span>  <span class="va">metrics</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span>  <span class="co"># blocks! device idles during transfer</span></span>
+<span>  <span class="va">metrics</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span>  <span class="co"># blocks! device idles during transfer</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Step"</span>, <span class="va">i</span>, <span class="st">"loss:"</span>, <span class="va">metrics</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span>  <span class="va">input</span> <span class="op">&lt;-</span> <span class="fu">prepare_next_batch</span><span class="op">(</span><span class="op">)</span>  <span class="co"># device still idle</span></span>
 <span><span class="op">}</span></span></code></pre></div>
@@ -359,7 +359,7 @@ device computes the next:</p>
 <span>  <span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pjrt_execute.html">pjrt_execute</a></span><span class="op">(</span><span class="va">executable</span>, <span class="va">input</span><span class="op">)</span></span>
 <span></span>
 <span>  <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">prev_result</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">metrics</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">prev_result</span><span class="op">)</span>  <span class="co"># previous result likely ready</span></span>
+<span>    <span class="va">metrics</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">prev_result</span><span class="op">)</span>  <span class="co"># previous result likely ready</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Step"</span>, <span class="va">i</span> <span class="op">-</span> <span class="fl">1</span>, <span class="st">"loss:"</span>, <span class="va">metrics</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span>  <span class="op">}</span></span>
 <span></span>
@@ -394,7 +394,7 @@ device computes the next:</p>
 <span><span class="op">}</span></span>
 <span></span>
 <span><span class="co"># Only retrieve the final value</span></span>
-<span><span class="va">final</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/tengen/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
+<span><span class="va">final</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/xlamisc/man/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Final result shape:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">final</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Final result shape: 100 100</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Final result[1,1]:"</span>, <span class="va">final</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span>
