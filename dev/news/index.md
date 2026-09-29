@@ -2,6 +2,8 @@
 
 ## pjrt (development version)
 
+## pjrt 0.6.0
+
 ### Breaking changes
 
 - The tensor generics and `DataType` now come from xlamisc, which
@@ -11,7 +13,7 @@
 - Removed support for the ambiguity concept in the dispatcher and
   replaced it with support for `rdata` objects. This enables the
   improved precision semantics in anvl.
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html)’s
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)’s
   `check` argument is now `"warn"` (the default), `"err"` or `FALSE`,
   and a value R’s type cannot hold is reported instead of returned
   silently. Write `check = "err"` where you wrote `check = TRUE`.
@@ -20,16 +22,8 @@
   [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md)
   no longer take a `check` argument; what happens to an `NA` is fixed by
   the dtype.
-- Uploading an `NA` at dtype `"pred"` is now an error. It previously
-  became `TRUE`, silently.
-- Uploading a
-  [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
-  `NA` is no longer silent. At dtype `"i64"` it warns, like an
-  `NA_integer_` at `"i32"` does, since `INT64_MIN` travels zero-copy and
-  materializes as `NA` again. At dtype `"ui64"` it is now an error: the
-  same bits read unsigned are the ordinary value `2^63`.
 
-### New features
+### Fetures
 
 - New
   [`platform_support()`](https://r-xla.github.io/pjrt/dev/reference/platform_support.md)
@@ -44,7 +38,9 @@
   [`tree_equal()`](https://r-xla.github.io/pjrt/dev/reference/tree_equal.md)
   structural comparison.
 - Added CUDA support for Linux ARM.
-- Added supoort for Intel Macs.
+- Added support for Intel Macs.
+- More (R type, PJRT data type) combinations are now supported during
+  buffer creation.
 
 ### Performance
 
@@ -59,12 +55,19 @@
 
 ### Bug fixes
 
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) on a
-  donated buffer with two or more axes now errors instead of crashing R.
+- Uploading a
+  [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
+  `NA` is no longer silent. At dtype `"i64"` it warns, like an
+  `NA_integer_` at `"i32"` does, since `INT64_MIN` travels zero-copy and
+  materializes as `NA` again. At dtype `"ui64"` it is now an error: the
+  same bits read unsigned are the ordinary value `2^63`.
+- Uploading an `NA` at dtype `"pred"` is now an error. It previously
+  became `TRUE`, silently.
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  on a donated buffer with two or more axes now errors instead of
+  crashing R.
 - Large float buffers now print correctly.
-- Improved the buffer creation functions both in terms of features (from
-  which R dtype one can build which buffer) as well as checks (NA, out
-  of range).
+- Improved input checks in buffer creation functions.
 
 ### Other
 
@@ -157,14 +160,15 @@
 - Added support for the `bit64` package to better support long integers.
 - [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
   [`pjrt_scalar()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md),
-  and [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) gain
-  a `check` argument (default `FALSE`). When `TRUE`, the call errors
-  instead of silently losing information: on input if `data` contains
-  `NA`s, on output if the materialized R vector contains a value that’s
-  indistinguishable from `NA` or that has wrapped through the integer
-  container.
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) on a
-  `ui32` buffer now returns a
+  and
+  [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  gain a `check` argument (default `FALSE`). When `TRUE`, the call
+  errors instead of silently losing information: on input if `data`
+  contains `NA`s, on output if the materialized R vector contains a
+  value that’s indistinguishable from `NA` or that has wrapped through
+  the integer container.
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  on a `ui32` buffer now returns a
   [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
   instead of a base `integer`, so values `>= 2^31` round-trip losslessly
   rather than wrapping to negative.
@@ -215,8 +219,8 @@ considerable performance benefits, especially on GPU. Specifically:
   [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md).
   However, this is handled within PJRT, so this function never has to be
   called by a user.
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) is still
-  synchronous, but there is now the asynchronous version
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  is still synchronous, but there is now the asynchronous version
   [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
   but this is rarely needed. If used, it returns a `PJRTArrayPromise`
   object which can be converted to an R `array`/`vector` via

@@ -5,8 +5,8 @@ to see their documentation.
 
 - xlamisc:
 
-  [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html),
-  [`as_raw()`](https://rdrr.io/pkg/xlamisc/man/as_raw.html),
-  [`device()`](https://rdrr.io/pkg/xlamisc/man/device.html),
-  [`dtype()`](https://rdrr.io/pkg/xlamisc/man/dtype.html),
-  [`shape()`](https://rdrr.io/pkg/xlamisc/man/shape.html)
+  [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html),
+  [`as_raw()`](https://r-xla.github.io/xlamisc/reference/as_raw.html),
+  [`device()`](https://r-xla.github.io/xlamisc/reference/device.html),
+  [`dtype()`](https://r-xla.github.io/xlamisc/reference/dtype.html),
+  [`shape()`](https://r-xla.github.io/xlamisc/reference/shape.html)

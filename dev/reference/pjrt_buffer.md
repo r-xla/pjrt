@@ -21,9 +21,9 @@ type already share a bit pattern and the vector travels zero-copy: an
 `NA_integer_` at `"i32"` arrives as `INT_MIN`, and a
 [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
 `NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and
-[`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) warns
-about them again on the way back, its `check` argument defaulting to
-`"warn"`. At every other integer element type, and at `"pred"`, a
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+warns about them again on the way back, its `check` argument defaulting
+to `"warn"`. At every other integer element type, and at `"pred"`, a
 missing value is an error – including an `integer64` `NA` at `"ui64"`,
 where those same bits are the ordinary value `2^63`.
 
@@ -63,7 +63,7 @@ pjrt_empty(dtype, shape, device = NULL)
 - dtype:
 
   (`NULL` \| `character(1)` \|
-  [`DataType`](https://rdrr.io/pkg/xlamisc/man/DataType.html))  
+  [`DataType`](https://r-xla.github.io/xlamisc/reference/DataType.html))  
   The type of the buffer. Currently supported types are:
 
   - `"pred"`: predicate (i.e. a boolean)
@@ -123,25 +123,25 @@ pjrt_empty(dtype, shape, device = NULL)
   -\> `character(1)`: for the platform name of the buffer (`"cpu"`,
   `"cuda"`, ...).
 
-- [`device()`](https://rdrr.io/pkg/xlamisc/man/device.html) -\>
-  `PJRTDevice`: for the device of the buffer (also includes device
+- [`device()`](https://r-xla.github.io/xlamisc/reference/device.html)
+  -\> `PJRTDevice`: for the device of the buffer (also includes device
   number)
 
 - [`elt_type()`](https://r-xla.github.io/pjrt/dev/reference/elt_type.md)
   -\> `PJRTElementType`: for the element type of the buffer.
 
-- [`shape()`](https://rdrr.io/pkg/xlamisc/man/shape.html) -\>
+- [`shape()`](https://r-xla.github.io/xlamisc/reference/shape.html) -\>
   [`integer()`](https://rdrr.io/r/base/integer.html): for the shape of
   the buffer.
 
 ## Converters
 
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) -\>
-  `array` \| `vector`: for converting back to R (`vector` is only used
-  for shape [`integer()`](https://rdrr.io/r/base/integer.html)).
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  -\> `array` \| `vector`: for converting back to R (`vector` is only
+  used for shape [`integer()`](https://rdrr.io/r/base/integer.html)).
 
-- [`as_raw()`](https://rdrr.io/pkg/xlamisc/man/as_raw.html) -\> `raw`
-  for a raw vector.
+- [`as_raw()`](https://r-xla.github.io/xlamisc/reference/as_raw.html)
+  -\> `raw` for a raw vector.
 
 ## Reading and Writing
 
@@ -192,7 +192,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  8.9990e-10 3.0704e-41 5.8114e-10
-#>  3.0704e-41 8.9990e-10 3.0704e-41
+#>  1.7269e+12 3.0964e-41 1.0280e+12
+#>  3.0964e-41 1.7269e+12 3.0964e-41
 #> [ CPUf32{2x3} ] 
 ```
