@@ -26,9 +26,9 @@ namespace rpjrt {
 // never went near PJRT just as readily as a PJRT buffer.
 //
 // The set is what the dispatcher can represent, which is also exactly what
-// pjrt's string_to_pjrt_buffer_type() accepts. tengen now names more dtypes
+// pjrt's string_to_pjrt_buffer_type() accepts. xlamisc now names more dtypes
 // than this (f16, bf16, f8*, complex, sub-byte ints); those are rejected by
-// anvl_dtype_from_tengen() below rather than keyed approximately. Conversions
+// anvl_dtype_from_xlamisc() below rather than keyed approximately. Conversions
 // in either direction are explicit switches rather than casts, so a PJRT type
 // outside this set maps to kInvalid rather than silently becoming a
 // neighbouring dtype.
@@ -85,9 +85,9 @@ inline AnvlDtype anvl_dtype_from_pjrt(PJRT_Buffer_Type t) {
   }
 }
 
-// The canonical name, as tengen spells it -- this is the vocabulary that
+// The canonical name, as xlamisc spells it -- this is the vocabulary that
 // crosses into R (the compile callback's avals). The boolean type is the one
-// place the two layers disagree: tengen calls it "bool" and pjrt's own C-API
+// place the two layers disagree: xlamisc calls it "bool" and pjrt's own C-API
 // layer calls it "pred", so the buffer-facing code (string_to_pjrt_buffer_type
 // and friends) keeps saying "pred" and translates at its edge.
 inline const char *anvl_dtype_name(AnvlDtype d) {
@@ -126,11 +126,11 @@ inline const char *anvl_dtype_name(AnvlDtype d) {
   return "invalid";
 }
 
-// Translate a canonical dtype name to an AnvlDtype. tengen names more dtypes
+// Translate a canonical dtype name to an AnvlDtype. xlamisc names more dtypes
 // than the dispatcher supports (f16, bf16, f8*, complex, sub-byte ints); those
 // yield kInvalid and the caller rejects them rather than keying approximately.
 // The R storage types ("double", ...) are deliberately absent: this parses the
-// strings that name a *buffer's* type (a tengen DataType, the compile
+// strings that name a *buffer's* type (a xlamisc DataType, the compile
 // callback's `input_dtypes`), and no buffer is ever of an R storage type.
 inline AnvlDtype anvl_dtype_from_name(const char *name) {
   if (!std::strcmp(name, "bool")) return AnvlDtype::kBool;
@@ -147,9 +147,9 @@ inline AnvlDtype anvl_dtype_from_name(const char *name) {
   return AnvlDtype::kInvalid;
 }
 
-// The same, for a tengen DataType object: a length-1 character vector classed
+// The same, for a xlamisc DataType object: a length-1 character vector classed
 // "DataType" whose string is the canonical dtype name.
-inline AnvlDtype anvl_dtype_from_tengen(SEXP dtype) {
+inline AnvlDtype anvl_dtype_from_xlamisc(SEXP dtype) {
   if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
     return AnvlDtype::kInvalid;
   }

@@ -123,25 +123,25 @@ test_pjrt_buffer <- function(
 
 test_that("dtype works for PJRTBuffer", {
   buf_f32 <- pjrt_buffer(1.0, dtype = "f32")
-  expect_equal(dtype(buf_f32), tengen::as_dtype("f32"))
+  expect_equal(dtype(buf_f32), xlamisc::as_dtype("f32"))
 
   buf_f64 <- pjrt_buffer(1.0, dtype = "f64")
-  expect_equal(dtype(buf_f64), tengen::as_dtype("f64"))
+  expect_equal(dtype(buf_f64), xlamisc::as_dtype("f64"))
 
   buf_i32 <- pjrt_buffer(1L, dtype = "i32")
-  expect_equal(dtype(buf_i32), tengen::as_dtype("i32"))
+  expect_equal(dtype(buf_i32), xlamisc::as_dtype("i32"))
 
   buf_i8 <- pjrt_buffer(1L, dtype = "i8")
-  expect_equal(dtype(buf_i8), tengen::as_dtype("i8"))
+  expect_equal(dtype(buf_i8), xlamisc::as_dtype("i8"))
 
   buf_pred <- pjrt_buffer(TRUE, dtype = "pred")
-  expect_equal(dtype(buf_pred), tengen::as_dtype("bool"))
+  expect_equal(dtype(buf_pred), xlamisc::as_dtype("bool"))
 
   buf_bool <- pjrt_buffer(TRUE, dtype = "bool")
-  expect_equal(dtype(buf_bool), tengen::as_dtype("bool"))
+  expect_equal(dtype(buf_bool), xlamisc::as_dtype("bool"))
 
   buf_ui8 <- pjrt_buffer(1L, dtype = "ui8")
-  expect_equal(dtype(buf_ui8), tengen::as_dtype("ui8"))
+  expect_equal(dtype(buf_ui8), xlamisc::as_dtype("ui8"))
 })
 
 test_that("pjrt_scalar roundtrip works for scalar data", {
@@ -1042,60 +1042,60 @@ test_that("i1 is alias for pred", {
 test_that("pjrt_buffer accepts DataType objects", {
   # pjrt_buffer with DataType
   expect_equal(
-    pjrt_buffer(c(1, 2, 3), dtype = tengen::as_dtype("f32")),
+    pjrt_buffer(c(1, 2, 3), dtype = xlamisc::as_dtype("f32")),
     pjrt_buffer(c(1, 2, 3), dtype = "f32")
   )
   expect_equal(
-    pjrt_buffer(c(1, 2, 3), dtype = tengen::as_dtype("f64")),
+    pjrt_buffer(c(1, 2, 3), dtype = xlamisc::as_dtype("f64")),
     pjrt_buffer(c(1, 2, 3), dtype = "f64")
   )
   expect_equal(
-    pjrt_buffer(1L, dtype = tengen::as_dtype("i32")),
+    pjrt_buffer(1L, dtype = xlamisc::as_dtype("i32")),
     pjrt_buffer(1L, dtype = "i32")
   )
   expect_equal(
-    pjrt_buffer(1L, dtype = tengen::as_dtype("ui8")),
+    pjrt_buffer(1L, dtype = xlamisc::as_dtype("ui8")),
     pjrt_buffer(1L, dtype = "ui8")
   )
   expect_equal(
-    pjrt_buffer(TRUE, dtype = tengen::as_dtype("bool")),
+    pjrt_buffer(TRUE, dtype = xlamisc::as_dtype("bool")),
     pjrt_buffer(TRUE, dtype = "pred")
   )
 
   # pjrt_scalar with DataType
   expect_equal(
-    pjrt_scalar(42L, dtype = tengen::as_dtype("i32")),
+    pjrt_scalar(42L, dtype = xlamisc::as_dtype("i32")),
     pjrt_scalar(42L, dtype = "i32")
   )
   expect_equal(
-    pjrt_scalar(3.14, dtype = tengen::as_dtype("f64")),
+    pjrt_scalar(3.14, dtype = xlamisc::as_dtype("f64")),
     pjrt_scalar(3.14, dtype = "f64")
   )
 
   # pjrt_empty with DataType
   expect_equal(
-    pjrt_empty(dtype = tengen::as_dtype("f32"), shape = c(0, 3)),
+    pjrt_empty(dtype = xlamisc::as_dtype("f32"), shape = c(0, 3)),
     pjrt_empty(dtype = "f32", shape = c(0, 3))
   )
 
   # raw buffer with DataType
   raw_data <- as.raw(rep(0, 24))
   expect_equal(
-    pjrt_buffer(raw_data, dtype = tengen::as_dtype("f32"), shape = c(2, 3), row_major = FALSE),
+    pjrt_buffer(raw_data, dtype = xlamisc::as_dtype("f32"), shape = c(2, 3), row_major = FALSE),
     pjrt_buffer(raw_data, dtype = "f32", shape = c(2, 3), row_major = FALSE)
   )
 
   # raw scalar with DataType
   raw_scalar <- as.raw(rep(0, 4))
   expect_equal(
-    pjrt_scalar(raw_scalar, dtype = tengen::as_dtype("f32")),
+    pjrt_scalar(raw_scalar, dtype = xlamisc::as_dtype("f32")),
     pjrt_scalar(raw_scalar, dtype = "f32")
   )
 
   # identity preserves buffer when DataType matches
   buf <- pjrt_buffer(c(1, 2), dtype = "f32")
-  expect_equal(pjrt_buffer(buf, dtype = tengen::as_dtype("f32")), buf)
-  expect_error(pjrt_buffer(buf, dtype = tengen::as_dtype("i32")), "Must use the same data type")
+  expect_equal(pjrt_buffer(buf, dtype = xlamisc::as_dtype("f32")), buf)
+  expect_error(pjrt_buffer(buf, dtype = xlamisc::as_dtype("i32")), "Must use the same data type")
 })
 
 test_that("raw buffer validates dtype and shape compatibility", {

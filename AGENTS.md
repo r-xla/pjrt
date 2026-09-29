@@ -78,7 +78,7 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `tree.R` – Rtree API over the native `RTree` (`build_tree()`, `flatten()`, `unflatten()`, `map_tree()`, ...)
 - `dispatch.R` – `dispatcher()`, `dispatch()`; the engine itself is C++ (`src/dispatch*.{h,cpp}`)
 - `safetensors.R` – safetensors read/write integration
-- `reexports.R` – tengen re-exports
+- `reexports.R` – xlamisc re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options
 
 **Important:** Do not call `devtools::load_all()` and `devtools::test()` in the same R process. The protobuf descriptors get registered twice, causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use separate `Rscript -e` calls instead.

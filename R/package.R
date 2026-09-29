@@ -1,7 +1,7 @@
 ## usethis namespace: start
 #' @useDynLib pjrt, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
-#' @importFrom tengen as_array as_dtype as_raw device dtype shape
+#' @importFrom xlamisc as_array as_dtype as_raw device dtype shape
 #' @import checkmate
 #' @importFrom safetensors safe_tensor_buffer safe_tensor_meta
 #' @importFrom utils hashtab
