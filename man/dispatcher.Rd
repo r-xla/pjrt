@@ -146,7 +146,7 @@ object a backend hands out stays alive for the dispatcher's lifetime.}
 
 \item{extractor}{(\code{function} | \code{NULL})\cr
 Reads a non-\code{"pjrt"} array's metadata via the backend's accessors, called as
-\code{extractor(leaf)} and returning \code{list(aval = list(dtype, shape), device, backend)} -- \code{dtype} a tengen \code{DataType}, \code{shape} an \code{integer()}. The
+\code{extractor(leaf)} and returning \code{list(aval = list(dtype, shape), device, backend)} -- \code{dtype} a xlamisc \code{DataType}, \code{shape} an \code{integer()}. The
 aval's kind is not the extractor's to say: whatever it returns is an array
 leaf.
 Required for any backend other than \code{"pjrt"}; ignored for \code{"pjrt"} (see
