@@ -27,17 +27,16 @@
 
 namespace rpjrt {
 
-// A per-leaf mask for a flattened argument list, set for the leaves of the
-// top-level arguments named in `names` (the static ones, or those that follow
-// the call's device). Both are top-level properties: an argument named in
-// `names` marks every leaf in its subtree. `tree` is the one flatten_rec builds
-// for the whole args list, so its root's children are the call's arguments.
-// Walk those children and append each one's flag once per leaf it contributed
-// -- flatten_rec appends leaves in this same preorder, so the mask lines up
-// with the leaf list one-to-one. (A nested list or a NULL is a node but not a
-// leaf, which is why leaves are counted rather than nodes.)
-inline std::vector<char> arg_leaf_mask(
-    const RTree& tree, const std::unordered_set<std::string>& names) {
+// The per-leaf static mask for a flattened argument list. Static-ness is a
+// top-level property: an argument named in `statics` marks every leaf in its
+// subtree. `tree` is the one flatten_rec builds for the whole args list, so its
+// root's children are the call's arguments. Walk those children and append each
+// one's flag once per leaf it contributed -- flatten_rec appends leaves in this
+// same preorder, so the mask lines up with the leaf list one-to-one. (A nested
+// list or a NULL is a node but not a leaf, which is why leaves are counted
+// rather than nodes.)
+inline std::vector<char> static_leaf_mask(
+    const RTree& tree, const std::unordered_set<std::string>& statics) {
   std::vector<char> mask;
   const std::int32_t n_args = tree.n_children[0];
   const bool named = tree.is_named(0);
@@ -45,7 +44,7 @@ inline std::vector<char> arg_leaf_mask(
   for (std::int32_t k = 0; k < n_args; ++k) {
     const std::int32_t span = tree.subtree_nodes[node];
     const char flag =
-        named && names.count(tree.names[tree.name_off[0] + k]) > 0 ? 1 : 0;
+        named && statics.count(tree.names[tree.name_off[0] + k]) > 0 ? 1 : 0;
     for (std::int32_t j = 0; j < span; ++j) {
       if (tree.kind[node + j] == RTree::LeafNode) mask.push_back(flag);
     }
@@ -79,8 +78,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
     int capacity, SEXP compile_fn,
     Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
     std::string backend, bool move_inputs, SEXP default_device_fn,
-    SEXP extractor_fn, SEXP context_fn,
-    Rcpp::Nullable<Rcpp::CharacterVector> follow_names) {
+    SEXP extractor_fn, SEXP context_fn) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
@@ -107,16 +105,10 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
       statics.insert(Rcpp::as<std::string>(nm));
     }
   }
-  std::unordered_set<std::string> follows;
-  if (follow_names.isNotNull()) {
-    for (const auto& nm : Rcpp::CharacterVector(follow_names)) {
-      follows.insert(Rcpp::as<std::string>(nm));
-    }
-  }
   auto d = std::make_unique<Dispatcher>(
       static_cast<std::size_t>(capacity), compile_fn, std::move(statics),
       std::move(eng), std::move(backend), move_inputs, std::move(resolver),
-      std::move(context), std::move(follows));
+      std::move(context));
   Rcpp::XPtr<Dispatcher> ptr(d.release(), true);
   ptr.attr("class") = "Dispatcher";
   return ptr;
@@ -140,16 +132,13 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
 
   // 1. Flatten args into leaves + structure, and mark the static leaves.
   // flatten_rec encodes the argument list as the root ListNode, so its children
-  // are the call's arguments; arg_leaf_mask overlays the dispatch-only static
-  // and follow bits on the leaves each such argument contributed (this overlay
-  // is not part of the shared Rtree API).
+  // are the call's arguments; static_leaf_mask overlays the dispatch-only
+  // static bit on the leaves each static-named argument contributed (this
+  // overlay is not part of the shared Rtree API).
   std::vector<SEXP> leaves;
   RTree in_tree;
   flatten_rec(args, leaves, in_tree);
-  const std::vector<char> is_static = arg_leaf_mask(in_tree, statics);
-  const std::vector<char> is_follow =
-      d.follow_names().empty() ? std::vector<char>(leaves.size(), 0)
-                               : arg_leaf_mask(in_tree, d.follow_names());
+  const std::vector<char> is_static = static_leaf_mask(in_tree, statics);
 
   // 2. Validate and classify leaves into key leaves + per-leaf execute
   // material. Every rejection happens here, named after the offending argument:
@@ -216,9 +205,8 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       // spread across devices. Otherwise the leaf's `$device` is canonicalized
       // by the engine -- equal-but-distinct device objects collapse to one
       // token -- and the first array's device is the call's device, which every
-      // later array must agree with. An array that follows the call's device
-      // names none: the engine copies it to the entry's device instead.
-      if (!move && !is_follow[k]) {
+      // later array must agree with.
+      if (!move) {
         const DeviceToken leaf_device =
             static_cast<DeviceToken>(engine.canonical_device(al->device));
         if (!have_device) {
@@ -234,8 +222,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       }
       key.leaves.push_back(std::move(kl));
       // `$data` is a field of a leaf of `args`, which roots it for the call.
-      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval,
-                             AnvlDtype::kInvalid, is_follow[k] != 0});
+      exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval});
       continue;
     }
     std::optional<RDataInfo> rd = classify_rdata(leaf);
@@ -305,12 +292,10 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     const R_xlen_t n_leaves = static_cast<R_xlen_t>(leaves.size());
     Rcpp::List leaf_list(n_leaves);
     Rcpp::LogicalVector static_mask(n_leaves);
-    Rcpp::LogicalVector follow_mask(n_leaves);
     Rcpp::List avals(n_leaves);  // NULL at a static leaf: it has no Aval
     for (R_xlen_t i = 0; i < n_leaves; ++i) {
       leaf_list[i] = leaves[i];
       static_mask[i] = is_static[i] ? TRUE : FALSE;
-      follow_mask[i] = is_follow[i] ? TRUE : FALSE;
       const KeyLeaf& kl = key.leaves[i];
       if (kl.is_static) continue;
       Rcpp::IntegerVector shp(kl.aval.shape.begin(), kl.aval.shape.end());
@@ -329,9 +314,6 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
             tree_xptr(std::make_unique<RTree>(in_tree).release()),
         Rcpp::Named("leaves") = leaf_list,
         Rcpp::Named("is_static") = static_mask, Rcpp::Named("avals") = avals,
-        // The leaves of the arguments that follow the call's device: they
-        // named no device, so the callback must not infer one from them.
-        Rcpp::Named("is_follow") = follow_mask,
         // The device this call resolved when no array named one -- the device
         // the key was built on, so the callback compiles for it rather than
         // resolving a default of its own. NULL otherwise.

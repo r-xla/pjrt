@@ -64,9 +64,6 @@
 #'     not a dtype it is not yet: `"double"` is not `"f64"`, and what the leaf
 #'     is uploaded at is `input_dtypes`. `shape` is an `integer()`, empty for a
 #'     scalar,
-#'   * `is_follow`: a `logical()` mask over `leaves`, set for the leaves of the
-#'     arguments named in `follow`. They named no device, so `compile` must not
-#'     infer one from them.
 #'   * `default_device`: the device this call resolved because no array input
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
@@ -87,6 +84,18 @@
 #'   * `const_arrays` (optional): buffers prepended to the inputs,
 #'   * `phantom_specs` (optional): a list of `list(dtype = <string>, shape =
 #'     <integer>)` donation-output buffers to allocate fresh per call.
+#'   * `state` (optional): a list of state slots, each `list(env, name, init,
+#'     dtype, shape)`. A slot is an array the program reads and updates beyond
+#'     the call's arguments, e.g. a global RNG state: the program takes one
+#'     input per slot after the call's own (and before the phantoms), and
+#'     returns one output per slot after the `out_tree`'s. Before each run the
+#'     engine reads the `"AnvlArray"` bound to `name` in the environment `env`,
+#'     checks it against the slot's `dtype` and `shape`, and copies it to the
+#'     entry's device when it lives elsewhere; where the binding is unset or
+#'     `NULL`, `init()` is called to create it (an error when `init` is
+#'     `NULL`). After the run the slot's output is bound to `name` in its place.
+#'     A slot is not part of the cache key: only the program decides that it
+#'     needs one.
 #'
 #'   Either kind of result may additionally carry:
 #'   * `input_dtypes`: a `character()` with one entry per dynamic leaf, in
@@ -148,15 +157,6 @@
 #'   entry's device. With any other backend pjrt does nothing, so **`r_fun` must
 #'   place its own inputs** -- it receives only their `$data`, not their
 #'   `$device`, so the placing has to be idempotent.
-#' @param follow (`character()`)\cr
-#'   Names of top-level arguments whose arrays *follow* the call's device rather
-#'   than decide it. Such an array takes no part in resolving the call's device
-#'   -- it is neither checked against the other inputs nor keyed on -- and with
-#'   `backend = "pjrt"` the engine copies it to the entry's device when it lives
-#'   elsewhere. A call whose only arrays follow resolves its device as one with
-#'   no array input does. With any other backend pjrt does nothing, so `r_fun`
-#'   must place these inputs itself, as under `move_inputs`. Must not overlap
-#'   `static`. Defaults to none.
 #' @param default_device (`function` | `NULL`)\cr
 #'   Called with no arguments to get the backend's *current* default device,
 #'   whenever a call has no array input to read a device from. Its result is
@@ -197,8 +197,7 @@ dispatcher <- function(
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL,
-  context = NULL,
-  follow = character()
+  context = NULL
 ) {
   checkmate::assert_count(capacity, positive = TRUE)
   checkmate::assert_function(compile)
@@ -208,10 +207,6 @@ dispatcher <- function(
   checkmate::assert_function(default_device, null.ok = TRUE)
   checkmate::assert_function(extractor, null.ok = TRUE)
   checkmate::assert_function(context, null.ok = TRUE)
-  checkmate::assert_character(follow, any.missing = FALSE)
-  if (length(intersect(follow, static))) {
-    cli::cli_abort("{.arg follow} and {.arg static} must not overlap.")
-  }
   if (!move_inputs && is.null(default_device)) {
     cli::cli_abort(
       "{.arg default_device} is required unless {.code move_inputs = TRUE}."
@@ -235,8 +230,7 @@ dispatcher <- function(
     move_inputs,
     default_device,
     extractor,
-    context,
-    as.character(follow)
+    context
   )
 }
 

@@ -12,8 +12,7 @@ dispatcher(
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL,
-  context = NULL,
-  follow = character()
+  context = NULL
 )
 }
 \arguments{
@@ -40,9 +39,6 @@ so \code{"double"}, \code{"integer"} or \code{"logical"}. That is what the value
 not a dtype it is not yet: \code{"double"} is not \code{"f64"}, and what the leaf
 is uploaded at is \code{input_dtypes}. \code{shape} is an \code{integer()}, empty for a
 scalar,
-\item \code{is_follow}: a \code{logical()} mask over \code{leaves}, set for the leaves of the
-arguments named in \code{follow}. They named no device, so \code{compile} must not
-infer one from them.
 \item \code{default_device}: the device this call resolved because no array input
 named one -- the device the cache key was built on, so \code{compile} must
 compile for it rather than resolve a default of its own. \code{NULL} when an
@@ -165,16 +161,6 @@ served under another, and it reaches \code{compile} as \code{info$context}. Unli
 \code{default_device}, which is consulted only when no array names a device,
 this is resolved for every call: any entry may depend on it. \code{NULL}
 (default) keys on the inputs alone.}
-
-\item{follow}{(\code{character()})\cr
-Names of top-level arguments whose arrays \emph{follow} the call's device rather
-than decide it. Such an array takes no part in resolving the call's device
--- it is neither checked against the other inputs nor keyed on -- and with
-\code{backend = "pjrt"} the engine copies it to the entry's device when it lives
-elsewhere. A call whose only arrays follow resolves its device as one with
-no array input does. With any other backend pjrt does nothing, so \code{r_fun}
-must place these inputs itself, as under \code{move_inputs}. Must not overlap
-\code{static}. Defaults to none.}
 }
 \value{
 \code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}.

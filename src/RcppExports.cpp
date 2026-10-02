@@ -22,8 +22,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_dispatcher_create
-Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(int capacity, SEXP compile_fn, Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn, SEXP extractor_fn, SEXP context_fn, Rcpp::Nullable<Rcpp::CharacterVector> follow_names);
-RcppExport SEXP _pjrt_impl_dispatcher_create(SEXP capacitySEXP, SEXP compile_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP, SEXP extractor_fnSEXP, SEXP context_fnSEXP, SEXP follow_namesSEXP) {
+Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(int capacity, SEXP compile_fn, Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn, SEXP extractor_fn, SEXP context_fn);
+RcppExport SEXP _pjrt_impl_dispatcher_create(SEXP capacitySEXP, SEXP compile_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP, SEXP extractor_fnSEXP, SEXP context_fnSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -36,8 +36,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type default_device_fn(default_device_fnSEXP);
     Rcpp::traits::input_parameter< SEXP >::type extractor_fn(extractor_fnSEXP);
     Rcpp::traits::input_parameter< SEXP >::type context_fn(context_fnSEXP);
-    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::CharacterVector> >::type follow_names(follow_namesSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_dispatcher_create(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn, follow_names));
+    rcpp_result_gen = Rcpp::wrap(impl_dispatcher_create(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -963,7 +962,7 @@ RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_cpp_tests_enabled", (DL_FUNC) &_pjrt_cpp_tests_enabled, 0},
-    {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 10},
+    {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 9},
     {"_pjrt_impl_dispatcher_size", (DL_FUNC) &_pjrt_impl_dispatcher_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
     {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},

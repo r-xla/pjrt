@@ -1,7 +1,7 @@
 # pjrt (development version)
 
-* `dispatcher()` gains `follow`: arguments whose arrays follow the call's device
-  instead of deciding it, and are copied to the entry's device.
+* A `dispatcher()` compile callback can declare `state` slots: arrays the
+  program reads from and writes back to an environment on every run.
 
 # pjrt 0.6.0
 
