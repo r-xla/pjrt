@@ -89,9 +89,6 @@ struct ExecInput {
   // compiled to take. Unused for an array leaf, and kInvalid for every input of
   // an engine that uploads nothing.
   AnvlDtype dtype = AnvlDtype::kInvalid;
-  // Whether the array follows the call's device (?dispatcher's `follow`): the
-  // engine copies it to the entry's device when it lives elsewhere.
-  bool follow = false;
 };
 
 // An engine's per-entry material -- what the compile callback produced, in the

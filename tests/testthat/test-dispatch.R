@@ -80,7 +80,7 @@ test_extractor <- function(leaf) {
 # pjrt engine ignores it and reads the PJRTBuffer directly.
 new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device, context = NULL) {
   extractor <- if (engine == "pjrt") NULL else test_extractor
-  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context, character())
+  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context)
 }
 # ---------------------------------------------------------------------------
 # Programs. `dispatcher()` needs something real to execute, so the tests compile
@@ -477,43 +477,96 @@ test_that("move_inputs copies a pjrt input to the entry's device", {
   expect_equal(dispatcher_size(d), 1L)
 })
 
-test_that("a `follow` input is copied to the entry's device and decides nothing", {
-  skip_if_not(plugins_downloaded())
-  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
-  dev0 <- pjrt_device("cpu:0")
-  dev1 <- pjrt_device("cpu:1")
-  infos <- list()
-  d <- dispatcher(
-    10L,
-    function(info) {
-      infos[[length(infos) + 1L]] <<- info
-      # the device the other input named, or the default
-      dev <- info$default_device %||% info$leaves[[1L]]$device
-      pjrt_entry(binop_exec(device = dev), device = dev)
-    },
-    default_device = function() dev0,
-    follow = "y"
+# `x + s` as the output and `s * s` as the new state of a state slot `s`.
+state_exec <- function(device = NULL) {
+  pjrt_compile(
+    pjrt_program(
+      src = 'func.func @main(%x: tensor<2xf32>, %s: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
+       %0 = "stablehlo.add"(%x, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       %1 = "stablehlo.multiply"(%s, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
+     }'
+    ),
+    device = device
   )
-  x1 <- parr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:1"))
-  y0 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:0"))
-  y1 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
+}
 
-  # `x` names the device; `y` lives elsewhere and is copied rather than rejected
-  r <- dispatch(d, list(x = x1, y = y0))
-  expect_equal(out(r), c(4, 6))
-  expect_identical(r$device, dev1)
-  expect_identical(infos[[1L]]$is_follow, c(FALSE, TRUE))
+state_dispatcher <- function(env, init = NULL, device = test_pjrt_device()) {
+  slot <- list(env = env, name = "s", init = init, dtype = "f32", shape = 2L)
+  dispatcher(
+    10L,
+    function(info) pjrt_entry(state_exec(device), device = device, state = list(slot)),
+    default_device = function() device
+  )
+}
 
-  # where `y` lives is not part of the key
-  expect_equal(out(dispatch(d, list(x = x1, y = y1))), c(4, 6))
+test_that("a state slot is read before and written after every run", {
+  skip_if_not(plugins_downloaded())
+  env <- new.env()
+  env$s <- parr(pjrt_buffer(c(2, 3), dtype = "f32"))
+  d <- state_dispatcher(env)
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+
+  # the result is the out_tree's output alone; the state goes back to its slot
+  expect_equal(out(dispatch(d, list(x = x))), c(3, 4))
+  expect_s3_class(env$s, "AnvlArray")
+  expect_equal(out(env$s), c(4, 9))
+  # the next call reads the updated state, from the same entry
+  expect_equal(out(dispatch(d, list(x = x))), c(5, 10))
+  expect_equal(out(env$s), c(16, 81))
   expect_equal(dispatcher_size(d), 1L)
 })
 
-test_that("`follow` must not overlap `static`", {
-  expect_error(
-    dispatcher(10L, function(info) NULL, static = "s", default_device = function() NULL, follow = "s"),
-    "must not overlap"
+test_that("an unset state slot is created by `init`, or is an error", {
+  skip_if_not(plugins_downloaded())
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  env <- new.env()
+  n_init <- 0L
+  d <- state_dispatcher(env, init = function() {
+    n_init <<- n_init + 1L
+    parr(pjrt_buffer(c(2, 2), dtype = "f32"))
+  })
+  expect_equal(out(dispatch(d, list(x = x))), c(3, 3))
+  expect_equal(out(dispatch(d, list(x = x))), c(5, 5))
+  expect_equal(n_init, 1L)
+
+  expect_error(dispatch(state_dispatcher(new.env()), list(x = x)), "state slot 1 \\(`s`\\) is not set")
+})
+
+test_that("a state slot is checked against its dtype and shape", {
+  skip_if_not(plugins_downloaded())
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  env <- new.env()
+  env$s <- parr(pjrt_buffer(c(2, 2, 2), dtype = "f32"))
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "another dtype or shape")
+  env$s <- 1
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "must hold an AnvlArray")
+})
+
+test_that("a state slot is copied to the entry's device", {
+  skip_if_not(plugins_downloaded())
+  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
+  dev0 <- pjrt_device("cpu:0")
+  env <- new.env()
+  env$s <- parr(pjrt_buffer(c(2, 3), dtype = "f32", device = "cpu:1"))
+  d <- state_dispatcher(env, device = dev0)
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32", device = "cpu:0"))
+  expect_equal(out(dispatch(d, list(x = x))), c(3, 4))
+  expect_identical(env$s$device, dev0)
+  expect_equal(out(env$s), c(4, 9))
+})
+
+test_that("the closure engine rejects state slots", {
+  d <- new_dispatcher(
+    10L,
+    function(info) list(r_fun = function(flat) NULL, state = list()),
+    character(0),
+    "closure",
+    "quickr",
+    FALSE,
+    test_quickr_device
   )
+  expect_error(dispatch(d, list(x = qarr(1))), "only supported by the pjrt engine")
 })
 
 test_that("phantom_specs allocate donation buffers of the requested dtype", {
@@ -986,8 +1039,7 @@ test_that("a context resolver must return a character vector without NAs", {
       FALSE,
       test_quickr_device,
       test_extractor,
-      1,
-      character()
+      1
     ),
     "context must be a function or NULL"
   )
@@ -1118,8 +1170,7 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
     FALSE,
     test_quickr_device,
     extractor,
-    NULL,
-    character()
+    NULL
   )
   bare <- function(v) structure(list(data = v), class = "AnvlArray")
   expect_identical(impl_dispatch_run(d, list(bare(c(1, 2, 3))))$v, c(2, 4, 6))
@@ -1175,7 +1226,7 @@ test_that("out_avals and out_tree are the callback's claim, and are honoured", {
   # does -- on execution, against the real outputs.
   expect_error(
     impl_dispatch_run(mk(build_tree(list(0, 0, 0)), list(oav(), oav(), oav())), list(x, y)),
-    "out_tree has 3 leaves but the executable returned 2 outputs"
+    "out_tree has 3 leaves and the entry 0 state slots, but the executable returned 2 outputs"
   )
   # An out_avals that disagrees with out_tree is caught at compile time,
   # before the entry is ever cached.
