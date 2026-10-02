@@ -64,6 +64,9 @@
 #'     not a dtype it is not yet: `"double"` is not `"f64"`, and what the leaf
 #'     is uploaded at is `input_dtypes`. `shape` is an `integer()`, empty for a
 #'     scalar,
+#'   * `is_follow`: a `logical()` mask over `leaves`, set for the leaves of the
+#'     arguments named in `follow`. They named no device, so `compile` must not
+#'     infer one from them.
 #'   * `default_device`: the device this call resolved because no array input
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
@@ -145,6 +148,15 @@
 #'   entry's device. With any other backend pjrt does nothing, so **`r_fun` must
 #'   place its own inputs** -- it receives only their `$data`, not their
 #'   `$device`, so the placing has to be idempotent.
+#' @param follow (`character()`)\cr
+#'   Names of top-level arguments whose arrays *follow* the call's device rather
+#'   than decide it. Such an array takes no part in resolving the call's device
+#'   -- it is neither checked against the other inputs nor keyed on -- and with
+#'   `backend = "pjrt"` the engine copies it to the entry's device when it lives
+#'   elsewhere. A call whose only arrays follow resolves its device as one with
+#'   no array input does. With any other backend pjrt does nothing, so `r_fun`
+#'   must place these inputs itself, as under `move_inputs`. Must not overlap
+#'   `static`. Defaults to none.
 #' @param default_device (`function` | `NULL`)\cr
 #'   Called with no arguments to get the backend's *current* default device,
 #'   whenever a call has no array input to read a device from. Its result is
@@ -185,7 +197,8 @@ dispatcher <- function(
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL,
-  context = NULL
+  context = NULL,
+  follow = character()
 ) {
   checkmate::assert_count(capacity, positive = TRUE)
   checkmate::assert_function(compile)
@@ -195,6 +208,10 @@ dispatcher <- function(
   checkmate::assert_function(default_device, null.ok = TRUE)
   checkmate::assert_function(extractor, null.ok = TRUE)
   checkmate::assert_function(context, null.ok = TRUE)
+  checkmate::assert_character(follow, any.missing = FALSE)
+  if (length(intersect(follow, static))) {
+    cli::cli_abort("{.arg follow} and {.arg static} must not overlap.")
+  }
   if (!move_inputs && is.null(default_device)) {
     cli::cli_abort(
       "{.arg default_device} is required unless {.code move_inputs = TRUE}."
@@ -218,7 +235,8 @@ dispatcher <- function(
     move_inputs,
     default_device,
     extractor,
-    context
+    context,
+    as.character(follow)
   )
 }
 
