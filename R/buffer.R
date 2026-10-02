@@ -712,6 +712,7 @@ print.PJRTDevice <- function(x, ...) {
 #'   The buffer.
 #' @param max_rows (`integer(1)`)\cr
 #'   The maximum number of rows to print, excluding header and footer.
+#'   Set to `-1` for no limit.
 #' @param max_width (`integer(1)`)\cr
 #'   The maximum width (in characters) of the printed buffer.
 #'   Set to negative values for no limit.
@@ -721,6 +722,7 @@ print.PJRTDevice <- function(x, ...) {
 #'   other rows might exceed the width.
 #' @param max_rows_slice (`integer(1)`)\cr
 #'   The maximum number of rows to print for each slice.
+#'   Set to `-1` for no limit.
 #' @param header (`logical(1)`)\cr
 #'   Whether to print the header.
 #' @param footer (`NULL` or `character(1)`)\cr
@@ -738,13 +740,13 @@ print.PJRTBuffer <- function(
   ...
 ) {
   assert_flag(header)
-  max_rows <- assert_int(max_rows, coerce = TRUE, lower = 1L)
+  max_rows <- assert_print_rows(max_rows)
   max_width <- assert_int(max_width, coerce = TRUE)
   if (max_width %in% c(0, 1L)) {
     # we disallow 1, because every data line starts with ' '
     cli_abort("Either provide a negative value for max_width or a value > 1")
   }
-  max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE, lower = 1L)
+  max_rows_slice <- assert_print_rows(max_rows_slice)
 
   if (header) {
     cat(class(x)[[1L]], "\n")
@@ -768,6 +770,14 @@ print.PJRTBuffer <- function(
     cat(footer, "\n")
   }
   invisible(x)
+}
+
+assert_print_rows <- function(x, .var.name = vname(x)) {
+  x <- assert_int(x, coerce = TRUE, lower = -1L, .var.name = .var.name)
+  if (x == 0L) {
+    cli_abort("{.arg {(.var.name)}} must be -1 (no limit) or positive.")
+  }
+  x
 }
 
 #' @export
