@@ -595,19 +595,20 @@ class PjrtEngine : public Engine {
 
     // Assemble the executable's inputs: const_arrays ++ the call's inputs ++
     // freshly allocated phantom donation buffers. A buffer input passes through
-    // -- or, under `move_inputs`, is copied to the entry's device when it lives
-    // elsewhere; a bare R literal/array is uploaded to the entry's device, at
-    // the dtype `input_dtypes` declared for it. The GC-rooted
-    // `inputs` list is built first and each allocated buffer (copy, upload,
-    // phantom) written straight into its slot: it is reachable only through
-    // `inputs` (the R GC does not scan C++ locals across the next allocation).
+    // -- or, under `move_inputs` or when it follows the call's device, is
+    // copied to the entry's device when it lives elsewhere; a bare R
+    // literal/array is uploaded to the entry's device, at the dtype
+    // `input_dtypes` declared for it. The GC-rooted `inputs` list is built
+    // first and each allocated buffer (copy, upload, phantom) written straight
+    // into its slot: it is reachable only through `inputs` (the R GC does not
+    // scan C++ locals across the next allocation).
     Rcpp::List inputs(pe->const_arrays.size() + exec_inputs.size() +
                       pe->phantom_specs.size());
     R_xlen_t pos = 0;
     for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
       if (in.aval->kind != AvalKind::kRData) {
-        if (move_inputs_) {
+        if (move_inputs_ || in.follow) {
           Rcpp::XPtr<PJRTBuffer> buf(in.value);
           if (buf->device_ptr() != pe->device->device) {
             // Same plugin <=> same client (clients are per-platform

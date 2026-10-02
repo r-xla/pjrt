@@ -1,5 +1,8 @@
 # pjrt (development version)
 
+* `dispatcher()` gains `follow`: arguments whose arrays follow the call's device
+  instead of deciding it, and are copied to the entry's device.
+
 # pjrt 0.6.0
 
 ## Breaking changes

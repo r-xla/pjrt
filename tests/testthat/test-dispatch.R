@@ -80,7 +80,7 @@ test_extractor <- function(leaf) {
 # pjrt engine ignores it and reads the PJRTBuffer directly.
 new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device, context = NULL) {
   extractor <- if (engine == "pjrt") NULL else test_extractor
-  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context)
+  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context, character())
 }
 # ---------------------------------------------------------------------------
 # Programs. `dispatcher()` needs something real to execute, so the tests compile
@@ -475,6 +475,45 @@ test_that("move_inputs copies a pjrt input to the entry's device", {
   y1 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
   expect_equal(out(dispatch(d, list(x = x0, y = y1))), c(4, 6))
   expect_equal(dispatcher_size(d), 1L)
+})
+
+test_that("a `follow` input is copied to the entry's device and decides nothing", {
+  skip_if_not(plugins_downloaded())
+  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
+  dev0 <- pjrt_device("cpu:0")
+  dev1 <- pjrt_device("cpu:1")
+  infos <- list()
+  d <- dispatcher(
+    10L,
+    function(info) {
+      infos[[length(infos) + 1L]] <<- info
+      # the device the other input named, or the default
+      dev <- info$default_device %||% info$leaves[[1L]]$device
+      pjrt_entry(binop_exec(device = dev), device = dev)
+    },
+    default_device = function() dev0,
+    follow = "y"
+  )
+  x1 <- parr(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:1"))
+  y0 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:0"))
+  y1 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
+
+  # `x` names the device; `y` lives elsewhere and is copied rather than rejected
+  r <- dispatch(d, list(x = x1, y = y0))
+  expect_equal(out(r), c(4, 6))
+  expect_identical(r$device, dev1)
+  expect_identical(infos[[1L]]$is_follow, c(FALSE, TRUE))
+
+  # where `y` lives is not part of the key
+  expect_equal(out(dispatch(d, list(x = x1, y = y1))), c(4, 6))
+  expect_equal(dispatcher_size(d), 1L)
+})
+
+test_that("`follow` must not overlap `static`", {
+  expect_error(
+    dispatcher(10L, function(info) NULL, static = "s", default_device = function() NULL, follow = "s"),
+    "must not overlap"
+  )
 })
 
 test_that("phantom_specs allocate donation buffers of the requested dtype", {
@@ -947,7 +986,8 @@ test_that("a context resolver must return a character vector without NAs", {
       FALSE,
       test_quickr_device,
       test_extractor,
-      1
+      1,
+      character()
     ),
     "context must be a function or NULL"
   )
@@ -1078,7 +1118,8 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
     FALSE,
     test_quickr_device,
     extractor,
-    NULL
+    NULL,
+    character()
   )
   bare <- function(v) structure(list(data = v), class = "AnvlArray")
   expect_identical(impl_dispatch_run(d, list(bare(c(1, 2, 3))))$v, c(2, 4, 6))

@@ -34,12 +34,14 @@ class Dispatcher {
              std::unordered_set<std::string> static_names,
              std::unique_ptr<Engine> engine, std::string backend,
              bool move_inputs, std::optional<Rcpp::Function> default_device_fn,
-             std::optional<Rcpp::Function> context_fn)
+             std::optional<Rcpp::Function> context_fn,
+             std::unordered_set<std::string> follow_names)
       : cache_(capacity),
         compile_fn_(compile_fn),
         default_device_fn_(std::move(default_device_fn)),
         context_fn_(std::move(context_fn)),
         static_names_(std::move(static_names)),
+        follow_names_(std::move(follow_names)),
         engine_(std::move(engine)),
         backend_(std::move(backend)),
         move_inputs_(move_inputs) {}
@@ -72,6 +74,11 @@ class Dispatcher {
   const std::unordered_set<std::string>& static_names() const {
     return static_names_;
   }
+  // The top-level arguments whose arrays follow the call's device
+  // (?dispatcher's `follow`).
+  const std::unordered_set<std::string>& follow_names() const {
+    return follow_names_;
+  }
   // Non-const: canonical_device() may grow the engine's device table.
   Engine& engine() { return *engine_; }
   // The `$backend` tag every AnvlArray input must carry.
@@ -88,6 +95,7 @@ class Dispatcher {
   std::optional<Rcpp::Function> default_device_fn_;
   std::optional<Rcpp::Function> context_fn_;
   std::unordered_set<std::string> static_names_;
+  std::unordered_set<std::string> follow_names_;
   std::unique_ptr<Engine> engine_;
   std::string backend_;
   bool move_inputs_;
