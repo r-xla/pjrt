@@ -84,6 +84,18 @@
 #'   * `const_arrays` (optional): buffers prepended to the inputs,
 #'   * `phantom_specs` (optional): a list of `list(dtype = <string>, shape =
 #'     <integer>)` donation-output buffers to allocate fresh per call.
+#'   * `state` (optional): a list of state slots, each `list(env, name, init,
+#'     dtype, shape)`. A slot is an array the program reads and updates beyond
+#'     the call's arguments, e.g. a global RNG state: the program takes one
+#'     input per slot after the call's own (and before the phantoms), and
+#'     returns one output per slot after the `out_tree`'s. Before each run the
+#'     engine reads the `"AnvlArray"` bound to `name` in the environment `env`,
+#'     checks it against the slot's `dtype` and `shape`, and copies it to the
+#'     entry's device when it lives elsewhere; where the binding is unset or
+#'     `NULL`, `init()` is called to create it (an error when `init` is
+#'     `NULL`). After the run the slot's output is bound to `name` in its place.
+#'     A slot is not part of the cache key: only the program decides that it
+#'     needs one.
 #'
 #'   Either kind of result may additionally carry:
 #'   * `input_dtypes`: a `character()` with one entry per dynamic leaf, in
