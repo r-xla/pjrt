@@ -167,6 +167,20 @@ test_that("printer options", {
   )
 })
 
+test_that("max_rows = -1 prints all rows", {
+  skip_if(is_cuda())
+  out <- capture.output(print(pjrt_buffer(1:100, shape = c(100, 1)), max_rows = -1))
+  expect_false(any(grepl("truncated", out, fixed = TRUE)))
+  expect_true(any(grepl("^ *100$", out)))
+
+  out <- capture.output(print(pjrt_buffer(1:60, shape = c(3, 20, 1)), max_rows = -1))
+  expect_false(any(grepl("truncated", out, fixed = TRUE)))
+  expect_true(any(grepl("(3,.,.) =", out, fixed = TRUE)))
+
+  expect_error(print(pjrt_buffer(1:3), max_rows = 0), "-1")
+  expect_error(print(pjrt_buffer(1:3), max_rows = -2), ">= -1")
+})
+
 test_that("scale prefix is printed per slice", {
   skip_if(is_cuda())
   x <- c(
