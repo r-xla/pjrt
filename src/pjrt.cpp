@@ -95,10 +95,14 @@ Rcpp::XPtr<rpjrt::PJRTCompileOptions> impl_compile_options_create(
 
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::List devices,
     Rcpp::XPtr<rpjrt::PJRTProgram> program,
     Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options) {
-  auto executable = client->compile(*program, *compile_options, *device);
+  std::vector<rpjrt::PJRTDevice *> devs(devices.size());
+  for (R_xlen_t i = 0; i < devices.size(); ++i) {
+    devs[i] = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTDevice>>(devices[i]).get();
+  }
+  auto executable = client->compile(*program, *compile_options, devs);
   Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> xptr(executable.release(), true);
 
   xptr.attr("class") = "PJRTLoadedExecutable";
@@ -112,12 +116,26 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
   if (devices.empty()) {
     Rcpp::stop("Loaded executable has no addressable devices");
   }
-  // We only support single-device executables; return the first device.
+  // The first device: the only one, unless the executable is replicated.
   // PJRTDevice does not own this pointer (the client does), so use a weak ref.
   Rcpp::XPtr<rpjrt::PJRTDevice> xptr(
       new rpjrt::PJRTDevice(devices[0], executable->api), true);
   xptr.attr("class") = "PJRTDevice";
   return xptr;
+}
+
+// [[Rcpp::export()]]
+Rcpp::List impl_loaded_executable_devices(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable) {
+  auto devices = executable->addressable_devices();
+  Rcpp::List out(devices.size());
+  for (size_t i = 0; i < devices.size(); ++i) {
+    Rcpp::XPtr<rpjrt::PJRTDevice> xptr(
+        new rpjrt::PJRTDevice(devices[i], executable->api), true);
+    xptr.attr("class") = "PJRTDevice";
+    out[i] = xptr;
+  }
+  return out;
 }
 
 // The R-facing name of an element type ("i32", "ui8", ...), for messages.
@@ -1147,35 +1165,49 @@ Rcpp::List impl_loaded_executable_aliases(
                             Rcpp::Named("output") = outputs);
 }
 
-// [[Rcpp::export()]]
-Rcpp::List impl_loaded_executable_execute(
-    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
+// Executes `executable` with one argument list per addressable device (see
+// PJRTLoadedExecutable::execute_async), returning one list of output buffers
+// per device.
+static Rcpp::List execute_lists(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input_lists,
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
   rpjrt::process_pending_releases();
   auto api = executable->api;
   const auto &exec_devices = executable->addressable_devices();
+  const R_xlen_t num_devices = input_lists.size();
+  if (static_cast<size_t>(num_devices) != exec_devices.size()) {
+    Rcpp::stop(
+        "The executable runs on %d device(s), but got %d argument list(s).",
+        static_cast<int>(exec_devices.size()), static_cast<int>(num_devices));
+  }
 
-  std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
-  for (auto i = 0; i < input.size(); i++) {
-    auto elt = input[i];
-    auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
-    inputs[i] = buffer.get();
+  std::vector<std::vector<rpjrt::PJRTBuffer *>> inputs(num_devices);
+  for (R_xlen_t d = 0; d < num_devices; ++d) {
+    Rcpp::List input = input_lists[d];
+    inputs[d].resize(input.size());
+    for (auto i = 0; i < input.size(); i++) {
+      auto elt = input[i];
+      auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
+      inputs[d][i] = buffer.get();
 
-    PJRT_Device *buf_device = buffer->device_ptr();
-    bool on_exec_device = false;
-    for (auto *dev : exec_devices) {
-      if (buf_device == dev) {
-        on_exec_device = true;
-        break;
+      // A replica reads its inputs from its own device: argument list `d`
+      // belongs to the executable's device `d`.
+      PJRT_Device *buf_device = buffer->device_ptr();
+      if (buf_device != exec_devices[d]) {
+        auto buf_dev_str = device_to_string(buf_device, api.get());
+        auto exec_dev_str = device_to_string(exec_devices[d], api.get());
+        if (num_devices == 1) {
+          Rcpp::stop(
+              "Input %d is on device '%s', but the executable was "
+              "compiled for device '%s'.",
+              i + 1, buf_dev_str.c_str(), exec_dev_str.c_str());
+        }
+        Rcpp::stop(
+            "Input %d of argument list %d is on device '%s', but that list "
+            "runs on device '%s'.",
+            i + 1, static_cast<int>(d) + 1, buf_dev_str.c_str(),
+            exec_dev_str.c_str());
       }
-    }
-    if (!on_exec_device) {
-      auto buf_dev_str = device_to_string(buf_device, api.get());
-      auto exec_dev_str = device_to_string(exec_devices[0], api.get());
-      Rcpp::stop(
-          "Input %d is on device '%s', but the executable was "
-          "compiled for device '%s'.",
-          i + 1, buf_dev_str.c_str(), exec_dev_str.c_str());
     }
   }
 
@@ -1190,12 +1222,16 @@ Rcpp::List impl_loaded_executable_execute(
   // -- reachable, so an un-awaited Execute can't touch freed memory. Device
   // inputs (CUDA) are PJRT-owned and carry a NilValue prot slot, so they
   // are skipped: PJRT already defers their device-memory free until pending
-  // ops complete.
-  std::vector<SEXP> keepalives;
-  for (auto i = 0; i < input.size(); ++i) {
-    SEXP xptr = VECTOR_ELT(input, i);
-    if (R_ExternalPtrProtected(xptr) != R_NilValue) {
-      keepalives.push_back(xptr);
+  // ops complete. Each device's keepalives are released by its own
+  // completion event.
+  std::vector<std::vector<SEXP>> keepalives(num_devices);
+  for (R_xlen_t d = 0; d < num_devices; ++d) {
+    Rcpp::List input = input_lists[d];
+    for (auto i = 0; i < input.size(); ++i) {
+      SEXP xptr = VECTOR_ELT(input, i);
+      if (R_ExternalPtrProtected(xptr) != R_NilValue) {
+        keepalives[d].push_back(xptr);
+      }
     }
   }
 
@@ -1204,91 +1240,119 @@ Rcpp::List impl_loaded_executable_execute(
   // host bytes. R_PreserveObject runs here on the main thread; the matching
   // release is deferred to the completion event below. If Execute itself
   // throws, unpin first so the objects don't leak.
-  for (SEXP k : keepalives) R_PreserveObject(k);
+  for (const auto &ks : keepalives)
+    for (SEXP k : ks) R_PreserveObject(k);
 
-  rpjrt::AsyncExecuteResult result;
+  std::vector<rpjrt::AsyncExecuteResult> results;
   try {
-    result = executable->execute_async(inputs, *execution_options);
+    results = executable->execute_async(inputs, *execution_options);
   } catch (...) {
-    for (SEXP k : keepalives) R_ReleaseObject(k);
+    for (const auto &ks : keepalives)
+      for (SEXP k : ks) R_ReleaseObject(k);
     throw;
   }
 
-  // Wrap buffers (each already has its completion event set)
-  Rcpp::List buffers(result.buffers.size());
-  for (size_t i = 0; i < result.buffers.size(); ++i) {
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffers[i].release(), true);
-    xptr.attr("class") = "PJRTBuffer";
-    buffers[i] = xptr;
+  Rcpp::List out(num_devices);
+  for (R_xlen_t d = 0; d < num_devices; ++d) {
+    Rcpp::List input = input_lists[d];
+    auto &result = results[d];
+    auto &device_keepalives = keepalives[d];
+
+    // Wrap buffers (each already has its completion event set)
+    Rcpp::List buffers(result.buffers.size());
+    for (size_t i = 0; i < result.buffers.size(); ++i) {
+      Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffers[i].release(), true);
+      xptr.attr("class") = "PJRTBuffer";
+      buffers[i] = xptr;
+    }
+    out[d] = buffers;
+
+    // For each input->output alias declared in the program, migrate the
+    // RAWSXP keepalive from the donated input XPtr to the aliased output XPtr,
+    // and null the donated input's PJRT_Buffer* so its finalizer is a no-op
+    // (PJRT already invalidated the handle during Execute).
+    //
+    // We only migrate when PJRT *actually* donated (confirmed via is_deleted),
+    // because tf.aliasing_output lowers to a may-alias: PJRT may copy instead
+    // of donate, leaving the input valid. Migrating unconditionally in the copy
+    // case would null a live buffer — leaking device memory and double-freeing
+    // it.
+    const auto &aliases = executable->input_output_aliases();
+    for (const auto &alias : aliases) {
+      if (alias.input_index < 0 ||
+          static_cast<size_t>(alias.input_index) >=
+              static_cast<size_t>(input.size()) ||
+          alias.output_index < 0 ||
+          static_cast<size_t>(alias.output_index) >=
+              static_cast<size_t>(buffers.size())) {
+        continue;
+      }
+      SEXP in_xptr_sexp = VECTOR_ELT(input, alias.input_index);
+      auto *in_buf =
+          static_cast<rpjrt::PJRTBuffer *>(R_ExternalPtrAddr(in_xptr_sexp));
+      if (!in_buf->is_deleted()) continue;
+
+      SEXP out_xptr_sexp = VECTOR_ELT(buffers, alias.output_index);
+      SEXP keepalive = R_ExternalPtrProtected(in_xptr_sexp);
+      R_SetExternalPtrProtected(out_xptr_sexp, keepalive);
+      R_SetExternalPtrProtected(in_xptr_sexp, R_NilValue);
+      in_buf->buffer = nullptr;
+
+      // With in-place donation the still-pending execution WRITES the output
+      // into `keepalive`'s memory. Its only root is now the output XPtr, which
+      // -- unlike the inputs -- is not pinned. A caller that drops the output
+      // without awaiting it (a discarded, un-awaited result) would let the GC
+      // free that memory before the execution writes it: the XLA worker thread
+      // then stores into unmapped pages and the process segfaults. Pin the
+      // migrated keepalive itself until the completion event, alongside the
+      // input keepalives.
+      if (keepalive != R_NilValue) {
+        R_PreserveObject(keepalive);
+        device_keepalives.push_back(keepalive);
+      }
+    }
+
+    // Release the keepalives (inputs pinned before Execute, plus migrated
+    // donation keepalives pinned above) once the execution has finished
+    // reading its inputs and writing its donated outputs. Without the pin, a
+    // dropped zero-copy buffer could be collected -- freeing its backing
+    // RAWSXP -- while the async Execute still reads or writes it
+    // (use-after-free). The completion event fires on a PJRT thread and only
+    // enqueues the release; the actual R_ReleaseObject runs later on the main
+    // thread via the deferred-release queue. The PJRTEvent wrapper is
+    // destroyed when `results` goes out of scope, but the registered callback
+    // still fires (see PJRTEvent::on_ready).
+    if (!device_keepalives.empty()) {
+      if (result.complete_event) {
+        result.complete_event->on_ready(
+            [ks = std::move(device_keepalives)](PJRT_Error * /*error*/) {
+              for (SEXP k : ks) rpjrt::queue_release(k);
+            });
+      } else {
+        // No completion event means nothing will signal when Execute is done
+        // with the inputs; release the keepalives now so they don't leak.
+        for (SEXP k : device_keepalives) rpjrt::queue_release(k);
+      }
+    }
   }
 
-  // For each input->output alias declared in the program, migrate the RAWSXP
-  // keepalive from the donated input XPtr to the aliased output XPtr, and null
-  // the donated input's PJRT_Buffer* so its finalizer is a no-op (PJRT already
-  // invalidated the handle during Execute).
-  //
-  // We only migrate when PJRT *actually* donated (confirmed via is_deleted),
-  // because tf.aliasing_output lowers to a may-alias: PJRT may copy instead of
-  // donate, leaving the input valid. Migrating unconditionally in the copy case
-  // would null a live buffer — leaking device memory and double-freeing it.
-  const auto &aliases = executable->input_output_aliases();
-  for (const auto &alias : aliases) {
-    if (alias.input_index < 0 ||
-        static_cast<size_t>(alias.input_index) >=
-            static_cast<size_t>(input.size()) ||
-        alias.output_index < 0 ||
-        static_cast<size_t>(alias.output_index) >=
-            static_cast<size_t>(buffers.size())) {
-      continue;
-    }
-    SEXP in_xptr_sexp = VECTOR_ELT(input, alias.input_index);
-    auto *in_buf =
-        static_cast<rpjrt::PJRTBuffer *>(R_ExternalPtrAddr(in_xptr_sexp));
-    if (!in_buf->is_deleted()) continue;
+  return out;
+}
 
-    SEXP out_xptr_sexp = VECTOR_ELT(buffers, alias.output_index);
-    SEXP keepalive = R_ExternalPtrProtected(in_xptr_sexp);
-    R_SetExternalPtrProtected(out_xptr_sexp, keepalive);
-    R_SetExternalPtrProtected(in_xptr_sexp, R_NilValue);
-    in_buf->buffer = nullptr;
+// [[Rcpp::export()]]
+Rcpp::List impl_loaded_executable_execute(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List input,
+    Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
+  Rcpp::List lists =
+      execute_lists(executable, Rcpp::List::create(input), execution_options);
+  return lists[0];
+}
 
-    // With in-place donation the still-pending execution WRITES the output
-    // into `keepalive`'s memory. Its only root is now the output XPtr, which
-    // -- unlike the inputs -- is not pinned. A caller that drops the output
-    // without awaiting it (a discarded, un-awaited result) would let the GC
-    // free that memory before the execution writes it: the XLA worker thread
-    // then stores into unmapped pages and the process segfaults. Pin the
-    // migrated keepalive itself until the completion event, alongside the
-    // input keepalives.
-    if (keepalive != R_NilValue) {
-      R_PreserveObject(keepalive);
-      keepalives.push_back(keepalive);
-    }
-  }
-
-  // Release the keepalives (inputs pinned before Execute, plus migrated
-  // donation keepalives pinned above) once the execution has finished reading
-  // its inputs and writing its donated outputs. Without the pin, a dropped
-  // zero-copy buffer could be collected -- freeing its backing RAWSXP -- while
-  // the async Execute still reads or writes it (use-after-free). The completion
-  // event fires on a PJRT thread and only enqueues the release; the actual
-  // R_ReleaseObject runs later on the main thread via the deferred-release
-  // queue. The PJRTEvent wrapper is destroyed when `result` goes out of scope,
-  // but the registered callback still fires (see PJRTEvent::on_ready).
-  if (!keepalives.empty()) {
-    if (result.complete_event) {
-      result.complete_event->on_ready(
-          [keepalives = std::move(keepalives)](PJRT_Error * /*error*/) {
-            for (SEXP k : keepalives) rpjrt::queue_release(k);
-          });
-    } else {
-      // No completion event means nothing will signal when Execute is done with
-      // the inputs; release the keepalives now so they don't leak.
-      for (SEXP k : keepalives) rpjrt::queue_release(k);
-    }
-  }
-
-  return buffers;
+// [[Rcpp::export()]]
+Rcpp::List impl_loaded_executable_execute_replicated(
+    Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> executable, Rcpp::List inputs,
+    Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options) {
+  return execute_lists(executable, inputs, execution_options);
 }
 
 // Declared ahead of impl_client_buffer_from_integer(): the two entry points

@@ -72,6 +72,13 @@ class PJRTLoadedExecutable {
   AsyncExecuteResult execute_async(
       std::vector<PJRTBuffer *> input,
       const PJRTExecuteOptions &options = PJRTExecuteOptions{});
+  // One argument list per addressable device, in the order of
+  // addressable_devices(); returns one result per device. A replicated
+  // executable runs all of its replicas in a single launch, each on a thread of
+  // its own device.
+  std::vector<AsyncExecuteResult> execute_async(
+      const std::vector<std::vector<PJRTBuffer *>> &inputs,
+      const PJRTExecuteOptions &options = PJRTExecuteOptions{});
   std::vector<PJRT_Device *> addressable_devices();
   const std::vector<PJRTInputOutputAlias> &input_output_aliases() const {
     return aliases_;
@@ -102,9 +109,11 @@ class PJRTClient {
   PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_Api> api);
   ~PJRTClient();
   std::vector<PJRT_Device *> devices();
+  // Compiles for one device, or -- given several -- a replicated executable
+  // with one replica per device, in that order.
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options,
-      PJRTDevice &device);
+      const std::vector<PJRTDevice *> &devices);
   AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,

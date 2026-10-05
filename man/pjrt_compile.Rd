@@ -13,11 +13,15 @@ A program to compile.}
 \item{compile_options}{(\code{PJRTCompileOptions})\cr
 Compile options.}
 
-\item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)})\cr
+\item{device}{(\code{NULL} | \code{PJRTDevice} | \code{character(1)} | \code{list()})\cr
 A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...),
 in which case the first device for that platform is used.
 The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
-environment variable.}
+environment variable.
+
+A \code{list} of several devices of one platform compiles a replicated executable:
+one replica of the program per device, which \code{\link[=pjrt_execute_replicated]{pjrt_execute_replicated()}} runs
+on all of them in a single launch.}
 }
 \value{
 \code{PJRTExecutable}

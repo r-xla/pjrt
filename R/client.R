@@ -6,11 +6,15 @@
 #'   A program to compile.
 #' @param compile_options (`PJRTCompileOptions`)\cr
 #'   Compile options.
-#' @param device (`NULL` | `PJRTDevice` | `character(1)`)\cr
+#' @param device (`NULL` | `PJRTDevice` | `character(1)` | `list()`)\cr
 #'   A `PJRTDevice` object or the name of the platform to use ("cpu", "cuda", ...),
 #'   in which case the first device for that platform is used.
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
+#'
+#'   A `list` of several devices of one platform compiles a replicated executable:
+#'   one replica of the program per device, which [pjrt_execute_replicated()] runs
+#'   on all of them in a single launch.
 #' @return `PJRTExecutable`
 #' @examplesIf plugins_downloaded()
 #' # Create a simple program
@@ -27,12 +31,22 @@ pjrt_compile <- function(
   compile_options = new_compile_options(),
   device = NULL
 ) {
-  device <- as_pjrt_device(device)
-  client <- client_from_device(device)
+  devices <- if (is.list(device)) lapply(device, as_pjrt_device) else list(as_pjrt_device(device))
+  if (!length(devices)) {
+    cli_abort("{.arg device} must name at least one device.")
+  }
+  platforms <- vapply(devices, platform, character(1L))
+  if (length(unique(platforms)) > 1L) {
+    cli_abort("The devices of a replicated executable must share one platform, got {.val {unique(platforms)}}.")
+  }
+  if (anyDuplicated(vapply(devices, as.character, character(1L)))) {
+    cli_abort("The devices of a replicated executable must be distinct.")
+  }
+  client <- client_from_device(devices[[1L]])
   check_program(program)
   check_compile_options(compile_options)
 
-  impl_client_program_compile(client, device, program, compile_options)
+  impl_client_program_compile(client, devices, program, compile_options)
 }
 
 #' @title Create a Client

@@ -78,6 +78,53 @@ pjrt_execute <- function(executable, ..., execution_options = NULL, simplify = T
   buffers
 }
 
+#' @title Execute a Replicated PJRT Program
+#' @description
+#' Execute an executable compiled for several devices (see the `device`
+#' argument of [pjrt_compile()]) with one list of inputs per device. All
+#' replicas are launched at once and run in parallel, each on its own device.
+#' Like [pjrt_execute()], this returns immediately with `PJRTBuffer`s that may
+#' not be ready yet.
+#'
+#' @param executable (`PJRTLoadedExecutable`)\cr
+#'   A replicated executable.
+#' @param inputs (`list()` of `list()` of `PJRTBuffer`)\cr
+#'   One list of inputs per device of the executable, in the order of
+#'   `devices(executable)`. The inputs of list `i` must live on device `i`.
+#' @param execution_options (`PJRTExecuteOptions`)\cr
+#'   Optional execution options, applied to every replica.
+#' @param check (`logical(1)`)\cr
+#'   If `TRUE` (default), validate the arguments.
+#' @return (`list()` of `list()` of `PJRTBuffer`)\cr
+#'   One list of outputs per device, in the order of `inputs`.
+#' @seealso [pjrt_execute()], [pjrt_compile()]
+#' @examplesIf plugins_downloaded()
+#' src <- r"(
+#' func.func @main(%x: tensor<f32>) -> tensor<f32> {
+#'   %0 = "stablehlo.add"(%x, %x) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+#'   "func.return"(%0): (tensor<f32>) -> ()
+#' }
+#' )"
+#' exec <- pjrt_compile(pjrt_program(src = src), device = list(pjrt_device("cpu:0")))
+#' pjrt_execute_replicated(exec, list(list(pjrt_scalar(1, dtype = "f32"))))
+#' @export
+pjrt_execute_replicated <- function(executable, inputs, execution_options = NULL, check = TRUE) {
+  if (check) {
+    check_loaded_executable(executable)
+    assert_list(inputs, types = "list")
+    for (input in inputs) {
+      lapply(input, check_buffer)
+    }
+    if (!is.null(execution_options)) {
+      check_execution_options(execution_options)
+    }
+  }
+  if (is.null(execution_options)) {
+    execution_options <- default_execution_options()
+  }
+  impl_loaded_executable_execute_replicated(executable, lapply(inputs, unname), execution_options)
+}
+
 #' @export
 print.PJRTLoadedExecutable <- function(x, ...) {
   cat("<PJRTLoadedExecutable>\n")
@@ -87,6 +134,11 @@ print.PJRTLoadedExecutable <- function(x, ...) {
 #' @export
 device.PJRTLoadedExecutable <- function(x, ...) {
   cached_device(impl_loaded_executable_device(x))
+}
+
+#' @export
+devices.PJRTLoadedExecutable <- function(x, ...) {
+  lapply(impl_loaded_executable_devices(x), cached_device)
 }
 
 check_loaded_executable <- function(x) {
