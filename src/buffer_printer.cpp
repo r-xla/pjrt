@@ -394,10 +394,6 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
 
     if (lid + 1 < std::max<int64_t>(lead_count, 1) && rows_left != 0)
       cont.push_back("");
-
-    if (rows_left < 0) {
-      break;
-    }
   }
 
   // We definitely truncated if we didn't exhaust all the leading dims,
