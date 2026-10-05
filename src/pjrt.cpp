@@ -10,6 +10,7 @@
 
 #include "buffer.h"
 #include "buffer_printer.h"
+#include "buffer_sexp.h"
 #include "client.h"
 #include "deferred_release.h"
 #include "pjrt_impl.h"
@@ -359,11 +360,10 @@ std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
 constexpr size_t kCpuBufferAlign = 64;
 
 template <typename Fill>
-Rcpp::XPtr<rpjrt::PJRTBuffer> make_cpu_buffer(
-    Rcpp::XPtr<rpjrt::PJRTClient> &client, size_t total_bytes,
-    const std::vector<int64_t> &dims,
-    const std::optional<std::vector<int64_t>> &byte_strides,
-    PJRT_Buffer_Type dtype, PJRT_Device *device, Fill fill) {
+SEXP make_cpu_buffer(Rcpp::XPtr<rpjrt::PJRTClient> &client, size_t total_bytes,
+                     const std::vector<int64_t> &dims,
+                     const std::optional<std::vector<int64_t>> &byte_strides,
+                     PJRT_Buffer_Type dtype, PJRT_Device *device, Fill fill) {
   // PROTECT across buffer_from_host_async: PJRT allocation may trigger R's GC.
   // Once the XPtr holds raw_sexp in its prot slot it stays reachable.
   //
@@ -386,20 +386,19 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> make_cpu_buffer(
   auto result =
       client->buffer_from_host_async(data, dims, byte_strides, dtype, device,
                                      PJRT_HostBufferSemantics_kMutableZeroCopy);
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true,
-                                            R_NilValue, raw_sexp);
-  buffer_xptr.attr("class") = "PJRTBuffer";
+  SEXP out = rpjrt::wrap_buffer(std::move(result.buffer), raw_sexp);
   UNPROTECT(1);
-  return buffer_xptr;
+  return out;
 }
 
 // Async buffer creation - handles data lifetime internally via on_ready
 // callback
 template <typename T>
-Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-    const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
-    bool row_major = false, PJRT_Device *device = nullptr) {
+SEXP create_buffer_from_array_async(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                    SEXP data, const std::vector<int64_t> &dims,
+                                    PJRT_Buffer_Type dtype,
+                                    bool row_major = false,
+                                    PJRT_Device *device = nullptr) {
   int len = Rf_length(data);
   if (len == 0) {
     if (!std::any_of(dims.begin(), dims.end(),
@@ -434,9 +433,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
     result.event->on_ready([raw_ptr](PJRT_Error *error) { delete raw_ptr; });
   }
 
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  buffer_xptr.attr("class") = "PJRTBuffer";
-  return buffer_xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
 // Buffer creation for types whose R in-memory layout already matches the dtype
@@ -454,7 +451,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
 // `data_ptr` comes from a read-only accessor (see convert_r_data_to_typed), so
 // an ALTREP `data` is not materialized. Both consumers only read the bytes: the
 // CPU path memcpys, and the async path uses kImmutableUntilTransferCompletes.
-Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
+SEXP create_buffer_from_array_async_no_convert(
     Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, const void *data_ptr,
     const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
     size_t element_size, bool row_major = false,
@@ -489,15 +486,13 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
         [data](PJRT_Error *error) { rpjrt::queue_release(data); });
   }
 
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  buffer_xptr.attr("class") = "PJRTBuffer";
-  return buffer_xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
-Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-    const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
-    bool row_major = false, PJRT_Device *device = nullptr) {
+SEXP create_buffer_from_raw(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
+                            const std::vector<int64_t> &dims,
+                            PJRT_Buffer_Type dtype, bool row_major = false,
+                            PJRT_Device *device = nullptr) {
   auto byte_strides_opt =
       get_byte_strides(dims, row_major, sizeof_pjrt_buffer_type(dtype));
 
@@ -528,16 +523,14 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
         [data](PJRT_Error *error) { rpjrt::queue_release(data); });
   }
 
-  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffer.release());
-  xptr.attr("class") = "PJRTBuffer";
-  return xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype,
-    bool row_major = false) {
+SEXP impl_client_buffer_from_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                 Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                 SEXP data, std::vector<int64_t> dims,
+                                 std::string dtype, bool row_major = false) {
   if (dtype == "f32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
                                   row_major, device->device);
@@ -581,9 +574,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
 // bytes alive for the buffer's lifetime and counts the memory. On other
 // platforms, allocates a host vector, transfers, and releases it when the
 // transfer completes.
-Rcpp::XPtr<rpjrt::PJRTBuffer> client_buffer_empty(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    std::vector<int64_t> dims, PJRT_Buffer_Type pjrt_dtype) {
+SEXP client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                         Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                         std::vector<int64_t> dims,
+                         PJRT_Buffer_Type pjrt_dtype) {
   const size_t element_size = sizeof_pjrt_buffer_type(pjrt_dtype);
   const int64_t numel = number_of_elements(dims);
   const size_t total_bytes = static_cast<size_t>(numel) * element_size;
@@ -607,15 +601,13 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> client_buffer_empty(
     auto *raw_ptr = data_vec.release();
     result.event->on_ready([raw_ptr](PJRT_Error *error) { delete raw_ptr; });
   }
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  buffer_xptr.attr("class") = "PJRTBuffer";
-  return buffer_xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                              Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                              std::vector<int64_t> dims, std::string dtype) {
   return client_buffer_empty(client, device, std::move(dims),
                              string_to_pjrt_buffer_type(dtype));
 }
@@ -692,8 +684,8 @@ SEXP raw_to_array_impl(const uint8_t *raw_data,
 
 // [[Rcpp::export()]]
 Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                                   Rcpp::XPtr<rpjrt::PJRTBuffer> buffer,
-                                   bool row_major = false) {
+                                   SEXP buffer_sexp, bool row_major = false) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
 
@@ -790,9 +782,11 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    Rcpp::XPtr<rpjrt::PJRTClient> dst_client, bool cross_client) {
+SEXP impl_buffer_copy_to_device(SEXP buffer_sexp,
+                                Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                Rcpp::XPtr<rpjrt::PJRTClient> dst_client,
+                                bool cross_client) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   std::unique_ptr<rpjrt::PJRTBuffer> new_buf;
   if (cross_client) {
     // Host roundtrip: device -> host bytes -> new buffer on target client
@@ -822,9 +816,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
   } else {
     new_buf = buffer->copy_to_device(*device);
   }
-  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(new_buf.release(), true);
-  xptr.attr("class") = "PJRTBuffer";
-  return xptr;
+  return rpjrt::wrap_buffer(std::move(new_buf));
 }
 
 // [[Rcpp::export()]]
@@ -846,8 +838,8 @@ Rcpp::List impl_client_devices(Rcpp::XPtr<rpjrt::PJRTClient> client) {
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto element_type =
       std::make_unique<rpjrt::PJRTElementType>(buffer->element_type());
   Rcpp::XPtr<rpjrt::PJRTElementType> xptr(element_type.release(), true);
@@ -856,8 +848,8 @@ Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto device = buffer->device();
   Rcpp::XPtr<rpjrt::PJRTDevice> xptr(device.release(), true);
   xptr.attr("class") = "PJRTDevice";
@@ -865,8 +857,8 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto memory = buffer->memory();
   Rcpp::XPtr<rpjrt::PJRTMemory> xptr(memory.release(), true);
   xptr.attr("class") = "PJRTMemory";
@@ -900,8 +892,8 @@ std::string impl_dtype_as_string(
 }
 
 // [[Rcpp::export()]]
-Rcpp::IntegerVector impl_buffer_dimensions(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::IntegerVector impl_buffer_dimensions(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto dims = buffer->dimensions();
   Rcpp::IntegerVector result(dims.size());
   for (size_t i = 0; i < dims.size(); ++i) {
@@ -956,15 +948,17 @@ std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
 }
 
 // [[Rcpp::export()]]
-void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
-                       int max_width, int max_rows_slice) {
+void impl_buffer_print(SEXP buffer_sexp, int max_rows, int max_width,
+                       int max_rows_slice) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   buffer_print(buffer, max_rows, max_width, max_rows_slice);
 }
 
 // Async status functions for buffers and host data
 
 // [[Rcpp::export()]]
-bool impl_buffer_is_ready(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+bool impl_buffer_is_ready(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   bool ready = buffer->is_ready();
   if (ready) {
     rpjrt::process_pending_releases();
@@ -973,7 +967,8 @@ bool impl_buffer_is_ready(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
 }
 
 // [[Rcpp::export()]]
-void impl_buffer_await(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+void impl_buffer_await(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   buffer->await();
   rpjrt::process_pending_releases();
 }
@@ -1007,6 +1002,14 @@ void impl_test_enqueue_release(SEXP x) {
   rpjrt::queue_release(x);
 }
 
+// Test-only: read the SEXP stored in a buffer's external pointer's protected
+// slot. Used to assert the keepalive invariant — which RAWSXP a CPU buffer's
+// XPtr pins.
+// [[Rcpp::export()]]
+SEXP impl_test_buffer_prot(SEXP x) {
+  return R_ExternalPtrProtected(rpjrt::buffer_xptr(x));
+}
+
 // Test-only: whether the buffer's device memory lives inside the RAWSXP held
 // in its XPtr's protected slot -- i.e. whether the buffer genuinely aliases
 // R-owned host bytes. TRUE for a zero-copy CPU buffer and for an aliased
@@ -1014,9 +1017,9 @@ void impl_test_enqueue_release(SEXP x) {
 // copied (pool-backed storage) or when no keepalive is attached.
 // [[Rcpp::export()]]
 bool impl_test_buffer_aliases_prot(SEXP x) {
-  SEXP prot = R_ExternalPtrProtected(x);
+  SEXP prot = R_ExternalPtrProtected(rpjrt::buffer_xptr(x));
   if (TYPEOF(prot) != RAWSXP) return false;
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buf(x);
+  auto buf = rpjrt::as_buffer(x);
   if (buf->buffer == nullptr) return false;
   auto api = buf->get_api();
   PJRT_Buffer_UnsafePointer_Args args{};
@@ -1072,7 +1075,8 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
 }
 
 // [[Rcpp::export()]]
-Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::List impl_buffer_to_host_async(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
   const auto numel = number_of_elements(dimensions);
@@ -1157,8 +1161,7 @@ Rcpp::List impl_loaded_executable_execute(
 
   std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
   for (auto i = 0; i < input.size(); i++) {
-    auto elt = input[i];
-    auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
+    auto buffer = rpjrt::as_buffer(input[i]);
     inputs[i] = buffer.get();
 
     PJRT_Device *buf_device = buffer->device_ptr();
@@ -1193,7 +1196,7 @@ Rcpp::List impl_loaded_executable_execute(
   // ops complete.
   std::vector<SEXP> keepalives;
   for (auto i = 0; i < input.size(); ++i) {
-    SEXP xptr = VECTOR_ELT(input, i);
+    SEXP xptr = rpjrt::buffer_xptr(VECTOR_ELT(input, i));
     if (R_ExternalPtrProtected(xptr) != R_NilValue) {
       keepalives.push_back(xptr);
     }
@@ -1217,9 +1220,7 @@ Rcpp::List impl_loaded_executable_execute(
   // Wrap buffers (each already has its completion event set)
   Rcpp::List buffers(result.buffers.size());
   for (size_t i = 0; i < result.buffers.size(); ++i) {
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffers[i].release(), true);
-    xptr.attr("class") = "PJRTBuffer";
-    buffers[i] = xptr;
+    buffers[i] = rpjrt::wrap_buffer(std::move(result.buffers[i]));
   }
 
   // For each input->output alias declared in the program, migrate the RAWSXP
@@ -1241,12 +1242,14 @@ Rcpp::List impl_loaded_executable_execute(
             static_cast<size_t>(buffers.size())) {
       continue;
     }
-    SEXP in_xptr_sexp = VECTOR_ELT(input, alias.input_index);
+    SEXP in_xptr_sexp =
+        rpjrt::buffer_xptr(VECTOR_ELT(input, alias.input_index));
     auto *in_buf =
         static_cast<rpjrt::PJRTBuffer *>(R_ExternalPtrAddr(in_xptr_sexp));
     if (!in_buf->is_deleted()) continue;
 
-    SEXP out_xptr_sexp = VECTOR_ELT(buffers, alias.output_index);
+    SEXP out_xptr_sexp =
+        rpjrt::buffer_xptr(VECTOR_ELT(buffers, alias.output_index));
     SEXP keepalive = R_ExternalPtrProtected(in_xptr_sexp);
     R_SetExternalPtrProtected(out_xptr_sexp, keepalive);
     R_SetExternalPtrProtected(in_xptr_sexp, R_NilValue);
@@ -1294,14 +1297,16 @@ Rcpp::List impl_loaded_executable_execute(
 // Declared ahead of impl_client_buffer_from_integer(): the two entry points
 // cross-dispatch, each delegating the dtypes that are the other's natural
 // target, so that every R source type reaches every element type.
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype);
+SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype);
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype) {
   if (dtype == "i8") {
     return create_buffer_from_array_async<int8_t>(
         client, data, dims, PJRT_Buffer_Type_S8, false, device->device);
@@ -1358,9 +1363,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
 // The bit pattern is identical for signed/unsigned 64-bit ints, so the same
 // data can be uploaded as either S64 or U64.
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                       Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                       SEXP data, std::vector<int64_t> dims,
+                                       std::string dtype) {
   static_assert(sizeof(double) == sizeof(int64_t),
                 "bit64::integer64 zero-copy requires sizeof(double) == "
                 "sizeof(int64_t)");
@@ -1397,9 +1403,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype) {
   if (dtype == "pred") {
     return create_buffer_from_array_async<uint8_t>(
         client, data, dims, PJRT_Buffer_Type_PRED, false, device->device);
@@ -1414,9 +1421,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                    Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                    SEXP data, std::vector<int64_t> dims,
+                                    std::string dtype) {
   if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);

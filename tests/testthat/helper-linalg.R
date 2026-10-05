@@ -127,10 +127,7 @@ run_linalg <- function(
     inputs,
     in_specs
   )
-  outs <- do.call(pjrt_execute, c(list(program), bufs))
-  if (!is.list(outs)) {
-    outs <- list(outs)
-  }
+  outs <- do.call(pjrt_execute, c(list(program), bufs, simplify = FALSE))
   lapply(outs, as_array)
 }
 
