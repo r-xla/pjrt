@@ -693,3 +693,51 @@ func.func @main(%x: T, %p: T {tf.aliasing_output = 0 : i32}) -> T {
   # afterwards) is Invariant 6 there. Both need a fresh, isolated R process to
   # observe the keepalive deterministically, so they are not unit tests.
 })
+
+test_that("a replicated executable runs one replica per device on its own inputs", {
+  src <- r"(
+func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
+  %0 = "stablehlo.add"(%x, %x) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+  "func.return"(%0): (tensor<2xf32>) -> ()
+}
+)"
+  devs <- list(pjrt_device("cpu:0"), pjrt_device("cpu:1"))
+  executable <- pjrt_compile(pjrt_program(src), device = devs)
+  expect_equal(vapply(devices(executable), as.character, character(1L)), vapply(devs, as.character, character(1L)))
+
+  inputs <- list(
+    list(pjrt_buffer(c(1, 2), dtype = "f32", device = "cpu:0")),
+    list(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:1"))
+  )
+  out <- pjrt_execute_replicated(executable, inputs)
+  expect_list(out, types = "list", len = 2L)
+  expect_equal(as.vector(as_array(out[[1L]][[1L]])), c(2, 4))
+  expect_equal(as.vector(as_array(out[[2L]][[1L]])), c(6, 8))
+  expect_equal(as.character(device(out[[2L]][[1L]])), as.character(devs[[2L]]))
+})
+
+test_that("a replicated executable needs one argument list per device, each on its device", {
+  src <- r"(
+func.func @main(%x: tensor<f32>) -> tensor<f32> {
+  "func.return"(%x): (tensor<f32>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src), device = list(pjrt_device("cpu:0"), pjrt_device("cpu:1")))
+  on0 <- pjrt_scalar(1, dtype = "f32", device = "cpu:0")
+  on1 <- pjrt_scalar(1, dtype = "f32", device = "cpu:1")
+  expect_error(pjrt_execute_replicated(executable, list(list(on0))), "runs on 2 device")
+  expect_error(pjrt_execute_replicated(executable, list(list(on0), list(on0))), "argument list 2")
+  expect_equal(as_array(pjrt_execute_replicated(executable, list(list(on0), list(on1)))[[2L]][[1L]]), 1)
+})
+
+test_that("the devices of a replicated executable must be distinct", {
+  src <- r"(
+func.func @main(%x: tensor<f32>) -> tensor<f32> {
+  "func.return"(%x): (tensor<f32>) -> ()
+}
+)"
+  expect_error(
+    pjrt_compile(pjrt_program(src), device = list(pjrt_device("cpu:0"), pjrt_device("cpu:0"))),
+    "must be distinct"
+  )
+})

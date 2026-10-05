@@ -34,38 +34,56 @@ std::vector<PJRT_Device *> PJRTClient::devices() {
 
 std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
     const PJRTProgram &program, PJRTCompileOptions &compile_options,
-    PJRTDevice &device) {
+    const std::vector<PJRTDevice *> &devices) {
+  if (devices.empty()) {
+    Rcpp::stop("Need at least one device to compile for.");
+  }
   // device_ordinal is a local hardware (StreamExecutor) ordinal, while the
   // device_assignment uses global PJRT device IDs. These coincide on a single
   // host but diverge under distributed PJRT clients, so fetch both. Setting
   // only device_ordinal is insufficient: the CPU plugin exposes multiple
   // virtual devices sharing one StreamExecutor ordinal, so device_assignment
   // is needed to disambiguate them.
-  PJRT_Device_GetDescription_Args desc_args{};
-  desc_args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
-  desc_args.device = device.device;
-  check_err(this->api.get(),
-            this->api->PJRT_Device_GetDescription_(&desc_args));
+  auto global_id = [&](PJRTDevice *device) {
+    PJRT_Device_GetDescription_Args desc_args{};
+    desc_args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
+    desc_args.device = device->device;
+    check_err(this->api.get(),
+              this->api->PJRT_Device_GetDescription_(&desc_args));
 
-  PJRT_DeviceDescription_Id_Args id_args{};
-  id_args.struct_size = sizeof(PJRT_DeviceDescription_Id_Args);
-  id_args.device_description = desc_args.device_description;
-  check_err(this->api.get(), this->api->PJRT_DeviceDescription_Id_(&id_args));
-
-  PJRT_Device_LocalHardwareId_Args hw_args{};
-  hw_args.struct_size = sizeof(PJRT_Device_LocalHardwareId_Args);
-  hw_args.device = device.device;
-  check_err(this->api.get(), this->api->PJRT_Device_LocalHardwareId_(&hw_args));
+    PJRT_DeviceDescription_Id_Args id_args{};
+    id_args.struct_size = sizeof(PJRT_DeviceDescription_Id_Args);
+    id_args.device_description = desc_args.device_description;
+    check_err(this->api.get(), this->api->PJRT_DeviceDescription_Id_(&id_args));
+    return id_args.id;
+  };
 
   auto *build_opts =
       compile_options.compile_options.mutable_executable_build_options();
-  build_opts->set_device_ordinal(hw_args.local_hardware_id);
+
+  if (devices.size() == 1) {
+    PJRT_Device_LocalHardwareId_Args hw_args{};
+    hw_args.struct_size = sizeof(PJRT_Device_LocalHardwareId_Args);
+    hw_args.device = devices[0]->device;
+    check_err(this->api.get(),
+              this->api->PJRT_Device_LocalHardwareId_(&hw_args));
+    build_opts->set_device_ordinal(hw_args.local_hardware_id);
+  } else {
+    // One replica per device. The device assignment alone places them; a
+    // device ordinal would pin the whole executable to one of them.
+    build_opts->set_num_replicas(static_cast<int>(devices.size()));
+    build_opts->set_num_partitions(1);
+    build_opts->set_device_ordinal(-1);
+  }
 
   auto *da = build_opts->mutable_device_assignment();
+  da->Clear();
   da->set_replica_count(build_opts->num_replicas());
   da->set_computation_count(build_opts->num_partitions());
   auto *cd = da->add_computation_devices();
-  cd->add_replica_device_ids(id_args.id);
+  for (auto *device : devices) {
+    cd->add_replica_device_ids(global_id(device));
+  }
 
   PJRT_Client_Compile_Args args{};
   args.struct_size = sizeof(PJRT_Client_Compile_Args);
@@ -328,6 +346,14 @@ std::vector<PJRT_Device *> PJRTLoadedExecutable::addressable_devices() {
 
 AsyncExecuteResult PJRTLoadedExecutable::execute_async(
     std::vector<PJRTBuffer *> input, const PJRTExecuteOptions &options) {
+  auto results = this->execute_async(
+      std::vector<std::vector<PJRTBuffer *>>{std::move(input)}, options);
+  return std::move(results[0]);
+}
+
+std::vector<AsyncExecuteResult> PJRTLoadedExecutable::execute_async(
+    const std::vector<std::vector<PJRTBuffer *>> &inputs,
+    const PJRTExecuteOptions &options) {
   PJRT_ExecuteOptions exec_options{};
   exec_options.struct_size = sizeof(PJRT_ExecuteOptions);
   exec_options.launch_id = options.launch_id;
@@ -343,23 +369,26 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   exec_args.executable = this->executable;
   exec_args.options = &exec_options;
 
-  // This is the actual parameters
-  std::vector<PJRT_Buffer *> inner(input.size());
-  for (size_t i = 0; i < input.size(); ++i) {
-    inner[i] = input[i]->buffer;
-  }
-  // We need an outer list, because its one input per execution device.
-  // Currently we only support one device, so we have a single element in the
-  // outer list.
-  std::vector<PJRT_Buffer *const *> outer;
-  if (input.empty()) {
-    outer = {nullptr};
-  } else {
-    outer = {inner.data()};
+  const size_t num_devices = inputs.size();
+  const size_t num_args = num_devices ? inputs[0].size() : 0;
+
+  // The parameters: an outer list with one argument list per execution
+  // device.
+  std::vector<std::vector<PJRT_Buffer *>> inner(num_devices);
+  std::vector<PJRT_Buffer *const *> outer(num_devices);
+  for (size_t d = 0; d < num_devices; ++d) {
+    if (inputs[d].size() != num_args) {
+      Rcpp::stop("Every device needs the same number of inputs.");
+    }
+    inner[d].resize(num_args);
+    for (size_t i = 0; i < num_args; ++i) {
+      inner[d][i] = inputs[d][i]->buffer;
+    }
+    outer[d] = num_args ? inner[d].data() : nullptr;
   }
   exec_args.argument_lists = outer.data();
-  exec_args.num_args = input.size();
-  exec_args.num_devices = 1;
+  exec_args.num_args = num_args;
+  exec_args.num_devices = num_devices;
 
   exec_args.execute_device = nullptr;
 
@@ -367,8 +396,12 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   size_t num_outputs = this->num_outputs_;
 
   // Prepare output buffer storage
-  std::vector<PJRT_Buffer *> inner_out(num_outputs);
-  std::vector<PJRT_Buffer **> outer_out = {inner_out.data()};
+  std::vector<std::vector<PJRT_Buffer *>> inner_out(
+      num_devices, std::vector<PJRT_Buffer *>(num_outputs));
+  std::vector<PJRT_Buffer **> outer_out(num_devices);
+  for (size_t d = 0; d < num_devices; ++d) {
+    outer_out[d] = inner_out[d].data();
+  }
 
   exec_args.output_lists = outer_out.data();
 
@@ -376,9 +409,8 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   // finishes reading its inputs, which is how the caller bounds the lifetime of
   // zero-copy input host keepalives (individual output buffers can become ready
   // at different times, so they are not a reliable "execution done" signal).
-  // Length must equal num_devices (== 1 here). Per-buffer readiness still uses
-  // PJRT_Buffer_ReadyEvent independently.
-  std::vector<PJRT_Event *> complete_events(1, nullptr);
+  // Per-buffer readiness still uses PJRT_Buffer_ReadyEvent independently.
+  std::vector<PJRT_Event *> complete_events(num_devices, nullptr);
   exec_args.device_complete_events = complete_events.data();
 
   try_alloc(
@@ -387,18 +419,20 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
       /*suppress_logs=*/!this->is_cpu_);
 
   // Build result
-  AsyncExecuteResult result;
-  if (complete_events[0] != nullptr) {
-    result.complete_event =
-        std::make_unique<PJRTEvent>(complete_events[0], this->api);
-  }
-  for (size_t i = 0; i < num_outputs; ++i) {
-    auto buf = std::make_unique<PJRTBuffer>(outer_out[0][i], this->api);
-    result.buffers.push_back(std::move(buf));
+  std::vector<AsyncExecuteResult> results(num_devices);
+  for (size_t d = 0; d < num_devices; ++d) {
+    if (complete_events[d] != nullptr) {
+      results[d].complete_event =
+          std::make_unique<PJRTEvent>(complete_events[d], this->api);
+    }
+    for (size_t i = 0; i < num_outputs; ++i) {
+      results[d].buffers.push_back(
+          std::make_unique<PJRTBuffer>(outer_out[d][i], this->api));
+    }
   }
 
-  return result;
-};
+  return results;
+}
 
 std::string PJRTClient::platform() {
   PJRT_Client_PlatformName_Args args{};

@@ -1,5 +1,8 @@
 # pjrt (development version)
 
+* `pjrt_compile()` compiles a replicated executable when given a list of devices, and the new
+  `pjrt_execute_replicated()` runs its replicas in parallel, one per device.
+
 # pjrt 0.6.0
 
 ## Breaking changes
