@@ -1328,7 +1328,7 @@ describe("CPU buffer memory management", {
   # buffer's device memory genuinely lives inside the RAWSXP -- i.e. the
   # zero-copy path was actually taken, not a silent copy into pool memory.
   expect_raw_backing <- function(buf, bytes) {
-    p <- impl_test_xptr_prot(buf)
+    p <- impl_test_buffer_prot(buf)
     expect_true(is.raw(p))
     expect_gte(length(p), bytes)
     expect_lt(length(p), bytes + 64L)
@@ -1423,5 +1423,74 @@ describe("CPU buffer memory management", {
     gc(full = TRUE)
     after <- vcells_mb()
     expect_lt(abs(after - before), 5)
+  })
+})
+
+describe("PJRTBuffer serialization", {
+  roundtrip <- function(x) unserialize(serialize(x, NULL))
+
+  it("round-trips the data, dtype and shape", {
+    bufs <- list(
+      pjrt_buffer(matrix(c(1.5, 2.5, 3.5, 4.5, 5.5, 6.5), 2L), dtype = "f32"),
+      pjrt_buffer(array(1:24, 2:4), dtype = "i64"),
+      pjrt_buffer(c(TRUE, FALSE, TRUE)),
+      pjrt_scalar(3L, dtype = "ui8"),
+      pjrt_empty(dtype = "f64", shape = c(0L, 3L))
+    )
+    for (buf in bufs) {
+      buf2 <- roundtrip(buf)
+      expect_class(buf2, "PJRTBuffer")
+      expect_identical(dtype(buf2), dtype(buf))
+      expect_identical(shape(buf2), shape(buf))
+      expect_identical(as_array(buf2), as_array(buf))
+    }
+  })
+
+  it("restores the buffer on its device", {
+    skip_if(!is_cpu())
+    buf <- pjrt_buffer(c(1, 2, 3), device = "cpu:1")
+    expect_identical(device(roundtrip(buf)), pjrt_device("cpu:1"))
+  })
+
+  it("round-trips buffers nested in other objects through saveRDS()", {
+    path <- withr::local_tempfile(fileext = ".rds")
+    x <- list(a = pjrt_buffer(1:3), b = list(pjrt_buffer(c(1, 2))))
+    saveRDS(x, path)
+    y <- readRDS(path)
+    expect_identical(as_array(y$a), as_array(x$a))
+    expect_identical(as_array(y$b[[1L]]), as_array(x$b[[1L]]))
+  })
+
+  it("loads pjrt when read in a fresh session", {
+    skip_on_cran()
+    skip_if_not_installed("callr")
+    path <- withr::local_tempfile(fileext = ".rds")
+    saveRDS(pjrt_buffer(c(1, 2, 3)), path)
+    res <- callr::r(function(path) pjrt::as_array(readRDS(path)), list(path = path))
+    expect_identical(res, array(c(1, 2, 3)))
+  })
+
+  it("keeps working after a copy that modifies attributes", {
+    buf <- pjrt_buffer(c(1, 2, 3))
+    buf2 <- buf
+    attr(buf2, "foo") <- "bar"
+    class(buf2) <- c("Foo", class(buf2))
+    expect_identical(attr(buf, "foo"), NULL)
+    expect_identical(as_array(buf2), as_array(buf))
+    expect_identical(as_array(roundtrip(buf2)), as_array(buf))
+    expect_identical(attr(roundtrip(buf2), "foo"), "bar")
+  })
+})
+
+describe("PJRTBuffer", {
+  it("is identical only to itself", {
+    buf <- pjrt_buffer(c(1, 2, 3))
+    expect_true(identical(buf, buf))
+    expect_false(identical(buf, pjrt_buffer(c(1, 2, 3))))
+  })
+
+  it("can't be modified as a list", {
+    buf <- pjrt_buffer(c(1, 2, 3))
+    expect_error(buf[[1L]] <- 1, "can't be modified")
   })
 })

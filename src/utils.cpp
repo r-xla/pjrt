@@ -1,7 +1,7 @@
 #include "utils.h"
 
 #include <R_ext/Print.h>  // REprintf
-#include <Rinternals.h>   // SEXP, R_ExternalPtrProtected
+#include <Rinternals.h>   // SEXP
 #include <unistd.h>
 
 // R's headers #define `error` (-> Rf_error), which collides with the `.error`
@@ -290,8 +290,3 @@ std::vector<int64_t> id2indices(int lid, const std::vector<int64_t> strides) {
   }
   return idx;
 }
-
-// Test-only: read the SEXP stored in an external pointer's protected slot. Used
-// to assert the keepalive invariant — which RAWSXP a CPU buffer's XPtr pins.
-// [[Rcpp::export()]]
-SEXP impl_test_xptr_prot(SEXP x) { return R_ExternalPtrProtected(x); }

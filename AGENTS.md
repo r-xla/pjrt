@@ -33,6 +33,8 @@ PJRTArrayPromise   – async device-to-host transfer result (environment-based)
 PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)
 ```
 
+A `PJRTBuffer` is not a bare external pointer: it is a length-1 ALTLIST whose only element is the external pointer that owns the buffer (`src/buffer_sexp.{h,cpp}`). The ALTREP class gives buffers a custom serialization (host bytes plus dtype, shape and device, re-uploaded on load; see `buffer_serialized_state()`/`buffer_unserialize()` in `buffer.R`). C++ creates buffer objects with `rpjrt::wrap_buffer()` and unwraps them with `rpjrt::as_buffer()`/`rpjrt::buffer_xptr()`; never treat a buffer SEXP as an `EXTPTRSXP`. In R, test for a buffer with `is_buffer()`, not `is.list()`.
+
 ### Plugin and Client Lifecycle
 
 Plugins and clients are singletons cached in a global environment (`the` in plugin.R):

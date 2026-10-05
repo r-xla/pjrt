@@ -54,6 +54,12 @@ is_buffer <- function(x) {
 #' * [`safetensors::safe_save_file`] for writing to a safetensors file.
 #' * [`safetensors::safe_load_file`] for reading from a safetensors file.
 #'
+#' A buffer can also be serialized like any R object, e.g. with [`saveRDS()`]:
+#' its data is copied to the host, and unserializing it uploads the data to a
+#' device of the same platform and index again.
+#' This requires serialization format version 3 (R's default); under version 2,
+#' the buffer is written without its data.
+#'
 #' @section Scalars:
 #' When calling this function on a vector of length 1, the resulting shape is `1L`.
 #' To create a 0-dimensional buffer, use `pjrt_scalar` where the resulting shape is `integer()`.
@@ -609,6 +615,31 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
   assert_flag(row_major)
   client <- client_from_device(device(x))
   impl_buffer_to_raw(client, x, row_major = row_major)
+}
+
+# Called by the PJRTBuffer ALTREP class (src/buffer_sexp.cpp) to serialize a
+# buffer: its host bytes, plus what is needed to upload them again.
+buffer_serialized_state <- function(x) {
+  dev <- device(x)
+  index <- Position(\(d) identical(d, dev), devices(client_from_device(dev))) - 1L
+  list(
+    data = as_raw(x, row_major = FALSE),
+    dtype = as.character(elt_type(x)),
+    shape = shape(x),
+    device = paste0(platform(dev), ":", index)
+  )
+}
+
+# Called by the PJRTBuffer ALTREP class to unserialize a buffer from the state
+# buffer_serialized_state() produced.
+buffer_unserialize <- function(state) {
+  pjrt_buffer(
+    state$data,
+    dtype = state$dtype,
+    shape = state$shape,
+    device = state$device,
+    row_major = FALSE
+  )
 }
 
 #' @title Copy Buffer to Device
