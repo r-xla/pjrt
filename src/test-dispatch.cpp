@@ -153,7 +153,10 @@ context("AnvlDtype") {
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_U64) == AnvlDtype::kU64);
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_PRED) ==
                 AnvlDtype::kBool);
-    // A type PJRT enumerates but anvl cannot represent.
+    // A type pjrt's buffer layer supports (f16 buffers exist for storage and
+    // IO) but the dispatcher cannot key until the promotion lattice covers
+    // it: it must map to kInvalid -- and be rejected -- rather than key
+    // approximately.
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_F16) ==
                 AnvlDtype::kInvalid);
     expect_true(std::string(anvl_dtype_name(AnvlDtype::kU8)) == "ui8");

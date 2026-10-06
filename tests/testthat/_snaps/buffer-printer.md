@@ -254,6 +254,88 @@
        1.0000e+38
       [ CPUf32{1} ] 
 
+# printer for bf16
+
+    Code
+      pjrt_buffer(1:10, "bf16")
+    Output
+      PJRTBuffer 
+        1
+        2
+        3
+        4
+        5
+        6
+        7
+        8
+        9
+       10
+      [ CPUbf16{10} ] 
+
+---
+
+    Code
+      pjrt_buffer(c(1.5, -0.25, 3.140625), dtype = "bf16")
+    Output
+      PJRTBuffer 
+        1.5000
+       -0.2500
+        3.1406
+      [ CPUbf16{3} ] 
+
+---
+
+    Code
+      pjrt_buffer(c(2^128 * (1 - 2^(-8)), Inf, NaN, 2^(-133)), dtype = "bf16")
+    Output
+      PJRTBuffer 
+       3.3895e+38
+              inf
+              nan
+       9.1835e-41
+      [ CPUbf16{4} ] 
+
+# printer for f16
+
+    Code
+      pjrt_buffer(1:10, "f16")
+    Output
+      PJRTBuffer 
+        1
+        2
+        3
+        4
+        5
+        6
+        7
+        8
+        9
+       10
+      [ CPUf16{10} ] 
+
+---
+
+    Code
+      pjrt_buffer(c(1.5, -0.25, 3.140625), dtype = "f16")
+    Output
+      PJRTBuffer 
+        1.5000
+       -0.2500
+        3.1406
+      [ CPUf16{3} ] 
+
+---
+
+    Code
+      pjrt_buffer(c(65504, Inf, NaN, 2^(-24)), dtype = "f16")
+    Output
+      PJRTBuffer 
+       6.5504e+04
+              inf
+              nan
+       5.9605e-08
+      [ CPUf16{4} ] 
+
 # integer-valued floats with truncation
 
     Code

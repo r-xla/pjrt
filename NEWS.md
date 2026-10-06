@@ -1,5 +1,31 @@
 # pjrt (development version)
 
+## New features
+
+* `PJRTBuffer` supports the `"bf16"` (bfloat16) element type. Buffers can be
+  created from R `double` and `integer` data, from raw bytes, and from `BF16`
+  safetensors payloads (which load without an intermediate f32
+  representation, halving the host memory a large checkpoint needs).
+  `as_array()` returns the exactly representable values as `double`,
+  `as_raw()` round-trips the packed bytes, and printing and `format_buffer()`
+  render bf16 directly. A compiled bf16 program runs through
+  `pjrt_execute()`.
+
+  R doubles are rounded to bf16 to nearest with ties to even, rounding the
+  double directly rather than via `float`, which would double-round.
+
+  What bf16 does not reach is the dispatcher: a bf16 input is rejected rather
+  than keyed as a neighbouring dtype, since eager arithmetic on it needs
+  promotion-lattice support.
+
+* `PJRTBuffer` likewise supports the `"f16"` (IEEE 754 binary16) element
+  type, with the same construction, `as_array()`, `as_raw()`, printing,
+  `format_buffer()`, safetensors (`F16`) and execution paths as bf16. Doubles
+  round to nearest, ties to even; the largest finite value is 65504, and
+  magnitudes at or above the overflow midpoint 65520 round to `Inf`. The
+  host-side conversion comes from a bundled copy of Christian Rau's half.hpp
+  (MIT, see `inst/COPYRIGHTS`). Like bf16, f16 stays out of the dispatcher.
+
 # pjrt 0.6.0
 
 ## Breaking changes

@@ -25,13 +25,22 @@ namespace rpjrt {
 // our own rather than PJRT_Buffer_Type: an Aval describes a plain R array that
 // never went near PJRT just as readily as a PJRT buffer.
 //
-// The set is what the dispatcher can represent, which is also exactly what
-// pjrt's string_to_pjrt_buffer_type() accepts. xlamisc now names more dtypes
-// than this (f16, bf16, f8*, complex, sub-byte ints); those are rejected by
-// anvl_dtype_from_xlamisc() below rather than keyed approximately. Conversions
+// The set is what the dispatcher can represent. xlamisc names more dtypes than
+// this (f16, bf16, f8*, complex, sub-byte ints); those are rejected by
+// anvl_dtype_from_name() below rather than keyed approximately. Conversions
 // in either direction are explicit switches rather than casts, so a PJRT type
 // outside this set maps to kInvalid rather than silently becoming a
 // neighbouring dtype.
+//
+// pjrt's buffer layer deliberately runs ahead of the dispatcher: f16 and bf16
+// buffers exist and compiled f16/bf16 programs execute, so
+// string_to_pjrt_buffer_type() accepts both names, but there is no kF16 or
+// kBF16 here. Such a buffer reaching the dispatcher maps to kInvalid and is
+// rejected by check_dtype_representable() rather than being keyed as a
+// neighbouring dtype. Eager arithmetic on half precision is a separate step
+// that needs the promotion lattice, so keeping it out here is the point, not
+// an omission. Add kF16/kBF16 (and the conversions below) when that step
+// happens.
 enum class AnvlDtype {
   kInvalid,
   kBool,

@@ -99,6 +99,7 @@ Other contributors:
   \item Hugh Graham \email{hugh@belian.earth} (\href{https://orcid.org/0000-0001-9451-5010}{ORCID}) [contributor]
   \item Daniel James (Author of the Boost.ContainerHash hash_combine copied in src/hash.h (BSL-1.0); see inst/COPYRIGHTS) [copyright holder]
   \item The OpenXLA Authors (Authors of the PJRT C API and XLA FFI headers in inst/include and the XLA protobuf definitions in inst/proto (Apache-2.0); see inst/COPYRIGHTS) [copyright holder]
+  \item Christian Rau (Author of the half-precision library half.hpp bundled in inst/include/half (MIT); see inst/COPYRIGHTS) [copyright holder]
 }
 
 }
