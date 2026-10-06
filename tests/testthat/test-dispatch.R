@@ -16,8 +16,7 @@ oav <- function(dtype = "f32", shape = 2L) {
 }
 
 # The pjrt engine's full compile-callback contract for a single-output
-# executable: exec, client + device (uploads, moves, phantoms, and the wrapped
-# outputs' $device), a leaf out_tree (a single un-nested output), and the
+# executable: exec, client + device (uploads, moves and phantoms), a leaf out_tree (a single un-nested output), and the
 # out_avals the outputs are wrapped from. The default is the tests' most common
 # program: one f32 output of shape 2.
 pjrt_entry <- function(
@@ -40,7 +39,7 @@ pjrt_entry <- function(
 # A pjrt array leaf, as anvl builds them: an "AnvlArray" whose $data is a buffer.
 parr <- function(buf) {
   structure(
-    list(data = buf, device = xlamisc::device(buf), backend = "pjrt"),
+    list(data = buf, backend = "pjrt"),
     class = "AnvlArray"
   )
 }
@@ -272,7 +271,7 @@ test_that("the pjrt engine wraps its outputs and caches one entry per signature"
   expect_identical(as.character(r1$dtype), "f32")
   expect_identical(r1$shape, 3L)
   expect_s3_class(r1$data, "PJRTBuffer")
-  expect_s3_class(r1$device, "PJRTDevice")
+  expect_null(r1$device)
   expect_identical(r1$backend, "pjrt")
   expect_equal(out(r1), c(11, 22, 33))
 
@@ -467,8 +466,8 @@ test_that("move_inputs copies a pjrt input to the entry's device", {
   y0 <- parr(pjrt_buffer(c(3, 4), dtype = "f32", device = "cpu:0"))
   r <- dispatch(d, list(x = x0, y = y0))
   expect_equal(out(r), c(4, 6))
-  # Devices are interned, so the wrapped output carries the very object.
-  expect_identical(r$device, dev0)
+  # Devices are interned, so the output's device is the very object.
+  expect_identical(xlamisc::device(r$data), dev0)
 
   # An input on another device is copied to the target rather than rejected,
   # and the device is not part of the key: one entry serves both.

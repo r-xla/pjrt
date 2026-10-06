@@ -575,7 +575,7 @@ class PjrtEngine : public Engine {
 
     // The wrap templates, built from the callback's declared output avals --
     // the last thing that can throw.
-    Rcpp::List templates = build_templates(out_avals, device);
+    Rcpp::List templates = build_templates(out_avals);
 
     auto data = std::make_unique<PjrtEntry>(exec, client, device, out_tree,
                                             std::move(templates));
@@ -681,14 +681,14 @@ class PjrtEngine : public Engine {
  private:
   // One template AnvlArray per output, built on the compile (cold) path from
   // the avals the callback declared: a named list (data = NULL, dtype, shape,
-  // device, backend) of class "AnvlArray" -- the wrapper layout an pjrt leaf
+  // backend) of class "AnvlArray" -- the wrapper layout an pjrt leaf
   // carries, which PjrtEngine::read_array reads back as an input. The hot path
   // only shallow-copies a template and drops the output buffer into its
   // `$data` slot.
   //
   // `out_avals[[i]]` is list(dtype = <string>, shape = <integer>). See
   // ?dispatcher.
-  Rcpp::List build_templates(SEXP out_avals, SEXP device) const {
+  Rcpp::List build_templates(SEXP out_avals) const {
     const R_xlen_t n_out = XLENGTH(out_avals);
     Rcpp::Environment xlamisc = Rcpp::Environment::namespace_env("xlamisc");
     Rcpp::Function as_dtype = xlamisc["as_dtype"];
@@ -716,8 +716,7 @@ class PjrtEngine : public Engine {
       Rcpp::List tmpl = Rcpp::List::create(
           Rcpp::Named("data") = R_NilValue,
           Rcpp::Named("dtype") = as_dtype(Rcpp::CharacterVector::create(dt)),
-          Rcpp::Named("shape") = shape, Rcpp::Named("device") = device,
-          Rcpp::Named("backend") = backend);
+          Rcpp::Named("shape") = shape, Rcpp::Named("backend") = backend);
       tmpl.attr("class") = cls;
       templates[i] = tmpl;
     }
