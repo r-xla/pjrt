@@ -4,16 +4,19 @@
 \alias{as_array.PJRTBuffer}
 \title{Convert a PJRTBuffer to an R Array}
 \usage{
-\method{as_array}{PJRTBuffer}(x, check = FALSE, ...)
+\method{as_array}{PJRTBuffer}(x, check = "warn", ...)
 }
 \arguments{
 \item{x}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
 Buffer to convert.}
 
-\item{check}{(\code{logical(1)})\cr
-If \code{TRUE}, sanity-check the materialized R vector against losing
-information across the device-to-host boundary, and abort if any
-problematic value is detected:
+\item{check}{(\code{character(1)} | \code{FALSE})\cr
+How to report a materialized value that R's type cannot hold:
+\code{"warn"} (the default) warns and returns it anyway, \code{"err"} aborts,
+and \code{FALSE} skips the scan altogether. \code{TRUE} is not accepted — with
+two levels of strictness it does not say which one is meant.
+
+The cases scanned for are:
 \itemize{
 \item \strong{\code{i32} / \code{i64}}: any \code{NA} in the result. R's \code{NA_integer_} shares
 the bit pattern \code{INT_MIN}; \code{bit64}'s \code{NA_integer64_} shares
@@ -25,9 +28,13 @@ to negative — exactly \code{2^63} becomes \code{NA_integer64_}, anything
 above becomes a non-NA negative integer64.
 }
 
+Each case is a value the R type genuinely cannot hold, so the check
+has no false positives: it fires exactly when the returned vector
+would misrepresent the buffer.
+
 No-op for float, boolean, and small/unsigned-32 integer dtypes —
-\code{ui32} is now stored as \code{integer64} and has full headroom, so it
-cannot produce a wrapped or NA value.}
+\code{ui32} is stored as \code{integer64} and has full headroom, so it cannot
+produce a wrapped or NA value.}
 
 \item{...}{Additional arguments (unused).}
 }

@@ -15,7 +15,7 @@
 namespace {
 
 using rpjrt::anvl_dtype_from_pjrt;
-using rpjrt::anvl_dtype_from_tengen;
+using rpjrt::anvl_dtype_from_xlamisc;
 using rpjrt::anvl_dtype_name;
 using rpjrt::AnvlDtype;
 using rpjrt::Aval;
@@ -45,31 +45,30 @@ RTree flat_tree(std::size_t n) {
   return t;
 }
 
-Aval mk_aval(AnvlDtype dtype, std::vector<int64_t> shape, bool ambiguous) {
+Aval mk_aval(AnvlDtype dtype, std::vector<int64_t> shape) {
   Aval a;
   a.dtype = dtype;
   a.shape = std::move(shape);
-  a.ambiguous = ambiguous;
   return a;
 }
 
 KeyLeaf array_leaf(Aval a) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kArray;
   kl.aval = std::move(a);
+  kl.aval.kind = rpjrt::AvalKind::kArray;
   return kl;
 }
 
 KeyLeaf rdata_leaf(Aval a) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kRData;
   kl.aval = std::move(a);
+  kl.aval.kind = rpjrt::AvalKind::kRData;
   return kl;
 }
 
 KeyLeaf static_leaf(SEXP value) {
   KeyLeaf kl;
-  kl.kind = KeyLeaf::kStatic;
+  kl.is_static = true;
   kl.value = value;
   return kl;
 }
@@ -89,17 +88,12 @@ const int kDeviceB = 0;
 const rpjrt::DeviceToken kDevA = &kDeviceA;
 const rpjrt::DeviceToken kDevB = &kDeviceB;
 
-// A tengen DataType object: an S3 list with `$value` bits and a class.
-Rcpp::List tengen_dtype(const char* cls, int bits) {
-  Rcpp::List d = Rcpp::List::create(Rcpp::Named("value") = bits);
-  d.attr("class") = Rcpp::CharacterVector::create(cls, "DataType");
-  return d;
-}
-
-Rcpp::List tengen_bool() {
-  Rcpp::List d = Rcpp::List::create();
-  d.attr("class") = Rcpp::CharacterVector::create("BooleanType", "DataType");
-  return d;
+// A xlamisc DataType: length-1 STRSXP classed "DataType".
+inline Rcpp::CharacterVector xlamisc_dtype(const char* name) {
+  Rcpp::CharacterVector s(1);
+  s[0] = name;
+  s.attr("class") = "DataType";
+  return s;
 }
 
 // A length-1 character vector holding `bytes` under a chosen encoding, so a
@@ -113,41 +107,43 @@ Rcpp::CharacterVector str_ce(const char* bytes, int len, cetype_t enc) {
 }  // namespace
 
 context("AnvlDtype") {
-  test_that("every tengen dtype maps to a distinct AnvlDtype") {
+  test_that("every xlamisc dtype maps to a distinct AnvlDtype") {
     // A fall-through here would key two dtypes alike and run one's program for
     // the other. It has happened; hence one assertion per width.
-    expect_true(anvl_dtype_from_tengen(tengen_bool()) == AnvlDtype::kBool);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 8)) ==
-                AnvlDtype::kI8);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 16)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("bool")) ==
+                AnvlDtype::kBool);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i8")) == AnvlDtype::kI8);
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i16")) ==
                 AnvlDtype::kI16);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 32)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i32")) ==
                 AnvlDtype::kI32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 64)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("i64")) ==
                 AnvlDtype::kI64);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 8)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui8")) ==
                 AnvlDtype::kU8);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 16)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui16")) ==
                 AnvlDtype::kU16);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 32)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui32")) ==
                 AnvlDtype::kU32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("UIntegerType", 64)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("ui64")) ==
                 AnvlDtype::kU64);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("FloatType", 32)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("f32")) ==
                 AnvlDtype::kF32);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("FloatType", 64)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("f64")) ==
                 AnvlDtype::kF64);
   }
 
   test_that(
       "a dtype AnvlDtype cannot name yields kInvalid, never a neighbour") {
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("FloatType", 16)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("f16")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("IntegerType", 128)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("bf16")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(tengen_dtype("WeirdType", 32)) ==
+    expect_true(anvl_dtype_from_xlamisc(xlamisc_dtype("c64")) ==
                 AnvlDtype::kInvalid);
-    expect_true(anvl_dtype_from_tengen(Rcpp::IntegerVector::create(32)) ==
+    expect_true(anvl_dtype_from_xlamisc(Rcpp::CharacterVector::create("f32")) ==
+                AnvlDtype::kInvalid);
+    expect_true(anvl_dtype_from_xlamisc(Rcpp::IntegerVector::create(32)) ==
                 AnvlDtype::kInvalid);
   }
 
@@ -158,8 +154,9 @@ context("AnvlDtype") {
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_PRED) ==
                 AnvlDtype::kBool);
     // A type pjrt's buffer layer supports (f16 buffers exist for storage and
-    // IO) but anvl cannot represent until tengen grows the dtype: it must map
-    // to kInvalid -- and be rejected -- rather than key approximately.
+    // IO) but the dispatcher cannot key until the promotion lattice covers
+    // it: it must map to kInvalid -- and be rejected -- rather than key
+    // approximately.
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_F16) ==
                 AnvlDtype::kInvalid);
     expect_true(std::string(anvl_dtype_name(AnvlDtype::kU8)) == "ui8");
@@ -168,7 +165,7 @@ context("AnvlDtype") {
 }
 
 context("CacheKey: aval-keyed leaves") {
-  const Aval f32_2x3 = mk_aval(AnvlDtype::kF32, {2, 3}, false);
+  const Aval f32_2x3 = mk_aval(AnvlDtype::kF32, {2, 3});
 
   test_that("equal signatures compare equal and hash alike") {
     CacheKey a = key_of({array_leaf(f32_2x3), array_leaf(f32_2x3)});
@@ -177,42 +174,35 @@ context("CacheKey: aval-keyed leaves") {
     expect_true(hash_of(a) == hash_of(b));
   }
 
-  test_that("dtype, shape, ambiguity and arity each split the key") {
+  test_that("dtype, shape and arity each split the key") {
     CacheKey base = key_of({array_leaf(f32_2x3)});
 
-    CacheKey dtype =
-        key_of({array_leaf(mk_aval(AnvlDtype::kI32, {2, 3}, false))});
+    CacheKey dtype = key_of({array_leaf(mk_aval(AnvlDtype::kI32, {2, 3}))});
     expect_false(eq(base, dtype));
     expect_false(hash_of(base) == hash_of(dtype));
 
-    CacheKey shape =
-        key_of({array_leaf(mk_aval(AnvlDtype::kF32, {3, 2}, false))});
+    CacheKey shape = key_of({array_leaf(mk_aval(AnvlDtype::kF32, {3, 2}))});
     expect_false(eq(base, shape));
     expect_false(hash_of(base) == hash_of(shape));
 
-    CacheKey rank = key_of({array_leaf(mk_aval(AnvlDtype::kF32, {}, false))});
+    CacheKey rank = key_of({array_leaf(mk_aval(AnvlDtype::kF32, {}))});
     expect_false(eq(base, rank));
     expect_false(hash_of(base) == hash_of(rank));
-
-    CacheKey ambig =
-        key_of({array_leaf(mk_aval(AnvlDtype::kF32, {2, 3}, true))});
-    expect_false(eq(base, ambig));
-    expect_false(hash_of(base) == hash_of(ambig));
 
     CacheKey arity = key_of({array_leaf(f32_2x3), array_leaf(f32_2x3)});
     expect_false(eq(base, arity));
     expect_false(hash_of(base) == hash_of(arity));
   }
 
-  test_that("a kArray and a kRData leaf of one aval are one key") {
-    // They compile to the same program; only where execution finds the input
-    // differs, and that is decided per call. Keying them apart would compile
-    // `f(x, y)` and `f(x, 1)` twice.
+  test_that(
+      "an array and an rdata aval of one dtype and shape are different keys") {
+    // They compile to different programs: bare R data has no dtype of its own
+    // until the program says what it is used as, so `f(x, 1)` may consume it
+    // at a dtype `f(x, y)` never asks for.
     CacheKey arr = key_of({array_leaf(f32_2x3)});
     CacheKey lit = key_of({rdata_leaf(f32_2x3)});
-    expect_true(eq(arr, lit));
-    expect_true(hash_of(arr) ==
-                hash_of(lit));  // or the map never compares them
+    expect_false(eq(arr, lit));
+    expect_false(hash_of(arr) == hash_of(lit));
   }
 
   test_that("an aval-keyed leaf never equals a value-keyed one") {
@@ -224,7 +214,7 @@ context("CacheKey: aval-keyed leaves") {
 }
 
 context("CacheKey: device and tree") {
-  const Aval f32 = mk_aval(AnvlDtype::kF32, {2}, false);
+  const Aval f32 = mk_aval(AnvlDtype::kF32, {2});
 
   test_that("the device token splits the key and is folded into the hash") {
     CacheKey a = key_of({array_leaf(f32)});
@@ -253,6 +243,31 @@ context("CacheKey: device and tree") {
     b.in_tree.name_off[0] = 0;
     expect_false(eq(a, b));
     expect_false(hash_of(a) == hash_of(b));
+  }
+
+  test_that("the context splits the key and is folded into the hash") {
+    CacheKey a = key_of({array_leaf(f32)});
+    a.context = {"f32", "i32"};
+    CacheKey b = key_of({array_leaf(f32)});
+    b.context = {"f64", "i32"};
+    CacheKey a2 = key_of({array_leaf(f32)});
+    a2.context = {"f32", "i32"};
+
+    expect_false(eq(a, b));
+    expect_false(hash_of(a) == hash_of(b));
+    expect_true(eq(a, a2));
+    expect_true(hash_of(a) == hash_of(a2));
+
+    // No context (a dispatcher without a resolver) is its own key.
+    CacheKey none = key_of({array_leaf(f32)});
+    expect_false(eq(a, none));
+    expect_false(hash_of(a) == hash_of(none));
+
+    // The element boundaries matter: one string is not two.
+    CacheKey joined = key_of({array_leaf(f32)});
+    joined.context = {"f32i32"};
+    expect_false(eq(a, joined));
+    expect_false(hash_of(a) == hash_of(joined));
   }
 }
 

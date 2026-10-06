@@ -100,6 +100,20 @@ test_that("tree_equal distinguishes structure, names, and arity", {
   ))
 })
 
+test_that("== and != compare tree structure", {
+  expect_true(build_tree(list(a = 1)) == build_tree(list(a = 2)))
+  expect_false(build_tree(list(a = 1)) == build_tree(list(b = 1)))
+  expect_false(build_tree(list(a = 1)) != build_tree(list(a = 2)))
+  expect_true(build_tree(list(a = 1)) != build_tree(list(b = 1)))
+
+  # comparing with a non-tree is FALSE, not an error, in either order
+  tree <- build_tree(1)
+  expect_false(tree == 1)
+  expect_false(1 == tree)
+  expect_true(tree != "x")
+  expect_false(tree == list(1, 2))
+})
+
 test_that("NA list names are rejected (would corrupt to \"NA\" and poison tree_equal)", {
   x <- setNames(list(1, 2), c("a", NA))
   expect_error(build_tree(x), "NA")

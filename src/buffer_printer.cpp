@@ -13,6 +13,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "bfloat16.h"
 #include "buffer.h"
 #include "half/half.hpp"
 #include "utils.h"
@@ -304,9 +305,12 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
             if (std::isnan(dv)) return std::string("nan");
             return std::string(dv > 0 ? "inf" : "-inf");
           }
-          long long iv = static_cast<long long>(dv);
-          long long abs_val = iv < 0 ? -iv : iv;
-          int digits = (abs_val == 0)
+          // Stay in floating point while deciding how to render: an
+          // integer-valued double above 2^63 has no `long long` to be cast
+          // to, and every value that survives the `digits > 6` branch is
+          // small enough for the cast to be well-defined.
+          double abs_val = std::fabs(dv);
+          int digits = (abs_val == 0.0)
                            ? 1
                            : static_cast<int>(std::floor(std::log10(
                                  static_cast<long double>(abs_val)))) +
@@ -314,10 +318,10 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
           if (digits > 6) {
             std::ostringstream s;
             s.setf(std::ios::scientific, std::ios::floatfield);
-            s << std::setprecision(4) << static_cast<long double>(iv);
+            s << std::setprecision(4) << static_cast<long double>(dv);
             return s.str();
           }
-          return std::to_string(iv);
+          return std::to_string(static_cast<long long>(dv));
         };
         result = build_buffer_lines(ncols, nrows, rows_to_print, max_width,
                                     cont, fmt, slice, rows_left, "");
@@ -392,10 +396,6 @@ static void print_with_formatter_fn(const std::vector<int64_t> &dimensions,
 
     if (lid + 1 < std::max<int64_t>(lead_count, 1) && rows_left != 0)
       cont.push_back("");
-
-    if (rows_left < 0) {
-      break;
-    }
   }
 
   // We definitely truncated if we didn't exhaust all the leading dims,
@@ -447,13 +447,28 @@ std::vector<std::string> buffer_to_string_lines(
 
   switch (element_type) {
     case PJRT_Buffer_Type_F16: {
-      // Half values format through the float pathway: half -> float is exact,
-      // and the float formatters render via double anyway.
+      // Widened to float rather than formatted in place: f16 -> float is
+      // exact, and the float formatters render via double anyway.
       const half_float::half *half_data =
           static_cast<const half_float::half *>(data);
       std::vector<float> widened(static_cast<size_t>(numel));
       for (int64_t i = 0; i < numel; ++i) {
         widened[i] = static_cast<float>(half_data[i]);
+      }
+      std::span<const float> temp_span(widened.data(),
+                                       static_cast<size_t>(numel));
+      print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
+                              cont, temp_span);
+      break;
+    }
+    case PJRT_Buffer_Type_BF16: {
+      // Widened to float rather than formatted in place: bf16 -> float is
+      // exact, and the float formatters render via double anyway.
+      const rpjrt::bfloat16 *bf16_data =
+          static_cast<const rpjrt::bfloat16 *>(data);
+      std::vector<float> widened(static_cast<size_t>(numel));
+      for (int64_t i = 0; i < numel; ++i) {
+        widened[i] = bf16_data[i].to_float();
       }
       std::span<const float> temp_span(widened.data(),
                                        static_cast<size_t>(numel));
@@ -518,6 +533,13 @@ void buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
     case PJRT_Buffer_Type_F16: {
       std::vector<half_float::half> temp_vec =
           buffer_to_host_copy<half_float::half>(buffer.get(), numel);
+      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
+                                    max_rows, max_width, max_rows_slice);
+      break;
+    }
+    case PJRT_Buffer_Type_BF16: {
+      std::vector<rpjrt::bfloat16> temp_vec =
+          buffer_to_host_copy<rpjrt::bfloat16>(buffer.get(), numel);
       cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
                                     max_rows, max_width, max_rows_slice);
       break;

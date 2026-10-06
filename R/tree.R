@@ -86,6 +86,9 @@ tree_size <- impl_tree_size
 #' @description
 #' Structural equality of two trees: identical node kinds, child structure,
 #' leaf positions, and names.
+#'
+#' `a == b` (and `a != b`) is shorthand for this, except that comparing a tree
+#' with a non-tree is `FALSE` instead of an error.
 #' @param a,b (`RTree`)\cr
 #'   Trees to compare, as returned by [build_tree()].
 #' @return `logical(1)`
@@ -93,8 +96,24 @@ tree_size <- impl_tree_size
 #' @examples
 #' tree_equal(build_tree(list(a = 1)), build_tree(list(a = 2)))
 #' tree_equal(build_tree(list(a = 1)), build_tree(list(b = 1)))
+#'
+#' build_tree(list(a = 1)) == build_tree(list(a = 2))
 #' @export
 tree_equal <- impl_tree_equal
+
+#' @export
+`==.RTree` <- function(e1, e2) {
+  if (!inherits(e1, "RTree") || !inherits(e2, "RTree")) {
+    return(FALSE)
+  }
+  tree_equal(e1, e2)
+}
+
+#' @export
+`!=.RTree` <- function(e1, e2) {
+  # jarl-ignore comparison_negation: delegates to ==.RTree
+  !(e1 == e2) # nolint
+}
 
 #' @title Structural Tree Hash
 #' @description

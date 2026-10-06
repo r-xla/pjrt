@@ -10,7 +10,8 @@
 #'
 #' @details
 #' Each [`dispatch()`] call flattens the inputs and builds a cache key: a
-#' dynamic leaf contributes its dtype, shape and `ambiguous` flag, a static leaf
+#' dynamic leaf contributes its abstract value -- its kind (one of the backend's
+#' arrays, or bare R data), its dtype and its shape -- a static leaf
 #' its value (compared with [identical()]). On a hit the cached executable runs
 #' immediately; on a miss `compile` is called to produce a new cache entry.
 #'
@@ -25,19 +26,19 @@
 #' The `backend` selects the execution engine, and everything backend-specific
 #' sits behind it:
 #'
-#' * `backend = "xla"` executes a compiled PJRT executable natively: array
+#' * `backend = "pjrt"` executes a compiled PJRT executable natively: array
 #'   inputs contribute their `$data` buffer, bare R literals and arrays are
-#'   uploaded with the same dtype defaults as
-#'   [`pjrt_scalar()`]/[`pjrt_buffer()`], and the outputs are wrapped back into
-#'   `"AnvlArray"`s -- lists of `$data`, `$dtype`, `$shape`, `$device`,
-#'   `$ambiguous` and `$backend` -- and re-nested via `out_tree`, all without
+#'   uploaded at the dtype the entry's `input_dtypes` declared for them, and
+#'   the outputs are wrapped back into
+#'   `"AnvlArray"`s -- lists of `$data`, `$dtype`, `$shape`, `$device` and
+#'   `$backend` -- and re-nested via `out_tree`, all without
 #'   leaving C++.
 #' * any other `backend` calls the compiled R closure `compile` returned, which
 #'   returns the call's finished value. Execution, output wrapping and input
 #'   placement therefore stay under the backend's control. This is the path for
 #'   any non-PJRT backend (e.g. anvl's `"quickr"`).
 #'
-#' Of an array input, only `$data` is ever assumed: for `"xla"` its dtype, shape
+#' Of an array input, only `$data` is ever assumed: for `"pjrt"` its dtype, shape
 #' and device are read off the `PJRTBuffer` directly, and for any other backend
 #' they come from `extractor`. A backend is free to store them as fields or to
 #' compute them on demand.
@@ -52,27 +53,64 @@
 #'   * `in_tree`: its `RTree` (see [`build_tree`]),
 #'   * `leaves`: the flat leaf list (see [`flatten`]),
 #'   * `is_static`: a `logical()` mask over `leaves`,
-#'   * `avals`: per leaf, `NULL` if static, else the `list(dtype, shape,
-#'     ambiguous)` the cache key was built from. `dtype` is a canonical dtype
-#'     string (`"f32"`, `"i64"`, ...), `shape` an `integer()`, empty for a
+#'   * `avals`: per leaf, `NULL` if static, else the `list(kind, dtype, shape)`
+#'     the cache key was built from. `kind` is `"array"` for one of the
+#'     backend's arrays and `"rdata"` for a bare R literal or array -- the two
+#'     are different cache keys, because bare R data has no dtype of its own and
+#'     the caller may compile it into a different program. `dtype` is a
+#'     canonical dtype string (`"f32"`, `"i64"`, ...) for an `"array"` leaf, and
+#'     for an `"rdata"` leaf its R storage type instead -- its [typeof()],
+#'     so `"double"`, `"integer"` or `"logical"`. That is what the value *is*,
+#'     not a dtype it is not yet: `"double"` is not `"f64"`, and what the leaf
+#'     is uploaded at is `input_dtypes`. `shape` is an `integer()`, empty for a
 #'     scalar,
 #'   * `default_device`: the device this call resolved because no array input
 #'     named one -- the device the cache key was built on, so `compile` must
 #'     compile for it rather than resolve a default of its own. `NULL` when an
 #'     array named the device, or under `move_inputs`.
+#'   * `context`: what the `context` resolver returned for this call -- the
+#'     vector the cache key was built on, so `compile` must compile under it
+#'     rather than resolve its own. `NULL` when the dispatcher has no
+#'     `context`.
 #'
-#'   For `backend = "xla"` it must return a named list with:
+#'   For `backend = "pjrt"` it must return a named list with:
 #'   * `exec`: a [`pjrt_compile`]d executable,
 #'   * `client`, `device`: the [`pjrt_client`] and the device the entry is
 #'     compiled for,
 #'   * `out_tree`: the `RTree` of the outputs (see [`build_tree`]),
 #'   * `out_avals`: one aval per output leaf of `out_tree`, each a
-#'     `list(dtype = <string>, shape = <integer>, ambiguous = <logical(1)>)`
-#'     (`ambiguous` is optional and defaults to `FALSE`). The outputs are
-#'     wrapped from these.
+#'     `list(dtype = <string>, shape = <integer>)`. The outputs are wrapped
+#'     from these.
 #'   * `const_arrays` (optional): buffers prepended to the inputs,
 #'   * `phantom_specs` (optional): a list of `list(dtype = <string>, shape =
 #'     <integer>)` donation-output buffers to allocate fresh per call.
+#'
+#'   Either kind of result may additionally carry:
+#'   * `input_dtypes`: a `character()` with one entry per dynamic leaf, in
+#'     order, naming the dtype that input is supplied at. `NA` leaves an input
+#'     alone, and is the only valid entry for an array input: an array is
+#'     supplied as it is, so declaring a dtype for one is an error rather than a
+#'     no-op.
+#'
+#'     With `backend = "pjrt"` every bare R leaf must name a dtype: bare R data
+#'     has no dtype of its own, and only the compiled program knows what it is
+#'     used as, so the engine uploads it at the dtype declared here and never
+#'     guesses one. It is what lets a program that consumes an R double as `f64`
+#'     get the exact value rather than one rounded through `f32` first. The
+#'     `"rdata"` aval's `dtype` is the leaf's R storage type, so it is never an
+#'     answer to this: the callback names a real dtype. The field may be omitted
+#'     only for a call whose inputs are all arrays.
+#'
+#'     Not every R storage type uploads at every dtype, and a pair that cannot
+#'     be uploaded is rejected here rather than at execute time: a `"double"`
+#'     input takes any dtype, an `"integer"` input any but `"bool"`, and a
+#'     `"logical"` input only `"bool"`.
+#'
+#'     Any other `backend` uploads nothing: `r_fun` gets each R value itself, so
+#'     no entry could take effect and every one of them must be `NA`. A declared
+#'     dtype is rejected there rather than accepted and ignored, for the same
+#'     reason it is at an array input. The field is still length-checked, and
+#'     may still be omitted entirely.
 #'
 #'   For any other `backend` it must return a named list with:
 #'   * `r_fun`: a function called with the list of the call's dynamic leaves, in
@@ -103,7 +141,7 @@
 #'   per static argument value).
 #'
 #'   Placing an input is the engine's business, since only it knows what `$data`
-#'   holds. With `backend = "xla"` an input living elsewhere is copied to the
+#'   holds. With `backend = "pjrt"` an input living elsewhere is copied to the
 #'   entry's device. With any other backend pjrt does nothing, so **`r_fun` must
 #'   place its own inputs** -- it receives only their `$data`, not their
 #'   `$device`, so the placing has to be idempotent.
@@ -121,21 +159,33 @@
 #'   an interned device resolves in one pointer comparison, and every distinct
 #'   object a backend hands out stays alive for the dispatcher's lifetime.
 #' @param extractor (`function` | `NULL`)\cr
-#'   Reads a non-`"xla"` array's metadata via the backend's accessors, called as
-#'   `extractor(leaf)` and returning `list(aval = list(dtype, shape, ambiguous),
-#'   device, backend)` -- `dtype` a tengen `DataType`, `shape` an `integer()`.
-#'   Required for any backend other than `"xla"`; ignored for `"xla"` (see
+#'   Reads a non-`"pjrt"` array's metadata via the backend's accessors, called as
+#'   `extractor(leaf)` and returning `list(aval = list(dtype, shape), device,
+#'   backend)` -- `dtype` a xlamisc `DataType`, `shape` an `integer()`. The
+#'   aval's kind is not the extractor's to say: whatever it returns is an array
+#'   leaf.
+#'   Required for any backend other than `"pjrt"`; ignored for `"pjrt"` (see
 #'   *Backends*).
+#' @param context (`function` | `NULL`)\cr
+#'   Called with no arguments on *every* dispatch to get whatever the compiled
+#'   program depends on beyond its inputs -- anvl passes the backend's current
+#'   default dtypes. Must return a `character()` without `NA`s; its value is
+#'   part of the cache key, so an entry compiled under one context is never
+#'   served under another, and it reaches `compile` as `info$context`. Unlike
+#'   `default_device`, which is consulted only when no array names a device,
+#'   this is resolved for every call: any entry may depend on it. `NULL`
+#'   (default) keys on the inputs alone.
 #' @return [`dispatcher()`] returns a `Dispatcher`.
 #' @export
 dispatcher <- function(
   capacity,
   compile,
   static = character(),
-  backend = "xla",
+  backend = "pjrt",
   move_inputs = FALSE,
   default_device = NULL,
-  extractor = NULL
+  extractor = NULL,
+  context = NULL
 ) {
   checkmate::assert_count(capacity, positive = TRUE)
   checkmate::assert_function(compile)
@@ -144,17 +194,18 @@ dispatcher <- function(
   checkmate::assert_flag(move_inputs)
   checkmate::assert_function(default_device, null.ok = TRUE)
   checkmate::assert_function(extractor, null.ok = TRUE)
+  checkmate::assert_function(context, null.ok = TRUE)
   if (!move_inputs && is.null(default_device)) {
     cli::cli_abort(
       "{.arg default_device} is required unless {.code move_inputs = TRUE}."
     )
   }
-  # The backend fixes the execution engine: "xla" runs a compiled PJRT
+  # The backend fixes the execution engine: "pjrt" runs a compiled PJRT
   # executable natively; any other backend runs through the compiled R closure.
-  engine <- if (backend == "xla") "pjrt" else "closure"
+  engine <- if (backend == "pjrt") "pjrt" else "closure"
   if (engine == "closure" && is.null(extractor)) {
     cli::cli_abort(
-      "{.arg extractor} is required for a non-{.val xla} backend: pass a
+      "{.arg extractor} is required for a non-{.val pjrt} backend: pass a
        function that reads a leaf's metadata via the backend's accessors."
     )
   }
@@ -166,7 +217,8 @@ dispatcher <- function(
     backend,
     move_inputs,
     default_device,
-    extractor
+    extractor,
+    context
   )
 }
 
@@ -178,7 +230,7 @@ dispatcher <- function(
 #' @rdname dispatch
 #' @param dispatcher (`Dispatcher`)\cr A dispatcher from [`dispatcher()`].
 #' @param args (`list`)\cr The (already evaluated) argument list of the call.
-#' @return [`dispatch()`] returns the call's result. With `backend = "xla"` that
+#' @return [`dispatch()`] returns the call's result. With `backend = "pjrt"` that
 #'   is the output buffers wrapped into `"AnvlArray"`s and re-nested by the
 #'   `compile` callback's `out_tree` (see [`dispatcher()`]); with any other
 #'   backend it is whatever the compiled closure returned.

@@ -6,7 +6,7 @@
 \alias{pjrt-package}
 \title{pjrt: R Interface to PJRT}
 \description{
-Provides an R interface to PJRT (Pluggable Jit RunTime), which allows you to run XLA or stableHLO programs on a variety of hardware backends including CPU, GPU, and TPU.
+Provides an R interface to PJRT (Pluggable Jit RunTime), which compiles StableHLO and HLO programs with the XLA compiler and runs them on hardware backends such as CPU and GPU.
 }
 \section{Environment Variables}{
 
@@ -40,12 +40,10 @@ at the start of a fresh R session, e.g.
 \itemize{
 \item \code{PJRT_PLATFORM}: Default platform to use, falls back to \code{"cpu"}.
 \item \verb{PJRT_PLUGIN_PATH_<PLATFORM>}: Path to custom plugin library file for a specific
-platform (e.g., \code{PJRT_PLUGIN_PATH_CPU}, \code{PJRT_PLUGIN_PATH_CUDA},
-\code{PJRT_PLUGIN_PATH_METAL}). If set, the package will use this path instead
+platform (e.g., \code{PJRT_PLUGIN_PATH_CPU}, \code{PJRT_PLUGIN_PATH_CUDA}). If set, the package will use this path instead
 of downloading the plugin.
 \item \verb{PJRT_PLUGIN_URL_<PLATFORM>}: URL to download plugin from for a specific
-platform (e.g., \code{PJRT_PLUGIN_URL_CPU}, \code{PJRT_PLUGIN_URL_CUDA},
-\code{PJRT_PLUGIN_URL_METAL}). If set, overrides the default plugin download URL.
+platform (e.g., \code{PJRT_PLUGIN_URL_CPU}, \code{PJRT_PLUGIN_URL_CUDA}). If set, overrides the default plugin download URL.
 \item \code{PJRT_INSTALL}: Controls whether plugins may be downloaded automatically.
 Set this to \code{"1"} to always download without asking (e.g. in CI, scripts,
 or Docker builds), or to \code{"0"} to never download (the call errors with
@@ -57,7 +55,7 @@ Only used when downloading plugins from zml/pjrt-artifacts.
 \item \code{PJRT_CPU_DEVICE_COUNT}: The number of CPU devices to use. Defaults to 1.
 This is primarily intended for testing purposes.
 \item \code{PJRT_CUDA_R_PACKAGE}: Name of the R package providing CUDA libraries.
-Defaults to the value of cuda12.8.
+Defaults to the value of pjrt.cuda.
 Set this to use a different CUDA toolkit package, but note that other
 versions may not work with the XLA plugin.
 \item \code{PJRT_DEBUG}: If set (to any non-empty value), enables verbose debug output
@@ -70,7 +68,7 @@ via \code{cli::cli_inform()}.
 The \code{pjrt} package itself is MIT-licensed. The CUDA backend dynamically
 loads NVIDIA software which is not bundled with \code{pjrt}, but downloaded
 from NVIDIA's official redistributable channels by the CUDA toolkit R
-package (e.g. \code{cuda12.8}) at install time. Its use is governed by the
+package (e.g. \code{pjrt.cuda}) at install time. Its use is governed by the
 \href{https://docs.nvidia.com/cuda/eula/}{NVIDIA CUDA Toolkit EULA}, with the
 exception of cuDNN, which is covered by the
 \href{https://docs.nvidia.com/deeplearning/cudnn/sla/index.html}{NVIDIA cuDNN SLA},
@@ -98,7 +96,9 @@ Authors:
 
 Other contributors:
 \itemize{
+  \item Hugh Graham \email{hugh@belian.earth} (\href{https://orcid.org/0000-0001-9451-5010}{ORCID}) [contributor]
   \item Daniel James (Author of the Boost.ContainerHash hash_combine copied in src/hash.h (BSL-1.0); see inst/COPYRIGHTS) [copyright holder]
+  \item The OpenXLA Authors (Authors of the PJRT C API and XLA FFI headers in inst/include and the XLA protobuf definitions in inst/proto (Apache-2.0); see inst/COPYRIGHTS) [copyright holder]
   \item Christian Rau (Author of the half-precision library half.hpp bundled in inst/include/half (MIT); see inst/COPYRIGHTS) [copyright holder]
 }
 
