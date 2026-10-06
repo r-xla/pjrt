@@ -8,6 +8,7 @@
 #include <limits>
 #include <type_traits>
 
+#include "bfloat16.h"
 #include "buffer.h"
 #include "buffer_printer.h"
 #include "client.h"
@@ -267,7 +268,28 @@ T r_double_to_integral(double v) {
 // upload, whereas the read-only forms hand back the mapping in place.
 template <typename T>
 void convert_r_data_to_typed(SEXP data, T *dst, int len) {
-  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+  if constexpr (std::is_same_v<T, rpjrt::bfloat16>) {
+    // from_double() rounds the R double straight to bf16, to nearest with ties
+    // to even. Going through float first would double-round: a double just
+    // below a bf16 midpoint can round up to a float sitting exactly on it,
+    // which then ties away to the wrong neighbour.
+    if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = rpjrt::bfloat16::from_double(src[i]);
+      }
+    } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, an ordinary value once widened, so it is
+      // translated to NaN rather than cast, as the f32 path below does.
+      const int *src = INTEGER_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = rpjrt::bfloat16::from_double(
+            src[i] == NA_INTEGER ? R_NaReal : static_cast<double>(src[i]));
+      }
+    } else {
+      Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
+    }
+  } else if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     if (TYPEOF(data) == REALSXP) {
       const double *src = REAL_RO(data);
       std::copy(src, src + len, dst);
@@ -538,7 +560,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype,
     bool row_major = false) {
-  if (dtype == "f32") {
+  if (dtype == "bf16") {
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_BF16,
+                                  row_major, device->device);
+  } else if (dtype == "f32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
                                   row_major, device->device);
   } else if (dtype == "f64") {
@@ -750,6 +775,9 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
   };
 
   switch (element_type) {
+    case PJRT_Buffer_Type_BF16:
+      handle_transpose(rpjrt::bfloat16{});
+      break;
     case PJRT_Buffer_Type_F32:
       handle_transpose(float{});
       break;
@@ -1041,7 +1069,12 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
     raw_data = host_data->data().data();
   }
 
-  if (dtype == "f32") {
+  if (dtype == "bf16") {
+    // Widening bf16 -> double is exact, so as_array() returns precisely the
+    // values the buffer holds.
+    return raw_to_array_impl<rpjrt::bfloat16>(raw_data, dimensions, REALSXP,
+                                              m2m);
+  } else if (dtype == "f32") {
     return raw_to_array_impl<float>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "f64") {
     return raw_to_array_impl<double>(raw_data, dimensions, REALSXP, m2m);
@@ -1336,6 +1369,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else if (dtype == "ui64") {
     return create_buffer_from_array_async<uint64_t>(
         client, data, dims, PJRT_Buffer_Type_U64, false, device->device);
+  } else if (dtype == "bf16") {
+    return create_buffer_from_array_async<rpjrt::bfloat16>(
+        client, data, dims, PJRT_Buffer_Type_BF16, false, device->device);
   } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
@@ -1417,7 +1453,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype) {
-  if (dtype == "f32") {
+  if (dtype == "bf16") {
+    return create_buffer_from_array_async<rpjrt::bfloat16>(
+        client, data, dims, PJRT_Buffer_Type_BF16, false, device->device);
+  } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
   } else if (dtype == "f64") {
