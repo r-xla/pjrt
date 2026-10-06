@@ -242,15 +242,26 @@ struct KeyLeaf {
   SEXP value = R_NilValue;  // static leaf: the leaf itself
 };
 
-// A closure's formals pairlist. The only R-version-dependent call in the
-// package: R_ClosureFormals() is API from R 4.5.0, and the FORMALS() it
-// replaced was dropped from Rinternals.h in 4.6, so neither spelling spans both
-// and the choice has to be made at compile time.
+// The two R-version-dependent calls in the package. Each replaces one that was
+// dropped from R's API in 4.6, and the replacement is API only from R 4.5.0,
+// so neither spelling spans both and the choice has to be made at compile time.
+
+// A closure's formals pairlist: R_ClosureFormals() replaces FORMALS().
 inline SEXP closure_formals(SEXP f) {
 #if defined(R_VERSION) && R_VERSION >= R_Version(4, 5, 0)
   return R_ClosureFormals(f);
 #else
   return FORMALS(f);
+#endif
+}
+
+// The value bound to `sym` in the frame of `env` -- not its enclosures --, or
+// R_UnboundValue: R_getVarEx() replaces Rf_findVarInFrame().
+inline SEXP frame_var(SEXP env, SEXP sym) {
+#if defined(R_VERSION) && R_VERSION >= R_Version(4, 5, 0)
+  return R_getVarEx(sym, env, FALSE, R_UnboundValue);
+#else
+  return Rf_findVarInFrame(env, sym);
 #endif
 }
 

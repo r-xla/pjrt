@@ -771,7 +771,7 @@ class PjrtEngine : public Engine {
   // unset or NULL -- checked against the slot's dtype and shape, and copied to
   // the entry's device when it lives elsewhere.
   SEXP read_state(const PjrtEntry& pe, const StateSlot& s, int k) const {
-    SEXP val = Rf_findVarInFrame(s.env, s.name);
+    SEXP val = frame_var(s.env, s.name);
     if (val == R_UnboundValue || val == R_NilValue) {
       if (s.init.isNULL()) {
         Rcpp::stop("state slot %d (`%s`) is not set", k,
