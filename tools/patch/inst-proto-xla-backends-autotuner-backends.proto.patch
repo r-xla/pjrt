@@ -1,0 +1,20 @@
+--- a/inst/proto/xla/backends/autotuner/backends.proto
++++ b/inst/proto/xla/backends/autotuner/backends.proto
+@@ -13,7 +13,7 @@
+ // limitations under the License.
+ // ==============================================================================
+ 
+-edition = "2023";
++syntax = "proto3";
+ 
+ package xla.autotuner;
+ 
+@@ -26,7 +26,7 @@
+ enum Backend {
+   UNSPECIFIED_BACKEND = 0;
+   reserved 3, 5, 12, 15;
+-  reserved CUBLAS, CUBLAS_FISSION, ROCBLAS, ROCBLAS_FISSION;
++  reserved "CUBLAS", "CUBLAS_FISSION", "ROCBLAS", "ROCBLAS_FISSION";
+   CUDNN = 1;
+   TRITON = 2;
+   CUBLASLT = 4;

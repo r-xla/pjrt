@@ -123,25 +123,25 @@ test_pjrt_buffer <- function(
 
 test_that("dtype works for PJRTBuffer", {
   buf_f32 <- pjrt_buffer(1.0, dtype = "f32")
-  expect_equal(dtype(buf_f32), tengen::as_dtype("f32"))
+  expect_equal(dtype(buf_f32), xlamisc::as_dtype("f32"))
 
   buf_f64 <- pjrt_buffer(1.0, dtype = "f64")
-  expect_equal(dtype(buf_f64), tengen::as_dtype("f64"))
+  expect_equal(dtype(buf_f64), xlamisc::as_dtype("f64"))
 
   buf_i32 <- pjrt_buffer(1L, dtype = "i32")
-  expect_equal(dtype(buf_i32), tengen::as_dtype("i32"))
+  expect_equal(dtype(buf_i32), xlamisc::as_dtype("i32"))
 
   buf_i8 <- pjrt_buffer(1L, dtype = "i8")
-  expect_equal(dtype(buf_i8), tengen::as_dtype("i8"))
+  expect_equal(dtype(buf_i8), xlamisc::as_dtype("i8"))
 
   buf_pred <- pjrt_buffer(TRUE, dtype = "pred")
-  expect_equal(dtype(buf_pred), tengen::as_dtype("bool"))
+  expect_equal(dtype(buf_pred), xlamisc::as_dtype("bool"))
 
   buf_bool <- pjrt_buffer(TRUE, dtype = "bool")
-  expect_equal(dtype(buf_bool), tengen::as_dtype("bool"))
+  expect_equal(dtype(buf_bool), xlamisc::as_dtype("bool"))
 
   buf_ui8 <- pjrt_buffer(1L, dtype = "ui8")
-  expect_equal(dtype(buf_ui8), tengen::as_dtype("ui8"))
+  expect_equal(dtype(buf_ui8), xlamisc::as_dtype("ui8"))
 })
 
 test_that("pjrt_scalar roundtrip works for scalar data", {
@@ -277,17 +277,27 @@ test_that("bf16 raw and empty buffers work", {
   )
 })
 
-test_that("bf16 rejects logical input like the other float dtypes", {
-  expect_error(pjrt_buffer(TRUE, dtype = "bf16"), "Unsupported type")
+test_that("a logical uploads at bf16 like the other float dtypes", {
+  # A logical travels as.integer(), so TRUE/FALSE become 1/0 and NA becomes
+  # NA_integer_, which widens to NaN as it does for f32.
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "bf16")),
+    array(c(1, 0), 2L)
+  )
+  expect_identical(as_array(pjrt_buffer(NA, dtype = "bf16")), array(NaN, 1L))
+  expect_identical(
+    as_array(pjrt_buffer(NA_integer_, dtype = "bf16")),
+    array(NaN, 1L)
+  )
 })
 
-test_that("dtype() on a bf16 buffer round-trips through tengen", {
-  # Unlike f16, tengen's dtype enum already names bf16, so the buffer-level
-  # dtype and the tengen DataType agree.
+test_that("dtype() on a bf16 buffer round-trips through xlamisc", {
+  # xlamisc's dtype enum already names bf16, so the buffer-level dtype and the
+  # xlamisc DataType agree.
   buf <- pjrt_buffer(1.5, dtype = "bf16")
   expect_equal(as.character(elt_type(buf)), "bf16")
-  expect_identical(dtype(buf), tengen::as_dtype("bf16"))
-  expect_identical(as_array(pjrt_buffer(1.5, dtype = tengen::as_dtype("bf16"))), array(1.5))
+  expect_identical(dtype(buf), xlamisc::as_dtype("bf16"))
+  expect_identical(as_array(pjrt_buffer(1.5, dtype = xlamisc::as_dtype("bf16"))), array(1.5))
 })
 
 test_that("pjrt_buffer handles edge cases", {
@@ -297,71 +307,48 @@ test_that("pjrt_buffer handles edge cases", {
   expect_error(pjrt_buffer(numeric(0), shape = c(1, 4)), "but specified shape is")
 })
 
-test_that("pjrt_buffer check = FALSE silently transfers NA", {
-  # default behaviour: NAs flow through and become dtype-specific bit patterns.
+test_that("an NA an integer dtype does not reject travels to the device", {
+  # NAs that are not rejected on the way in become dtype-specific bit patterns.
+  # A double lands on NaN silently; an integer at i32 lands on INT_MIN, which
+  # is the one case that warns.
   expect_no_error(pjrt_buffer(c(1, NA, 3)))
-  expect_no_error(pjrt_buffer(c(1L, NA_integer_, 3L)))
-  expect_no_error(pjrt_buffer(c(TRUE, NA, FALSE)))
-  expect_no_error(pjrt_scalar(NA_integer_))
+  expect_warning(pjrt_buffer(c(1L, NA_integer_, 3L)), "-2147483648")
+  expect_warning(pjrt_scalar(NA_integer_), "-2147483648")
+
+  # An upload takes no opt-in: what a dtype does with an NA is fixed by the
+  # dtype, so there is no argument to pass.
+  expect_error(pjrt_buffer(c(1, NA, 3), check = TRUE), "Unused argument")
 })
 
-test_that("pjrt_buffer check = TRUE errors on NA input", {
-  expect_error(
-    pjrt_buffer(c(1, NA, 3), check = TRUE),
-    "no representation at the XLA level"
-  )
-  expect_error(
-    pjrt_buffer(c(1L, NA_integer_, 3L), check = TRUE),
-    "no representation at the XLA level"
-  )
-  expect_error(
-    pjrt_buffer(c(TRUE, NA, FALSE), check = TRUE),
-    "no representation at the XLA level"
-  )
-  expect_error(
-    pjrt_scalar(NA_integer_, check = TRUE),
-    "no representation at the XLA level"
-  )
-  expect_error(
-    pjrt_scalar(NA_real_, check = TRUE),
-    "no representation at the XLA level"
-  )
-  expect_error(
-    pjrt_scalar(NA, check = TRUE),
-    "no representation at the XLA level"
-  )
-
-  # Clean inputs pass through unaffected.
-  expect_no_error(pjrt_buffer(c(1, 2, 3), check = TRUE))
-  expect_no_error(pjrt_buffer(c(1L, 2L, 3L), check = TRUE))
-  expect_no_error(pjrt_buffer(c(TRUE, FALSE), check = TRUE))
-})
-
-test_that("as_array check = TRUE catches i32 / i64 NA collisions", {
+test_that("as_array reports an i32 / i64 NA collision at every check level", {
   client <- pjrt_client("cpu")
 
-  # i32: NA_integer_ bit pattern is INT_MIN (-2147483648).
-  buf_i32 <- pjrt_buffer(NA_integer_, dtype = "i32")
-  expect_true(anyNA(as_array(buf_i32)))
-  expect_error(as_array(buf_i32, check = TRUE), "distinguish from")
+  # i32: NA_integer_ bit pattern is INT_MIN (-2147483648). The upload warns
+  # about exactly that; here we are testing the readback check instead.
+  buf_i32 <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
+  expect_warning(res_i32 <- as_array(buf_i32), "distinguish from")
+  expect_true(anyNA(res_i32))
+  expect_true(anyNA(as_array(buf_i32, check = FALSE)))
+  expect_error(as_array(buf_i32, check = "err"), "distinguish from")
 
   # i64: planting INT64_MIN.
   bytes_i64 <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
   buf_i64 <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes_i64, 1L, "i64")
-  expect_true(anyNA(as_array(buf_i64)))
-  expect_error(as_array(buf_i64, check = TRUE), "distinguish from")
+  expect_warning(res_i64 <- as_array(buf_i64), "distinguish from")
+  expect_true(anyNA(res_i64))
+  expect_error(as_array(buf_i64, check = "err"), "distinguish from")
 
   # Clean buffers — no error.
-  expect_no_error(as_array(pjrt_buffer(1:3, dtype = "i32"), check = TRUE))
-  expect_no_error(as_array(pjrt_buffer(1L, dtype = "i64"), check = TRUE))
+  expect_no_error(as_array(pjrt_buffer(1:3, dtype = "i32"), check = "err"))
+  expect_no_error(as_array(pjrt_buffer(1L, dtype = "i64"), check = "err"))
 })
 
-test_that("as_array check = TRUE catches ui64 wrap (>= 2^63)", {
+test_that("as_array check = \"err\" catches ui64 wrap (>= 2^63)", {
   client <- pjrt_client("cpu")
   # 2^63 wraps to INT64_MIN (negative integer64).
   bytes <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
   buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui64")
-  expect_error(as_array(buf, check = TRUE), "wrapped through")
+  expect_error(as_array(buf, check = "err"), "wrapped through")
 })
 
 test_that("as_array preserves the full ui32 range losslessly (no wrap)", {
@@ -370,20 +357,20 @@ test_that("as_array preserves the full ui32 range losslessly (no wrap)", {
   # int32. ui32 now materializes as integer64 (53 bits of headroom over u32).
   bytes <- as.raw(c(0x00, 0x00, 0x00, 0x80))
   buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui32")
-  result <- as_array(buf, check = TRUE)
+  result <- as_array(buf, check = "err")
   expect_true(bit64::is.integer64(result))
   expect_equal(as.character(result), "2147483648")
 })
 
 test_that("as_array check is a no-op for float / bool / small-integer dtypes", {
   buf_f32 <- pjrt_buffer(c(1, NaN, 3), dtype = "f32")
-  expect_no_error(as_array(buf_f32, check = TRUE))
+  expect_no_error(as_array(buf_f32, check = "err"))
 
   buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
-  expect_no_error(as_array(buf_pred, check = TRUE))
+  expect_no_error(as_array(buf_pred, check = "err"))
 
   buf_i8 <- pjrt_buffer(c(-128L, 0L, 127L), dtype = "i8")
-  expect_no_error(as_array(buf_i8, check = TRUE))
+  expect_no_error(as_array(buf_i8, check = "err"))
 })
 
 test_that("pjrt_buffer preserves 3d dimensions", {
@@ -393,27 +380,254 @@ test_that("pjrt_buffer preserves 3d dimensions", {
 })
 
 test_that("pjrt_buffer dispatches on integer64 to i64", {
-  x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
+  x <- c(
+    bit64::as.integer64(c(1, 2^32, -2^40)),
+    # Through character: as a double literal, 9223372036854775000 rounds up
+    # past INT64_MAX and bit64 hands back NA_integer64_ instead.
+    bit64::as.integer64("9223372036854775000")
+  )
   buf <- pjrt_buffer(x)
   expect_equal(as.character(elt_type(buf)), "i64")
   expect_equal(shape(buf), 4L)
 })
 
 test_that("pjrt_buffer / as_array round-trip i64 with full 64-bit range", {
-  x <- bit64::as.integer64(c(1, 2^32, -2^40, 9223372036854775000))
+  x <- c(
+    bit64::as.integer64(c(1, 2^32, -2^40)),
+    # Through character: as a double literal, 9223372036854775000 rounds up
+    # past INT64_MAX and bit64 hands back NA_integer64_ instead.
+    bit64::as.integer64("9223372036854775000")
+  )
   buf <- pjrt_buffer(x)
-  back <- as_array(buf)
+  # `x` carries an NA_integer64_ that bit64 could not represent, so the bit
+  # pattern under test is the one the readback check reports; here we want it
+  # back unremarked.
+  back <- as_array(buf, check = FALSE)
   expect_s3_class(back, "integer64")
   expect_equal(as.character(back), as.character(x))
 })
 
+test_that("a double uploads at an integer dtype without a 32-bit intermediate", {
+  # The double is converted straight to the target type: nothing narrows it to
+  # an R integer on the way, so a value beyond the int32 range survives.
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^40, dtype = "i64"))),
+    "1099511627776"
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(c(2^40, 2^41), dtype = "ui64"))),
+    c("1099511627776", "2199023255552")
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(-2^40, dtype = "i64"))),
+    "-1099511627776"
+  )
+  # Truncation toward zero, like as.integer(), and column-major like any other
+  # pjrt_buffer() upload.
+  expect_equal(
+    as_array(pjrt_buffer(c(1.9, -3.7), dtype = "i32")),
+    array(c(1L, -3L), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(200, dtype = "ui8")), array(200L, 1L))
+  m <- matrix(c(2^40, 2, 3, 4), nrow = 2L)
+  expect_equal(
+    as.character(as_array(pjrt_buffer(m, dtype = "i64"))),
+    as.character(m)
+  )
+})
+
+test_that("a double uploads at every integer dtype", {
+  # i8 / i16 / ui8 / ui16 materialize as an R integer; ui32 / i64 / ui64 as
+  # integer64, so those are compared as character.
+  expect_equal(
+    as_array(pjrt_buffer(c(-128, 127), dtype = "i8")),
+    array(c(-128L, 127L), 2L)
+  )
+  expect_equal(
+    as_array(pjrt_buffer(c(-32768, 32767), dtype = "i16")),
+    array(c(-32768L, 32767L), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(65535, dtype = "ui16")), array(65535L, 1L))
+  # Beyond the int32 range, so it only survives without the 32-bit intermediate.
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^31, dtype = "ui32"))),
+    "2147483648"
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^32 - 1, dtype = "ui32"))),
+    "4294967295"
+  )
+})
+
+test_that("pjrt_scalar uploads a double at an integer dtype", {
+  # The 0-d path shares the conversion but not the shape handling.
+  buf <- pjrt_scalar(2^40, dtype = "i64")
+  expect_equal(shape(buf), integer())
+  expect_equal(as.character(as_array(buf)), "1099511627776")
+  expect_equal(as_array(pjrt_scalar(-3.7, dtype = "i32")), -3L)
+})
+
+test_that("an integer and a double agree at an integer dtype", {
+  # The integer path used to narrow by C++'s modular wrap -- 300L at "ui8"
+  # stored 44 while 300 clamped to 0 -- so the R storage type of the input
+  # changed what landed on the device. Now both are rejected with the same
+  # message, and both are taken unchanged when they fit.
+  expect_snapshot(pjrt_buffer(300L, dtype = "ui8"), error = TRUE)
+  expect_snapshot(pjrt_buffer(300, dtype = "ui8"), error = TRUE)
+  expect_snapshot(pjrt_buffer(200L, dtype = "i8"), error = TRUE)
+  expect_snapshot(pjrt_buffer(200, dtype = "i8"), error = TRUE)
+  expect_snapshot(pjrt_buffer(-5L, dtype = "ui32"), error = TRUE)
+  expect_snapshot(pjrt_buffer(-5, dtype = "ui32"), error = TRUE)
+
+  expect_equal(as_array(pjrt_buffer(127L, dtype = "i8")), array(127L, 1L))
+  expect_equal(as_array(pjrt_buffer(127, dtype = "i8")), array(127L, 1L))
+  expect_equal(as.character(as_array(pjrt_buffer(5L, dtype = "ui64"))), "5")
+  expect_equal(as.character(as_array(pjrt_buffer(5, dtype = "ui64"))), "5")
+})
+
+test_that("a double an integer dtype cannot hold is rejected", {
+  # Like torch.tensor(x, dtype=) and jnp.array(x, dtype=), the upload boundary
+  # refuses a value the dtype cannot hold rather than clamping or wrapping it.
+  # The message names the dtype and reports the rejected value exactly, rather
+  # than rounding it to six digits.
+  expect_snapshot(pjrt_buffer(1e30, dtype = "i64"), error = TRUE)
+  expect_snapshot(pjrt_buffer(-1, dtype = "ui8"), error = TRUE)
+  expect_snapshot(pjrt_buffer(300, dtype = "ui8"), error = TRUE)
+  expect_snapshot(pjrt_buffer(2^31, dtype = "i32"), error = TRUE)
+  expect_snapshot(pjrt_buffer(2^31 + 1000, dtype = "i32"), error = TRUE)
+  expect_snapshot(pjrt_buffer(Inf, dtype = "i32"), error = TRUE)
+  expect_snapshot(pjrt_buffer(NA_real_, dtype = "i64"), error = TRUE)
+  expect_snapshot(pjrt_buffer(NaN, dtype = "i32"), error = TRUE)
+
+  # The element is named only when there is a choice of element -- the
+  # single-value messages above carry no "element" clause.
+  expect_snapshot(pjrt_buffer(c(1, 300), dtype = "ui8"), error = TRUE)
+
+  # An integer source is held to the same range, and to the same treatment of a
+  # missing value, so NA_real_ and NA_integer_ agree too. i64 is wide enough to
+  # hold INT_MIN and would otherwise store -2147483648, which
+  # as_array(check = "err") cannot tell from real data.
+  expect_snapshot(pjrt_buffer(-1L, dtype = "ui32"), error = TRUE)
+  expect_snapshot(pjrt_buffer(NA_integer_, dtype = "ui8"), error = TRUE)
+  expect_snapshot(pjrt_buffer(NA_integer_, dtype = "i64"), error = TRUE)
+})
+
+test_that("a double at the edge of an integer dtype's range is accepted", {
+  # The range is tested on the truncated value, so a fraction below the first
+  # unrepresentable integer still fits.
+  expect_equal(as_array(pjrt_buffer(255.7, dtype = "ui8")), array(255L, 1L))
+  expect_equal(as_array(pjrt_buffer(-0.5, dtype = "ui8")), array(0L, 1L))
+  expect_equal(
+    as_array(pjrt_buffer(2^31 - 1, dtype = "i32")),
+    array(2147483647L, 1L)
+  )
+  expect_equal(
+    as.character(as_array(pjrt_buffer(2^62, dtype = "i64"))),
+    "4611686018427387904"
+  )
+  expect_equal(as_array(pjrt_buffer(-128.9, dtype = "i8")), array(-128L, 1L))
+  # A floating-point dtype is not range-checked at all; it overflows to Inf.
+  expect_equal(as_array(pjrt_buffer(1e300, dtype = "f32")), array(Inf, 1L))
+  # An INTSXP uploads to i32 zero-copy, so NA_integer_ is the one missing value
+  # that still travels through, as the sentinel as_array(check = "err") finds.
+  expect_true(
+    anyNA(as_array(
+      suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32")),
+      check = FALSE
+    ))
+  )
+  expect_snapshot(
+    as_array(
+      suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32")),
+      check = "err"
+    ),
+    error = TRUE
+  )
+})
+
+test_that("NA_integer_ at i32 warns, being the one carried through", {
+  expect_warning(pjrt_buffer(NA_integer_, dtype = "i32"), "-2147483648")
+  expect_warning(pjrt_scalar(NA_integer_, dtype = "i32"), "-2147483648")
+  # Several NAs still warn exactly once, and the message does not count them:
+  # the check is an anyNA() that stops at the first one.
+  expect_warning(
+    pjrt_buffer(c(NA_integer_, 1L, NA_integer_)),
+    "contains at least one .NA."
+  )
+
+  # The default dtype for an integer vector is i32, so the bare call warns too.
+  expect_warning(pjrt_buffer(NA_integer_), "-2147483648")
+
+  # Nothing to warn about when there is no NA, or at a dtype that rejects it.
+  expect_no_warning(pjrt_buffer(1:3, dtype = "i32"))
+  expect_no_warning(pjrt_buffer(NA_real_, dtype = "f64"))
+})
+
+test_that("a logical uploads at any element type, not just pred", {
+  # The logical and integer entry points cross-dispatch, so a source type is no
+  # longer tied to the element types that happen to be its natural target.
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "i32")),
+    array(c(1L, 0L), 2L)
+  )
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "f64")),
+    array(c(1, 0), 2L)
+  )
+  expect_equal(as_array(pjrt_buffer(TRUE, dtype = "ui8")), array(1L, 1L))
+
+  # It travels as.integer(), so NA follows the integer rules from there on.
+  expect_warning(pjrt_buffer(NA, dtype = "i32"), "-2147483648")
+  expect_snapshot(pjrt_buffer(NA, dtype = "ui8"), error = TRUE)
+
+  # A dtype that does not exist still errors rather than being delegated away.
+  expect_snapshot(pjrt_buffer(TRUE, dtype = "nope"), error = TRUE)
+})
+
+test_that("an integer uploads at pred, like a double does", {
+  expect_equal(
+    as_array(pjrt_buffer(c(0L, 1L, 2L), dtype = "pred")),
+    array(c(FALSE, TRUE, TRUE), 3L)
+  )
+  expect_false(as_array(pjrt_scalar(0L, dtype = "pred")))
+  expect_true(as_array(pjrt_scalar(1L, dtype = "pred")))
+})
+
+describe("a missing value at pred", {
+  it("is rejected, whatever the source type it arrives as", {
+    # pred is the one element type an LGLSXP reaches intact -- every other
+    # dtype converts through as.integer() first, where NA_LOGICAL becomes the
+    # NA_integer_ the integer check already rejects. An integer and a double
+    # source converge on the same LGLSXP on their way to pred, so all three
+    # are held to the same rule.
+    expect_snapshot(pjrt_buffer(NA), error = TRUE)
+    expect_snapshot(pjrt_buffer(c(TRUE, NA, FALSE)), error = TRUE)
+    expect_snapshot(pjrt_scalar(NA), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_integer_, dtype = "pred"), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_real_, dtype = "pred"), error = TRUE)
+  })
+})
+
+test_that("NA_integer_ at a float dtype becomes NaN, as as.double() gives", {
+  # INT_MIN is an ordinary value once widened, so it is translated rather than
+  # cast: an f64 keeps R's NA payload, an f32 is too narrow and gets a NaN.
+  expect_true(is.na(as_array(pjrt_buffer(NA_integer_, dtype = "f64"))))
+  expect_true(is.na(as_array(pjrt_buffer(NA_integer_, dtype = "f32"))))
+  expect_equal(
+    as_array(pjrt_buffer(c(1L, NA_integer_, 3L), dtype = "f64")),
+    array(c(1, NA, 3), 3L)
+  )
+  # Neither rejected nor warned about -- a float dtype has somewhere to put it.
+  expect_no_warning(pjrt_buffer(NA_integer_, dtype = "f32"))
+})
+
 test_that("pjrt_scalar.integer64 round-trips a single 64-bit value", {
-  x <- bit64::as.integer64(9223372036854775000)
+  x <- bit64::as.integer64("9223372036854775000")
   buf <- pjrt_scalar(x)
   expect_equal(shape(buf), integer())
   expect_equal(as.character(elt_type(buf)), "i64")
 
-  back <- as_array(buf)
+  back <- as_array(buf, check = FALSE)
   expect_s3_class(back, "integer64")
   expect_equal(as.character(back), as.character(x))
 
@@ -427,6 +641,38 @@ test_that("pjrt_buffer.integer64 rejects non-i64/ui64 dtype", {
   )
 })
 
+describe("a missing bit64::integer64 value", {
+  it("warns at i64, where INT64_MIN is R's own NA", {
+    # NA_integer64_ is INT64_MIN and an integer64 vector uploads to i64
+    # zero-copy, so the NA reaches the device as an ordinary
+    # -9223372036854775808 and only looks like NA again once it is back in R.
+    # That is the NA_integer_-at-i32 carve-out, one width up.
+    expect_warning(buf <- pjrt_buffer(bit64::NA_integer64_), "-9223372036854775808")
+    expect_equal(as.character(elt_type(buf)), "i64")
+    expect_warning(back <- as_array(buf), "distinguish from")
+    expect_true(is.na(back))
+
+    expect_warning(
+      pjrt_buffer(bit64::as.integer64(c(1, NA)), dtype = "i64"),
+      "contains at least one .NA."
+    )
+    expect_warning(pjrt_scalar(bit64::NA_integer64_), "-9223372036854775808")
+  })
+
+  it("is rejected at ui64, which has no missing value to land on", {
+    # Read unsigned, INT64_MIN is the ordinary value 2^63, so an NA would
+    # arrive as real data rather than as a missing one. Nothing legitimate is
+    # turned away: bit64 cannot express 2^63 either -- that bit pattern *is*
+    # NA_integer64_.
+    expect_snapshot(pjrt_buffer(bit64::NA_integer64_, dtype = "ui64"), error = TRUE)
+    expect_snapshot(
+      pjrt_buffer(bit64::as.integer64(c(1, NA)), dtype = "ui64"),
+      error = TRUE
+    )
+    expect_snapshot(pjrt_scalar(bit64::NA_integer64_, dtype = "ui64"), error = TRUE)
+  })
+})
+
 test_that("ui64 buffers also materialize as integer64", {
   # bit64::integer64 is signed; ui64 -> integer64 preserves bit pattern but
   # values >= 2^63 will appear as negative integer64.
@@ -437,11 +683,14 @@ test_that("ui64 buffers also materialize as integer64", {
 })
 
 test_that("pjrt_buffer / as_array round-trip ui64 with full 64-bit range", {
-  x <- bit64::as.integer64(c(0, 1, 2^32, -2^40, 9223372036854775000))
+  x <- c(
+    bit64::as.integer64(c(0, 1, 2^32, -2^40)),
+    bit64::as.integer64("9223372036854775000")
+  )
   dim(x) <- 5L
   buf <- pjrt_buffer(x, dtype = "ui64")
   expect_equal(as.character(elt_type(buf)), "ui64")
-  expect_equal(as_array(buf), x)
+  expect_equal(as_array(buf, check = FALSE), x)
 })
 
 test_that("raw", {
@@ -592,7 +841,6 @@ test_that("dtype returns correct data types", {
 })
 
 test_that("R layout and PJRT layout (2D)", {
-  skip_if_metal("-:20:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
@@ -612,7 +860,6 @@ test_that("R layout and PJRT layout (2D)", {
 })
 
 test_that("R layout and PJRT layout (3D)", {
-  skip_if_metal("-:26:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-3d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
@@ -733,7 +980,7 @@ test_that("buffer <-> raw: row_major parameter", {
 test_that("device works", {
   buf <- pjrt_buffer(1)
   expect_class(device(buf), "PJRTDevice")
-  skip_if(is_metal() || is_cuda())
+  skip_if(is_cuda())
   expect_snapshot(as.character(device(buf)))
 })
 
@@ -752,12 +999,12 @@ test_that("tests can compare buffers", {
 })
 
 test_that("No dim with pjrt_buffer", {
-  skip_if(is_cuda() || is_metal())
+  skip_if(is_cuda())
   expect_equal(shape(pjrt_buffer(1)), 1L)
 })
 
 test_that("device print", {
-  skip_if(is_cuda() || is_metal())
+  skip_if(is_cuda())
   expect_snapshot(print(device(pjrt_buffer(1))))
 })
 
@@ -766,8 +1013,8 @@ test_that("dim is integer", {
 })
 
 test_that("can move back buffer without specifying client", {
-  skip_if(!(is_metal() || is_cuda()))
-  device_name <- if (is_metal()) "metal" else "cuda"
+  skip_if(!is_cuda())
+  device_name <- "cuda"
   x <- pjrt_buffer(1, device = device_name)
   expect_equal(as_array(x), array(1))
   y <- pjrt_scalar(1, device = device_name)
@@ -854,7 +1101,7 @@ test_that("pjrt_empty allocates an uninitialized buffer of the requested shape",
 })
 
 test_that("identity of buffer", {
-  skip_if(is_metal() | is_cuda())
+  skip_if(is_cuda())
   x <- pjrt_buffer(1, device = "cpu")
   expect_equal(pjrt_buffer(x), x)
   expect_error(pjrt_buffer(x, dtype = "i32"), "Must use the same data type as the data")
@@ -881,9 +1128,9 @@ test_that("can create dtype 'pred' from double", {
 })
 
 test_that("pjrt_buffer identity when working on a different client", {
-  skip_if(!(is_metal() || is_cuda()))
+  skip_if(!is_cuda())
   x <- pjrt_buffer(1, device = "cpu")
-  device <- if (is_metal()) "metal" else "cuda"
+  device <- "cuda"
   expect_equal(x, pjrt_buffer(x, device = NULL))
   x <- pjrt_scalar(1, device = "cpu")
   expect_equal(x, pjrt_scalar(x, device = NULL))
@@ -902,60 +1149,60 @@ test_that("i1 is alias for pred", {
 test_that("pjrt_buffer accepts DataType objects", {
   # pjrt_buffer with DataType
   expect_equal(
-    pjrt_buffer(c(1, 2, 3), dtype = tengen::as_dtype("f32")),
+    pjrt_buffer(c(1, 2, 3), dtype = xlamisc::as_dtype("f32")),
     pjrt_buffer(c(1, 2, 3), dtype = "f32")
   )
   expect_equal(
-    pjrt_buffer(c(1, 2, 3), dtype = tengen::as_dtype("f64")),
+    pjrt_buffer(c(1, 2, 3), dtype = xlamisc::as_dtype("f64")),
     pjrt_buffer(c(1, 2, 3), dtype = "f64")
   )
   expect_equal(
-    pjrt_buffer(1L, dtype = tengen::as_dtype("i32")),
+    pjrt_buffer(1L, dtype = xlamisc::as_dtype("i32")),
     pjrt_buffer(1L, dtype = "i32")
   )
   expect_equal(
-    pjrt_buffer(1L, dtype = tengen::as_dtype("ui8")),
+    pjrt_buffer(1L, dtype = xlamisc::as_dtype("ui8")),
     pjrt_buffer(1L, dtype = "ui8")
   )
   expect_equal(
-    pjrt_buffer(TRUE, dtype = tengen::as_dtype("bool")),
+    pjrt_buffer(TRUE, dtype = xlamisc::as_dtype("bool")),
     pjrt_buffer(TRUE, dtype = "pred")
   )
 
   # pjrt_scalar with DataType
   expect_equal(
-    pjrt_scalar(42L, dtype = tengen::as_dtype("i32")),
+    pjrt_scalar(42L, dtype = xlamisc::as_dtype("i32")),
     pjrt_scalar(42L, dtype = "i32")
   )
   expect_equal(
-    pjrt_scalar(3.14, dtype = tengen::as_dtype("f64")),
+    pjrt_scalar(3.14, dtype = xlamisc::as_dtype("f64")),
     pjrt_scalar(3.14, dtype = "f64")
   )
 
   # pjrt_empty with DataType
   expect_equal(
-    pjrt_empty(dtype = tengen::as_dtype("f32"), shape = c(0, 3)),
+    pjrt_empty(dtype = xlamisc::as_dtype("f32"), shape = c(0, 3)),
     pjrt_empty(dtype = "f32", shape = c(0, 3))
   )
 
   # raw buffer with DataType
   raw_data <- as.raw(rep(0, 24))
   expect_equal(
-    pjrt_buffer(raw_data, dtype = tengen::as_dtype("f32"), shape = c(2, 3), row_major = FALSE),
+    pjrt_buffer(raw_data, dtype = xlamisc::as_dtype("f32"), shape = c(2, 3), row_major = FALSE),
     pjrt_buffer(raw_data, dtype = "f32", shape = c(2, 3), row_major = FALSE)
   )
 
   # raw scalar with DataType
   raw_scalar <- as.raw(rep(0, 4))
   expect_equal(
-    pjrt_scalar(raw_scalar, dtype = tengen::as_dtype("f32")),
+    pjrt_scalar(raw_scalar, dtype = xlamisc::as_dtype("f32")),
     pjrt_scalar(raw_scalar, dtype = "f32")
   )
 
   # identity preserves buffer when DataType matches
   buf <- pjrt_buffer(c(1, 2), dtype = "f32")
-  expect_equal(pjrt_buffer(buf, dtype = tengen::as_dtype("f32")), buf)
-  expect_error(pjrt_buffer(buf, dtype = tengen::as_dtype("i32")), "Must use the same data type")
+  expect_equal(pjrt_buffer(buf, dtype = xlamisc::as_dtype("f32")), buf)
+  expect_error(pjrt_buffer(buf, dtype = xlamisc::as_dtype("i32")), "Must use the same data type")
 })
 
 test_that("raw buffer validates dtype and shape compatibility", {
@@ -1054,7 +1301,6 @@ test_that("await works for PJRTBuffer", {
 })
 
 test_that("pjrt_memory returns a PJRTMemory", {
-  skip_if_metal("PJRT_Buffer_Memory not implemented")
   buf <- pjrt_buffer(1, dtype = "f32")
   mem <- pjrt_memory(buf)
   expect_class(mem, "PJRTMemory")

@@ -15,8 +15,11 @@ the[["canonical_devices"]] <- new.env(parent = emptyenv())
 the[["custom_calls"]] <- list()
 the[["config"]] <- list(
   cpu_device_count = 1L,
-  cuda_r_package = "cuda12.8",
-  cuda_r_repos = "https://mlverse.r-universe.dev"
+  cuda_r_package = "pjrt.cuda",
+  cuda_r_repos = "https://r-xla.r-universe.dev",
+  # CUDA toolkit version the CUDA plugin links against, i.e. the version
+  # shipped by the `cuda_r_package`.
+  cuda_version = "13.3"
 )
 
 #' @title Create PJRT Client
@@ -70,7 +73,7 @@ check_plugin <- function(plugin) {
 #' * [`plugin_attributes()`] -> `list()`: for the attributes of the plugin.
 #'
 #' @param platform (`character(1)`)\cr
-#'   Platform name (e.g., "cpu", "cuda", "metal").
+#'   Platform name (e.g., "cpu", "cuda").
 #' @return `PJRTPlugin`
 #' @examplesIf plugins_downloaded("cpu")
 #' plugin <- pjrt_plugin("cpu")
@@ -105,9 +108,7 @@ pjrt_plugin <- function(platform) {
   )
   attributes(plugin) <- list(platform = platform)
 
-  if (platform != "metal") {
-    drain_custom_calls(plugin, platform)
-  }
+  drain_custom_calls(plugin, platform)
 
   class(plugin) <- "PJRTPlugin"
   the[["plugins"]][[platform]] <- plugin
@@ -135,10 +136,10 @@ plugins_downloaded <- function(platforms = NULL) {
 }
 
 plugin_path <- function(platform) {
-  if (!(platform %in% c("cpu", "cuda", "metal"))) {
+  if (!(platform %in% c("cpu", "cuda"))) {
     cli_abort(c(
       i = "Invalid platform: {.val {platform}}",
-      x = "Must be one of: {.val cpu}, {.val cuda}, {.val metal}"
+      x = "Must be one of: {.val cpu}, {.val cuda}"
     ))
   }
   envvar <- Sys.getenv(paste0("PJRT_PLUGIN_PATH_", toupper(platform)), "")
@@ -258,27 +259,6 @@ plugin_url <- function(platform) {
   arch <- plugin_arch()
   zml_version <- plugin_version()
 
-  if (platform == "metal") {
-    stopifnot(os == "darwin")
-    url <- if (arch == "arm64") {
-      "https://files.pythonhosted.org/packages/09/dc/6d8fbfc29d902251cf333414cf7dcfaf4b252a9920c881354584ed36270d/jax_metal-0.1.1-py3-none-macosx_13_0_arm64.whl" # nolint
-    } else {
-      "https://files.pythonhosted.org/packages/87/ec/9bb7f7f0ffd06c3fb89813126b2f698636ac7a4263ed7bdd1ff7d7c94f8f/jax_metal-0.1.1-py3-none-macosx_10_14_x86_64.whl" # nolint
-    }
-    attr(url, "extract") <- function(path, cache_dir) {
-      tmp <- tempfile()
-      dir.create(tmp)
-      utils::unzip(path, exdir = tmp)
-      plugin_path <- list.files(
-        file.path(tmp, "jax_plugins", "metal_plugin"),
-        pattern = "*.dylib",
-        full.names = TRUE
-      )
-      fs::file_move(plugin_path, cache_dir)
-    }
-    return(url)
-  }
-
   if (os == "windows") {
     if (arch != "amd64") {
       cli_abort(
@@ -288,9 +268,12 @@ plugin_url <- function(platform) {
       )
     }
 
-    # on windows download from our pre-built artifacts
-    # TODO make this versioned.
-    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-a4df377-windows-x86_64.zip"
+    # ZML ships no Windows artifact, so Windows uses our own build from
+    # r-xla/pjrt-builds. It must be built from the same XLA commit the
+    # vendored headers come from: a handler reports its FFI header version
+    # back to the runtime, and a plugin older than the headers silently
+    # refuses every custom call. See the upgrade-pjrt skill.
+    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6b73c4c-windows-x86_64.zip"
     # windows files are zipped
     attr(url, "extract") <- function(path, cache_dir) {
       tmp <- tempfile()
@@ -306,15 +289,9 @@ plugin_url <- function(platform) {
     return(url)
   }
 
-  if (os == "linux" && arch == "aarch64") {
-    # on linux arm download from our pre-built artifacts
-    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-a4df377-linux-aarch64.tar.gz"
-    return(url)
-  }
-
-  if (platform == "cuda" && !(os == "linux" && arch == "amd64")) {
+  if (platform == "cuda" && os != "linux") {
     cli_abort(c(
-      "The CUDA PJRT plugin is only available for Linux x86_64.",
+      "The CUDA PJRT plugin is only available for Linux.",
       i = "Detected platform: {.val {os}-{arch}}.",
       i = "To override, set the {.envvar PJRT_PLUGIN_URL_CUDA} environment variable to a plugin URL, or {.envvar PJRT_PLUGIN_PATH_CUDA} to a local plugin file."
     ))
@@ -334,7 +311,7 @@ plugin_version <- function() {
     return(Sys.getenv("PJRT_ZML_ARTIFACT_VERSION"))
   }
 
-  "14.0.1"
+  "18.0.0"
 }
 
 # nocov start
@@ -353,10 +330,8 @@ plugin_os <- function() {
 plugin_arch <- function() {
   if (Sys.info()["machine"] == "x86_64") {
     return("amd64")
-  } else if (Sys.info()["machine"] == "arm64") {
+  } else if (Sys.info()["machine"] %in% c("arm64", "aarch64")) {
     return("arm64")
-  } else if (Sys.info()["machine"] == "aarch64") {
-    return("aarch64")
   } else if (.Platform$r_arch == "x64") {
     return("amd64")
   } else if (.Platform$r_arch == "arm64") {
@@ -427,6 +402,10 @@ cuda_r_package <- function() {
 
 cuda_r_repos <- function() {
   the[["config"]][["cuda_r_repos"]]
+}
+
+cuda_version <- function() {
+  the[["config"]][["cuda_version"]]
 }
 
 # Discover installed cuda{X.Y} packages and pre-load CUDA shared libraries

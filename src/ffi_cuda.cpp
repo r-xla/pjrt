@@ -31,10 +31,21 @@ CudaLibs &get_cuda_libs() {
   // torn struct.
   static std::once_flag once;
   std::call_once(once, [&] {
-    // Probe a couple of candidates: SDK installs ship the unversioned symlink,
-    // runtime-only installs (typical in containers) only ship the SONAME.
-    void *cusolver = dlopen("libcusolver.so", RTLD_LAZY);
-    if (!cusolver) cusolver = dlopen("libcusolver.so.11", RTLD_LAZY);
+    // Probe a few candidates: SDK installs ship the unversioned symlink,
+    // runtime-only installs (typical in containers, and what the cuda R
+    // package provides) only ship the SONAME. cuSOLVER's SONAME major is not
+    // the CUDA major -- it is .11 on CUDA 12 and .12 on CUDA 13 -- so both
+    // have to be tried, newest first.
+    static const char *kCusolverSonames[] = {
+        "libcusolver.so",
+        "libcusolver.so.12",
+        "libcusolver.so.11",
+    };
+    void *cusolver = nullptr;
+    for (const char *soname : kCusolverSonames) {
+      cusolver = dlopen(soname, RTLD_LAZY);
+      if (cusolver) break;
+    }
     if (!cusolver) return;
 
     void *cuda = dlopen("libcuda.so.1", RTLD_LAZY);

@@ -2,11 +2,13 @@
 
 ## Package Overview
 
-`pjrt` is the runtime layer of the r-xla stack. It compiles StableHLO/MLIR programs to hardware-specific executables and runs them via the PJRT C API. It supports CPU, CUDA, and Metal backends through dynamically loaded plugins.
+`pjrt` is the runtime layer of the r-xla stack. It compiles StableHLO/MLIR programs to hardware-specific executables and runs them via the PJRT C API. It supports CPU and CUDA backends through dynamically loaded plugins.
 
 Beyond the runtime, pjrt also owns the **Rtree module** (`build_tree()`/`flatten()`/`unflatten()` and the structural tree ops in `src/tree.h`/`src/tree.cpp`/`R/tree.R`); trees are opaque `RTree` external pointers. The Rtree is pjrt's R analog of [JAX's pytree](https://docs.jax.dev/en/latest/pytrees.html), which is where the idea comes from.
 
-It also owns the **Dispatcher** (`dispatcher()`/`dispatch()`), the native eager-dispatch engine behind anvl's `jit()`: an executable cache keyed on the inputs' structure and abstract values, which calls back into R to compile only on a miss. See `specs/design/dispatch/dispatch.md`.
+It also owns the **Dispatcher** (`dispatcher()`/`dispatch()`), the native eager-dispatch engine behind anvl's `jit()`: an executable cache keyed on the inputs' structure and abstract values, which calls back into R to compile only on a miss.
+
+The dispatcher's C++ names anvl's data model -- the `"AnvlArray"` class, its `$data`/`$backend`/`$device` fields, the `"plain"` backend tag, and the `AnvlDtype` vocabulary. That is a contract pjrt defines and anvl produces; it is deliberately *not* a package dependency. **pjrt must not depend on anvl, in `Suggests` or anywhere else.** `tests/testthat/test-dispatch.R` therefore drives the engine with its own fixtures (`parr()`, `qarr()`, `pjrt_entry()`), and the integration test that anvl's real callback matches this engine lives in anvl's `test-jit-dispatch.R`, which is the side of the dependency that can hold it.
 
 ## Core Design
 
@@ -76,7 +78,7 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `tree.R` – Rtree API over the native `RTree` (`build_tree()`, `flatten()`, `unflatten()`, `map_tree()`, ...)
 - `dispatch.R` – `dispatcher()`, `dispatch()`; the engine itself is C++ (`src/dispatch*.{h,cpp}`)
 - `safetensors.R` – safetensors read/write integration
-- `reexports.R` – tengen re-exports
+- `reexports.R` – xlamisc re-exports
 - `src/` – Rcpp C++ layer wrapping the PJRT C API, plus protobuf for compile options
 
 **Important:** Do not call `devtools::load_all()` and `devtools::test()` in the same R process. The protobuf descriptors get registered twice, causing a fatal `CHECK failed: GeneratedDatabase()->Add(...)` crash. Use separate `Rscript -e` calls instead.

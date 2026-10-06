@@ -10,7 +10,7 @@ install_pjrt(cuda = NULL)
 \item{cuda}{(\code{logical(1)} | \code{NULL})\cr
 Whether to also install the CUDA plugin. When \code{NULL} (the default),
 CUDA support is auto-detected: the CUDA plugin is installed when an
-NVIDIA GPU is available on a Linux x86_64 machine.}
+NVIDIA GPU is available on a Linux machine (x86_64 or arm64).}
 }
 \value{
 (\code{character()})\cr
@@ -21,8 +21,9 @@ Download and cache the PJRT plugins needed to run \code{pjrt}.
 The CPU plugin is always installed. The CUDA plugin is installed in
 addition when a CUDA-capable GPU is detected, or when \code{cuda = TRUE} is
 passed explicitly. Installing the CUDA plugin also installs the R package
-providing the CUDA libraries it links against (cuda12.8 by
-default, see \code{PJRT_CUDA_R_PACKAGE} in \link{pjrt-package}).
+providing the CUDA libraries it links against (CUDA 13.3,
+shipped by pjrt.cuda by default, see \code{PJRT_CUDA_R_PACKAGE} in
+\link{pjrt-package}).
 
 Plugins are otherwise downloaded lazily the first time a client is
 created, but the download requires user confirmation, unless

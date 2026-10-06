@@ -13,7 +13,6 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 })
 
 test_that("arguments must be unnamed", {
-  skip_if_metal("only supports MLIR programs")
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
   executable <- pjrt_compile(program)
@@ -72,7 +71,6 @@ test_that("print works", {
 })
 
 test_that("multiple inputs work correctly", {
-  skip_if_metal("-:20:28: error: expected ')' in inline location")
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
   %0 = "stablehlo.add"(%x, %y) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
@@ -91,7 +89,6 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
 })
 
 test_that("bf16 programs compile and execute", {
-  skip_if_metal("bf16 support is only tested on CPU and CUDA")
   src <- r"(
 func.func @main(%x: tensor<4xbf16>, %y: tensor<4xbf16>) -> tensor<4xbf16> {
   %0 = "stablehlo.add"(%x, %y) : (tensor<4xbf16>, tensor<4xbf16>) -> tensor<4xbf16>
@@ -121,7 +118,6 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
 
   wrong_input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
-  # CPU says "size", Metal says "shape"
   expect_error(
     pjrt_execute(executable, wrong_input),
     "size|shape"
@@ -231,7 +227,6 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 })
 
 test_that("execution with inputs chained to buffer-to-host", {
-  skip_if_metal("-:20:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
@@ -470,6 +465,24 @@ module @double_inplace {
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
     x <- pjrt_buffer(c(1, 2, 3, 4), dtype = "f32")
+    pjrt_execute(exec, x)
+    expect_error(as_array(x), "called on deleted or donated buffer")
+  })
+
+  it("raises a clean R-level error when reading back a donated input with several axes", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<2x2xf32> {tf.aliasing_output = 0 : i32}) -> tensor<2x2xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<2x2xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<2x2xf32>
+    return %out : tensor<2x2xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(matrix(c(1, 2, 3, 4), nrow = 2), dtype = "f32")
     pjrt_execute(exec, x)
     expect_error(as_array(x), "called on deleted or donated buffer")
   })

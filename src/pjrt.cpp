@@ -1,8 +1,12 @@
 #include <Rcpp.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <limits>
+#include <type_traits>
 
 #include "bfloat16.h"
 #include "buffer.h"
@@ -117,8 +121,151 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
   return xptr;
 }
 
+// The R-facing name of an element type ("i32", "ui8", ...), for messages.
+static std::string dtype_name(PJRT_Buffer_Type type) {
+  return rpjrt::PJRTElementType(type).as_string();
+}
+
+// Locates the offending element in an error message. `len` is the length of
+// the buffer being filled, which recycle_data() has already expanded, so a
+// scalar argument given a shape still gets an index.
+static std::string element_suffix(int i, int len) {
+  return len > 1 ? " (element " + std::to_string(i + 1) + ")" : "";
+}
+
+// Spells a double for an error message the way R does, so that an infinity
+// reads "Inf" rather than C's "inf". Only reached on the error path.
+static std::string format_r_double(double v) {
+  if (!R_FINITE(v)) return v > 0 ? "Inf" : "-Inf";
+  char buf[64];
+  std::snprintf(buf, sizeof(buf), "%.15g", v);
+  return buf;
+}
+
+// Whether an R integer is representable in the integral type `T`. Folds to a
+// constant where T is at least as wide and as signed as R's int.
+template <typename T>
+constexpr bool r_int_fits(int v) {
+  if constexpr (std::is_signed_v<T>) {
+    return static_cast<int64_t>(v) >=
+               static_cast<int64_t>(std::numeric_limits<T>::lowest()) &&
+           static_cast<int64_t>(v) <=
+               static_cast<int64_t>(std::numeric_limits<T>::max());
+  } else {
+    return v >= 0 && static_cast<uint64_t>(v) <=
+                         static_cast<uint64_t>(std::numeric_limits<T>::max());
+  }
+}
+
+// Reject any element of `data` that the integral element type `T` cannot hold,
+// before a byte of the buffer is allocated. Every value that survives then
+// converts with a plain static_cast, which is defined only once the value is
+// known to be in range: casting a NaN or out-of-range double is undefined
+// behaviour, and what it yields in practice differs between x86 (INT_MIN) and
+// ARM (saturation). Rejecting rather than clamping is what torch and JAX both
+// do at this same host-to-device boundary.
+//
+// A fractional double is not rejected -- it truncates toward zero, as
+// as.integer() does. The range is therefore tested on the truncated value, so
+// 255.7 still fits "ui8".
+template <typename T>
+void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
+  if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
+    if (TYPEOF(data) == REALSXP) {
+      // Here we check whether an R double fits within the requested integral
+      // type T Problems can be:
+      // 1. It's NA/NaN
+      // 2. It's too large / small
+      // The bounds are compared in double space. lowest() is a power of two,
+      // and max() + 1 is spelled max() / 2 + 1 doubled -- also a power of two
+      // -- so both convert to double exactly and the half-open test is the
+      // correct one (max() itself is generally not representable as a double).
+
+      // to check whether it's too large, we need to compute the maximum value
+      // that fits into T in double space
+      // the maximum value of i32 is 2^63 - 1, so we do
+      constexpr double kLo =
+          static_cast<double>(std::numeric_limits<T>::lowest());
+
+      // for i64, max int is 2^63 - 1 and we want to get that faithfully in
+      // double. 2^62 can be perfectly represented in double, so we do (2^63 +
+      // 1) / 2 + 1  --> 2^62 (in i64)
+      // this value we can then convert to double (1.0 * 2^62) and then multiply
+      // by 2 to get 2^63. This is exclusive, any truncated R double must be
+      // smaller than it
+      constexpr double kHiExclusive =
+          2.0 * static_cast<double>(std::numeric_limits<T>::max() / 2 + 1);
+      const double *x = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        if (ISNAN(x[i])) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+        const double t = std::trunc(x[i]);
+        if (!(t >= kLo && t < kHiExclusive)) {
+          Rcpp::stop(
+              "Value %s cannot be converted to \"%s\" without overflow%s.",
+              format_r_double(x[i]), dtype_name(type), element_suffix(i, len));
+        }
+      }
+    } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, a value R reserves, so no integer vector holds
+      // it legitimately and rejecting it is never a false positive. It has to
+      // be rejected explicitly for i64, which is wide enough to take it and
+      // would otherwise widen it to the ordinary value -2147483648 that
+      // as_array() reports but cannot tell apart from real data -- and a
+      // missing value should not depend on whether the caller wrote NA_real_
+      // or NA_integer_. An i32 buffer is the deliberate exception and never
+      // gets here: an INTSXP uploads to i32 zero-copy, carrying NA_integer_
+      // through as R's own NA for as_array() to report.
+      const int *x = INTEGER_RO(data);
+      for (int i = 0; i < len; ++i) {
+        if (x[i] == NA_INTEGER) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+        if (!r_int_fits<T>(x[i])) {
+          Rcpp::stop(
+              "Value %d cannot be converted to \"%s\" without overflow%s.",
+              x[i], dtype_name(type), element_suffix(i, len));
+        }
+      }
+    } else if (TYPEOF(data) == LGLSXP) {
+      // "pred" is the only element type an LGLSXP reaches intact -- every
+      // other one converts through as.integer() first, where NA_LOGICAL
+      // becomes the NA_integer_ the branch above rejects. Without this,
+      // convert_r_data_to_typed()'s `src[i] ? 1 : 0` would read NA_LOGICAL's
+      // INT_MIN as truthy and store a missing value as TRUE. pred has no
+      // missing value to land on, so it is rejected like any other dtype
+      // that cannot hold one.
+      const int *x = LOGICAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        if (x[i] == NA_LOGICAL) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+      }
+    }
+  }
+}
+
+// Convert a double to the integral element type T, truncating toward zero like
+// as.integer() but without R's 32-bit intermediate -- an i64 buffer must be
+// able to hold 2^40. Defined only for a value validate_integral_input() has
+// already accepted: casting a NaN or out-of-range double is undefined
+// behaviour.
+template <typename T>
+T r_double_to_integral(double v) {
+  return static_cast<T>(std::trunc(v));
+}
+
 // Copy R data into a pre-allocated typed destination buffer, performing
 // type conversion as needed. T is the PJRT-side element type.
+//
+// The source is only read, so it is accessed through the *_RO accessors: the
+// writable INTEGER()/REAL()/LOGICAL() force copy-on-write materialization of
+// ALTREP vectors (e.g. shared-memory mappings), doubling the host cost of the
+// upload, whereas the read-only forms hand back the mapping in place.
 template <typename T>
 void convert_r_data_to_typed(SEXP data, T *dst, int len) {
   if constexpr (std::is_same_v<T, rpjrt::bfloat16>) {
@@ -127,23 +274,34 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
     // below a bf16 midpoint can round up to a float sitting exactly on it,
     // which then ties away to the wrong neighbour.
     if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = rpjrt::bfloat16::from_double(REAL(data)[i]);
+        dst[i] = rpjrt::bfloat16::from_double(src[i]);
       }
     } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, an ordinary value once widened, so it is
+      // translated to NaN rather than cast, as the f32 path below does.
+      const int *src = INTEGER_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] =
-            rpjrt::bfloat16::from_double(static_cast<double>(INTEGER(data)[i]));
+        dst[i] = rpjrt::bfloat16::from_double(
+            src[i] == NA_INTEGER ? R_NaReal : static_cast<double>(src[i]));
       }
     } else {
       Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
     }
   } else if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
     if (TYPEOF(data) == REALSXP) {
-      std::copy(REAL(data), REAL(data) + len, dst);
+      const double *src = REAL_RO(data);
+      std::copy(src, src + len, dst);
     } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, an ordinary value once widened, so it has to be
+      // translated rather than cast -- as.double(NA_integer_) is NA_real_, and
+      // a float dtype has a missing value to land on. f64 keeps R's NA payload;
+      // f32 is too narrow for it and gets a plain NaN.
+      const int *src = INTEGER_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = static_cast<T>(INTEGER(data)[i]);
+        dst[i] = src[i] == NA_INTEGER ? static_cast<T>(R_NaReal)
+                                      : static_cast<T>(src[i]);
       }
     } else {
       Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
@@ -155,16 +313,32 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
                        std::is_same_v<T, uint16_t> ||
                        std::is_same_v<T, uint32_t> ||
                        std::is_same_v<T, uint64_t>) {
-    std::copy(INTEGER(data), INTEGER(data) + len, dst);
+    if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = r_double_to_integral<T>(src[i]);
+      }
+    } else {
+      const int *src = INTEGER_RO(data);
+      std::copy(src, src + len, dst);
+    }
   } else if constexpr (std::is_same_v<T, bool>) {
-    std::copy(LOGICAL(data), LOGICAL(data) + len, dst);
+    const int *src = LOGICAL_RO(data);
+    std::copy(src, src + len, dst);
   } else if constexpr (std::is_same_v<T, uint8_t>) {
     if (TYPEOF(data) == LGLSXP) {
+      const int *src = LOGICAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = LOGICAL(data)[i] ? 1 : 0;
+        dst[i] = src[i] ? 1 : 0;
       }
     } else if (TYPEOF(data) == INTSXP) {
-      std::copy(INTEGER(data), INTEGER(data) + len, dst);
+      const int *src = INTEGER_RO(data);
+      std::copy(src, src + len, dst);
+    } else if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = r_double_to_integral<uint8_t>(src[i]);
+      }
     } else {
       Rcpp::stop("Unsupported R type: %d", TYPEOF(data));
     }
@@ -256,6 +430,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
     }
   }
 
+  // Before any allocation, so a rejected upload neither allocates the buffer
+  // nor throws out of make_cpu_buffer()'s PROTECT region.
+  validate_integral_input<T>(data, len, dtype);
+
   auto byte_strides_opt = get_byte_strides(dims, row_major, sizeof(T));
 
   if (client->is_cpu()) {
@@ -294,8 +472,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
 //
 // On non-CPU it is genuinely zero-copy: R's data is handed straight to PJRT and
 // the R object is kept alive only until the transfer completes.
+//
+// `data_ptr` comes from a read-only accessor (see convert_r_data_to_typed), so
+// an ALTREP `data` is not materialized. Both consumers only read the bytes: the
+// CPU path memcpys, and the async path uses kImmutableUntilTransferCompletes.
 Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, void *data_ptr,
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, const void *data_ptr,
     const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
     size_t element_size, bool row_major = false,
     PJRT_Device *device = nullptr) {
@@ -318,9 +500,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
                            });
   }
 
-  // Non-CPU: hand R's data straight to PJRT (zero-copy).
-  auto result = client->buffer_from_host_async(data_ptr, dims, byte_strides_opt,
-                                               dtype, device);
+  // Non-CPU: hand R's data straight to PJRT (zero-copy). const_cast because
+  // buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result = client->buffer_from_host_async(
+      const_cast<void *>(data_ptr), dims, byte_strides_opt, dtype, device);
 
   if (result.event) {
     R_PreserveObject(data);
@@ -342,16 +525,24 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
 
   if (client->is_cpu()) {
     // Copy the raw bytes into a fresh RAWSXP; don't alias the caller's vector.
+    // DATAPTR_RO: the source is only read, and a writable DATAPTR would force
+    // copy-on-write materialization of ALTREP raw vectors (e.g. shared-memory
+    // mappings), doubling the host cost of the upload. Unlike INTEGER_RO() and
+    // REAL_RO(), RAW_RO() is not a substitute: as of R 4.6 it forces ALTREP
+    // payloads like RAW() does.
     size_t total_bytes = static_cast<size_t>(Rf_length(data));
     return make_cpu_buffer(client, total_bytes, dims, byte_strides_opt, dtype,
                            device, [&](void *dst) {
                              if (total_bytes > 0)
-                               std::memcpy(dst, RAW(data), total_bytes);
+                               std::memcpy(dst, DATAPTR_RO(data), total_bytes);
                            });
   }
 
-  auto result = client->buffer_from_host_async(RAW(data), dims,
-                                               byte_strides_opt, dtype, device);
+  // kImmutableUntilTransferCompletes only reads the host bytes; const_cast
+  // because buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result =
+      client->buffer_from_host_async(const_cast<void *>(DATAPTR_RO(data)), dims,
+                                     byte_strides_opt, dtype, device);
 
   if (result.event) {
     R_PreserveObject(data);
@@ -1030,7 +1221,7 @@ Rcpp::List impl_loaded_executable_execute(
   // nothing else keeps a *dropped* buffer alive until the computation finishes
   // with it. Pinning the XPtr keeps the buffer -- and transitively its RAWSXP
   // -- reachable, so an un-awaited Execute can't touch freed memory. Device
-  // inputs (CUDA/Metal) are PJRT-owned and carry a NilValue prot slot, so they
+  // inputs (CUDA) are PJRT-owned and carry a NilValue prot slot, so they
   // are skipped: PJRT already defers their device-memory free until pending
   // ops complete.
   std::vector<SEXP> keepalives;
@@ -1133,6 +1324,13 @@ Rcpp::List impl_loaded_executable_execute(
   return buffers;
 }
 
+// Declared ahead of impl_client_buffer_from_integer(): the two entry points
+// cross-dispatch, each delegating the dtypes that are the other's natural
+// target, so that every R source type reaches every element type.
+Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
+    SEXP data, std::vector<int64_t> dims, std::string dtype);
+
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
@@ -1144,12 +1342,18 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     return create_buffer_from_array_async<int16_t>(
         client, data, dims, PJRT_Buffer_Type_S16, false, device->device);
   } else if (dtype == "i32") {
-    // Zero-copy optimization: use R's integer data directly (R int = 32-bit)
-    static_assert(sizeof(int) == sizeof(int32_t),
-                  "R int must be 32-bit for zero-copy");
-    return create_buffer_from_array_async_no_convert(
-        client, data, INTEGER(data), dims, PJRT_Buffer_Type_S32,
-        sizeof(int32_t), false, device->device);
+    if (TYPEOF(data) == INTSXP) {
+      // Zero-copy optimization: use R's integer data directly (R int = 32-bit)
+      static_assert(sizeof(int) == sizeof(int32_t),
+                    "R int must be 32-bit for zero-copy");
+      return create_buffer_from_array_async_no_convert(
+          client, data, INTEGER_RO(data), dims, PJRT_Buffer_Type_S32,
+          sizeof(int32_t), false, device->device);
+    }
+    // Doubles reach this from impl_client_buffer_from_double() and need the
+    // per-element conversion; only an INTSXP is byte-compatible with S32.
+    return create_buffer_from_array_async<int32_t>(
+        client, data, dims, PJRT_Buffer_Type_S32, false, device->device);
   } else if (dtype == "i64") {
     return create_buffer_from_array_async<int64_t>(
         client, data, dims, PJRT_Buffer_Type_S64, false, device->device);
@@ -1174,6 +1378,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else if (dtype == "f64") {
     return create_buffer_from_array_async<double>(
         client, data, dims, PJRT_Buffer_Type_F64, false, device->device);
+  } else if (dtype == "pred") {
+    // as.logical() is the route an integer takes to pred, the same one
+    // impl_client_buffer_from_double() uses.
+    Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
+    return impl_client_buffer_from_logical(client, device, data_conv, dims,
+                                           dtype);
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
@@ -1198,8 +1408,27 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+
+  // bit64 spells NA_integer64_ as INT64_MIN. At "i64" that is R's own NA and
+  // the whole point of the zero-copy path: it travels through untouched and
+  // as_array() reports it on the way back, with the R caller warning about it
+  // on the way in. At "ui64" the same bits read as the ordinary value 2^63, so
+  // a missing value would arrive as real data; it is rejected here like any
+  // other dtype that cannot hold one. Nothing legitimate is turned away --
+  // bit64 cannot express 2^63 either, that bit pattern *is* its NA.
+  if (buffer_type == PJRT_Buffer_Type_U64) {
+    int len = Rf_length(data);
+    const int64_t *x = reinterpret_cast<const int64_t *>(REAL_RO(data));
+    for (int i = 0; i < len; ++i) {
+      if (x[i] == std::numeric_limits<int64_t>::min()) {
+        Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                   dtype_name(buffer_type), element_suffix(i, len));
+      }
+    }
+  }
+
   return create_buffer_from_array_async_no_convert(
-      client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
+      client, data, REAL_RO(data), dims, buffer_type, sizeof(int64_t), false,
       device->device);
 }
 
@@ -1210,9 +1439,14 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
   if (dtype == "pred") {
     return create_buffer_from_array_async<uint8_t>(
         client, data, dims, PJRT_Buffer_Type_PRED, false, device->device);
-  } else {
-    Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+  // Every other element type is a numeric one, reached through as.integer():
+  // FALSE/TRUE become 0/1 and NA becomes NA_integer_, which the integer entry
+  // point then treats like any other missing value. An unknown dtype string
+  // still falls through to its "Unsupported type" error.
+  Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
+  return impl_client_buffer_from_integer(client, device, data_conv, dims,
+                                         dtype);
 }
 
 // [[Rcpp::export()]]
@@ -1229,15 +1463,16 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     // Zero-copy optimization: use R's double data directly (no type conversion
     // needed)
     return create_buffer_from_array_async_no_convert(
-        client, data, REAL(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
+        client, data, REAL_RO(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
         false, device->device);
   } else if (dtype == "pred") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, device, data_conv, dims,
                                            dtype);
   } else {
-    Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
-    return impl_client_buffer_from_integer(client, device, data_conv, dims,
-                                           dtype);
+    // Every remaining dtype is an integer one, and the double data goes through
+    // as it is: coercing via as<IntegerVector>() first would clip anything
+    // outside the int32 range to NA, so 2^40 uploaded as -2147483648.
+    return impl_client_buffer_from_integer(client, device, data, dims, dtype);
   }
 }

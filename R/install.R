@@ -4,8 +4,9 @@
 #' The CPU plugin is always installed. The CUDA plugin is installed in
 #' addition when a CUDA-capable GPU is detected, or when `cuda = TRUE` is
 #' passed explicitly. Installing the CUDA plugin also installs the R package
-#' providing the CUDA libraries it links against (`r cuda_r_package()` by
-#' default, see `PJRT_CUDA_R_PACKAGE` in [pjrt-package]).
+#' providing the CUDA libraries it links against (CUDA `r cuda_version()`,
+#' shipped by `r cuda_r_package()` by default, see `PJRT_CUDA_R_PACKAGE` in
+#' [pjrt-package]).
 #'
 #' Plugins are otherwise downloaded lazily the first time a client is
 #' created, but the download requires user confirmation, unless
@@ -14,7 +15,7 @@
 #' @param cuda (`logical(1)` | `NULL`)\cr
 #'   Whether to also install the CUDA plugin. When `NULL` (the default),
 #'   CUDA support is auto-detected: the CUDA plugin is installed when an
-#'   NVIDIA GPU is available on a Linux x86_64 machine.
+#'   NVIDIA GPU is available on a Linux machine (x86_64 or arm64).
 #' @return (`character()`)\cr
 #'   The platforms that were installed, invisibly.
 #' @export
@@ -65,10 +66,12 @@ install_cuda_r_package <- function() {
 }
 
 # Detect whether a CUDA-capable GPU is usable on this machine. The CUDA PJRT
-# plugin only ships for Linux x86_64, so we short-circuit on other platforms
+# plugin ships for Linux on both x86_64 and arm64 (zml publishes
+# `pjrt-cuda_linux-amd64` and `pjrt-cuda_linux-arm64`, and `pjrt.cuda` resolves
+# CUDA wheels for either), but for no other OS -- so we short-circuit on those
 # before shelling out to `nvidia-smi` to confirm a GPU is actually present.
 cuda_available <- function() {
-  if (plugin_os() != "linux" || plugin_arch() != "amd64") {
+  if (plugin_os() != "linux") {
     return(FALSE)
   }
 

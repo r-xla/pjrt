@@ -153,7 +153,7 @@ std::vector<int64_t> PJRTBuffer::minor_to_major() {
 
   PJRT_Buffer_GetMemoryLayout_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_GetMemoryLayout_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_GetMemoryLayout_(&args));
 
   // Our readback can only faithfully reorder a dense, untiled layout expressed
@@ -162,14 +162,14 @@ std::vector<int64_t> PJRTBuffer::minor_to_major() {
   // de-tiling (which also changes the physical byte count via padding) for a
   // tiled one — so we error rather than silently returning wrong data.
   //
-  // In practice none of these occur on the platforms pjrt supports: CPU, CUDA,
-  // and Metal all hand back dense untiled layouts (tiling is a TPU feature).
-  // The checks therefore only fire if a future/exotic backend produces a
-  // layout we cannot honor, turning silent corruption into a clear error.
+  // In practice none of these occur on the platforms pjrt supports: CPU and
+  // CUDA both hand back dense untiled layouts (tiling is a TPU feature). The
+  // checks therefore only fire if a future/exotic backend produces a layout we
+  // cannot honor, turning silent corruption into a clear error.
   if (args.layout.type != PJRT_Buffer_MemoryLayout_Type_Tiled) {
     Rcpp::stop(
         "Unsupported strided buffer memory layout on readback; only dense "
-        "untiled layouts are supported (CPU/CUDA/Metal).");
+        "untiled layouts are supported (CPU/CUDA).");
   }
   if (args.layout.tiled.num_tiles > 0) {
     Rcpp::stop(
