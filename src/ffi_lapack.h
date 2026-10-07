@@ -16,6 +16,8 @@
 //              medium/large sizes; jaxlib uses it on CPU too).
 //     gesvd -- GEneral SVD via QR iteration (used on the cuSOLVER side).
 //     syevd -- SYmmetric EigenValue Decomposition via divide-and-conquer.
+//     potrf -- POsitive-definite TRiangular Factorisation: Cholesky,
+//              A = L L^T (uplo = 'L') or A = U^T U (uplo = 'U').
 //   The trailing underscore (`dgeqrf_`) is the Fortran ABI symbol mangling.
 //
 #pragma once
@@ -55,6 +57,12 @@ void dgesdd_(const char *jobz, const int *m, const int *n, double *a,
 void dsyevd_(const char *jobz, const char *uplo, const int *n, double *a,
              const int *lda, double *w, double *work, const int *lwork,
              int *iwork, const int *liwork, int *info);
+
+// Cholesky. Only the `uplo` triangle of A is read and overwritten with the
+// factor; the other triangle is left untouched. info > 0 means the leading
+// minor of order info is not positive definite (the factorisation stopped).
+void dpotrf_(const char *uplo, const int *n, double *a, const int *lda,
+             int *info);
 // On windows we use R's bundeld LAPACK for now, which only has double precision
 // support
 #ifndef _WIN32
@@ -71,6 +79,8 @@ void sgesdd_(const char *jobz, const int *m, const int *n, float *a,
 void ssyevd_(const char *jobz, const char *uplo, const int *n, float *a,
              const int *lda, float *w, float *work, const int *lwork,
              int *iwork, const int *liwork, int *info);
+void spotrf_(const char *uplo, const int *n, float *a, const int *lda,
+             int *info);
 #endif
 }
 
@@ -114,6 +124,10 @@ struct Lapack<double> {
                     const int *liwork, int *info) {
     dsyevd_(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info);
   }
+  static void potrf(const char *uplo, const int *n, S *a, const int *lda,
+                    int *info) {
+    dpotrf_(uplo, n, a, lda, info);
+  }
 };
 
 #ifndef _WIN32
@@ -144,6 +158,10 @@ struct Lapack<float> {
                     const int *liwork, int *info) {
     ssyevd_(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info);
   }
+  static void potrf(const char *uplo, const int *n, S *a, const int *lda,
+                    int *info) {
+    spotrf_(uplo, n, a, lda, info);
+  }
 };
 #else
 // Windows: promote f32 -> f64 -> f32 around the LAPACK call.
@@ -173,6 +191,10 @@ struct Lapack<float> {
                     const int *lda, S *w, S *work, const int *lwork, int *iwork,
                     const int *liwork, int *info) {
     dsyevd_(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info);
+  }
+  static void potrf(const char *uplo, const int *n, S *a, const int *lda,
+                    int *info) {
+    dpotrf_(uplo, n, a, lda, info);
   }
 };
 #endif

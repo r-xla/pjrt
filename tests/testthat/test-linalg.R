@@ -465,3 +465,130 @@ describe("eigh", {
     )
   })
 })
+
+# ---------------------------------------------------------------------------
+# potrf (Cholesky)
+# ---------------------------------------------------------------------------
+
+describe("potrf", {
+  # Exercises the `potrf` LAPACK / cuSOLVER custom call: Cholesky
+  # factorisation of a batch of matrices [..., n, n] in f32 / f64, either
+  # triangle, plus the per-matrix `info` output that reports a matrix that is
+  # not positive definite instead of failing.
+  #
+  # Correctness: the triangle selected by `lower` must match R's `chol()` (U)
+  # or its transpose (L); the other triangle is unspecified and not checked.
+
+  # ---- Helpers ----
+
+  random_spd <- function(n) {
+    m <- matrix(rnorm(n * n), n, n)
+    crossprod(m) + diag(n)
+  }
+
+  run_potrf <- function(a, dtype, lower, donate = FALSE) {
+    d <- dim(a)
+    nd <- length(d)
+    in_spec <- list(dims = d, dtype = dtype)
+    if (donate) {
+      in_spec$aliases <- 1L
+    }
+    run_linalg(
+      "potrf",
+      inputs = list(a),
+      in_specs = list(in_spec),
+      out_specs = list(
+        list(dims = d, dtype = dtype),
+        list(dims = d[seq_len(nd - 2L)], dtype = "i32")
+      ),
+      attrs = list(backend_config = sprintf("{lower = %s}", tolower(lower))),
+      in_layouts = batched_matrix_layout(nd),
+      out_layouts = c(batched_matrix_layout(nd), row_major_layout(nd - 2L))
+    )
+  }
+
+  # The triangle of `factor` that potrf wrote, the other one zeroed.
+  triangle <- function(factor, lower) {
+    factor[if (lower) upper.tri(factor) else lower.tri(factor)] <- 0
+    factor
+  }
+
+  expect_matches_r_chol <- function(a, dtype, lower) {
+    res <- run_potrf(a, dtype, lower)
+    tol <- if (dtype == "f64") 1e-10 else 1e-4
+    expected <- if (lower) t(chol(a)) else chol(a)
+    expect_equal(triangle(res[[1L]], lower), expected, tolerance = tol)
+    expect_equal(as.integer(res[[2L]]), 0L)
+  }
+
+  # ---- Tests ----
+
+  it("factorises into the upper and the lower triangle in f64 and f32", {
+    withr::local_seed(41)
+    a <- random_spd(6)
+    for (dtype in c("f64", "f32")) {
+      expect_matches_r_chol(a, dtype, lower = FALSE)
+      expect_matches_r_chol(a, dtype, lower = TRUE)
+    }
+  })
+
+  it("reports the order of the first minor that is not positive definite", {
+    a <- diag(c(1, 2, -1, 3))
+    for (dtype in c("f64", "f32")) {
+      for (lower in c(TRUE, FALSE)) {
+        res <- run_potrf(a, dtype, lower)
+        expect_equal(as.integer(res[[2L]]), 3L)
+      }
+    }
+  })
+
+  it("factorises every matrix of a batch and reports info per matrix", {
+    withr::local_seed(42)
+    n <- 4L
+    a <- array(0, c(2L, 3L, n, n))
+    for (i in 1:2) {
+      for (j in 1:3) {
+        a[i, j, , ] <- random_spd(n)
+      }
+    }
+    a[2L, 1L, , ] <- -diag(n)
+    res <- run_potrf(a, "f64", lower = TRUE)
+    expect_equal(dim(res[[1L]]), dim(a))
+    expect_equal(as.integer(res[[2L]]), c(0L, 1L, 0L, 0L, 0L, 0L))
+    for (i in 1:2) {
+      for (j in 1:3) {
+        if (i == 2L && j == 1L) {
+          next
+        }
+        expect_equal(
+          triangle(res[[1L]][i, j, , ], lower = TRUE),
+          t(chol(a[i, j, , ])),
+          tolerance = 1e-10
+        )
+      }
+    }
+  })
+
+  it("works with a donated input buffer", {
+    withr::local_seed(43)
+    a <- random_spd(5)
+    res <- run_potrf(a, "f64", lower = FALSE, donate = TRUE)
+    expect_equal(triangle(res[[1L]], lower = FALSE), chol(a), tolerance = 1e-10)
+  })
+
+  it("does not overwrite the input buffer", {
+    withr::local_seed(44)
+    a <- random_spd(4)
+    expect_inputs_preserved(
+      "potrf",
+      inputs = list(a),
+      in_specs = list(list(dims = c(4, 4), dtype = "f64")),
+      out_specs = list(
+        list(dims = c(4, 4), dtype = "f64"),
+        list(dims = integer(), dtype = "i32")
+      ),
+      attrs = list(backend_config = "{lower = true}"),
+      out_layouts = c(col_major_layout(2L), col_major_layout(0L))
+    )
+  })
+})

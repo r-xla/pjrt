@@ -6,7 +6,8 @@
 // jaxlib/gpu/solver_kernels_ffi.cc + jaxlib/gpu/solver_handle_pool.cc,
 // adapted to a runtime-link-only model.
 //
-// The cuSOLVER bits are used by the linalg kernels (qr, lu, svd, eigh).
+// The cuSOLVER bits are used by the linalg kernels (qr, lu, svd, eigh,
+// potrf).
 // The generic driver helpers are also used outside the linalg path -- e.g.
 // print_tensor's CUDA handler in ffi.cpp uses `memcpy_dtoh` and
 // `stream_synchronize` to pull a buffer to the host before formatting.
@@ -53,8 +54,8 @@ using CUdeviceptr = std::uintptr_t;
 // uses. New ops add their entries here and to the loader in ffi_cuda.cpp.
 //
 // Naming: `s_` / `d_` prefixes are float / double precision. The operation
-// stems (`geqrf`, `orgqr`, `getrf`, `gesvd`, `syevd`) follow the same LAPACK
-// naming convention documented at the top of `ffi_lapack.h` -- cuSOLVER
+// stems (`geqrf`, `orgqr`, `getrf`, `gesvd`, `syevd`, `potrf`) follow the same
+// LAPACK naming convention documented at the top of `ffi_lapack.h` -- cuSOLVER
 // mirrors LAPACK's interface, so `s_geqrf` corresponds to `cusolverDnSgeqrf`
 // (= LAPACK's `sgeqrf` on the GPU). The `_bs` suffix stands for "bufferSize"
 // -- the cuSOLVER workspace-query companion of each routine (e.g.
@@ -137,6 +138,13 @@ struct CudaLibs {
   int (*d_syevd)(void *, int, int, int, double *, int, double *, double *, int,
                  int *);
 
+  // Cholesky. uplo is a cublasFillMode_t (0 = lower, 1 = upper); devInfo is
+  // a device int32, > 0 when the matrix is not positive definite.
+  int (*s_potrf_bs)(void *, int, int, float *, int, int *);
+  int (*d_potrf_bs)(void *, int, int, double *, int, int *);
+  int (*s_potrf)(void *, int, int, float *, int, float *, int, int *);
+  int (*d_potrf)(void *, int, int, double *, int, double *, int, int *);
+
   // CUDA driver helpers. Allocation goes through ffi::ScratchAllocator, but
   // memcpy / memset / stream-sync still need driver entry points.
   // memcpy_dtoh / stream_synchronize are used outside the linalg kernels too
@@ -196,7 +204,7 @@ xla::ffi::Error borrow_solver_handle(CudaLibs &g, void *stream,
 
 // Bundled prologue for a CUDA linalg kernel: a borrowed cuSOLVER handle on
 // `stream`, plus a scratch-allocated device `int` for `devInfo` (every
-// cuSOLVER routine wants one). All four built-in linalg kernels open with the
+// cuSOLVER routine wants one). All built-in linalg kernels open with the
 // same three steps -- loaded-check, handle borrow, info alloc -- and `Solver`
 // rolls them into one initialiser.
 //
@@ -254,6 +262,8 @@ struct CuSolver<float> {
   static auto gesvd(CudaLibs &g) { return g.s_gesvd; }
   static auto syevd_bs(CudaLibs &g) { return g.s_syevd_bs; }
   static auto syevd(CudaLibs &g) { return g.s_syevd; }
+  static auto potrf_bs(CudaLibs &g) { return g.s_potrf_bs; }
+  static auto potrf(CudaLibs &g) { return g.s_potrf; }
 };
 
 template <>
@@ -268,6 +278,8 @@ struct CuSolver<double> {
   static auto gesvd(CudaLibs &g) { return g.d_gesvd; }
   static auto syevd_bs(CudaLibs &g) { return g.d_syevd_bs; }
   static auto syevd(CudaLibs &g) { return g.d_syevd; }
+  static auto potrf_bs(CudaLibs &g) { return g.d_potrf_bs; }
+  static auto potrf(CudaLibs &g) { return g.d_potrf; }
 };
 
 }  // namespace rpjrt

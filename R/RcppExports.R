@@ -237,6 +237,14 @@ impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
 }
 
+get_potrf_handler <- function() {
+    .Call(`_pjrt_get_potrf_handler`)
+}
+
+get_potrf_handler_cuda <- function() {
+    .Call(`_pjrt_get_potrf_handler_cuda`)
+}
+
 get_geqrf_handler <- function() {
     .Call(`_pjrt_get_geqrf_handler`)
 }

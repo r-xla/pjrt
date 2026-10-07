@@ -1,6 +1,6 @@
 // Implementation of the shared cuSOLVER infrastructure: dlopen-based loader
 // and a per-stream handle pool. All cuSOLVER-backed kernels (qr, lu, svd,
-// eigh) use these singletons so they share one set of loaded function
+// eigh, potrf) use these singletons so they share one set of loaded function
 // pointers and one handle pool. Device-memory allocation goes through XLA's
 // ffi::ScratchAllocator, not via this loader.
 #include "ffi_cuda.h"
@@ -90,6 +90,13 @@ CudaLibs &get_cuda_libs() {
         cusolver, "cusolverDnDsyevd_bufferSize");
     g.s_syevd = load_sym<decltype(g.s_syevd)>(cusolver, "cusolverDnSsyevd");
     g.d_syevd = load_sym<decltype(g.d_syevd)>(cusolver, "cusolverDnDsyevd");
+
+    g.s_potrf_bs = load_sym<decltype(g.s_potrf_bs)>(
+        cusolver, "cusolverDnSpotrf_bufferSize");
+    g.d_potrf_bs = load_sym<decltype(g.d_potrf_bs)>(
+        cusolver, "cusolverDnDpotrf_bufferSize");
+    g.s_potrf = load_sym<decltype(g.s_potrf)>(cusolver, "cusolverDnSpotrf");
+    g.d_potrf = load_sym<decltype(g.d_potrf)>(cusolver, "cusolverDnDpotrf");
 
     g.memcpy_dtod =
         load_sym<decltype(g.memcpy_dtod)>(cuda, "cuMemcpyDtoDAsync_v2");

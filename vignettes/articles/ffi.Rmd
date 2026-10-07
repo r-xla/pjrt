@@ -18,7 +18,7 @@ In this vignette we will explain how to use and create custom calls on CPU and C
 
 {pjrt} ships a few built-in custom calls registered automatically when the
 package is loaded.
-This includes `print_tensor` and the linear-algebra primitives `geqrf` / `orgqr` (QR factorisation), `lu`, `svd`, and `eigh`.
+This includes `print_tensor` and the linear-algebra primitives `geqrf` / `orgqr` (QR factorisation), `lu`, `svd`, `eigh`, and `potrf` (Cholesky).
 The example below uses `print_tensor`, which takes a single tensor operand, prints it, and returns nothing.
 
 ```{r}

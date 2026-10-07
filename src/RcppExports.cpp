@@ -703,6 +703,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_potrf_handler
+SEXP get_potrf_handler();
+RcppExport SEXP _pjrt_get_potrf_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_potrf_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_potrf_handler_cuda
+SEXP get_potrf_handler_cuda();
+RcppExport SEXP _pjrt_get_potrf_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_potrf_handler_cuda());
+    return rcpp_result_gen;
+END_RCPP
+}
 // get_geqrf_handler
 SEXP get_geqrf_handler();
 RcppExport SEXP _pjrt_get_geqrf_handler() {
@@ -1020,6 +1040,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_from_integer64", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer64, 5},
     {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 5},
     {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 5},
+    {"_pjrt_get_potrf_handler", (DL_FUNC) &_pjrt_get_potrf_handler, 0},
+    {"_pjrt_get_potrf_handler_cuda", (DL_FUNC) &_pjrt_get_potrf_handler_cuda, 0},
     {"_pjrt_get_geqrf_handler", (DL_FUNC) &_pjrt_get_geqrf_handler, 0},
     {"_pjrt_get_orgqr_handler", (DL_FUNC) &_pjrt_get_orgqr_handler, 0},
     {"_pjrt_get_geqrf_handler_cuda", (DL_FUNC) &_pjrt_get_geqrf_handler_cuda, 0},
