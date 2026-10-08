@@ -4,11 +4,21 @@ col_major_layout <- function(ndim) {
 }
 
 tensor_type <- function(spec) {
+  if (length(spec$dims) == 0L) {
+    return(sprintf("tensor<%s>", spec$dtype))
+  }
   sprintf("tensor<%sx%s>", paste(spec$dims, collapse = "x"), spec$dtype)
 }
 
 row_major_layout <- function(ndim) {
   dims <- paste(rev(seq_len(ndim) - 1L), collapse = ", ")
+  sprintf("dense<[%s]> : tensor<%dxindex>", dims, ndim)
+}
+
+# A batch of matrices [..., m, n]: every matrix column-major and contiguous,
+# the batch axes row-major around them.
+batched_matrix_layout <- function(ndim) {
+  dims <- paste(c(ndim - 2L, ndim - 1L, rev(seq_len(ndim - 2L) - 1L)), collapse = ", ")
   sprintf("dense<[%s]> : tensor<%dxindex>", dims, ndim)
 }
 
