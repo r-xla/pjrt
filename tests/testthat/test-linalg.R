@@ -196,6 +196,13 @@ describe("lu", {
     expect_lu_correct(a, "f32")
   })
 
+  it("factorises a singular matrix with a zero pivot in U", {
+    a <- matrix(c(1, 2, 2, 4), nrow = 2)
+    res <- run_lu(a, "f64")
+    expect_equal(res[[1L]][2L, 2L], 0)
+    expect_equal(lu_reconstruct(res[[1L]], as.integer(res[[2L]])), a, tolerance = 1e-10)
+  })
+
   it("returns int32 pivots", {
     res <- run_lu(matrix(c(0, 1, 1, 1), nrow = 2), "f64")
     expect_true(is.integer(as.vector(res[[2L]])))
