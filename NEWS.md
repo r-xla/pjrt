@@ -3,6 +3,8 @@
 * Breaking: the boolean data type is now named `"bool"` everywhere, e.g. by
   `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
   `"pred"` and `"i1"` are still accepted as aliases.
+* Bugfix: the `lu` custom call factorises a singular matrix instead of
+  failing with `getrf failed with info = <k>`.
 * New built-in `potrf` custom call: a batched Cholesky factorisation through
   LAPACK on the host and cuSOLVER on CUDA, reporting each matrix's `info`
   instead of failing on one that is not positive definite.
