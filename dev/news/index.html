@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">pjrt</a>
 
-    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9001</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,8 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
-<ul><li>New built-in <code>potrf</code> custom call: a batched Cholesky factorisation through LAPACK on the host and cuSOLVER on CUDA, reporting each matrix’s <code>info</code> instead of failing on one that is not positive definite.</li>
+<ul><li>Bugfix: the <code>lu</code> custom call factorises a singular matrix instead of failing with <code>getrf failed with info = &lt;k&gt;</code>.</li>
+<li>New built-in <code>potrf</code> custom call: a batched Cholesky factorisation through LAPACK on the host and cuSOLVER on CUDA, reporting each matrix’s <code>info</code> instead of failing on one that is not positive definite.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.6.0" id="pjrt-060">pjrt 0.6.0<a class="anchor" aria-label="anchor" href="#pjrt-060"></a></h2>
