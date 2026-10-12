@@ -121,7 +121,10 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
 }
 
 // The R-facing name of an element type ("i32", "ui8", ...), for messages.
+// The name an R user writes for an element type: "bool" (as xlamisc and
+// dtype() spell it), not the C API's "pred".
 static std::string dtype_name(PJRT_Buffer_Type type) {
+  if (type == PJRT_Buffer_Type_PRED) return "bool";
   return rpjrt::PJRTElementType(type).as_string();
 }
 

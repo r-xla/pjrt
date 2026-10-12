@@ -174,7 +174,7 @@
       pjrt_buffer(NA)
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
 
 ---
 
@@ -182,7 +182,7 @@
       pjrt_buffer(c(TRUE, NA, FALSE))
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred" (element 2).
+      ! Missing value (NA/NaN) cannot be converted to "bool" (element 2).
 
 ---
 
@@ -190,7 +190,7 @@
       pjrt_scalar(NA)
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
 
 ---
 
@@ -198,7 +198,7 @@
       pjrt_buffer(NA_integer_, dtype = "pred")
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
 
 ---
 
@@ -206,7 +206,15 @@
       pjrt_buffer(NA_real_, dtype = "pred")
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
+
+---
+
+    Code
+      pjrt_buffer(c(TRUE, NA), dtype = "bool")
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "bool" (element 2).
 
 # a missing bit64::integer64 value / is rejected at ui64, which has no missing value to land on
 

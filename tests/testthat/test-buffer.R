@@ -498,6 +498,7 @@ describe("a missing value at pred", {
     expect_snapshot(pjrt_scalar(NA), error = TRUE)
     expect_snapshot(pjrt_buffer(NA_integer_, dtype = "pred"), error = TRUE)
     expect_snapshot(pjrt_buffer(NA_real_, dtype = "pred"), error = TRUE)
+    expect_snapshot(pjrt_buffer(c(TRUE, NA), dtype = "bool"), error = TRUE)
   })
 })
 
