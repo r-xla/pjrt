@@ -44,7 +44,9 @@ static Error lu_impl(AnyBuffer input, Result<AnyBuffer> lu_out,
   // getrf has no workspace argument -- pivoting is in place.
   int info;
   Lapack<T>::getrf(&m, &n, a, &m, ipiv, &info);
-  PJRT_RETURN_IF_ERROR(lapack_check_info(info, "getrf"));
+  // info > 0 means U has an exact zero pivot: the factorisation is still
+  // complete, the matrix is just singular.
+  if (info < 0) return lapack_check_info(info, "getrf");
 
   demote_output<T>(a_storage, lu_data, total);
 
