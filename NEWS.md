@@ -1,5 +1,9 @@
 # pjrt (development version)
 
+* New built-in `potrf` custom call: a batched Cholesky factorisation through
+  LAPACK on the host and cuSOLVER on CUDA, reporting each matrix's `info`
+  instead of failing on one that is not positive definite.
+
 # pjrt 0.6.0
 
 ## Breaking changes
