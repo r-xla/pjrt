@@ -415,11 +415,10 @@ struct PhantomSpec {
 
 // One state slot (?dispatcher's `state`): an array the program takes as an
 // input after the call's own and returns as an output after the out_tree's,
-// read from `env[[name]]` before the run and written back after it.
+// read with `get()` before the run and handed to `set()` after it.
 struct StateSlot {
-  Rcpp::Environment env;
-  SEXP name = R_NilValue;  // a symbol: never collected, so not rooted
-  Rcpp::RObject init;      // called when the binding is unset or NULL; or NULL
+  Rcpp::RObject get;  // function(): the current AnvlArray
+  Rcpp::RObject set;  // function(value): stores the updated one
   AnvlDtype dtype = AnvlDtype::kInvalid;
   std::vector<int64_t> shape;
 };
@@ -591,34 +590,28 @@ class PjrtEngine : public Engine {
         SEXP sl = VECTOR_ELT(slots, i);
         const int k = static_cast<int>(i) + 1;
         if (TYPEOF(sl) != VECSXP) {
-          Rcpp::stop(
-              "`state[[%d]]` must be a list(env, name, init, dtype, shape)", k);
+          Rcpp::stop("`state[[%d]]` must be a list(get, set, dtype, shape)", k);
         }
         Rcpp::List slot(sl);
         auto field = [&](const char* nm) -> SEXP {
           return slot.containsElementNamed(nm) ? static_cast<SEXP>(slot[nm])
                                                : R_NilValue;
         };
-        SEXP env = field("env");
-        SEXP name = field("name");
-        SEXP init = field("init");
+        SEXP get = field("get");
+        SEXP set = field("set");
         SEXP dtype = field("dtype");
-        if (TYPEOF(env) != ENVSXP) {
-          Rcpp::stop("`state[[%d]]$env` must be an environment", k);
+        if (!Rf_isFunction(get)) {
+          Rcpp::stop("`state[[%d]]$get` must be a function", k);
         }
-        if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1) {
-          Rcpp::stop("`state[[%d]]$name` must be a string", k);
-        }
-        if (init != R_NilValue && !Rf_isFunction(init)) {
-          Rcpp::stop("`state[[%d]]$init` must be a function or NULL", k);
+        if (!Rf_isFunction(set)) {
+          Rcpp::stop("`state[[%d]]$set` must be a function", k);
         }
         if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
           Rcpp::stop("`state[[%d]]$dtype` must be a string", k);
         }
         StateSlot s;
-        s.env = Rcpp::Environment(env);
-        s.name = Rf_install(CHAR(STRING_ELT(name, 0)));
-        s.init = init;
+        s.get = get;
+        s.set = set;
         s.dtype = anvl_dtype_from_name(CHAR(STRING_ELT(dtype, 0)));
         if (s.dtype == AnvlDtype::kInvalid) {
           Rcpp::stop("`state[[%d]]$dtype` is not a supported dtype", k);
@@ -733,8 +726,8 @@ class PjrtEngine : public Engine {
       Rcpp::RObject w =
           Rf_shallow_duplicate(VECTOR_ELT(pe->state_templates, k));
       SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[n_out + k]);
-      const StateSlot& s = pe->state[k];
-      Rf_defineVar(s.name, w, s.env);
+      Rcpp::Function set(pe->state[k].set);
+      set(w);
     }
 
     // Wrap each output: a shallow copy of its template with the buffer written
@@ -756,38 +749,32 @@ class PjrtEngine : public Engine {
 
  private:
   // The buffer state slot `s` (the `k`th) supplies to a run of `pe`: the
-  // AnvlArray bound to `s.name` in `s.env` -- created by `s.init` when that is
-  // unset or NULL -- checked against the slot's dtype and shape, and copied to
-  // the entry's device when it lives elsewhere.
+  // AnvlArray its `get()` returns, checked against the slot's dtype and shape,
+  // and copied to the entry's device when it lives elsewhere. Nothing but
+  // `get()` may hold the AnvlArray, so it is rooted in an RObject while it is
+  // checked.
   SEXP read_state(const PjrtEntry& pe, const StateSlot& s, int k) const {
-    SEXP val = frame_var(s.env, s.name);
-    if (val == R_UnboundValue || val == R_NilValue) {
-      if (s.init.isNULL()) {
-        Rcpp::stop("state slot %d (`%s`) is not set", k,
-                   CHAR(PRINTNAME(s.name)));
-      }
-      Rcpp::Function init(s.init);
-      val = init();
-      Rf_defineVar(s.name, val, s.env);
-    }
+    Rcpp::Function get(s.get);
+    Rcpp::RObject val = get();
     if (!is_anvl_array(val) ||
         field_string(anvl_field(val, "backend")) != backend_) {
       Rcpp::stop(
-          "state slot %d (`%s`) must hold an AnvlArray of backend \"%s\"", k,
-          CHAR(PRINTNAME(s.name)), backend_.c_str());
+          "`get()` of state slot %d must return an AnvlArray of backend "
+          "\"%s\"",
+          k, backend_.c_str());
     }
     SEXP data = anvl_field(val, "data");
     if (TYPEOF(data) != EXTPTRSXP || !Rf_inherits(data, "PJRTBuffer")) {
-      Rcpp::stop("state slot %d (`%s`) must hold a PJRTBuffer in $data", k,
-                 CHAR(PRINTNAME(s.name)));
+      Rcpp::stop("`get()` of state slot %d must return a PJRTBuffer in $data",
+                 k);
     }
     Rcpp::XPtr<PJRTBuffer> buf(data);
     if (anvl_dtype_from_pjrt(buf->element_type()) != s.dtype ||
         buf->dimensions() != s.shape) {
       Rcpp::stop(
-          "state slot %d (`%s`) holds an array of another dtype or shape "
-          "than the program was compiled for",
-          k, CHAR(PRINTNAME(s.name)));
+          "`get()` of state slot %d returned an array of another dtype or "
+          "shape than the program was compiled for",
+          k);
     }
     if (buf->device_ptr() != pe.device->device) {
       const bool cross = buf->get_api().get() != pe.client->api.get();

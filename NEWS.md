@@ -9,7 +9,8 @@
   LAPACK on the host and cuSOLVER on CUDA, reporting each matrix's `info`
   instead of failing on one that is not positive definite.
 * A `dispatcher()` compile callback can declare `state` slots: arrays the
-  program reads from and writes back to an environment on every run.
+  program reads through a `get()` and writes back through a `set()` on every
+  run.
 
 # pjrt 0.6.0
 
