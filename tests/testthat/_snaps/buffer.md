@@ -152,7 +152,7 @@
       i "i32" reserves the bit pattern "-2147483648" (`INT_MIN`); "i64" reserves "-9223372036854775808" (`INT64_MIN`).
       i Set `check = FALSE` to skip this check.
 
-# a logical uploads at any element type, not just pred
+# a logical uploads at any element type, not just bool
 
     Code
       pjrt_buffer(NA, dtype = "ui8")
@@ -168,7 +168,7 @@
       Error:
       ! Unsupported type: nope
 
-# a missing value at pred / is rejected, whatever the source type it arrives as
+# a missing value at bool / is rejected, whatever the source type it arrives as
 
     Code
       pjrt_buffer(NA)
@@ -195,7 +195,7 @@
 ---
 
     Code
-      pjrt_buffer(NA_integer_, dtype = "pred")
+      pjrt_buffer(NA_integer_, dtype = "bool")
     Condition
       Error:
       ! Missing value (NA/NaN) cannot be converted to "bool".
@@ -203,7 +203,7 @@
 ---
 
     Code
-      pjrt_buffer(NA_real_, dtype = "pred")
+      pjrt_buffer(NA_real_, dtype = "bool")
     Condition
       Error:
       ! Missing value (NA/NaN) cannot be converted to "bool".

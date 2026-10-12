@@ -20,12 +20,12 @@ Data to convert to a \code{PJRTBuffer}.}
 The type of the buffer.
 Currently supported types are:
 \itemize{
-\item \code{"pred"}: predicate (i.e. a boolean)
+\item \code{"bool"}: boolean (\code{"pred"} and \code{"i1"} are accepted as aliases)
 \item \code{"{s,u}{8,16,32,64}"}: Signed and unsigned integer (for \code{integer} or
 \code{double} data).
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 The default (\code{NULL}) depends on the method:
-\item \code{logical} -> \code{"pred"}
+\item \code{logical} -> \code{"bool"}
 \item \code{integer} -> \code{"i32"}
 \item \code{double} -> \code{"f32"}
 \item \code{raw} -> must be supplied
@@ -82,7 +82,7 @@ already share a bit pattern and the vector travels zero-copy: an
 \code{NA_integer_} at \code{"i32"} arrives as \code{INT_MIN}, and a \code{bit64::integer64}
 \code{NA} at \code{"i64"} arrives as \code{INT64_MIN}. Both warn, and \code{\link[=as_array]{as_array()}} warns
 about them again on the way back, its \code{check} argument defaulting to
-\code{"warn"}. At every other integer element type, and at \code{"pred"}, a missing
+\code{"warn"}. At every other integer element type, and at \code{"bool"}, a missing
 value is an error -- including an \code{integer64} \code{NA} at \code{"ui64"}, where those
 same bits are the ordinary value \code{2^63}.
 

@@ -30,7 +30,7 @@ PJRTProgram            – MLIR or HLO source code ready for compilation
 ```
 PJRTBuffer         – device-resident tensor (the main data object)
 PJRTArrayPromise   – async device-to-host transfer result (environment-based)
-PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)
+PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)
 ```
 
 ### Plugin and Client Lifecycle

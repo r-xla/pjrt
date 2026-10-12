@@ -49,7 +49,7 @@ test_that("format_buffer works for integers", {
 test_that("format_buffer works for logicals", {
   skip_if_not_installed("pjrt")
 
-  buf <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
+  buf <- pjrt_buffer(c(TRUE, FALSE), dtype = "bool")
   res <- format_buffer(buf)
   expect_equal(res, array(c("true", "false"), dim = 2L))
 })

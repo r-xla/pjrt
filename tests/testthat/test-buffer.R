@@ -134,7 +134,7 @@ test_that("dtype works for PJRTBuffer", {
   buf_i8 <- pjrt_buffer(1L, dtype = "i8")
   expect_equal(dtype(buf_i8), xlamisc::as_dtype("i8"))
 
-  buf_pred <- pjrt_buffer(TRUE, dtype = "pred")
+  buf_pred <- pjrt_buffer(TRUE, dtype = "bool")
   expect_equal(dtype(buf_pred), xlamisc::as_dtype("bool"))
 
   buf_bool <- pjrt_buffer(TRUE, dtype = "bool")
@@ -259,7 +259,7 @@ test_that("as_array check is a no-op for float / bool / small-integer dtypes", {
   buf_f32 <- pjrt_buffer(c(1, NaN, 3), dtype = "f32")
   expect_no_error(as_array(buf_f32, check = "err"))
 
-  buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
+  buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "bool")
   expect_no_error(as_array(buf_pred, check = "err"))
 
   buf_i8 <- pjrt_buffer(c(-128L, 0L, 127L), dtype = "i8")
@@ -456,7 +456,7 @@ test_that("NA_integer_ at i32 warns, being the one carried through", {
   expect_no_warning(pjrt_buffer(NA_real_, dtype = "f64"))
 })
 
-test_that("a logical uploads at any element type, not just pred", {
+test_that("a logical uploads at any element type, not just bool", {
   # The logical and integer entry points cross-dispatch, so a source type is no
   # longer tied to the element types that happen to be its natural target.
   expect_equal(
@@ -477,27 +477,27 @@ test_that("a logical uploads at any element type, not just pred", {
   expect_snapshot(pjrt_buffer(TRUE, dtype = "nope"), error = TRUE)
 })
 
-test_that("an integer uploads at pred, like a double does", {
+test_that("an integer uploads at bool, like a double does", {
   expect_equal(
-    as_array(pjrt_buffer(c(0L, 1L, 2L), dtype = "pred")),
+    as_array(pjrt_buffer(c(0L, 1L, 2L), dtype = "bool")),
     array(c(FALSE, TRUE, TRUE), 3L)
   )
-  expect_false(as_array(pjrt_scalar(0L, dtype = "pred")))
-  expect_true(as_array(pjrt_scalar(1L, dtype = "pred")))
+  expect_false(as_array(pjrt_scalar(0L, dtype = "bool")))
+  expect_true(as_array(pjrt_scalar(1L, dtype = "bool")))
 })
 
-describe("a missing value at pred", {
+describe("a missing value at bool", {
   it("is rejected, whatever the source type it arrives as", {
-    # pred is the one element type an LGLSXP reaches intact -- every other
+    # bool is the one element type an LGLSXP reaches intact -- every other
     # dtype converts through as.integer() first, where NA_LOGICAL becomes the
     # NA_integer_ the integer check already rejects. An integer and a double
-    # source converge on the same LGLSXP on their way to pred, so all three
+    # source converge on the same LGLSXP on their way to bool, so all three
     # are held to the same rule.
     expect_snapshot(pjrt_buffer(NA), error = TRUE)
     expect_snapshot(pjrt_buffer(c(TRUE, NA, FALSE)), error = TRUE)
     expect_snapshot(pjrt_scalar(NA), error = TRUE)
-    expect_snapshot(pjrt_buffer(NA_integer_, dtype = "pred"), error = TRUE)
-    expect_snapshot(pjrt_buffer(NA_real_, dtype = "pred"), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_integer_, dtype = "bool"), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_real_, dtype = "bool"), error = TRUE)
     expect_snapshot(pjrt_buffer(c(TRUE, NA), dtype = "bool"), error = TRUE)
   })
 })
@@ -619,9 +619,9 @@ test_that("raw", {
     ui32 = list(data = sample_unsigned(30, c(2, 2, 2)), dtype = "ui32"),
     ui64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), dtype = "ui64"),
 
-    pred = list(
+    bool = list(
       data = matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2),
-      dtype = "pred"
+      dtype = "bool"
     )
   )
 
@@ -664,7 +664,7 @@ test_that("roundtrip tests for scalars", {
     f64 = 3.14159265359,
     i32 = 42L,
     ui8 = 255L,
-    pred = TRUE
+    bool = TRUE
   )
 
   for (dtype in names(test_scalars)) {
@@ -698,7 +698,7 @@ test_that("dtype returns correct data types", {
   buffer <- pjrt_buffer(logical_data)
   x <- elt_type(buffer)
   expect_true(is_elt_type(x))
-  expect_equal(as.character(x), "pred")
+  expect_equal(as.character(x), "bool")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
@@ -822,7 +822,7 @@ test_that("buffer <-> raw: row_major parameter", {
     list(pjrt_type = "f64", rtype = "double"),
     list(pjrt_type = "i32", rtype = "integer"),
     list(pjrt_type = "i64", rtype = "integer"),
-    list(pjrt_type = "pred", rtype = "logical")
+    list(pjrt_type = "bool", rtype = "logical")
   )
 
   check <- function(pjrt_type, rtype) {
@@ -1015,10 +1015,10 @@ test_that("recycle scalar to any length", {
   expect_equal(shape(x), c(1, 2))
 })
 
-test_that("can create dtype 'pred' from double", {
-  expect_equal(pjrt_buffer(1, dtype = "pred"), pjrt_buffer(TRUE))
-  expect_equal(pjrt_buffer(c(0, 1, 2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
-  expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
+test_that("can create dtype 'bool' from double", {
+  expect_equal(pjrt_buffer(1, dtype = "bool"), pjrt_buffer(TRUE))
+  expect_equal(pjrt_buffer(c(0, 1, 2), dtype = "bool"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
+  expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "bool"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
 })
 
 test_that("pjrt_buffer identity when working on a different client", {
@@ -1034,10 +1034,12 @@ test_that("Can create 'i32' from double", {
   expect_equal(pjrt_buffer(1:4, dtype = "f32"), pjrt_buffer(as.double(1:4), dtype = "f32"))
 })
 
-test_that("i1 is alias for pred", {
-  expect_equal(pjrt_buffer(1, "i1"), pjrt_buffer(1, "pred"))
-  expect_equal(pjrt_scalar(1, "i1"), pjrt_scalar(1, "pred"))
-  expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
+test_that("pred and i1 are aliases for bool", {
+  for (alias in c("pred", "i1")) {
+    expect_equal(pjrt_buffer(1, alias), pjrt_buffer(1, "bool"))
+    expect_equal(pjrt_scalar(1, alias), pjrt_scalar(1, "bool"))
+    expect_equal(pjrt_empty(shape = c(1, 0), alias), pjrt_empty(shape = c(1, 0), "bool"))
+  }
 })
 
 test_that("pjrt_buffer accepts DataType objects", {
@@ -1060,7 +1062,7 @@ test_that("pjrt_buffer accepts DataType objects", {
   )
   expect_equal(
     pjrt_buffer(TRUE, dtype = xlamisc::as_dtype("bool")),
-    pjrt_buffer(TRUE, dtype = "pred")
+    pjrt_buffer(TRUE, dtype = "bool")
   )
 
   # pjrt_scalar with DataType
@@ -1165,8 +1167,8 @@ test_that("async buffer works with different dtypes", {
   result <- value(as_array_async(buf))
   expect_equal(as.vector(result), c(1L, 2L, 3L))
 
-  # pred
-  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE), dtype = "pred")
+  # bool
+  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE), dtype = "bool")
   result <- value(as_array_async(buf))
   expect_equal(as.vector(result), c(TRUE, FALSE, TRUE))
 })

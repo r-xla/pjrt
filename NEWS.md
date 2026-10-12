@@ -1,7 +1,8 @@
 # pjrt (development version)
 
-* Bugfix: a missing value uploaded at the boolean data type is reported as not
-  convertible to `"bool"` rather than `"pred"`.
+* Breaking: the boolean data type is now named `"bool"` everywhere, e.g. by
+  `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
+  `"pred"` and `"i1"` are still accepted as aliases.
 * New built-in `potrf` custom call: a batched Cholesky factorisation through
   LAPACK on the host and cuSOLVER on CUDA, reporting each matrix's `info`
   instead of failing on one that is not positive definite.

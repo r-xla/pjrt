@@ -94,7 +94,7 @@ test_that("1d vector", {
 test_that("logicals", {
   skip_if(is_cuda())
   log_mat <- matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2)
-  buf_log <- pjrt_buffer(log_mat, dtype = "pred")
+  buf_log <- pjrt_buffer(log_mat, dtype = "bool")
   expect_snapshot(buf_log)
 })
 

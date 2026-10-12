@@ -200,7 +200,9 @@ PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
   if (dtype == "ui16") return PJRT_Buffer_Type_U16;
   if (dtype == "ui32") return PJRT_Buffer_Type_U32;
   if (dtype == "ui64") return PJRT_Buffer_Type_U64;
-  if (dtype == "pred") return PJRT_Buffer_Type_PRED;
+  if (dtype == "bool" || dtype == "pred" || dtype == "i1") {
+    return PJRT_Buffer_Type_PRED;
+  }
   throw std::runtime_error("Unsupported type: " + dtype);
 }
 

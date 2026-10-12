@@ -85,11 +85,8 @@ inline AnvlDtype anvl_dtype_from_pjrt(PJRT_Buffer_Type t) {
   }
 }
 
-// The canonical name, as xlamisc spells it -- this is the vocabulary that
-// crosses into R (the compile callback's avals). The boolean type is the one
-// place the two layers disagree: xlamisc calls it "bool" and pjrt's own C-API
-// layer calls it "pred", so the buffer-facing code (string_to_pjrt_buffer_type
-// and friends) keeps saying "pred" and translates at its edge.
+// The canonical name, as xlamisc and pjrt's buffer layer spell it -- this is
+// the vocabulary that crosses into R (the compile callback's avals).
 inline const char *anvl_dtype_name(AnvlDtype d) {
   switch (d) {
     case AnvlDtype::kBool:

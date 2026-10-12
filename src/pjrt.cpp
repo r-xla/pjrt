@@ -121,10 +121,7 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
 }
 
 // The R-facing name of an element type ("i32", "ui8", ...), for messages.
-// The name an R user writes for an element type: "bool" (as xlamisc and
-// dtype() spell it), not the C API's "pred".
 static std::string dtype_name(PJRT_Buffer_Type type) {
-  if (type == PJRT_Buffer_Type_PRED) return "bool";
   return rpjrt::PJRTElementType(type).as_string();
 }
 
@@ -233,11 +230,11 @@ void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
         }
       }
     } else if (TYPEOF(data) == LGLSXP) {
-      // "pred" is the only element type an LGLSXP reaches intact -- every
+      // "bool" is the only element type an LGLSXP reaches intact -- every
       // other one converts through as.integer() first, where NA_LOGICAL
       // becomes the NA_integer_ the branch above rejects. Without this,
       // convert_r_data_to_typed()'s `src[i] ? 1 : 0` would read NA_LOGICAL's
-      // INT_MIN as truthy and store a missing value as TRUE. pred has no
+      // INT_MIN as truthy and store a missing value as TRUE. bool has no
       // missing value to land on, so it is rejected like any other dtype
       // that cannot hold one.
       const int *x = LOGICAL_RO(data);
@@ -571,7 +568,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
   } else if (dtype == "ui64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U64,
                                   row_major, device->device);
-  } else if (dtype == "pred") {
+  } else if (dtype == "bool") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_PRED,
                                   row_major, device->device);
   } else {
@@ -1067,7 +1064,7 @@ SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
     return raw_to_array_impl<uint32_t>(raw_data, dimensions, REALSXP, m2m);
   } else if (dtype == "ui64") {
     return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "pred") {
+  } else if (dtype == "bool") {
     return raw_to_array_impl<uint8_t>(raw_data, dimensions, LGLSXP, m2m);
   } else {
     Rcpp::stop("Unsupported dtype: %s", dtype.c_str());
@@ -1345,8 +1342,8 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else if (dtype == "f64") {
     return create_buffer_from_array_async<double>(
         client, data, dims, PJRT_Buffer_Type_F64, false, device->device);
-  } else if (dtype == "pred") {
-    // as.logical() is the route an integer takes to pred, the same one
+  } else if (dtype == "bool") {
+    // as.logical() is the route an integer takes to bool, the same one
     // impl_client_buffer_from_double() uses.
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, device, data_conv, dims,
@@ -1403,7 +1400,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
 Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     SEXP data, std::vector<int64_t> dims, std::string dtype) {
-  if (dtype == "pred") {
+  if (dtype == "bool") {
     return create_buffer_from_array_async<uint8_t>(
         client, data, dims, PJRT_Buffer_Type_PRED, false, device->device);
   }
@@ -1429,7 +1426,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
     return create_buffer_from_array_async_no_convert(
         client, data, REAL_RO(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
         false, device->device);
-  } else if (dtype == "pred") {
+  } else if (dtype == "bool") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, device, data_conv, dims,
                                            dtype);
