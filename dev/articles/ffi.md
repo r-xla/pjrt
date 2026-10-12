@@ -13,8 +13,9 @@ make use of LAPACK on CPU and cuSOLVE on CUDA.
 {pjrt} ships a few built-in custom calls registered automatically when
 the package is loaded. This includes `print_tensor` and the
 linear-algebra primitives `geqrf` / `orgqr` (QR factorisation), `lu`,
-`svd`, and `eigh`. The example below uses `print_tensor`, which takes a
-single tensor operand, prints it, and returns nothing.
+`svd`, `eigh`, and `potrf` (Cholesky). The example below uses
+`print_tensor`, which takes a single tensor operand, prints it, and
+returns nothing.
 
 ``` r
 
