@@ -491,8 +491,16 @@ state_exec <- function(device = NULL) {
   )
 }
 
-state_dispatcher <- function(env, init = NULL, device = test_pjrt_device()) {
-  slot <- list(env = env, name = "s", init = init, dtype = "f32", shape = 2L)
+# A dispatcher whose program keeps its state slot in `env$s`.
+state_dispatcher <- function(env, device = test_pjrt_device()) {
+  slot <- list(
+    get = function() env$s,
+    set = function(value) {
+      env$s <- value
+    },
+    dtype = "f32",
+    shape = 2L
+  )
   dispatcher(
     10L,
     function(info) pjrt_entry(state_exec(device), device = device, state = list(slot)),
@@ -517,20 +525,31 @@ test_that("a state slot is read before and written after every run", {
   expect_equal(dispatcher_size(d), 1L)
 })
 
-test_that("an unset state slot is created by `init`, or is an error", {
+test_that("a state slot calls get() and set() once per run", {
   skip_if_not(plugins_downloaded())
   x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
-  env <- new.env()
-  n_init <- 0L
-  d <- state_dispatcher(env, init = function() {
-    n_init <<- n_init + 1L
-    parr(pjrt_buffer(c(2, 2), dtype = "f32"))
-  })
+  calls <- character()
+  value <- parr(pjrt_buffer(c(2, 2), dtype = "f32"))
+  slot <- list(
+    get = function() {
+      calls <<- c(calls, "get")
+      value
+    },
+    set = function(v) {
+      calls <<- c(calls, "set")
+      value <<- v
+    },
+    dtype = "f32",
+    shape = 2L
+  )
+  d <- dispatcher(
+    10L,
+    function(info) pjrt_entry(state_exec(test_pjrt_device()), state = list(slot)),
+    default_device = test_pjrt_device
+  )
   expect_equal(out(dispatch(d, list(x = x))), c(3, 3))
   expect_equal(out(dispatch(d, list(x = x))), c(5, 5))
-  expect_equal(n_init, 1L)
-
-  expect_error(dispatch(state_dispatcher(new.env()), list(x = x)), "state slot 1 \\(`s`\\) is not set")
+  expect_identical(calls, c("get", "set", "get", "set"))
 })
 
 test_that("a state slot is checked against its dtype and shape", {
@@ -540,7 +559,9 @@ test_that("a state slot is checked against its dtype and shape", {
   env$s <- parr(pjrt_buffer(c(2, 2, 2), dtype = "f32"))
   expect_error(dispatch(state_dispatcher(env), list(x = x)), "another dtype or shape")
   env$s <- 1
-  expect_error(dispatch(state_dispatcher(env), list(x = x)), "must hold an AnvlArray")
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "must return an AnvlArray")
+  env$s <- NULL
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "must return an AnvlArray")
 })
 
 test_that("a state slot is copied to the entry's device", {

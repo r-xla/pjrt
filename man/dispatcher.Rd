@@ -60,6 +60,18 @@ compiled for,
 from these.
 \item \code{const_arrays} (optional): buffers prepended to the inputs,
 \item \code{phantom_specs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)} donation-output buffers to allocate fresh per call.
+\item \code{state} (optional): a list of state slots, each \code{list(get, set, dtype, shape)}. A slot is an array the program reads and updates beyond the
+call's arguments, e.g. a global RNG state: the program takes one input
+per slot after the call's own (and before the phantoms), and returns one
+output per slot after the \code{out_tree}'s. Before each run the engine calls
+\code{get()}, which must return an \code{"AnvlArray"}, checks it against the
+slot's \code{dtype} and \code{shape}, and copies it to the entry's device when it
+lives elsewhere. After the run it calls \code{set(value)} with the slot's
+output, wrapped as an \code{"AnvlArray"}. The program may consume the buffer
+\code{get()} returned (by aliasing the slot's input with its output), so
+\code{set()} must not fail: the updated value would be lost with nothing to
+fall back to. A slot is not part of the cache key: only the program
+decides that it needs one.
 }
 
 Either kind of result may additionally carry:
