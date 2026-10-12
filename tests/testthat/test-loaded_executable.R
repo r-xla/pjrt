@@ -449,6 +449,24 @@ module @double_inplace {
     expect_error(as_array(x), "called on deleted or donated buffer")
   })
 
+  it("raises a clean R-level error when executing on a donated input", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<4xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(c(1, 2, 3, 4), dtype = "f32")
+    pjrt_execute(exec, x)
+    expect_error(pjrt_execute(exec, x), "Input 1 is a deleted or donated buffer")
+  })
+
   it("raises a clean R-level error when reading back a donated input with several axes", {
     skip_if(!is_cpu())
     mlir <- '

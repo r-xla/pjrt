@@ -780,6 +780,14 @@ class PjrtEngine : public Engine {
                  k);
     }
     Rcpp::XPtr<PJRTBuffer> buf(data);
+    // e.g. when a run donated the state and failed before `set()` stored the
+    // updated one
+    if (buf->buffer == nullptr) {
+      Rcpp::stop(
+          "`get()` of state slot %d returned an array whose buffer was "
+          "deleted or donated",
+          k);
+    }
     if (anvl_dtype_from_pjrt(buf->element_type()) != s.dtype ||
         buf->dimensions() != s.shape) {
       Rcpp::stop(

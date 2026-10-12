@@ -564,6 +564,23 @@ test_that("a state slot is checked against its dtype and shape", {
   expect_error(dispatch(state_dispatcher(env), list(x = x)), "must return an AnvlArray")
 })
 
+test_that("a state slot holding a donated buffer is an error", {
+  skip_if_not(plugins_downloaded())
+  skip_if(!is_cpu())
+  donate <- pjrt_compile(pjrt_program(
+    src = 'func.func @main(%s: tensor<2xf32> {tf.aliasing_output = 0 : i32}) -> tensor<2xf32> {
+       %0 = "stablehlo.multiply"(%s, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0): (tensor<2xf32>) -> ()
+     }'
+  ))
+  s <- pjrt_buffer(c(2, 3), dtype = "f32")
+  env <- new.env()
+  env$s <- parr(s)
+  pjrt_execute(donate, s)
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "deleted or donated")
+})
+
 test_that("a state slot is copied to the entry's device", {
   skip_if_not(plugins_downloaded())
   skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
