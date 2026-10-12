@@ -23,7 +23,7 @@ type already share a bit pattern and the vector travels zero-copy: an
 `NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and
 [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
 warns about them again on the way back, its `check` argument defaulting
-to `"warn"`. At every other integer element type, and at `"pred"`, a
+to `"warn"`. At every other integer element type, and at `"bool"`, a
 missing value is an error – including an `integer64` `NA` at `"ui64"`,
 where those same bits are the ordinary value `2^63`.
 
@@ -66,7 +66,7 @@ pjrt_empty(dtype, shape, device = NULL)
   [`DataType`](https://r-xla.github.io/xlamisc/reference/DataType.html))  
   The type of the buffer. Currently supported types are:
 
-  - `"pred"`: predicate (i.e. a boolean)
+  - `"bool"`: boolean (`"pred"` and `"i1"` are accepted as aliases)
 
   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
     `double` data).
@@ -74,7 +74,7 @@ pjrt_empty(dtype, shape, device = NULL)
   - `"f{32,64}"`: Floating point (for `double` or `integer` data). The
     default (`NULL`) depends on the method:
 
-  - `logical` -\> `"pred"`
+  - `logical` -\> `"bool"`
 
   - `integer` -\> `"i32"`
 
@@ -192,7 +192,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  1.7734e-38 3.0852e-41 1.7734e-38
-#>  3.0852e-41 1.7734e-38 3.0852e-41
+#>  0 2 0
+#>  2 0 2
 #> [ CPUf32{2x3} ] 
 ```

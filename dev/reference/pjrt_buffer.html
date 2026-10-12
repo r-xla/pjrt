@@ -21,7 +21,7 @@ already share a bit pattern and the vector travels zero-copy: an
 NA_integer_ at &quot;i32&quot; arrives as INT_MIN, and a bit64::integer64
 NA at &quot;i64&quot; arrives as INT64_MIN. Both warn, and as_array() warns
 about them again on the way back, its check argument defaulting to
-&quot;warn&quot;. At every other integer element type, and at &quot;pred&quot;, a missing
+&quot;warn&quot;. At every other integer element type, and at &quot;bool&quot;, a missing
 value is an error – including an integer64 NA at &quot;ui64&quot;, where those
 same bits are the ordinary value 2^63.
 At a floating-point element type a missing value is neither rejected nor
@@ -49,7 +49,7 @@ already share a bit pattern and the vector travels zero-copy: an
 NA_integer_ at &quot;i32&quot; arrives as INT_MIN, and a bit64::integer64
 NA at &quot;i64&quot; arrives as INT64_MIN. Both warn, and as_array() warns
 about them again on the way back, its check argument defaulting to
-&quot;warn&quot;. At every other integer element type, and at &quot;pred&quot;, a missing
+&quot;warn&quot;. At every other integer element type, and at &quot;bool&quot;, a missing
 value is an error – including an integer64 NA at &quot;ui64&quot;, where those
 same bits are the ordinary value 2^63.
 At a floating-point element type a missing value is neither rejected nor
@@ -123,7 +123,7 @@ already share a bit pattern and the vector travels zero-copy: an
 <code>NA_integer_</code> at <code>"i32"</code> arrives as <code>INT_MIN</code>, and a <code><a href="https://bit64.r-lib.org/reference/bit64-package.html" class="external-link">bit64::integer64</a></code>
 <code>NA</code> at <code>"i64"</code> arrives as <code>INT64_MIN</code>. Both warn, and <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> warns
 about them again on the way back, its <code>check</code> argument defaulting to
-<code>"warn"</code>. At every other integer element type, and at <code>"pred"</code>, a missing
+<code>"warn"</code>. At every other integer element type, and at <code>"bool"</code>, a missing
 value is an error – including an <code>integer64</code> <code>NA</code> at <code>"ui64"</code>, where those
 same bits are the ordinary value <code>2^63</code>.</p>
 <p>At a floating-point element type a missing value is neither rejected nor
@@ -159,12 +159,12 @@ Data to convert to a <code>PJRTBuffer</code>.</p></dd>
 <dt id="arg-dtype">dtype<a class="anchor" aria-label="anchor" href="#arg-dtype"></a></dt>
 <dd><p>(<code>NULL</code> | <code>character(1)</code> | <code><a href="https://r-xla.github.io/xlamisc/reference/DataType.html" class="external-link">DataType</a></code>)<br>
 The type of the buffer.
-Currently supported types are:</p><ul><li><p><code>"pred"</code>: predicate (i.e. a boolean)</p></li>
+Currently supported types are:</p><ul><li><p><code>"bool"</code>: boolean (<code>"pred"</code> and <code>"i1"</code> are accepted as aliases)</p></li>
 <li><p><code>"{s,u}{8,16,32,64}"</code>: Signed and unsigned integer (for <code>integer</code> or
 <code>double</code> data).</p></li>
 <li><p><code>"f{32,64}"</code>: Floating point (for <code>double</code> or <code>integer</code> data).
 The default (<code>NULL</code>) depends on the method:</p></li>
-<li><p><code>logical</code> -&gt; <code>"pred"</code></p></li>
+<li><p><code>logical</code> -&gt; <code>"bool"</code></p></li>
 <li><p><code>integer</code> -&gt; <code>"i32"</code></p></li>
 <li><p><code>double</code> -&gt; <code>"f32"</code></p></li>
 <li><p><code>raw</code> -&gt; must be supplied</p></li>
@@ -270,8 +270,8 @@ To create a 0-dimensional buffer, use <code>pjrt_scalar</code> where the resulti
 <span class="r-in"><span><span class="va">empty</span> <span class="op">&lt;-</span> <span class="fu">pjrt_empty</span><span class="op">(</span>dtype <span class="op">=</span> <span class="st">"f32"</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">empty</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PJRTBuffer </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  1.7734e-38 3.0852e-41 1.7734e-38</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  3.0852e-41 1.7734e-38 3.0852e-41</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  0 2 0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  2 0 2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{2x3} ] </span>
 </code></pre></div>
     </div>
