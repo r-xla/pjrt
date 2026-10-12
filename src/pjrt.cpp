@@ -1159,6 +1159,13 @@ Rcpp::List impl_loaded_executable_execute(
   for (auto i = 0; i < input.size(); i++) {
     auto elt = input[i];
     auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
+    // A donated buffer keeps its cached metadata, so only its handle tells.
+    if (buffer->buffer == nullptr) {
+      Rcpp::stop(
+          "Input %d is a deleted or donated buffer, which cannot be used "
+          "again.",
+          i + 1);
+    }
     inputs[i] = buffer.get();
 
     PJRT_Device *buf_device = buffer->device_ptr();
