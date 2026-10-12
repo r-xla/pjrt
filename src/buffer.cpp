@@ -21,7 +21,7 @@ std::string PJRTElementType::as_string() const {
     case PJRT_Buffer_Type_INVALID:
       return "INVALID";
     case PJRT_Buffer_Type_PRED:
-      return "pred";
+      return "bool";
     case PJRT_Buffer_Type_S8:
       return "i8";
     case PJRT_Buffer_Type_S16:

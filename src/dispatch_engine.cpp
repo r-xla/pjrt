@@ -246,7 +246,7 @@ void read_input_dtypes(const Rcpp::List& res,
     // Not every R storage type uploads at every dtype. Settled here, on the
     // compile path and against the `input_dtypes` entry the callback has to
     // correct, rather than left to surface from the buffer layer mid-execution
-    // as a bare "Unsupported type: pred" naming neither input nor field.
+    // as a bare "Unsupported type: bool" naming neither input nor field.
     const AnvlDtype storage =
         exec_inputs[static_cast<std::size_t>(k)].aval->dtype;
     if (!upload_pair_supported(storage, d)) {
@@ -402,14 +402,6 @@ class ClosureEngine : public Engine {
 
 // ---- PjrtEngine -------------------------------------------------------------
 
-// The dtype name to upload a bare R leaf at: the one the entry declared, which
-// read_input_dtypes() required it to declare. "bool" is spelled "pred" at the
-// buffer-facing layer (see anvl_dtype_name).
-static const char* upload_dtype_name(AnvlDtype d) {
-  if (d == AnvlDtype::kBool) return "pred";
-  return anvl_dtype_name(d);
-}
-
 // One output-donation phantom buffer to allocate per call (CPU memory mgmt).
 struct PhantomSpec {
   PJRT_Buffer_Type dtype = PJRT_Buffer_Type_INVALID;
@@ -562,11 +554,8 @@ class PjrtEngine : public Engine {
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
-        // Normalize the boolean aliases the R layer also accepts (xlamisc's
-        // canonical name is "bool"; pjrt's canonical name is "pred").
-        std::string dt = Rcpp::as<std::string>(spec["dtype"]);
-        if (dt == "bool" || dt == "i1") dt = "pred";
-        ps.dtype = string_to_pjrt_buffer_type(dt);
+        ps.dtype =
+            string_to_pjrt_buffer_type(Rcpp::as<std::string>(spec["dtype"]));
         ps.shape = Rcpp::as<std::vector<int64_t>>(spec["shape"]);
         phantom_specs.push_back(std::move(ps));
       }
@@ -626,7 +615,7 @@ class PjrtEngine : public Engine {
       // callback declares it -- and must, since only the trace knows what the
       // value is used for: an R double that meets an f64 array has to arrive as
       // f64, not rounded through an f32 guess first.
-      const char* dt = upload_dtype_name(in.dtype);
+      const char* dt = anvl_dtype_name(in.dtype);
       switch (TYPEOF(in.value)) {
         case REALSXP:
           inputs[pos++] = impl_client_buffer_from_double(
@@ -706,11 +695,9 @@ class PjrtEngine : public Engine {
         Rcpp::stop("`out_avals[[%d]]` must carry $dtype and $shape",
                    static_cast<int>(i) + 1);
       }
-      std::string dt = Rcpp::as<std::string>(aval["dtype"]);
       // The wrapper's $dtype is a xlamisc object, so the name goes to
-      // xlamisc::as_dtype(): canonicalize to AnvlDtype's "bool" (pjrt's own
-      // C-API spelling "pred" and the MLIR spelling "i1" are accepted aliases).
-      if (dt == "pred" || dt == "i1") dt = "bool";
+      // xlamisc::as_dtype(), which also takes the "pred" and "i1" aliases.
+      std::string dt = Rcpp::as<std::string>(aval["dtype"]);
       Rcpp::IntegerVector shape = Rcpp::as<Rcpp::IntegerVector>(aval["shape"]);
       Rcpp::List tmpl = Rcpp::List::create(
           Rcpp::Named("data") = R_NilValue,
