@@ -377,6 +377,11 @@ class ClosureEngine : public Engine {
           "compile callback must return a function `r_fun` "
           "(engine = \"closure\")");
     }
+    if (res.containsElementNamed("state")) {
+      Rcpp::stop(
+          "`state` is only supported by the pjrt engine: `r_fun` reads and "
+          "writes its own state");
+    }
     e.data = std::make_unique<ClosureEntry>(r_fun);
   }
 
@@ -408,6 +413,16 @@ struct PhantomSpec {
   std::vector<int64_t> shape;
 };
 
+// One state slot (?dispatcher's `state`): an array the program takes as an
+// input after the call's own and returns as an output after the out_tree's,
+// read with `get()` before the run and handed to `set()` after it.
+struct StateSlot {
+  Rcpp::RObject get;  // function(): the current AnvlArray
+  Rcpp::RObject set;  // function(value): stores the updated one
+  AnvlDtype dtype = AnvlDtype::kInvalid;
+  std::vector<int64_t> shape;
+};
+
 // What a compiled PJRT program needs at execute time, plus the material the
 // output wrap is built from. Every field is set by build_entry() and read-only
 // thereafter, which is what lets run() take the entry by const reference.
@@ -431,6 +446,8 @@ struct PjrtEntry : EntryData {
   Rcpp::List templates;                     // one template AnvlArray per output
   std::vector<Rcpp::RObject> const_arrays;  // buffers prepended to the inputs
   std::vector<PhantomSpec> phantom_specs;
+  std::vector<StateSlot> state;  // read before, written after every run
+  Rcpp::List state_templates;    // one template AnvlArray per state slot
 };
 
 // The `$data` field's position in a wrap template (see PjrtEntry::templates).
@@ -561,13 +578,62 @@ class PjrtEngine : public Engine {
       }
     }
 
+    std::vector<StateSlot> state;
+    Rcpp::List state_avals;
+    if (res.containsElementNamed("state")) {
+      SEXP slots = res["state"];
+      if (TYPEOF(slots) != VECSXP) {
+        Rcpp::stop("`state` must be a list of slots");
+      }
+      state_avals = Rcpp::List(XLENGTH(slots));
+      for (R_xlen_t i = 0; i < XLENGTH(slots); ++i) {
+        SEXP sl = VECTOR_ELT(slots, i);
+        const int k = static_cast<int>(i) + 1;
+        if (TYPEOF(sl) != VECSXP) {
+          Rcpp::stop("`state[[%d]]` must be a list(get, set, dtype, shape)", k);
+        }
+        Rcpp::List slot(sl);
+        auto field = [&](const char* nm) -> SEXP {
+          return slot.containsElementNamed(nm) ? static_cast<SEXP>(slot[nm])
+                                               : R_NilValue;
+        };
+        SEXP get = field("get");
+        SEXP set = field("set");
+        SEXP dtype = field("dtype");
+        if (!Rf_isFunction(get)) {
+          Rcpp::stop("`state[[%d]]$get` must be a function", k);
+        }
+        if (!Rf_isFunction(set)) {
+          Rcpp::stop("`state[[%d]]$set` must be a function", k);
+        }
+        if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
+          Rcpp::stop("`state[[%d]]$dtype` must be a string", k);
+        }
+        StateSlot s;
+        s.get = get;
+        s.set = set;
+        s.dtype = anvl_dtype_from_name(CHAR(STRING_ELT(dtype, 0)));
+        if (s.dtype == AnvlDtype::kInvalid) {
+          Rcpp::stop("`state[[%d]]$dtype` is not a supported dtype", k);
+        }
+        s.shape = Rcpp::as<std::vector<int64_t>>(field("shape"));
+        state.push_back(std::move(s));
+        state_avals[i] =
+            Rcpp::List::create(Rcpp::Named("dtype") = dtype,
+                               Rcpp::Named("shape") = field("shape"));
+      }
+    }
+
     // The wrap templates, built from the callback's declared output avals --
     // the last thing that can throw.
     Rcpp::List templates = build_templates(out_avals, device);
+    Rcpp::List state_templates = build_templates(state_avals, device);
 
     auto data = std::make_unique<PjrtEntry>(exec, client, device, out_tree,
                                             std::move(templates));
     data->phantom_specs = std::move(phantom_specs);
+    data->state = std::move(state);
+    data->state_templates = std::move(state_templates);
     if (consts != R_NilValue) {
       Rcpp::List cl(consts);
       data->const_arrays.reserve(cl.size());
@@ -583,7 +649,8 @@ class PjrtEngine : public Engine {
     const auto* pe = static_cast<const PjrtEntry*>(e.data.get());
 
     // Assemble the executable's inputs: const_arrays ++ the call's inputs ++
-    // freshly allocated phantom donation buffers. A buffer input passes through
+    // the state slots' arrays ++ freshly allocated phantom donation buffers. A
+    // buffer input passes through
     // -- or, under `move_inputs`, is copied to the entry's device when it lives
     // elsewhere; a bare R literal/array is uploaded to the entry's device, at
     // the dtype `input_dtypes` declared for it. The GC-rooted
@@ -591,7 +658,7 @@ class PjrtEngine : public Engine {
     // phantom) written straight into its slot: it is reachable only through
     // `inputs` (the R GC does not scan C++ locals across the next allocation).
     Rcpp::List inputs(pe->const_arrays.size() + exec_inputs.size() +
-                      pe->phantom_specs.size());
+                      pe->state.size() + pe->phantom_specs.size());
     R_xlen_t pos = 0;
     for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
@@ -631,6 +698,9 @@ class PjrtEngine : public Engine {
           break;
       }
     }
+    for (std::size_t k = 0; k < pe->state.size(); ++k) {
+      inputs[pos++] = read_state(*pe, pe->state[k], static_cast<int>(k) + 1);
+    }
     for (const PhantomSpec& ps : pe->phantom_specs) {
       inputs[pos++] =
           client_buffer_empty(pe->client, pe->device, ps.shape, ps.dtype);
@@ -642,11 +712,22 @@ class PjrtEngine : public Engine {
     // The declared output count against the real one -- the half of the
     // callback's out_avals claim that only the executable can settle. It keeps
     // a miscounted callback from silently wrapping the wrong buffers.
-    const R_xlen_t n_out = out_bufs.size();
-    if (n_out != pe->templates.size()) {
+    const R_xlen_t n_state = static_cast<R_xlen_t>(pe->state.size());
+    const R_xlen_t n_out = pe->templates.size();
+    if (out_bufs.size() != n_out + n_state) {
       Rcpp::stop(
-          "out_tree has %d leaves but the executable returned %d outputs",
-          static_cast<int>(pe->templates.size()), static_cast<int>(n_out));
+          "out_tree has %d leaves and the entry %d state slots, but the "
+          "executable returned %d outputs",
+          static_cast<int>(n_out), static_cast<int>(n_state),
+          static_cast<int>(out_bufs.size()));
+    }
+    // The state outputs follow the out_tree's and go back to their slots.
+    for (R_xlen_t k = 0; k < n_state; ++k) {
+      Rcpp::RObject w =
+          Rf_shallow_duplicate(VECTOR_ELT(pe->state_templates, k));
+      SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[n_out + k]);
+      Rcpp::Function set(pe->state[k].set);
+      set(w);
     }
 
     // Wrap each output: a shallow copy of its template with the buffer written
@@ -667,6 +748,49 @@ class PjrtEngine : public Engine {
   }
 
  private:
+  // The buffer state slot `s` (the `k`th) supplies to a run of `pe`: the
+  // AnvlArray its `get()` returns, checked against the slot's dtype and shape,
+  // and copied to the entry's device when it lives elsewhere. Nothing but
+  // `get()` may hold the AnvlArray, so it is rooted in an RObject while it is
+  // checked.
+  SEXP read_state(const PjrtEntry& pe, const StateSlot& s, int k) const {
+    Rcpp::Function get(s.get);
+    Rcpp::RObject val = get();
+    if (!is_anvl_array(val) ||
+        field_string(anvl_field(val, "backend")) != backend_) {
+      Rcpp::stop(
+          "`get()` of state slot %d must return an AnvlArray of backend "
+          "\"%s\"",
+          k, backend_.c_str());
+    }
+    SEXP data = anvl_field(val, "data");
+    if (TYPEOF(data) != EXTPTRSXP || !Rf_inherits(data, "PJRTBuffer")) {
+      Rcpp::stop("`get()` of state slot %d must return a PJRTBuffer in $data",
+                 k);
+    }
+    Rcpp::XPtr<PJRTBuffer> buf(data);
+    // e.g. when a run donated the state and failed before `set()` stored the
+    // updated one
+    if (buf->buffer == nullptr) {
+      Rcpp::stop(
+          "`get()` of state slot %d returned an array whose buffer was "
+          "deleted or donated",
+          k);
+    }
+    if (anvl_dtype_from_pjrt(buf->element_type()) != s.dtype ||
+        buf->dimensions() != s.shape) {
+      Rcpp::stop(
+          "`get()` of state slot %d returned an array of another dtype or "
+          "shape than the program was compiled for",
+          k);
+    }
+    if (buf->device_ptr() != pe.device->device) {
+      const bool cross = buf->get_api().get() != pe.client->api.get();
+      return impl_buffer_copy_to_device(buf, pe.device, pe.client, cross);
+    }
+    return data;
+  }
+
   // One template AnvlArray per output, built on the compile (cold) path from
   // the avals the callback declared: a named list (data = NULL, dtype, shape,
   // device, backend) of class "AnvlArray" -- the wrapper layout an pjrt leaf

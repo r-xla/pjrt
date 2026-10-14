@@ -477,6 +477,136 @@ test_that("move_inputs copies a pjrt input to the entry's device", {
   expect_equal(dispatcher_size(d), 1L)
 })
 
+# `x + s` as the output and `s * s` as the new state of a state slot `s`.
+state_exec <- function(device = NULL) {
+  pjrt_compile(
+    pjrt_program(
+      src = 'func.func @main(%x: tensor<2xf32>, %s: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
+       %0 = "stablehlo.add"(%x, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       %1 = "stablehlo.multiply"(%s, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
+     }'
+    ),
+    device = device
+  )
+}
+
+# A dispatcher whose program keeps its state slot in `env$s`.
+state_dispatcher <- function(env, device = test_pjrt_device()) {
+  slot <- list(
+    get = function() env$s,
+    set = function(value) {
+      env$s <- value
+    },
+    dtype = "f32",
+    shape = 2L
+  )
+  dispatcher(
+    10L,
+    function(info) pjrt_entry(state_exec(device), device = device, state = list(slot)),
+    default_device = function() device
+  )
+}
+
+test_that("a state slot is read before and written after every run", {
+  skip_if_not(plugins_downloaded())
+  env <- new.env()
+  env$s <- parr(pjrt_buffer(c(2, 3), dtype = "f32"))
+  d <- state_dispatcher(env)
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+
+  # the result is the out_tree's output alone; the state goes back to its slot
+  expect_equal(out(dispatch(d, list(x = x))), c(3, 4))
+  expect_s3_class(env$s, "AnvlArray")
+  expect_equal(out(env$s), c(4, 9))
+  # the next call reads the updated state, from the same entry
+  expect_equal(out(dispatch(d, list(x = x))), c(5, 10))
+  expect_equal(out(env$s), c(16, 81))
+  expect_equal(dispatcher_size(d), 1L)
+})
+
+test_that("a state slot calls get() and set() once per run", {
+  skip_if_not(plugins_downloaded())
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  calls <- character()
+  value <- parr(pjrt_buffer(c(2, 2), dtype = "f32"))
+  slot <- list(
+    get = function() {
+      calls <<- c(calls, "get")
+      value
+    },
+    set = function(v) {
+      calls <<- c(calls, "set")
+      value <<- v
+    },
+    dtype = "f32",
+    shape = 2L
+  )
+  d <- dispatcher(
+    10L,
+    function(info) pjrt_entry(state_exec(test_pjrt_device()), state = list(slot)),
+    default_device = test_pjrt_device
+  )
+  expect_equal(out(dispatch(d, list(x = x))), c(3, 3))
+  expect_equal(out(dispatch(d, list(x = x))), c(5, 5))
+  expect_identical(calls, c("get", "set", "get", "set"))
+})
+
+test_that("a state slot is checked against its dtype and shape", {
+  skip_if_not(plugins_downloaded())
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  env <- new.env()
+  env$s <- parr(pjrt_buffer(c(2, 2, 2), dtype = "f32"))
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "another dtype or shape")
+  env$s <- 1
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "must return an AnvlArray")
+  env$s <- NULL
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "must return an AnvlArray")
+})
+
+test_that("a state slot holding a donated buffer is an error", {
+  skip_if_not(plugins_downloaded())
+  skip_if(!is_cpu())
+  donate <- pjrt_compile(pjrt_program(
+    src = 'func.func @main(%s: tensor<2xf32> {tf.aliasing_output = 0 : i32}) -> tensor<2xf32> {
+       %0 = "stablehlo.multiply"(%s, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0): (tensor<2xf32>) -> ()
+     }'
+  ))
+  s <- pjrt_buffer(c(2, 3), dtype = "f32")
+  env <- new.env()
+  env$s <- parr(s)
+  pjrt_execute(donate, s)
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  expect_error(dispatch(state_dispatcher(env), list(x = x)), "deleted or donated")
+})
+
+test_that("a state slot is copied to the entry's device", {
+  skip_if_not(plugins_downloaded())
+  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
+  dev0 <- pjrt_device("cpu:0")
+  env <- new.env()
+  env$s <- parr(pjrt_buffer(c(2, 3), dtype = "f32", device = "cpu:1"))
+  d <- state_dispatcher(env, device = dev0)
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32", device = "cpu:0"))
+  expect_equal(out(dispatch(d, list(x = x))), c(3, 4))
+  expect_identical(env$s$device, dev0)
+  expect_equal(out(env$s), c(4, 9))
+})
+
+test_that("the closure engine rejects state slots", {
+  d <- new_dispatcher(
+    10L,
+    function(info) list(r_fun = function(flat) NULL, state = list()),
+    character(0),
+    "closure",
+    "quickr",
+    FALSE,
+    test_quickr_device
+  )
+  expect_error(dispatch(d, list(x = qarr(1))), "only supported by the pjrt engine")
+})
+
 test_that("phantom_specs allocate donation buffers of the requested dtype", {
   skip_if_not(plugins_downloaded())
   # An identity executable whose only input is supplied by the phantom spec,
@@ -1134,7 +1264,7 @@ test_that("out_avals and out_tree are the callback's claim, and are honoured", {
   # does -- on execution, against the real outputs.
   expect_error(
     impl_dispatch_run(mk(build_tree(list(0, 0, 0)), list(oav(), oav(), oav())), list(x, y)),
-    "out_tree has 3 leaves but the executable returned 2 outputs"
+    "out_tree has 3 leaves and the entry 0 state slots, but the executable returned 2 outputs"
   )
   # An out_avals that disagrees with out_tree is caught at compile time,
   # before the entry is ever cached.
