@@ -1,5 +1,8 @@
 # pjrt (development version)
 
+* A `dispatcher()` compile callback can declare `implicit_inputs`, values the
+  program takes beyond the call's arguments, read through a `get()` before every
+  run, and an `on_success` function called after every successful run.
 * Breaking: the boolean data type is now named `"bool"` everywhere, e.g. by
   `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
   `"pred"` and `"i1"` are still accepted as aliases.

@@ -60,6 +60,17 @@ compiled for,
 from these.
 \item \code{const_arrays} (optional): buffers prepended to the inputs,
 \item \code{phantom_specs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)} donation-output buffers to allocate fresh per call.
+\item \code{implicit_inputs} (optional): a list of \code{list(get, dtype, shape)}, one
+per value the program takes that no argument supplies, e.g. a global
+RNG state. The program takes them after the call's own inputs (and
+before the phantoms). Before every run the engine calls \code{get()}, which
+must return a double or integer vector with one element per element of
+\code{shape}, and uploads it to the entry's device at \code{dtype}. An implicit
+input is not part of the cache key: only the program decides that it
+needs one.
+\item \code{on_success} (optional): a function called with no arguments after every
+run of the entry that succeeded, before the call returns, e.g. to
+advance what an implicit input's \code{get()} reads.
 }
 
 Either kind of result may additionally carry:
