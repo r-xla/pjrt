@@ -51,10 +51,18 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
-<ul><li>Breaking: the boolean data type is now named <code>"bool"</code> everywhere, e.g. by <code><a href="../reference/elt_type.html">elt_type()</a></code> and in error messages; compare with <code>"bool"</code> instead of <code>"pred"</code>. <code>"pred"</code> and <code>"i1"</code> are still accepted as aliases.</li>
+<div class="section level3">
+<h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
+<ul><li>The boolean data type is now named <code>"bool"</code> everywhere, e.g. by <code><a href="../reference/elt_type.html">elt_type()</a></code> and in error messages; compare with <code>"bool"</code> instead of <code>"pred"</code>. <code>"pred"</code> and <code>"i1"</code> are still accepted as aliases.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<ul><li>
+<code>PJRTBuffer</code> supports the <code>"bf16"</code> (bfloat16) element type.</li>
 <li>Bugfix: the <code>lu</code> custom call factorises a singular matrix instead of failing with <code>getrf failed with info = &lt;k&gt;</code>.</li>
 <li>New built-in <code>potrf</code> custom call: a batched Cholesky factorisation through LAPACK on the host and cuSOLVER on CUDA, reporting each matrix’s <code>info</code> instead of failing on one that is not positive definite.</li>
 </ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.6.0" id="pjrt-060">pjrt 0.6.0<a class="anchor" aria-label="anchor" href="#pjrt-060"></a></h2>
 <div class="section level3">

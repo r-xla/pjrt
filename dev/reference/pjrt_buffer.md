@@ -71,8 +71,15 @@ pjrt_empty(dtype, shape, device = NULL)
   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
     `double` data).
 
-  - `"f{32,64}"`: Floating point (for `double` or `integer` data). The
-    default (`NULL`) depends on the method:
+  - `"f{32,64}"`: Floating point (for `double` or `integer` data).
+
+  - `"bf16"`: bfloat16 (for `double` or `integer` data). Values are
+    rounded to the nearest bfloat16 value, ties to even; the largest
+    finite value is about 3.3895e38, and larger magnitudes round to
+    `Inf`.
+    [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+    returns the exactly representable values as `double`. The default
+    (`NULL`) depends on the method:
 
   - `logical` -\> `"bool"`
 
@@ -192,7 +199,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  0 2 0
-#>  2 0 2
+#>  -1.0548e-30  3.0756e-41 -1.7143e-30
+#>   3.0756e-41 -2.4667e-30  3.0756e-41
 #> [ CPUf32{2x3} ] 
 ```
