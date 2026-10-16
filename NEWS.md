@@ -1,5 +1,7 @@
 # pjrt (development version)
 
+* New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
+  an ordering token, so that a chain of prints runs in order.
 * Breaking: the boolean data type is now named `"bool"` everywhere, e.g. by
   `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
   `"pred"` and `"i1"` are still accepted as aliases.

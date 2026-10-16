@@ -33,6 +33,14 @@ get_print_handler <- function() {
     .Call(`_pjrt_get_print_handler`)
 }
 
+get_print_ordered_handler <- function() {
+    .Call(`_pjrt_get_print_ordered_handler`)
+}
+
+get_print_ordered_handler_cuda <- function() {
+    .Call(`_pjrt_get_print_ordered_handler_cuda`)
+}
+
 get_print_handler_cuda <- function() {
     .Call(`_pjrt_get_print_handler_cuda`)
 }
