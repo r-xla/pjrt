@@ -64,11 +64,14 @@ from these.
 per value the program takes that no argument supplies, e.g. a global
 RNG state. The program takes them after the call's own inputs (and
 before the phantoms). Before every run the engine calls \code{get()}, which
-must return a double or integer vector with one element per element of
-\code{shape} (a value past 2^31 as a double, which holds whole numbers exactly
-up to 2^53), and uploads it to the entry's device at \code{dtype}. An implicit
-input is not part of the cache key: only the program decides that it
-needs one.
+returns either a \code{PJRTBuffer} of \code{dtype} and \code{shape} (or an \code{AnvlArray}
+holding one), which is passed on, copied to the entry's device if it
+lives on another one, or a double or integer vector with one element per
+element of \code{shape} (a value past 2^31 as a double, which holds whole
+numbers exactly up to 2^53), which is uploaded to the entry's device at
+\code{dtype}. A buffer keeps a value on the device from run to run, e.g. one
+that \code{on_success} takes from the implicit outputs. An implicit input is
+not part of the cache key: only the program decides that it needs one.
 \item \code{implicit_outputs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)}, one per value the program returns beyond the \code{out_tree}'s
 outputs, after them, e.g. an error code. They are not part of the call's
 result but are handed to \code{on_success}, which is then required.

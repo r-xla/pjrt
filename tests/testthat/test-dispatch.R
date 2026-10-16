@@ -492,8 +492,8 @@ implicit_exec <- function(device = NULL) {
 }
 
 # A dispatcher whose program reads its implicit input from `env$s` and, after a
-# successful run, adds 1 to it.
-implicit_dispatcher <- function(env, dtype = "f32") {
+# successful run, calls `on_success`, by default to add 1 to it.
+implicit_dispatcher <- function(env, dtype = "f32", on_success = function(outputs) env$s <- env$s + 1) {
   input <- list(get = function() env$s, dtype = dtype, shape = 2L)
   dispatcher(
     10L,
@@ -501,7 +501,7 @@ implicit_dispatcher <- function(env, dtype = "f32") {
       pjrt_entry(
         implicit_exec(test_pjrt_device()),
         implicit_inputs = list(input),
-        on_success = function(outputs) env$s <- env$s + 1
+        on_success = on_success
       )
     },
     default_device = test_pjrt_device
@@ -524,7 +524,33 @@ test_that("an implicit input is read before every run, and on_success runs after
   expect_equal(out(dispatch(d, list(x = x))), c(9, 8))
   # a bit64 integer64 is refused rather than read as a double
   env$s <- structure(c(0, 0), class = "integer64")
-  expect_error(dispatch(d, list(x = x)), "must return a double or integer vector")
+  expect_error(dispatch(d, list(x = x)), "or integer vector")
+})
+
+test_that("an implicit input can be a buffer, which is passed on", {
+  skip_if_not(plugins_downloaded())
+  env <- new.env()
+  d <- implicit_dispatcher(env, on_success = NULL)
+  x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+  env$s <- pjrt_buffer(c(2, 3), dtype = "f32")
+  expect_equal(out(dispatch(d, list(x = x))), c(8, 7))
+  # also held by an AnvlArray
+  env$s <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x))), c(9, 9))
+  # whose dtype and shape must be the declared ones
+  env$s <- pjrt_buffer(c(1, 1), dtype = "f64")
+  expect_error(dispatch(d, list(x = x)), "must have the declared dtype \\(f32\\) and shape")
+  env$s <- pjrt_buffer(c(1, 1, 1), dtype = "f32")
+  expect_error(dispatch(d, list(x = x)), "must have the declared dtype \\(f32\\) and shape")
+})
+
+test_that("a buffer implicit input on another device is copied to the entry's", {
+  skip_if_not(plugins_downloaded())
+  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
+  env <- new.env()
+  env$s <- pjrt_buffer(c(4, 5), dtype = "f32", device = "cpu:1")
+  d <- implicit_dispatcher(env, on_success = NULL)
+  expect_equal(out(dispatch(d, list(x = parr(pjrt_buffer(c(10, 10), dtype = "f32"))))), c(6, 5))
 })
 
 test_that("on_success is not called after a failed run", {
@@ -533,10 +559,10 @@ test_that("on_success is not called after a failed run", {
   env$s <- c(1, 2, 3)
   d <- implicit_dispatcher(env)
   x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
-  expect_error(dispatch(d, list(x = x)), "must return a double or integer vector of length 2")
+  expect_error(dispatch(d, list(x = x)), "must return a buffer, or a double or integer vector of length 2")
   expect_equal(env$s, c(1, 2, 3))
   env$s <- "a"
-  expect_error(dispatch(d, list(x = x)), "must return a double or integer vector")
+  expect_error(dispatch(d, list(x = x)), "or integer vector")
 })
 
 test_that("implicit inputs and on_success are validated", {
@@ -618,6 +644,38 @@ test_that("implicit outputs are handed to on_success, not returned", {
   expect_length(received, 1L)
   expect_s3_class(received[[1L]], "AnvlArray")
   expect_equal(out(received[[1L]]), c(4, 9))
+})
+
+test_that("a value can stay on the device, as an implicit input and output", {
+  skip_if_not(plugins_downloaded())
+  # `x - s`, and the next `s`, `s + 1`, which on_success keeps as a buffer
+  exec <- pjrt_compile(pjrt_program(
+    src = 'func.func @main(%x: tensor<2xf32>, %s: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
+       %one = stablehlo.constant dense<1.0> : tensor<2xf32>
+       %0 = "stablehlo.subtract"(%x, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       %1 = "stablehlo.add"(%s, %one) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
+     }'
+  ))
+  env <- new.env()
+  env$s <- c(1, 2)
+  d <- dispatcher(
+    10L,
+    function(info) {
+      pjrt_entry(
+        exec,
+        implicit_inputs = list(list(get = function() env$s, dtype = "f32", shape = 2L)),
+        implicit_outputs = list(oav()),
+        on_success = function(outputs) env$s <- outputs[[1L]]
+      )
+    },
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x))), c(9, 8))
+  expect_s3_class(env$s, "AnvlArray")
+  expect_equal(out(dispatch(d, list(x = x))), c(8, 7))
+  expect_equal(out(env$s), c(3, 4))
 })
 
 test_that("an entry whose program returns fewer outputs than it declares is an error", {

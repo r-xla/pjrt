@@ -419,10 +419,11 @@ struct PhantomSpec {
 
 // One implicit input (?dispatcher's `implicit_inputs`): a value the program
 // takes after the call's own inputs that no argument supplies, read with
-// `get()` before every run and uploaded at `dtype`.
+// `get()` before every run.
 struct ImplicitInput {
-  Rcpp::RObject get;  // function(): the current value, an R double or integer
+  Rcpp::RObject get;  // function(): the current value, a buffer or R vector
   std::string dtype;
+  PJRT_Buffer_Type buffer_type = PJRT_Buffer_Type_INVALID;  // of `dtype`
   std::vector<int64_t> shape;
   R_xlen_t length = 1;  // the number of elements `shape` holds
 };
@@ -614,7 +615,7 @@ class PjrtEngine : public Engine {
         ii.get = get;
         ii.dtype = CHAR(STRING_ELT(dtype, 0));
         try {
-          string_to_pjrt_buffer_type(ii.dtype);
+          ii.buffer_type = string_to_pjrt_buffer_type(ii.dtype);
         } catch (const std::exception& ex) {
           Rcpp::stop("`implicit_inputs[[%d]]$dtype`: %s", k, ex.what());
         }
@@ -687,19 +688,7 @@ class PjrtEngine : public Engine {
     for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
       if (in.aval->kind != AvalKind::kRData) {
-        if (move_inputs_) {
-          Rcpp::XPtr<PJRTBuffer> buf(in.value);
-          if (buf->device_ptr() != pe->device->device) {
-            // Same plugin <=> same client (clients are per-platform
-            // singletons), so a differing API pointer means a cross-client
-            // host-roundtrip copy -- mirrors pjrt::copy_buffer().
-            const bool cross = buf->get_api().get() != pe->client->api.get();
-            inputs[pos++] =
-                impl_buffer_copy_to_device(buf, pe->device, pe->client, cross);
-            continue;
-          }
-        }
-        inputs[pos++] = in.value;
+        inputs[pos++] = move_inputs_ ? on_entry_device(*pe, in.value) : in.value;
         continue;
       }
       // The dtype the program was compiled to take this input at. The
@@ -801,19 +790,45 @@ class PjrtEngine : public Engine {
     return out;
   }
 
-  // The buffer implicit input `ii` (the `k`th) supplies to a run of `pe`: the
-  // value its `get()` returns, an R double or integer vector holding the
-  // input's elements, uploaded to the entry's device at the input's dtype.
+  // The PJRTBuffer `buffer` on the device of `pe`: itself, or a copy of it when
+  // it lives elsewhere.
+  static SEXP on_entry_device(const PjrtEntry& pe, SEXP buffer) {
+    Rcpp::XPtr<PJRTBuffer> buf(buffer);
+    if (buf->device_ptr() == pe.device->device) return buffer;
+    // Same plugin <=> same client (clients are per-platform singletons), so a
+    // differing API pointer means a cross-client host-roundtrip copy -- mirrors
+    // pjrt::copy_buffer().
+    const bool cross = buf->get_api().get() != pe.client->api.get();
+    return impl_buffer_copy_to_device(buf, pe.device, pe.client, cross);
+  }
+
+  // The buffer implicit input `ii` (the `k`th) supplies to a run of `pe`, from
+  // the value its `get()` returns: a PJRTBuffer of the input's dtype and shape,
+  // or an AnvlArray holding one, is passed on (copied to the entry's device if
+  // it lives elsewhere); an R double or integer vector holding the input's
+  // elements is uploaded to the entry's device at the input's dtype.
   SEXP read_implicit_input(const PjrtEntry& pe, const ImplicitInput& ii,
                            int k) const {
     Rcpp::Function get(ii.get);
     Rcpp::RObject val = get();
+    if (is_anvl_array(val)) val = anvl_field(val, "data");
+    if (TYPEOF(val) == EXTPTRSXP && Rf_inherits(val, "PJRTBuffer")) {
+      Rcpp::XPtr<PJRTBuffer> buf(val);
+      if (buf->element_type() != ii.buffer_type ||
+          buf->dimensions() != ii.shape) {
+        Rcpp::stop(
+            "the buffer `get()` of implicit input %d returns must have the "
+            "declared dtype (%s) and shape",
+            k, ii.dtype.c_str());
+      }
+      return on_entry_device(pe, val);
+    }
     // a bit64 integer64 is a double vector holding other bits
     if ((TYPEOF(val) != REALSXP && TYPEOF(val) != INTSXP) ||
         Rf_inherits(val, "integer64") || XLENGTH(val) != ii.length) {
       Rcpp::stop(
-          "`get()` of implicit input %d must return a double or integer "
-          "vector of length %lld",
+          "`get()` of implicit input %d must return a buffer, or a double or "
+          "integer vector of length %lld",
           k, static_cast<long long>(ii.length));
     }
     if (TYPEOF(val) == REALSXP) {

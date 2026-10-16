@@ -88,11 +88,14 @@
 #'     per value the program takes that no argument supplies, e.g. a global
 #'     RNG state. The program takes them after the call's own inputs (and
 #'     before the phantoms). Before every run the engine calls `get()`, which
-#'     must return a double or integer vector with one element per element of
-#'     `shape` (a value past 2^31 as a double, which holds whole numbers exactly
-#'     up to 2^53), and uploads it to the entry's device at `dtype`. An implicit
-#'     input is not part of the cache key: only the program decides that it
-#'     needs one.
+#'     returns either a `PJRTBuffer` of `dtype` and `shape` (or an `AnvlArray`
+#'     holding one), which is passed on, copied to the entry's device if it
+#'     lives on another one, or a double or integer vector with one element per
+#'     element of `shape` (a value past 2^31 as a double, which holds whole
+#'     numbers exactly up to 2^53), which is uploaded to the entry's device at
+#'     `dtype`. A buffer keeps a value on the device from run to run, e.g. one
+#'     that `on_success` takes from the implicit outputs. An implicit input is
+#'     not part of the cache key: only the program decides that it needs one.
 #'   * `implicit_outputs` (optional): a list of `list(dtype = <string>, shape =
 #'     <integer>)`, one per value the program returns beyond the `out_tree`'s
 #'     outputs, after them, e.g. an error code. They are not part of the call's
