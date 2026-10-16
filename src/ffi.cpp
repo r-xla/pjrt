@@ -147,23 +147,6 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
 
 XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
 
-// The ordered print takes an ordering token, a `ui32` scalar, and returns it,
-// so that a print that takes the token another one returned runs after it.
-xla::ffi::Error do_print_ordered_call(Dictionary attrs, AnyBuffer buffer,
-                                      BufferR0<U32> token,
-                                      Result<BufferR0<U32>> token_out) {
-  auto err = print_host_buffer(buffer.untyped_data(), attrs, buffer);
-  *token_out->typed_data() = *token.typed_data();
-  return err;
-}
-
-XLA_FFI_DEFINE_HANDLER(print_ordered_handler, do_print_ordered_call,
-                       xla::ffi::Ffi::Bind()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>()
-                           .Arg<BufferR0<U32>>()
-                           .Ret<BufferR0<U32>>());
-
 xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
                                    AnyBuffer buffer) {
 #ifdef _WIN32
@@ -194,38 +177,6 @@ XLA_FFI_DEFINE_HANDLER(print_handler_cuda, do_print_call_cuda,
                            .Ctx<PlatformStream<void *>>()
                            .Attrs<Dictionary>()
                            .Arg<AnyBuffer>());
-
-// The CUDA ordered print: the token lives on the device, so it is passed on
-// with a device-to-device copy on the stream.
-xla::ffi::Error do_print_ordered_call_cuda(void *stream, Dictionary attrs,
-                                           AnyBuffer buffer,
-                                           BufferR0<U32> token,
-                                           Result<BufferR0<U32>> token_out) {
-  auto err = do_print_call_cuda(stream, attrs, buffer);
-  if (!err.success()) {
-    return err;
-  }
-#ifdef _WIN32
-  // unreachable: the print above fails on Windows
-  return err;
-#else
-  auto &g = get_cuda_libs();
-  PJRT_RETURN_IF_GPU_ERROR(
-      g.memcpy_dtod(reinterpret_cast<CUdeviceptr>(token_out->untyped_data()),
-                    reinterpret_cast<CUdeviceptr>(token.untyped_data()),
-                    sizeof(uint32_t), stream),
-      "cuMemcpyDtoDAsync_v2");
-  return err;
-#endif
-}
-
-XLA_FFI_DEFINE_HANDLER(print_ordered_handler_cuda, do_print_ordered_call_cuda,
-                       xla::ffi::Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>()
-                           .Arg<BufferR0<U32>>()
-                           .Ret<BufferR0<U32>>());
 
 void register_ffi_handlers(PJRTPlugin *plugin,
                            const std::string &platform_name) {
@@ -273,18 +224,6 @@ void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin,
 SEXP get_print_handler() {
   return R_MakeExternalPtr((void *)rpjrt::print_handler, R_NilValue,
                            R_NilValue);
-}
-
-// [[Rcpp::export]]
-SEXP get_print_ordered_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::print_ordered_handler, R_NilValue,
-                           R_NilValue);
-}
-
-// [[Rcpp::export]]
-SEXP get_print_ordered_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::print_ordered_handler_cuda,
-                           R_NilValue, R_NilValue);
 }
 
 // [[Rcpp::export]]

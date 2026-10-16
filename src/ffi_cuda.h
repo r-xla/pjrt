@@ -10,8 +10,7 @@
 // potrf).
 // The generic driver helpers are also used outside the linalg path -- e.g.
 // print_tensor's CUDA handler in ffi.cpp uses `memcpy_dtoh` and
-// `stream_synchronize` to pull a buffer to the host before formatting, and the
-// ordered print's `memcpy_dtod` to pass its token on.
+// `stream_synchronize` to pull a buffer to the host before formatting.
 //
 // Workspace, devInfo, and per-call working buffers are allocated through
 // XLA's ffi::ScratchAllocator (BFC-pool-backed, integrated with XLA's
@@ -148,8 +147,8 @@ struct CudaLibs {
 
   // CUDA driver helpers. Allocation goes through ffi::ScratchAllocator, but
   // memcpy / memset / stream-sync still need driver entry points.
-  // memcpy_dtoh / stream_synchronize / memcpy_dtod are used outside the linalg
-  // kernels too (by the CUDA print handlers in ffi.cpp).
+  // memcpy_dtoh / stream_synchronize are used outside the linalg kernels too
+  // (e.g. by print_tensor's CUDA handler in ffi.cpp).
   //
   //   memcpy_dtod         -> cuMemcpyDtoDAsync_v2(dst, src, n_bytes, stream):
   //                          async device-to-device copy of `n_bytes`. Used to
