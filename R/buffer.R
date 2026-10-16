@@ -55,8 +55,12 @@ is_buffer <- function(x) {
 #' * [`safetensors::safe_load_file`] for reading from a safetensors file.
 #'
 #' A buffer can also be serialized like any R object, e.g. with [`saveRDS()`]:
-#' its data is copied to the host, and unserializing it uploads the data to a
-#' device of the same platform and index again.
+#' its data is copied to the host, and unserializing it uploads the data to the
+#' device the `pjrt.unserialize_device` option names (see [`pjrt-package`]),
+#' else to the default device (the first device of the `PJRT_PLATFORM`
+#' platform, `"cpu"` unless set) -- not to the device it was saved from. A
+#' buffer saved on a GPU therefore also loads on a machine without one; use
+#' [`copy_buffer()`] to move it afterwards.
 #' This requires serialization format version 3 (R's default); under version 2,
 #' the buffer is written without its data.
 #'
@@ -618,26 +622,29 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
 }
 
 # Called by the PJRTBuffer ALTREP class (src/buffer_sexp.cpp) to serialize a
-# buffer: its host bytes, plus what is needed to upload them again.
+# buffer: its host bytes, plus what is needed to upload them again. The device
+# is left out, so a buffer loads on any machine (as in JAX).
 buffer_serialized_state <- function(x) {
-  dev <- device(x)
-  index <- Position(\(d) identical(d, dev), devices(client_from_device(dev))) - 1L
   list(
     data = as_raw(x, row_major = FALSE),
     dtype = as.character(elt_type(x)),
-    shape = shape(x),
-    device = paste0(platform(dev), ":", index)
+    shape = shape(x)
   )
 }
 
 # Called by the PJRTBuffer ALTREP class to unserialize a buffer from the state
-# buffer_serialized_state() produced.
+# buffer_serialized_state() produced, onto the device the
+# `pjrt.unserialize_device` option names, else the default device.
 buffer_unserialize <- function(state) {
+  device <- getOption("pjrt.unserialize_device")
+  if (is.function(device)) {
+    device <- device()
+  }
   pjrt_buffer(
     state$data,
     dtype = state$dtype,
     shape = state$shape,
-    device = state$device,
+    device = device,
     row_major = FALSE
   )
 }

@@ -1446,9 +1446,20 @@ describe("PJRTBuffer serialization", {
     }
   })
 
-  it("restores the buffer on its device", {
+  it("restores the buffer on the default device", {
     skip_if(!is_cpu())
     buf <- pjrt_buffer(c(1, 2, 3), device = "cpu:1")
+    buf2 <- roundtrip(buf)
+    expect_identical(device(buf2), as_pjrt_device(NULL))
+    expect_identical(as_array(buf2), as_array(buf))
+  })
+
+  it("restores the buffer on the device pjrt.unserialize_device names", {
+    skip_if(!is_cpu())
+    buf <- pjrt_buffer(c(1, 2, 3))
+    withr::local_options(pjrt.unserialize_device = "cpu:1")
+    expect_identical(device(roundtrip(buf)), pjrt_device("cpu:1"))
+    withr::local_options(pjrt.unserialize_device = function() pjrt_device("cpu:1"))
     expect_identical(device(roundtrip(buf)), pjrt_device("cpu:1"))
   })
 

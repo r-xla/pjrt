@@ -8,6 +8,16 @@
 \description{
 Provides an R interface to PJRT (Pluggable Jit RunTime), which compiles StableHLO and HLO programs with the XLA compiler and runs them on hardware backends such as CPU and GPU.
 }
+\section{Options}{
+
+\itemize{
+\item \code{pjrt.unserialize_device} (\code{NULL} | \code{PJRTDevice} | \code{character(1)} |
+\verb{function()}): the device a buffer is uploaded to when it is unserialized,
+e.g. by \code{\link[=readRDS]{readRDS()}}. A function is called without arguments at that
+point and must return a device. If not set, the default device is used.
+}
+}
+
 \section{Environment Variables}{
 
 \strong{Configuration options provided by XLA}

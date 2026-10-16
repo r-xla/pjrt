@@ -11,6 +11,12 @@
 ## usethis namespace: end
 NULL
 
+#' @section Options:
+#' * `pjrt.unserialize_device` (`NULL` | `PJRTDevice` | `character(1)` |
+#'   `function()`): the device a buffer is uploaded to when it is unserialized,
+#'   e.g. by [`readRDS()`]. A function is called without arguments at that
+#'   point and must return a device. If not set, the default device is used.
+#'
 #' @section Environment Variables:
 #' **Configuration options provided by XLA**
 #'
