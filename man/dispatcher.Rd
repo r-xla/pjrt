@@ -65,7 +65,8 @@ per value the program takes that no argument supplies, e.g. a global
 RNG state. The program takes them after the call's own inputs (and
 before the phantoms). Before every run the engine calls \code{get()}, which
 must return a double or integer vector with one element per element of
-\code{shape}, and uploads it to the entry's device at \code{dtype}. An implicit
+\code{shape} (a value past 2^31 as a double, which holds whole numbers exactly
+up to 2^53), and uploads it to the entry's device at \code{dtype}. An implicit
 input is not part of the cache key: only the program decides that it
 needs one.
 \item \code{implicit_outputs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)}, one per value the program returns beyond the \code{out_tree}'s
@@ -73,8 +74,9 @@ outputs, after them, e.g. an error code. They are not part of the call's
 result but are handed to \code{on_success}, which is then required.
 \item \code{on_success} (optional): a function called with the list of the implicit
 outputs, wrapped like the other outputs, after every run of the entry
-that succeeded, before the call returns, e.g. to advance what an implicit
-input's \code{get()} reads.
+that was launched without an error, before the call returns, e.g. to
+advance what an implicit input's \code{get()} reads. Execution is
+asynchronous: the outputs may not be computed yet.
 }
 
 Either kind of result may additionally carry:

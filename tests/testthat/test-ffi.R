@@ -71,9 +71,8 @@ func.func @main(
 })
 
 test_that("the ordered print handler prints in the order of its token chain", {
-  # The second print in the text takes the token the first returns, and the
-  # third the second's: the prints run in the order of the chain, footer "3"
-  # last, whatever the order of the ops.
+  # Each print takes the token the one before it returns, so the prints run in
+  # the order of the chain.
   program <- pjrt_program(
     r"(
 func.func @main(%x: tensor<2xf32>, %t: tensor<ui32>) -> tensor<ui32> {

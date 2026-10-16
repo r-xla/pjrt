@@ -206,6 +206,7 @@ xla::ffi::Error do_print_ordered_call_cuda(void *stream, Dictionary attrs,
     return err;
   }
 #ifdef _WIN32
+  // unreachable: the print above fails on Windows
   return err;
 #else
   auto &g = get_cuda_libs();

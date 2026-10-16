@@ -112,7 +112,10 @@ struct CacheEntry {
   // The key's static leaf values. The engine's own R objects live in `data`
   // and are rooted by it, not here.
   std::vector<Rcpp::RObject> keep;
-  std::unique_ptr<EntryData> data;
+  // Shared, so that a run holds on to it: an R callback in the middle of a run
+  // (an implicit input's `get()`, `on_success`) may dispatch again and evict
+  // the entry from the cache.
+  std::shared_ptr<EntryData> data;
   // The dtype each execute-time input is supplied at, in program order, as the
   // compile callback declared it (`input_dtypes`). kInvalid at a position
   // leaves that input alone; it is the only entry an array input takes, since
