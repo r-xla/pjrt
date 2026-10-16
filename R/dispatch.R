@@ -92,9 +92,14 @@
 #'     `shape`, and uploads it to the entry's device at `dtype`. An implicit
 #'     input is not part of the cache key: only the program decides that it
 #'     needs one.
-#'   * `on_success` (optional): a function called with no arguments after every
-#'     run of the entry that succeeded, before the call returns, e.g. to
-#'     advance what an implicit input's `get()` reads.
+#'   * `implicit_outputs` (optional): a list of `list(dtype = <string>, shape =
+#'     <integer>)`, one per value the program returns beyond the `out_tree`'s
+#'     outputs, after them, e.g. an error code. They are not part of the call's
+#'     result but are handed to `on_success`, which is then required.
+#'   * `on_success` (optional): a function called with the list of the implicit
+#'     outputs, wrapped like the other outputs, after every run of the entry
+#'     that succeeded, before the call returns, e.g. to advance what an implicit
+#'     input's `get()` reads.
 #'
 #'   Either kind of result may additionally carry:
 #'   * `input_dtypes`: a `character()` with one entry per dynamic leaf, in

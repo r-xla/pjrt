@@ -68,9 +68,13 @@ must return a double or integer vector with one element per element of
 \code{shape}, and uploads it to the entry's device at \code{dtype}. An implicit
 input is not part of the cache key: only the program decides that it
 needs one.
-\item \code{on_success} (optional): a function called with no arguments after every
-run of the entry that succeeded, before the call returns, e.g. to
-advance what an implicit input's \code{get()} reads.
+\item \code{implicit_outputs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)}, one per value the program returns beyond the \code{out_tree}'s
+outputs, after them, e.g. an error code. They are not part of the call's
+result but are handed to \code{on_success}, which is then required.
+\item \code{on_success} (optional): a function called with the list of the implicit
+outputs, wrapped like the other outputs, after every run of the entry
+that succeeded, before the call returns, e.g. to advance what an implicit
+input's \code{get()} reads.
 }
 
 Either kind of result may additionally carry:

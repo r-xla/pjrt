@@ -1,8 +1,11 @@
 # pjrt (development version)
 
-* A `dispatcher()` compile callback can declare `implicit_inputs`, values the
-  program takes beyond the call's arguments, read through a `get()` before every
-  run, and an `on_success` function called after every successful run.
+* A `dispatcher()` compile callback can declare `implicit_inputs` and
+  `implicit_outputs`, values the program takes and returns beyond the call's
+  arguments and result, and an `on_success` function that receives the implicit
+  outputs after every successful run.
+* New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
+  an ordering token, so that a chain of prints runs in order.
 * Breaking: the boolean data type is now named `"bool"` everywhere, e.g. by
   `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
   `"pred"` and `"i1"` are still accepted as aliases.

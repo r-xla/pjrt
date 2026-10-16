@@ -378,10 +378,12 @@ class ClosureEngine : public Engine {
           "(engine = \"closure\")");
     }
     if (res.containsElementNamed("implicit_inputs") ||
+        res.containsElementNamed("implicit_outputs") ||
         res.containsElementNamed("on_success")) {
       Rcpp::stop(
-          "`implicit_inputs` and `on_success` are only supported by the pjrt "
-          "engine: `r_fun` reads its own inputs and runs its own code");
+          "`implicit_inputs`, `implicit_outputs` and `on_success` are only "
+          "supported by the pjrt engine: `r_fun` reads its own inputs and runs "
+          "its own code");
     }
     e.data = std::make_unique<ClosureEntry>(r_fun);
   }
@@ -448,7 +450,8 @@ struct PjrtEntry : EntryData {
   std::vector<Rcpp::RObject> const_arrays;  // buffers prepended to the inputs
   std::vector<PhantomSpec> phantom_specs;
   std::vector<ImplicitInput> implicit_inputs;  // read before every run
-  Rcpp::RObject on_success;  // function() called after every run, or NULL
+  Rcpp::List implicit_templates;  // one template AnvlArray per implicit output
+  Rcpp::RObject on_success;  // function(outputs) called after every run, or NULL
 };
 
 // The `$data` field's position in a wrap template (see PjrtEntry::templates).
@@ -616,19 +619,34 @@ class PjrtEngine : public Engine {
         implicit_inputs.push_back(std::move(ii));
       }
     }
+    SEXP implicit_outputs = named("implicit_outputs");
+    if (implicit_outputs != R_NilValue && TYPEOF(implicit_outputs) != VECSXP) {
+      Rcpp::stop("`implicit_outputs` must be a list");
+    }
     SEXP on_success = named("on_success");
     if (on_success != R_NilValue && !Rf_isFunction(on_success)) {
       Rcpp::stop("`on_success` must be a function or NULL");
+    }
+    if (implicit_outputs != R_NilValue && XLENGTH(implicit_outputs) > 0 &&
+        on_success == R_NilValue) {
+      Rcpp::stop(
+          "`implicit_outputs` need an `on_success` that the outputs are handed "
+          "to");
     }
 
     // The wrap templates, built from the callback's declared output avals --
     // the last thing that can throw.
     Rcpp::List templates = build_templates(out_avals, device);
+    Rcpp::List implicit_templates =
+        implicit_outputs == R_NilValue
+            ? Rcpp::List(0)
+            : build_templates(implicit_outputs, device);
 
     auto data = std::make_unique<PjrtEntry>(exec, client, device, out_tree,
                                             std::move(templates));
     data->phantom_specs = std::move(phantom_specs);
     data->implicit_inputs = std::move(implicit_inputs);
+    data->implicit_templates = std::move(implicit_templates);
     data->on_success = on_success;
     if (consts != R_NilValue) {
       Rcpp::List cl(consts);
@@ -708,11 +726,19 @@ class PjrtEngine : public Engine {
     // The declared output count against the real one -- the half of the
     // callback's out_avals claim that only the executable can settle. It keeps
     // a miscounted callback from silently wrapping the wrong buffers.
-    const R_xlen_t n_out = out_bufs.size();
-    if (n_out != pe->templates.size()) {
+    const R_xlen_t n_out = pe->templates.size();
+    const R_xlen_t n_implicit = pe->implicit_templates.size();
+    if (out_bufs.size() != n_out + n_implicit) {
+      if (n_implicit == 0) {
+        Rcpp::stop(
+            "out_tree has %d leaves but the executable returned %d outputs",
+            static_cast<int>(n_out), static_cast<int>(out_bufs.size()));
+      }
       Rcpp::stop(
-          "out_tree has %d leaves but the executable returned %d outputs",
-          static_cast<int>(pe->templates.size()), static_cast<int>(n_out));
+          "out_tree has %d leaves and the entry %d implicit outputs, but the "
+          "executable returned %d outputs",
+          static_cast<int>(n_out), static_cast<int>(n_implicit),
+          static_cast<int>(out_bufs.size()));
     }
 
     // Wrap each output: a shallow copy of its template with the buffer written
@@ -728,10 +754,17 @@ class PjrtEngine : public Engine {
       SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[i]);
       wrapped[i] = w;
     }
-    // Only a run that got this far succeeded.
+    // Only a run that got this far succeeded. The implicit outputs, which
+    // follow the out_tree's, go to `on_success`.
     if (pe->on_success != R_NilValue) {
+      Rcpp::List implicit(n_implicit);
+      for (R_xlen_t k = 0; k < n_implicit; ++k) {
+        SEXP w = Rf_shallow_duplicate(VECTOR_ELT(pe->implicit_templates, k));
+        SET_VECTOR_ELT(implicit, k, w);
+        SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[n_out + k]);
+      }
       Rcpp::Function on_success(pe->on_success);
-      on_success();
+      on_success(implicit);
     }
     std::size_t p = 0, li = 0;
     return unflatten_rec(*pe->out_tree, wrapped, p, li);

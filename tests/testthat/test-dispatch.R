@@ -500,7 +500,7 @@ implicit_dispatcher <- function(env, dtype = "f32") {
       pjrt_entry(
         implicit_exec(test_pjrt_device()),
         implicit_inputs = list(input),
-        on_success = function() env$s <- env$s + 1
+        on_success = function(outputs) env$s <- env$s + 1
       )
     },
     default_device = test_pjrt_device
@@ -553,10 +553,49 @@ test_that("implicit inputs and on_success are validated", {
   expect_error(run(on_success = 1), "`on_success` must be a function or NULL")
 })
 
+test_that("implicit outputs are handed to on_success, not returned", {
+  skip_if_not(plugins_downloaded())
+  exec <- pjrt_compile(pjrt_program(
+    src = 'func.func @main(%x: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
+       %0 = "stablehlo.add"(%x, %x) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       %1 = "stablehlo.multiply"(%x, %x) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
+     }'
+  ))
+  received <- NULL
+  d <- dispatcher(
+    10L,
+    function(info) {
+      pjrt_entry(
+        exec,
+        implicit_outputs = list(oav()),
+        on_success = function(outputs) received <<- outputs
+      )
+    },
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(2, 3), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x))), c(4, 6))
+  expect_length(received, 1L)
+  expect_s3_class(received[[1L]], "AnvlArray")
+  expect_equal(out(received[[1L]]), c(4, 9))
+})
+
+test_that("implicit outputs need an on_success", {
+  skip_if_not(plugins_downloaded())
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  d <- dispatcher(
+    10L,
+    function(info) pjrt_entry(implicit_exec(test_pjrt_device()), implicit_outputs = list(oav())),
+    default_device = test_pjrt_device
+  )
+  expect_error(dispatch(d, list(x = x)), "need an `on_success`")
+})
+
 test_that("the closure engine rejects implicit inputs and on_success", {
   d <- new_dispatcher(
     10L,
-    function(info) list(r_fun = function(flat) NULL, on_success = function() NULL),
+    function(info) list(r_fun = function(flat) NULL, on_success = function(outputs) NULL),
     character(0),
     "closure",
     "quickr",
