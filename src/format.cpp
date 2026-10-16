@@ -88,7 +88,7 @@ std::string format_element(const unsigned char *ptr, std::string dtype) {
   } else if (dtype == "ui8") {
     // default formatting uses char, so need to convert to unsigned int
     oss << (unsigned int)(*ptr);
-  } else if (dtype == "pred" || dtype == "i1") {
+  } else if (dtype == "bool") {
     return (*ptr) ? "true" : "false";
   } else {
     stop("Unsupported dtype: " + dtype);

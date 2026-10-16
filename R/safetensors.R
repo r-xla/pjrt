@@ -15,7 +15,7 @@ pjrt_tensor_from_raw <- function(raw, meta, device = NULL) {
 pjrt_dtype_to_safetensors <- function(pjrt_dtype) {
   switch(
     as.character(pjrt_dtype),
-    "pred" = "BOOL",
+    "bool" = "BOOL",
     "i8" = "I8",
     "i16" = "I16",
     "i32" = "I32",
@@ -34,7 +34,7 @@ pjrt_dtype_to_safetensors <- function(pjrt_dtype) {
 safetensors_dtype_to_pjrt <- function(safetensors_dtype) {
   switch(
     safetensors_dtype,
-    "BOOL" = "pred",
+    "BOOL" = "bool",
     "I8" = "i8",
     "I16" = "i16",
     "I32" = "i32",
@@ -55,7 +55,7 @@ safetensors_dtype_to_pjrt <- function(safetensors_dtype) {
 pjrt_dtype_size <- function(pjrt_dtype) {
   switch(
     pjrt_dtype,
-    "pred" = 1L,
+    "bool" = 1L,
     "i8" = 1L,
     "i16" = 2L,
     "i32" = 4L,

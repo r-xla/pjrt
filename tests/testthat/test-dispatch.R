@@ -404,7 +404,7 @@ test_that("every dtype the engine can represent is its own cache entry", {
     default_device = test_pjrt_device
   )
   for (dt in names(mlir_ty)) {
-    buf <- pjrt_empty(2L, dtype = if (dt == "bool") "pred" else dt)
+    buf <- pjrt_empty(2L, dtype = dt)
     invisible(dispatch(d, list(x = parr(buf))))
   }
   expect_equal(dispatcher_size(d), length(mlir_ty))
@@ -514,8 +514,8 @@ test_that("phantom_specs allocate donation buffers of the requested dtype", {
     expect_identical(res$shape, 2L)
   }
 
-  # "bool" is the canonical AnvlDtype name; "pred" is pjrt's C-API spelling and
-  # "i1" the MLIR one. All three must land on the same wrapped dtype.
+  # "bool" is the canonical name; "pred" is the C API's spelling and "i1" the
+  # MLIR one. All three must land on the same wrapped dtype.
   for (alias in c("bool", "i1", "pred")) {
     expect_identical(as.character(run("i1", alias)$dtype), "bool")
   }

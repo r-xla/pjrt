@@ -152,7 +152,7 @@
       i "i32" reserves the bit pattern "-2147483648" (`INT_MIN`); "i64" reserves "-9223372036854775808" (`INT64_MIN`).
       i Set `check = FALSE` to skip this check.
 
-# a logical uploads at any element type, not just pred
+# a logical uploads at any element type, not just bool
 
     Code
       pjrt_buffer(NA, dtype = "ui8")
@@ -168,13 +168,13 @@
       Error:
       ! Unsupported type: nope
 
-# a missing value at pred / is rejected, whatever the source type it arrives as
+# a missing value at bool / is rejected, whatever the source type it arrives as
 
     Code
       pjrt_buffer(NA)
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
 
 ---
 
@@ -182,7 +182,7 @@
       pjrt_buffer(c(TRUE, NA, FALSE))
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred" (element 2).
+      ! Missing value (NA/NaN) cannot be converted to "bool" (element 2).
 
 ---
 
@@ -190,23 +190,31 @@
       pjrt_scalar(NA)
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
 
 ---
 
     Code
-      pjrt_buffer(NA_integer_, dtype = "pred")
+      pjrt_buffer(NA_integer_, dtype = "bool")
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
 
 ---
 
     Code
-      pjrt_buffer(NA_real_, dtype = "pred")
+      pjrt_buffer(NA_real_, dtype = "bool")
     Condition
       Error:
-      ! Missing value (NA/NaN) cannot be converted to "pred".
+      ! Missing value (NA/NaN) cannot be converted to "bool".
+
+---
+
+    Code
+      pjrt_buffer(c(TRUE, NA), dtype = "bool")
+    Condition
+      Error:
+      ! Missing value (NA/NaN) cannot be converted to "bool" (element 2).
 
 # a missing bit64::integer64 value / is rejected at ui64, which has no missing value to land on
 

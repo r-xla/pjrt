@@ -27,7 +27,7 @@ test_that("Can write safetensors (different data types)", {
     list(pjrt_type = "ui16", rtype = "integer"),
     list(pjrt_type = "ui32", rtype = "integer"),
     list(pjrt_type = "ui64", rtype = "integer"),
-    list(pjrt_type = "pred", rtype = "logical")
+    list(pjrt_type = "bool", rtype = "logical")
   )
 
   dat <- c(0L, 1:8, 0L)

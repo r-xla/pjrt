@@ -82,9 +82,7 @@ constexpr std::string_view kPrintFooterAttr = "print_footer";
 std::string dtype_display_name(xla::ffi::DataType dtype) {
   PJRT_Buffer_Type pjrt_type = to_pjrt_type(dtype);
   PJRTElementType elt(pjrt_type);
-  std::string name = elt.as_string();
-  if (name == "pred") return "bool";
-  return name;
+  return elt.as_string();
 }
 
 // Shared helper: prints buffer data (already on host) using
