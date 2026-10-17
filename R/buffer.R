@@ -56,9 +56,9 @@ is_buffer <- function(x) {
 #'
 #' A buffer can also be serialized like any R object, e.g. with [`saveRDS()`]:
 #' its data is copied to the host, and unserializing it uploads the data to the
-#' device the `pjrt.unserialize_device` option names (see [`pjrt-package`]),
-#' else to the default device (the first device of the `PJRT_PLATFORM`
-#' platform, `"cpu"` unless set) -- not to the device it was saved from. A
+#' device set with [`set_unserialize_device()`], else to the default device
+#' (the first device of the `PJRT_PLATFORM` platform, `"cpu"` unless set) --
+#' not to the device it was saved from. A
 #' buffer saved on a GPU therefore also loads on a machine without one; use
 #' [`copy_buffer()`] to move it afterwards.
 #' This requires serialization format version 3 (R's default); under version 2,
@@ -632,11 +632,34 @@ buffer_serialized_state <- function(x) {
   )
 }
 
+#' @title Set the Device Unserialized Buffers Load Onto
+#' @description
+#' Sets the device a [`PJRTBuffer`][pjrt_buffer] is uploaded to when it is
+#' unserialized, e.g. by [`readRDS()`]. A buffer does not record the device it
+#' was saved from.
+#' @param device (`NULL` | `PJRTDevice` | `character(1)` | `function()`)\cr
+#'   The device, or a function that is called without arguments whenever a
+#'   buffer is unserialized and returns one. `NULL` (the initial value) uses the
+#'   default device.
+#' @return The previous value, invisibly.
+#' @examplesIf plugins_downloaded()
+#' old <- set_unserialize_device("cpu")
+#' set_unserialize_device(old)
+#' @export
+set_unserialize_device <- function(device) {
+  if (!(is.null(device) || is.function(device) || inherits(device, "PJRTDevice") || test_string(device))) {
+    cli_abort("Must be NULL, a PJRTDevice, a device specification or a function")
+  }
+  old <- the[["unserialize_device"]]
+  the[["unserialize_device"]] <- device
+  invisible(old)
+}
+
 # Called by the PJRTBuffer ALTREP class to unserialize a buffer from the state
-# buffer_serialized_state() produced, onto the device the
-# `pjrt.unserialize_device` option names, else the default device.
+# buffer_serialized_state() produced, onto the device set_unserialize_device()
+# set, else the default device.
 buffer_unserialize <- function(state) {
-  device <- getOption("pjrt.unserialize_device")
+  device <- the[["unserialize_device"]]
   if (is.function(device)) {
     device <- device()
   }

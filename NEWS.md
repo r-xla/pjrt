@@ -1,7 +1,7 @@
 # pjrt (development version)
 
 * `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
-  the device the new option `pjrt.unserialize_device` names, else the default
+  the device set with the new `set_unserialize_device()`, else the default
   device. A buffer is now a length-1 list (an ALTREP object)
   rather than an external pointer.
 * The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry a

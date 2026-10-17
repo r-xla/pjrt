@@ -1454,13 +1454,18 @@ describe("PJRTBuffer serialization", {
     expect_identical(as_array(buf2), as_array(buf))
   })
 
-  it("restores the buffer on the device pjrt.unserialize_device names", {
+  it("restores the buffer on the device set_unserialize_device() sets", {
     skip_if(!is_cpu())
     buf <- pjrt_buffer(c(1, 2, 3))
-    withr::local_options(pjrt.unserialize_device = "cpu:1")
+    old <- set_unserialize_device("cpu:1")
+    withr::defer(set_unserialize_device(old))
     expect_identical(device(roundtrip(buf)), pjrt_device("cpu:1"))
-    withr::local_options(pjrt.unserialize_device = function() pjrt_device("cpu:1"))
+    set_unserialize_device(function() pjrt_device("cpu:1"))
     expect_identical(device(roundtrip(buf)), pjrt_device("cpu:1"))
+  })
+
+  it("rejects an invalid unserialize device", {
+    expect_error(set_unserialize_device(1L), "Must be NULL")
   })
 
   it("round-trips buffers nested in other objects through saveRDS()", {
