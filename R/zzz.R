@@ -51,8 +51,8 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
     list(host = get_print_handler(), cuda = get_print_handler_cuda()),
     .package = pkgname
   )
-  # print_tensor that also takes and returns an ordering token, a `ui32`
-  # scalar, so that a chain of them prints in order
+  # print_tensor that also takes and returns a token, so that a chain of them
+  # prints in order
   pjrt_register_custom_call(
     "print_tensor_ordered",
     list(host = get_print_ordered_handler(), cuda = get_print_ordered_handler_cuda()),

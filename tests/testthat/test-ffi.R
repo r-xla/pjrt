@@ -75,34 +75,33 @@ test_that("the ordered print handler prints in the order of its token chain", {
   # the order of the chain.
   program <- pjrt_program(
     r"(
-func.func @main(%x: tensor<2xf32>, %t: tensor<ui32>) -> tensor<ui32> {
-  %t2 = stablehlo.custom_call @print_tensor_ordered(%x, %t) {
+func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
+  %t0 = stablehlo.after_all : !stablehlo.token
+  %t1 = stablehlo.custom_call @print_tensor_ordered(%x, %t0) {
     call_target_name = "print_tensor_ordered",
     backend_config = {print_header = "", print_footer = "1"},
     has_side_effect = true,
     api_version = 4 : i32
-  } : (tensor<2xf32>, tensor<ui32>) -> tensor<ui32>
-  %t3 = stablehlo.custom_call @print_tensor_ordered(%x, %t2) {
+  } : (tensor<2xf32>, !stablehlo.token) -> !stablehlo.token
+  %t2 = stablehlo.custom_call @print_tensor_ordered(%x, %t1) {
     call_target_name = "print_tensor_ordered",
     backend_config = {print_header = "", print_footer = "2"},
     has_side_effect = true,
     api_version = 4 : i32
-  } : (tensor<2xf32>, tensor<ui32>) -> tensor<ui32>
-  %t4 = stablehlo.custom_call @print_tensor_ordered(%x, %t3) {
+  } : (tensor<2xf32>, !stablehlo.token) -> !stablehlo.token
+  %t3 = stablehlo.custom_call @print_tensor_ordered(%x, %t2) {
     call_target_name = "print_tensor_ordered",
     backend_config = {print_header = "", print_footer = "3"},
     has_side_effect = true,
     api_version = 4 : i32
-  } : (tensor<2xf32>, tensor<ui32>) -> tensor<ui32>
-  "func.return" (%t4) : (tensor<ui32>) -> ()
+  } : (tensor<2xf32>, !stablehlo.token) -> !stablehlo.token
+  "func.return" (%x) : (tensor<2xf32>) -> ()
 }
 )"
   )
   program <- pjrt_compile(program)
-  out <- capture.output(res <- pjrt_execute(program, pjrt_buffer(c(1, 2), dtype = "f32"), pjrt_scalar(7, dtype = "ui32")))
+  out <- capture.output(res <- pjrt_execute(program, pjrt_buffer(c(1, 2), dtype = "f32")))
   expect_identical(grep("^[123]$", out, value = TRUE), c("1", "2", "3"))
-  # the token is passed on
-  expect_equal(as.numeric(as_array(res)), 7)
 })
 
 test_that("print handler default footer prints bool not pred", {
