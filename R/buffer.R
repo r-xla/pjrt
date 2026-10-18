@@ -622,8 +622,8 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
 
 # Called by the PJRTBuffer ALTREP class (src/buffer_sexp.cpp) to serialize a
 # buffer: its host bytes, plus what is needed to upload them again. The device
-# is left out, so a buffer loads on any machine (as in JAX). The bytes are
-# row-major, the device's own layout, so neither direction transposes them.
+# is left out, so a buffer loads on any machine. The bytes are row-major, the
+# device's own layout, so neither direction transposes them.
 buffer_serialized_state <- function(x) {
   list(
     data = as_raw(x, row_major = TRUE),
