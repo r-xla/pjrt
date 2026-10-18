@@ -403,7 +403,7 @@ test_that("every dtype the engine can represent is its own cache entry", {
     default_device = test_pjrt_device
   )
   for (dt in names(mlir_ty)) {
-    buf <- pjrt_empty(2L, dtype = if (dt == "bool") "pred" else dt)
+    buf <- pjrt_empty(2L, dtype = dt)
     invisible(dispatch(d, list(x = parr(buf))))
   }
   expect_equal(dispatcher_size(d), length(mlir_ty))
@@ -513,8 +513,8 @@ test_that("phantom_specs allocate donation buffers of the requested dtype", {
     expect_identical(res$shape, 2L)
   }
 
-  # "bool" is the canonical AnvlDtype name; "pred" is pjrt's C-API spelling and
-  # "i1" the MLIR one. All three must land on the same wrapped dtype.
+  # "bool" is the canonical name; "pred" is the C API's spelling and "i1" the
+  # MLIR one. All three must land on the same wrapped dtype.
   for (alias in c("bool", "i1", "pred")) {
     expect_identical(as.character(run("i1", alias)$dtype), "bool")
   }
@@ -1045,6 +1045,18 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
   weird <- xlamisc::as_dtype("f16")
   expect_error(
     impl_dispatch_run(mk("closure"), list(x = qarr(c(1, 2), dtype = weird))),
+    "invalid input `x`.*dtype is not one anvl can represent"
+  )
+
+  # bf16 goes further than f16: pjrt really does store it, so a genuine bf16
+  # buffer reaches the kInvalid mapping. Compute on bf16 needs the promotion
+  # lattice, so the dispatcher must reject it here rather than key it as some
+  # neighbouring dtype -- before compile and before the cache is probed.
+  expect_error(
+    impl_dispatch_run(
+      mk("pjrt"),
+      list(x = parr(pjrt_buffer(c(1, 2), dtype = "bf16")))
+    ),
     "invalid input `x`.*dtype is not one anvl can represent"
   )
 

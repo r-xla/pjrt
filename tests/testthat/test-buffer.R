@@ -134,7 +134,7 @@ test_that("dtype works for PJRTBuffer", {
   buf_i8 <- pjrt_buffer(1L, dtype = "i8")
   expect_equal(dtype(buf_i8), xlamisc::as_dtype("i8"))
 
-  buf_pred <- pjrt_buffer(TRUE, dtype = "pred")
+  buf_pred <- pjrt_buffer(TRUE, dtype = "bool")
   expect_equal(dtype(buf_pred), xlamisc::as_dtype("bool"))
 
   buf_bool <- pjrt_buffer(TRUE, dtype = "bool")
@@ -191,6 +191,113 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
   # Test arrays with dimensions
   data_matrix <- matrix(c(1.1, 2.2, 3.3, 4.4), nrow = 2, ncol = 2)
   test_pjrt_buffer(data_matrix, "f32", tolerance = 1e-6)
+})
+
+test_that("pjrt_buffer roundtrip works for bf16 data", {
+  # exactly representable in bfloat16, so no tolerance is needed
+  test_pjrt_buffer(c(1.0, -1.0, 0.0, 0.5, 0.25), "bf16")
+  test_pjrt_buffer(matrix(c(1.5, 2.25, -3.5, 4.75), nrow = 2), "bf16")
+  test_pjrt_scalar(0.5, "bf16")
+})
+
+test_that("bf16 buffers materialize the exactly representable doubles", {
+  # bfloat16 targets computed independently: 1/3 -> 0x3EAB = 0.333984375,
+  # 0.1 -> 0x3DCD = 0.10009765625, 2^128 * (1 - 2^-8) = 0x7F7F is the largest
+  # finite value, 2^128 * (1 - 2^-9) is the overflow midpoint and rounds (ties
+  # to even, since 0x7F7F has an odd mantissa) to Inf, 2^-133 = smallest
+  # subnormal.
+  bf16_max <- 2^128 * (1 - 2^-8)
+  input <- c(1, 0.5, 1 / 3, 0.1, bf16_max, 2^128 * (1 - 2^-9), 2^-133, -2.5, 0)
+  expected <- c(
+    1,
+    0.5,
+    0.333984375,
+    0.10009765625,
+    bf16_max,
+    Inf,
+    2^-133,
+    -2.5,
+    0
+  )
+  buf <- pjrt_buffer(input, dtype = "bf16")
+  expect_equal(as.character(elt_type(buf)), "bf16")
+  expect_identical(as_array(buf), array(expected))
+
+  # integer data is accepted like for the other float dtypes
+  buf_int <- pjrt_buffer(matrix(1:6, nrow = 2), dtype = "bf16")
+  expect_equal(as.character(elt_type(buf_int)), "bf16")
+  expect_identical(as_array(buf_int), matrix(as.double(1:6), nrow = 2))
+
+  s <- pjrt_scalar(3.14159, dtype = "bf16")
+  expect_identical(shape(s), integer())
+  expect_identical(as_array(s), 3.140625)
+})
+
+test_that("doubles round to bf16 to nearest, ties to even, not via float", {
+  # The double just below 1.01171875 must give 1.0078125. Rounding it through
+  # float first lands exactly on 1.01171875, which is a bf16 midpoint and then
+  # ties up to 1.015625 -- the double-rounding failure this test pins.
+  expect_identical(
+    as_array(pjrt_buffer(1.01171875 - 2^-52, dtype = "bf16")),
+    array(1.0078125)
+  )
+  # The midpoint itself ties to even, which here means rounding up: 1.0078125
+  # has an odd mantissa (0x3F81) and 1.015625 an even one (0x3F82).
+  expect_identical(
+    as_array(pjrt_buffer(1.01171875, dtype = "bf16")),
+    array(1.015625)
+  )
+
+  # Ties to even at the subnormal boundary: 2^-134 is midway between 0 and the
+  # smallest subnormal 2^-133 and rounds to the even neighbour 0; 1.5 * 2^-133
+  # is midway between 2^-133 and 2^-132 and rounds to 2^-132.
+  buf <- pjrt_buffer(c(2^-134, 1.5 * 2^-133), dtype = "bf16")
+  expect_identical(as_array(buf), array(c(0, 2^-132)))
+})
+
+test_that("bf16 raw and empty buffers work", {
+  empty <- pjrt_empty(dtype = "bf16", shape = c(0, 2))
+  expect_identical(shape(empty), c(0L, 2L))
+  expect_equal(as.character(elt_type(empty)), "bf16")
+
+  # 0x3F80 = 1.0 and 0xBF00 = -0.5, as little-endian byte pairs
+  raw_bytes <- as.raw(c(0x80, 0x3f, 0x00, 0xbf))
+  buf <- pjrt_buffer(raw_bytes, dtype = "bf16", shape = 2L, row_major = TRUE)
+  expect_identical(as_array(buf), array(c(1, -0.5)))
+  expect_identical(as_raw(buf, row_major = TRUE), raw_bytes)
+
+  expect_error(
+    pjrt_buffer(
+      as.raw(c(0, 0, 0)),
+      dtype = "bf16",
+      shape = 2L,
+      row_major = TRUE
+    ),
+    "requires 4 bytes"
+  )
+})
+
+test_that("a logical uploads at bf16 like the other float dtypes", {
+  # A logical travels as.integer(), so TRUE/FALSE become 1/0 and NA becomes
+  # NA_integer_, which widens to NaN as it does for f32.
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "bf16")),
+    array(c(1, 0), 2L)
+  )
+  expect_identical(as_array(pjrt_buffer(NA, dtype = "bf16")), array(NaN, 1L))
+  expect_identical(
+    as_array(pjrt_buffer(NA_integer_, dtype = "bf16")),
+    array(NaN, 1L)
+  )
+})
+
+test_that("dtype() on a bf16 buffer round-trips through xlamisc", {
+  # xlamisc's dtype enum already names bf16, so the buffer-level dtype and the
+  # xlamisc DataType agree.
+  buf <- pjrt_buffer(1.5, dtype = "bf16")
+  expect_equal(as.character(elt_type(buf)), "bf16")
+  expect_identical(dtype(buf), xlamisc::as_dtype("bf16"))
+  expect_identical(as_array(pjrt_buffer(1.5, dtype = xlamisc::as_dtype("bf16"))), array(1.5))
 })
 
 test_that("pjrt_buffer handles edge cases", {
@@ -259,7 +366,7 @@ test_that("as_array check is a no-op for float / bool / small-integer dtypes", {
   buf_f32 <- pjrt_buffer(c(1, NaN, 3), dtype = "f32")
   expect_no_error(as_array(buf_f32, check = "err"))
 
-  buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "pred")
+  buf_pred <- pjrt_buffer(c(TRUE, FALSE), dtype = "bool")
   expect_no_error(as_array(buf_pred, check = "err"))
 
   buf_i8 <- pjrt_buffer(c(-128L, 0L, 127L), dtype = "i8")
@@ -456,7 +563,7 @@ test_that("NA_integer_ at i32 warns, being the one carried through", {
   expect_no_warning(pjrt_buffer(NA_real_, dtype = "f64"))
 })
 
-test_that("a logical uploads at any element type, not just pred", {
+test_that("a logical uploads at any element type, not just bool", {
   # The logical and integer entry points cross-dispatch, so a source type is no
   # longer tied to the element types that happen to be its natural target.
   expect_equal(
@@ -477,27 +584,28 @@ test_that("a logical uploads at any element type, not just pred", {
   expect_snapshot(pjrt_buffer(TRUE, dtype = "nope"), error = TRUE)
 })
 
-test_that("an integer uploads at pred, like a double does", {
+test_that("an integer uploads at bool, like a double does", {
   expect_equal(
-    as_array(pjrt_buffer(c(0L, 1L, 2L), dtype = "pred")),
+    as_array(pjrt_buffer(c(0L, 1L, 2L), dtype = "bool")),
     array(c(FALSE, TRUE, TRUE), 3L)
   )
-  expect_false(as_array(pjrt_scalar(0L, dtype = "pred")))
-  expect_true(as_array(pjrt_scalar(1L, dtype = "pred")))
+  expect_false(as_array(pjrt_scalar(0L, dtype = "bool")))
+  expect_true(as_array(pjrt_scalar(1L, dtype = "bool")))
 })
 
-describe("a missing value at pred", {
+describe("a missing value at bool", {
   it("is rejected, whatever the source type it arrives as", {
-    # pred is the one element type an LGLSXP reaches intact -- every other
+    # bool is the one element type an LGLSXP reaches intact -- every other
     # dtype converts through as.integer() first, where NA_LOGICAL becomes the
     # NA_integer_ the integer check already rejects. An integer and a double
-    # source converge on the same LGLSXP on their way to pred, so all three
+    # source converge on the same LGLSXP on their way to bool, so all three
     # are held to the same rule.
     expect_snapshot(pjrt_buffer(NA), error = TRUE)
     expect_snapshot(pjrt_buffer(c(TRUE, NA, FALSE)), error = TRUE)
     expect_snapshot(pjrt_scalar(NA), error = TRUE)
-    expect_snapshot(pjrt_buffer(NA_integer_, dtype = "pred"), error = TRUE)
-    expect_snapshot(pjrt_buffer(NA_real_, dtype = "pred"), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_integer_, dtype = "bool"), error = TRUE)
+    expect_snapshot(pjrt_buffer(NA_real_, dtype = "bool"), error = TRUE)
+    expect_snapshot(pjrt_buffer(c(TRUE, NA), dtype = "bool"), error = TRUE)
   })
 })
 
@@ -618,9 +726,9 @@ test_that("raw", {
     ui32 = list(data = sample_unsigned(30, c(2, 2, 2)), dtype = "ui32"),
     ui64 = list(data = sample_unsigned(30, c(2, 1, 2, 1)), dtype = "ui64"),
 
-    pred = list(
+    bool = list(
       data = matrix(c(TRUE, FALSE, TRUE, FALSE), nrow = 2),
-      dtype = "pred"
+      dtype = "bool"
     )
   )
 
@@ -663,7 +771,7 @@ test_that("roundtrip tests for scalars", {
     f64 = 3.14159265359,
     i32 = 42L,
     ui8 = 255L,
-    pred = TRUE
+    bool = TRUE
   )
 
   for (dtype in names(test_scalars)) {
@@ -697,7 +805,7 @@ test_that("dtype returns correct data types", {
   buffer <- pjrt_buffer(logical_data)
   x <- elt_type(buffer)
   expect_true(is_elt_type(x))
-  expect_equal(as.character(x), "pred")
+  expect_equal(as.character(x), "bool")
 
   # Test integer buffer (signed 32-bit)
   integer_data <- c(1L, 2L, 3L)
@@ -821,7 +929,7 @@ test_that("buffer <-> raw: row_major parameter", {
     list(pjrt_type = "f64", rtype = "double"),
     list(pjrt_type = "i32", rtype = "integer"),
     list(pjrt_type = "i64", rtype = "integer"),
-    list(pjrt_type = "pred", rtype = "logical")
+    list(pjrt_type = "bool", rtype = "logical")
   )
 
   check <- function(pjrt_type, rtype) {
@@ -1014,10 +1122,10 @@ test_that("recycle scalar to any length", {
   expect_equal(shape(x), c(1, 2))
 })
 
-test_that("can create dtype 'pred' from double", {
-  expect_equal(pjrt_buffer(1, dtype = "pred"), pjrt_buffer(TRUE))
-  expect_equal(pjrt_buffer(c(0, 1, 2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
-  expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "pred"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
+test_that("can create dtype 'bool' from double", {
+  expect_equal(pjrt_buffer(1, dtype = "bool"), pjrt_buffer(TRUE))
+  expect_equal(pjrt_buffer(c(0, 1, 2), dtype = "bool"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
+  expect_equal(pjrt_buffer(c(0, 1, -2), dtype = "bool"), pjrt_buffer(c(FALSE, TRUE, TRUE)))
 })
 
 test_that("pjrt_buffer identity when working on a different client", {
@@ -1033,10 +1141,12 @@ test_that("Can create 'i32' from double", {
   expect_equal(pjrt_buffer(1:4, dtype = "f32"), pjrt_buffer(as.double(1:4), dtype = "f32"))
 })
 
-test_that("i1 is alias for pred", {
-  expect_equal(pjrt_buffer(1, "i1"), pjrt_buffer(1, "pred"))
-  expect_equal(pjrt_scalar(1, "i1"), pjrt_scalar(1, "pred"))
-  expect_equal(pjrt_empty(shape = c(1, 0), "i1"), pjrt_empty(shape = c(1, 0), "pred"))
+test_that("pred and i1 are aliases for bool", {
+  for (alias in c("pred", "i1")) {
+    expect_equal(pjrt_buffer(1, alias), pjrt_buffer(1, "bool"))
+    expect_equal(pjrt_scalar(1, alias), pjrt_scalar(1, "bool"))
+    expect_equal(pjrt_empty(shape = c(1, 0), alias), pjrt_empty(shape = c(1, 0), "bool"))
+  }
 })
 
 test_that("pjrt_buffer accepts DataType objects", {
@@ -1059,7 +1169,7 @@ test_that("pjrt_buffer accepts DataType objects", {
   )
   expect_equal(
     pjrt_buffer(TRUE, dtype = xlamisc::as_dtype("bool")),
-    pjrt_buffer(TRUE, dtype = "pred")
+    pjrt_buffer(TRUE, dtype = "bool")
   )
 
   # pjrt_scalar with DataType
@@ -1164,8 +1274,8 @@ test_that("async buffer works with different dtypes", {
   result <- value(as_array_async(buf))
   expect_equal(as.vector(result), c(1L, 2L, 3L))
 
-  # pred
-  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE), dtype = "pred")
+  # bool
+  buf <- pjrt_buffer(c(TRUE, FALSE, TRUE), dtype = "bool")
   result <- value(as_array_async(buf))
   expect_equal(as.vector(result), c(TRUE, FALSE, TRUE))
 })

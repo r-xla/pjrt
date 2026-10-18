@@ -81,6 +81,11 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
     list(host = get_eigh_handler(), cuda = get_eigh_handler_cuda()),
     .package = pkgname
   )
+  pjrt_register_custom_call(
+    "potrf",
+    list(host = get_potrf_handler(), cuda = get_potrf_handler_cuda()),
+    .package = pkgname
+  )
 
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(

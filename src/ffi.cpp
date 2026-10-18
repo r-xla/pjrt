@@ -38,6 +38,8 @@ PJRT_FFI_Extension *get_pjrt_ffi_extension(PJRTPlugin *plugin) {
 
 PJRT_Buffer_Type to_pjrt_type(xla::ffi::DataType dtype) {
   switch (dtype) {
+    case xla::ffi::DataType::BF16:
+      return PJRT_Buffer_Type_BF16;
     case xla::ffi::DataType::F32:
       return PJRT_Buffer_Type_F32;
     case xla::ffi::DataType::F64:
@@ -80,9 +82,7 @@ constexpr std::string_view kPrintFooterAttr = "print_footer";
 std::string dtype_display_name(xla::ffi::DataType dtype) {
   PJRT_Buffer_Type pjrt_type = to_pjrt_type(dtype);
   PJRTElementType elt(pjrt_type);
-  std::string name = elt.as_string();
-  if (name == "pred") return "bool";
-  return name;
+  return elt.as_string();
 }
 
 // Shared helper: prints buffer data (already on host) using

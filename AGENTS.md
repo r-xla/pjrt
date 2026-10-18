@@ -30,7 +30,7 @@ PJRTProgram            – MLIR or HLO source code ready for compilation
 ```
 PJRTBuffer         – device-resident tensor (the main data object)
 PJRTArrayPromise   – async device-to-host transfer result (environment-based)
-PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)
+PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)
 ```
 
 A `PJRTBuffer` is not a bare external pointer: it is a length-1 ALTLIST whose only element is the external pointer that owns the buffer (`src/buffer_sexp.{h,cpp}`). The ALTREP class gives buffers a custom serialization (host bytes plus dtype and shape, re-uploaded on load to `the[["unserialize_device"]]`, else the default device -- the device is deliberately not saved; anvl writes that entry from its `.onLoad()` so that buffers load onto its own default device; see `buffer_serialized_state()`/`buffer_unserialize()` in `buffer.R`). C++ creates buffer objects with `rpjrt::wrap_buffer()` and unwraps them with `rpjrt::as_buffer()`/`rpjrt::buffer_xptr()`; never treat a buffer SEXP as an `EXTPTRSXP`. In R, test for a buffer with `is_buffer()`, not `is.list()`.

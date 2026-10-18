@@ -29,7 +29,7 @@ is_buffer <- function(x) {
 #' `NA_integer_` at `"i32"` arrives as `INT_MIN`, and a `bit64::integer64`
 #' `NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and [`as_array()`] warns
 #' about them again on the way back, its `check` argument defaulting to
-#' `"warn"`. At every other integer element type, and at `"pred"`, a missing
+#' `"warn"`. At every other integer element type, and at `"bool"`, a missing
 #' value is an error -- including an `integer64` `NA` at `"ui64"`, where those
 #' same bits are the ordinary value `2^63`.
 #'
@@ -72,12 +72,16 @@ is_buffer <- function(x) {
 #' @param dtype (`NULL` | `character(1)` | [`DataType`][xlamisc::DataType])\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
-#'   - `"pred"`: predicate (i.e. a boolean)
+#'   - `"bool"`: boolean (`"pred"` and `"i1"` are accepted as aliases)
 #'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
 #'     `double` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
+#'   - `"bf16"`: bfloat16 (for `double` or `integer` data). Values are rounded
+#'     to the nearest bfloat16 value, ties to even; the largest finite value is
+#'     about 3.3895e38, and larger magnitudes round to `Inf`.
+#'     [`as_array()`] returns the exactly representable values as `double`.
 #'   The default (`NULL`) depends on the method:
-#'   - `logical` -> `"pred"`
+#'   - `logical` -> `"bool"`
 #'   - `integer` -> `"i32"`
 #'   - `double` -> `"f32"`
 #'   - `raw` -> must be supplied
@@ -267,8 +271,8 @@ as_dtype_string <- function(dtype) {
   if (inherits(dtype, "DataType")) {
     dtype <- as.character(dtype)
   }
-  if (dtype %in% c("i1", "bool")) {
-    dtype <- "pred"
+  if (dtype %in% c("i1", "pred")) {
+    dtype <- "bool"
   }
   dtype
 }
@@ -301,7 +305,7 @@ pjrt_buffer.logical <- function(
   shape = NULL,
   ...
 ) {
-  args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
+  args <- convert_buffer_args(data, dtype, device, shape, "bool", ...)
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
@@ -404,7 +408,7 @@ pjrt_scalar.logical <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "bool", ...)
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
