@@ -8,9 +8,13 @@ namespace {
 R_altrep_class_t buffer_class;
 SEXP buffer_class_attr = R_NilValue;
 
-// Evaluates `fun(arg)` in pjrt's namespace. The ALTREP methods below run
-// inside R's (un)serializer, so they use the C API only and an R error
-// longjmps straight through them.
+// Evaluates `fun(arg)` in pjrt's namespace.
+//
+// R's (un)serializer calls the ALTREP methods below from C, outside any Rcpp
+// entry point, so they must not throw C++ exceptions or hold objects with
+// destructors: an R error inside Rf_eval() jumps straight past these frames
+// without unwinding them. Hence plain R C API calls only; R resets the
+// PROTECT stack itself after an error.
 SEXP call_pjrt(const char* fun, SEXP arg) {
   SEXP ns = PROTECT(R_FindNamespace(PROTECT(Rf_mkString("pjrt"))));
   SEXP call = PROTECT(Rf_lang2(Rf_install(fun), arg));
