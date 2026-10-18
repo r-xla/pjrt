@@ -256,8 +256,9 @@ sits behind it:</p><ul><li><p><code>backend = "pjrt"</code> executes a compiled 
 inputs contribute their <code>$data</code> buffer, bare R literals and arrays are
 uploaded at the dtype the entry's <code>input_dtypes</code> declared for them, and
 the outputs are wrapped back into
-<code>"AnvlArray"</code>s – lists of <code>$data</code>, <code>$dtype</code>, <code>$shape</code>, <code>$device</code> and
-<code>$backend</code> – and re-nested via <code>out_tree</code>, all without
+<code>"AnvlArray"</code>s – lists of <code>$data</code>, <code>$dtype</code>, <code>$shape</code> and <code>$backend</code>
+(the device is the buffer's own; an external pointer field would not
+survive serialization) – and re-nested via <code>out_tree</code>, all without
 leaving C++.</p></li>
 <li><p>any other <code>backend</code> calls the compiled R closure <code>compile</code> returned, which
 returns the call's finished value. Execution, output wrapping and input

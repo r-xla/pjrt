@@ -54,10 +54,14 @@
 <div class="section level3">
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
 <ul><li>The boolean data type is now named <code>"bool"</code> everywhere, e.g. by <code><a href="../reference/elt_type.html">elt_type()</a></code> and in error messages; compare with <code>"bool"</code> instead of <code>"pred"</code>. <code>"pred"</code> and <code>"i1"</code> are still accepted as aliases.</li>
+<li>A <code>PJRTBuffer</code> is now a length-1 list (an ALTREP object) rather than an external pointer.</li>
+<li>The <code>"AnvlArray"</code>s the dispatcher wraps its outputs in no longer carry a <code>$device</code> field; read the device off <code>$data</code>.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
 <ul><li>
+<code>PJRTBuffer</code>s can now be serialized, e.g. with <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>; they load onto the default device.</li>
+<li>
 <code>PJRTBuffer</code> supports the <code>"bf16"</code> (bfloat16) element type.</li>
 <li>Bugfix: the <code>lu</code> custom call factorises a singular matrix instead of failing with <code>getrf failed with info = &lt;k&gt;</code>.</li>
 <li>New built-in <code>potrf</code> custom call: a batched Cholesky factorisation through LAPACK on the host and cuSOLVER on CUDA, reporting each matrix’s <code>info</code> instead of failing on one that is not positive definite.</li>

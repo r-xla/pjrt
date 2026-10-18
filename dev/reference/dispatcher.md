@@ -250,8 +250,9 @@ backend-specific sits behind it:
   inputs contribute their `$data` buffer, bare R literals and arrays are
   uploaded at the dtype the entry's `input_dtypes` declared for them,
   and the outputs are wrapped back into `"AnvlArray"`s – lists of
-  `$data`, `$dtype`, `$shape`, `$device` and `$backend` – and re-nested
-  via `out_tree`, all without leaving C++.
+  `$data`, `$dtype`, `$shape` and `$backend` (the device is the buffer's
+  own; an external pointer field would not survive serialization) – and
+  re-nested via `out_tree`, all without leaving C++.
 
 - any other `backend` calls the compiled R closure `compile` returned,
   which returns the call's finished value. Execution, output wrapping

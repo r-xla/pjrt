@@ -158,6 +158,16 @@ pjrt_empty(dtype, shape, device = NULL)
 - [`safetensors::safe_load_file`](https://mlverse.github.io/safetensors/reference/safe_load_file.html)
   for reading from a safetensors file.
 
+A buffer can also be serialized like any R object, e.g. with
+[`saveRDS()`](https://rdrr.io/r/base/readRDS.html): its data is copied
+to the host, and unserializing it uploads the data to the default device
+(the first device of the `PJRT_PLATFORM` platform, `"cpu"` unless set) –
+not to the device it was saved from. A buffer saved on a GPU therefore
+also loads on a machine without one; use
+[`copy_buffer()`](https://r-xla.github.io/pjrt/dev/reference/copy_buffer.md)
+to move it afterwards. This requires serialization format version 3 (R's
+default); under version 2, the buffer is written without its data.
+
 ## Scalars
 
 When calling this function on a vector of length 1, the resulting shape
@@ -199,7 +209,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  -1.0548e-30  3.0756e-41 -1.7143e-30
-#>   3.0756e-41 -2.4667e-30  3.0756e-41
+#>  7.7983e-01 3.0851e-41 1.2376e+02
+#>  3.0851e-41 7.8005e-01 3.0851e-41
 #> [ CPUf32{2x3} ] 
 ```

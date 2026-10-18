@@ -231,7 +231,15 @@ R uses column-major format.</p></li>
 
 <ul><li><p><code><a href="https://mlverse.github.io/safetensors/reference/safe_save_file.html" class="external-link">safetensors::safe_save_file</a></code> for writing to a safetensors file.</p></li>
 <li><p><code><a href="https://mlverse.github.io/safetensors/reference/safe_load_file.html" class="external-link">safetensors::safe_load_file</a></code> for reading from a safetensors file.</p></li>
-</ul></div>
+</ul><p>A buffer can also be serialized like any R object, e.g. with <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>:
+its data is copied to the host, and unserializing it uploads the data to the
+default device (the first device of the <code>PJRT_PLATFORM</code> platform, <code>"cpu"</code>
+unless set) – not to the device it was saved from. A buffer saved on a GPU
+therefore also loads on a machine without one; use <code><a href="copy_buffer.html">copy_buffer()</a></code> to move
+it afterwards.
+This requires serialization format version 3 (R's default); under version 2,
+the buffer is written without its data.</p>
+    </div>
     <div class="section level2">
     <h2 id="scalars">Scalars<a class="anchor" aria-label="anchor" href="#scalars"></a></h2>
 
@@ -274,8 +282,8 @@ To create a 0-dimensional buffer, use <code>pjrt_scalar</code> where the resulti
 <span class="r-in"><span><span class="va">empty</span> <span class="op">&lt;-</span> <span class="fu">pjrt_empty</span><span class="op">(</span>dtype <span class="op">=</span> <span class="st">"f32"</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">empty</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PJRTBuffer </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  -1.0548e-30  3.0756e-41 -1.7143e-30</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   3.0756e-41 -2.4667e-30  3.0756e-41</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  7.7983e-01 3.0851e-41 1.2376e+02</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  3.0851e-41 7.8005e-01 3.0851e-41</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{2x3} ] </span>
 </code></pre></div>
     </div>
