@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "buffer.h"
+#include "buffer_sexp.h"
 #include "client.h"
 #include "device.h"
 #include "pjrt_impl.h"
@@ -461,12 +462,12 @@ class PjrtEngine : public Engine {
     al.data = anvl_field(leaf, "data");
     al.backend = field_string(anvl_field(leaf, "backend"));
     if (al.backend == backend_) {
-      if (TYPEOF(al.data) != EXTPTRSXP || !Rf_inherits(al.data, "PJRTBuffer")) {
+      if (!is_buffer(al.data)) {
         Rcpp::stop(
             "invalid %s: an \"%s\" AnvlArray must hold a PJRTBuffer in $data",
             leaf_subject(in_tree, leaf_index), backend_.c_str());
       }
-      Rcpp::XPtr<PJRTBuffer> buf(al.data);
+      Rcpp::XPtr<PJRTBuffer> buf = as_buffer(al.data);
       al.aval.dtype = anvl_dtype_from_pjrt(buf->element_type());
       al.aval.shape = buf->dimensions();
       check_dtype_representable(al.aval, in_tree, leaf_index);
@@ -531,13 +532,13 @@ class PjrtEngine : public Engine {
     if (consts != R_NilValue && TYPEOF(consts) != VECSXP) {
       Rcpp::stop("`const_arrays` must be a list or NULL");
     }
-    // Each element is handed to execute as a PJRTBuffer; a wrong-typed
-    // external pointer there would be reinterpreted blindly and crash, so
-    // check now, like the other xptr fields.
+    // Each element is handed to execute as a PJRTBuffer; check now, like the
+    // other xptr fields, so a bad one is reported against `const_arrays`
+    // rather than on a later execute.
     if (consts != R_NilValue) {
       for (R_xlen_t i = 0; i < XLENGTH(consts); ++i) {
         SEXP c = VECTOR_ELT(consts, i);
-        if (TYPEOF(c) != EXTPTRSXP || !Rf_inherits(c, "PJRTBuffer")) {
+        if (!is_buffer(c)) {
           Rcpp::stop("`const_arrays[[%d]]` must be a PJRTBuffer",
                      static_cast<int>(i) + 1);
         }
@@ -563,7 +564,7 @@ class PjrtEngine : public Engine {
 
     // The wrap templates, built from the callback's declared output avals --
     // the last thing that can throw.
-    Rcpp::List templates = build_templates(out_avals, device);
+    Rcpp::List templates = build_templates(out_avals);
 
     auto data = std::make_unique<PjrtEntry>(exec, client, device, out_tree,
                                             std::move(templates));
@@ -597,14 +598,14 @@ class PjrtEngine : public Engine {
     for (const ExecInput& in : exec_inputs) {
       if (in.aval->kind != AvalKind::kRData) {
         if (move_inputs_) {
-          Rcpp::XPtr<PJRTBuffer> buf(in.value);
+          Rcpp::XPtr<PJRTBuffer> buf = as_buffer(in.value);
           if (buf->device_ptr() != pe->device->device) {
             // Same plugin <=> same client (clients are per-platform
             // singletons), so a differing API pointer means a cross-client
             // host-roundtrip copy -- mirrors pjrt::copy_buffer().
             const bool cross = buf->get_api().get() != pe->client->api.get();
-            inputs[pos++] =
-                impl_buffer_copy_to_device(buf, pe->device, pe->client, cross);
+            inputs[pos++] = impl_buffer_copy_to_device(in.value, pe->device,
+                                                       pe->client, cross);
             continue;
           }
         }
@@ -669,14 +670,14 @@ class PjrtEngine : public Engine {
  private:
   // One template AnvlArray per output, built on the compile (cold) path from
   // the avals the callback declared: a named list (data = NULL, dtype, shape,
-  // device, backend) of class "AnvlArray" -- the wrapper layout an pjrt leaf
+  // backend) of class "AnvlArray" -- the wrapper layout an pjrt leaf
   // carries, which PjrtEngine::read_array reads back as an input. The hot path
   // only shallow-copies a template and drops the output buffer into its
   // `$data` slot.
   //
   // `out_avals[[i]]` is list(dtype = <string>, shape = <integer>). See
   // ?dispatcher.
-  Rcpp::List build_templates(SEXP out_avals, SEXP device) const {
+  Rcpp::List build_templates(SEXP out_avals) const {
     const R_xlen_t n_out = XLENGTH(out_avals);
     Rcpp::Environment xlamisc = Rcpp::Environment::namespace_env("xlamisc");
     Rcpp::Function as_dtype = xlamisc["as_dtype"];
@@ -702,8 +703,7 @@ class PjrtEngine : public Engine {
       Rcpp::List tmpl = Rcpp::List::create(
           Rcpp::Named("data") = R_NilValue,
           Rcpp::Named("dtype") = as_dtype(Rcpp::CharacterVector::create(dt)),
-          Rcpp::Named("shape") = shape, Rcpp::Named("device") = device,
-          Rcpp::Named("backend") = backend);
+          Rcpp::Named("shape") = shape, Rcpp::Named("backend") = backend);
       tmpl.attr("class") = cls;
       templates[i] = tmpl;
     }

@@ -5,9 +5,15 @@
 * The boolean data type is now named `"bool"` everywhere, e.g. by
   `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
   `"pred"` and `"i1"` are still accepted as aliases.
+* A `PJRTBuffer` is now a length-1 list (an ALTREP object) rather than an
+  external pointer.
+* The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry a
+  `$device` field; read the device off `$data`.
 
 ## New features
 
+* `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
+  the default device.
 * `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.
 * Bugfix: the `lu` custom call factorises a singular matrix instead of
   failing with `getrf failed with info = <k>`.

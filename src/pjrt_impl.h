@@ -25,23 +25,28 @@ Rcpp::List impl_loaded_executable_execute(
     Rcpp::XPtr<rpjrt::PJRTExecuteOptions> execution_options);
 Rcpp::XPtr<rpjrt::PJRTExecuteOptions> impl_execution_options_create(
     std::vector<int64_t> non_donatable_input_indices, int launch_id);
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    std::vector<int64_t> dims, std::string dtype);
+SEXP impl_client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                              Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                              std::vector<int64_t> dims, std::string dtype);
 // As impl_client_buffer_empty(), but taking the dtype already parsed. Callers
 // that hold a PJRT_Buffer_Type skip the per-call string round-trip.
-Rcpp::XPtr<rpjrt::PJRTBuffer> client_buffer_empty(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    std::vector<int64_t> dims, PJRT_Buffer_Type pjrt_dtype);
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype);
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype);
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype);
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    Rcpp::XPtr<rpjrt::PJRTClient> dst_client, bool cross_client);
+SEXP client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                         Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                         std::vector<int64_t> dims,
+                         PJRT_Buffer_Type pjrt_dtype);
+SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                    Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                    SEXP data, std::vector<int64_t> dims,
+                                    std::string dtype);
+SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype);
+SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype);
+SEXP impl_buffer_copy_to_device(SEXP buffer,
+                                Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                Rcpp::XPtr<rpjrt::PJRTClient> dst_client,
+                                bool cross_client);

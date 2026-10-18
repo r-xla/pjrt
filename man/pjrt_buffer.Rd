@@ -127,6 +127,15 @@ are supported as a degenerate case (the buffer holds zero elements).
 \item \code{\link[safetensors:safe_save_file]{safetensors::safe_save_file}} for writing to a safetensors file.
 \item \code{\link[safetensors:safe_load_file]{safetensors::safe_load_file}} for reading from a safetensors file.
 }
+
+A buffer can also be serialized like any R object, e.g. with \code{\link[=saveRDS]{saveRDS()}}:
+its data is copied to the host, and unserializing it uploads the data to the
+default device (the first device of the \code{PJRT_PLATFORM} platform, \code{"cpu"}
+unless set) -- not to the device it was saved from. A buffer saved on a GPU
+therefore also loads on a machine without one; use \code{\link[=copy_buffer]{copy_buffer()}} to move
+it afterwards.
+This requires serialization format version 3 (R's default); under version 2,
+the buffer is written without its data.
 }
 
 \section{Scalars}{
