@@ -152,7 +152,8 @@ XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
 // The ordered print takes a token and returns one, so that a print that takes
 // the token another one returned runs after it.
 xla::ffi::Error do_print_ordered_call(Dictionary attrs, AnyBuffer buffer,
-                                      xla::ffi::Token, Result<xla::ffi::Token>) {
+                                      xla::ffi::Token,
+                                      Result<xla::ffi::Token>) {
   return print_host_buffer(buffer.untyped_data(), attrs, buffer);
 }
 

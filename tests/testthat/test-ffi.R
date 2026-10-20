@@ -100,7 +100,7 @@ func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
 )"
   )
   program <- pjrt_compile(program)
-  out <- capture.output(res <- pjrt_execute(program, pjrt_buffer(c(1, 2), dtype = "f32")))
+  out <- capture.output(invisible(pjrt_execute(program, pjrt_buffer(c(1, 2), dtype = "f32"))))
   expect_identical(grep("^[123]$", out, value = TRUE), c("1", "2", "3"))
 })
 
