@@ -1,13 +1,25 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* The boolean data type is now named `"bool"` everywhere, e.g. by
+  `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
+  `"pred"` and `"i1"` are still accepted as aliases.
+* A `PJRTBuffer` is now a length-1 list (an ALTREP object) rather than an
+  external pointer.
+* The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry a
+  `$device` field; read the device off `$data`.
+
+## New features
+
 * A `dispatcher()` compile callback can declare `implicit_inputs` and
   `implicit_outputs`, values the program takes and returns beyond the call's
   arguments and result, and an `on_success` function that receives the implicit
   outputs after every successful run. An implicit input's `get()` returns an R
   vector to upload or a buffer to pass on.
-* Breaking: the boolean data type is now named `"bool"` everywhere, e.g. by
-  `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
-  `"pred"` and `"i1"` are still accepted as aliases.
+* `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
+  the default device.
+* `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.
 * Bugfix: the `lu` custom call factorises a singular matrix instead of
   failing with `getrf failed with info = <k>`.
 * New built-in `potrf` custom call: a batched Cholesky factorisation through

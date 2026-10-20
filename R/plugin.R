@@ -13,6 +13,9 @@ the[["platforms"]] <- new.env(parent = emptyenv())
 # every lookup.
 the[["canonical_devices"]] <- new.env(parent = emptyenv())
 the[["custom_calls"]] <- list()
+# The device a buffer is uploaded to when it is unserialized (see
+# buffer_unserialize()): NULL for the default device. anvl overwrites it.
+the[["unserialize_device"]] <- NULL
 the[["config"]] <- list(
   cpu_device_count = 1L,
   cuda_r_package = "pjrt.cuda",

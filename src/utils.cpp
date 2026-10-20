@@ -1,7 +1,7 @@
 #include "utils.h"
 
 #include <R_ext/Print.h>  // REprintf
-#include <Rinternals.h>   // SEXP, R_ExternalPtrProtected
+#include <Rinternals.h>   // SEXP
 #include <unistd.h>
 
 // R's headers #define `error` (-> Rf_error), which collides with the `.error`
@@ -190,6 +190,7 @@ PJRT_Error_Code get_error_code(const PJRT_Api *api, PJRT_Error *err) {
 }
 
 PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
+  if (dtype == "bf16") return PJRT_Buffer_Type_BF16;
   if (dtype == "f32") return PJRT_Buffer_Type_F32;
   if (dtype == "f64") return PJRT_Buffer_Type_F64;
   if (dtype == "i8") return PJRT_Buffer_Type_S8;
@@ -208,6 +209,8 @@ PJRT_Buffer_Type string_to_pjrt_buffer_type(const std::string &dtype) {
 
 size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {
   switch (type) {
+    case PJRT_Buffer_Type_BF16:
+      return 2;
     case PJRT_Buffer_Type_F32:
       return 4;
     case PJRT_Buffer_Type_F64:
@@ -292,8 +295,3 @@ std::vector<int64_t> id2indices(int lid, const std::vector<int64_t> strides) {
   }
   return idx;
 }
-
-// Test-only: read the SEXP stored in an external pointer's protected slot. Used
-// to assert the keepalive invariant — which RAWSXP a CPU buffer's XPtr pins.
-// [[Rcpp::export()]]
-SEXP impl_test_xptr_prot(SEXP x) { return R_ExternalPtrProtected(x); }

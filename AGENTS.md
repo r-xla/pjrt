@@ -8,7 +8,7 @@ Beyond the runtime, pjrt also owns the **Rtree module** (`build_tree()`/`flatten
 
 It also owns the **Dispatcher** (`dispatcher()`/`dispatch()`), the native eager-dispatch engine behind anvl's `jit()`: an executable cache keyed on the inputs' structure and abstract values, which calls back into R to compile only on a miss.
 
-The dispatcher's C++ names anvl's data model -- the `"AnvlArray"` class, its `$data`/`$backend`/`$device` fields, the `"plain"` backend tag, and the `AnvlDtype` vocabulary. That is a contract pjrt defines and anvl produces; it is deliberately *not* a package dependency. **pjrt must not depend on anvl, in `Suggests` or anywhere else.** `tests/testthat/test-dispatch.R` therefore drives the engine with its own fixtures (`parr()`, `qarr()`, `pjrt_entry()`), and the integration test that anvl's real callback matches this engine lives in anvl's `test-jit-dispatch.R`, which is the side of the dependency that can hold it.
+The dispatcher's C++ names anvl's data model -- the `"AnvlArray"` class, its `$data`/`$backend` fields, the `"plain"` backend tag, and the `AnvlDtype` vocabulary. That is a contract pjrt defines and anvl produces; it is deliberately *not* a package dependency. **pjrt must not depend on anvl, in `Suggests` or anywhere else.** `tests/testthat/test-dispatch.R` therefore drives the engine with its own fixtures (`parr()`, `qarr()`, `pjrt_entry()`), and the integration test that anvl's real callback matches this engine lives in anvl's `test-jit-dispatch.R`, which is the side of the dependency that can hold it.
 
 ## Core Design
 
@@ -32,6 +32,8 @@ PJRTBuffer         – device-resident tensor (the main data object)
 PJRTArrayPromise   – async device-to-host transfer result (environment-based)
 PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)
 ```
+
+A `PJRTBuffer` is not a bare external pointer: it is a length-1 ALTLIST whose only element is the external pointer that owns the buffer (`src/buffer_sexp.{h,cpp}`). The ALTREP class gives buffers a custom serialization (host bytes plus dtype and shape, re-uploaded on load to `the[["unserialize_device"]]`, else the default device -- the device is deliberately not saved; anvl writes that entry from its `.onLoad()` so that buffers load onto its own default device; see `buffer_serialized_state()`/`buffer_unserialize()` in `buffer.R`). C++ creates buffer objects with `rpjrt::wrap_buffer()` and unwraps them with `rpjrt::as_buffer()`/`rpjrt::buffer_xptr()`; never treat a buffer SEXP as an `EXTPTRSXP`. In R, test for a buffer with `is_buffer()`, not `is.list()`.
 
 ### Plugin and Client Lifecycle
 

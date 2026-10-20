@@ -193,6 +193,113 @@ test_that("pjrt_buffer roundtrip works for double data with different types", {
   test_pjrt_buffer(data_matrix, "f32", tolerance = 1e-6)
 })
 
+test_that("pjrt_buffer roundtrip works for bf16 data", {
+  # exactly representable in bfloat16, so no tolerance is needed
+  test_pjrt_buffer(c(1.0, -1.0, 0.0, 0.5, 0.25), "bf16")
+  test_pjrt_buffer(matrix(c(1.5, 2.25, -3.5, 4.75), nrow = 2), "bf16")
+  test_pjrt_scalar(0.5, "bf16")
+})
+
+test_that("bf16 buffers materialize the exactly representable doubles", {
+  # bfloat16 targets computed independently: 1/3 -> 0x3EAB = 0.333984375,
+  # 0.1 -> 0x3DCD = 0.10009765625, 2^128 * (1 - 2^-8) = 0x7F7F is the largest
+  # finite value, 2^128 * (1 - 2^-9) is the overflow midpoint and rounds (ties
+  # to even, since 0x7F7F has an odd mantissa) to Inf, 2^-133 = smallest
+  # subnormal.
+  bf16_max <- 2^128 * (1 - 2^-8)
+  input <- c(1, 0.5, 1 / 3, 0.1, bf16_max, 2^128 * (1 - 2^-9), 2^-133, -2.5, 0)
+  expected <- c(
+    1,
+    0.5,
+    0.333984375,
+    0.10009765625,
+    bf16_max,
+    Inf,
+    2^-133,
+    -2.5,
+    0
+  )
+  buf <- pjrt_buffer(input, dtype = "bf16")
+  expect_equal(as.character(elt_type(buf)), "bf16")
+  expect_identical(as_array(buf), array(expected))
+
+  # integer data is accepted like for the other float dtypes
+  buf_int <- pjrt_buffer(matrix(1:6, nrow = 2), dtype = "bf16")
+  expect_equal(as.character(elt_type(buf_int)), "bf16")
+  expect_identical(as_array(buf_int), matrix(as.double(1:6), nrow = 2))
+
+  s <- pjrt_scalar(3.14159, dtype = "bf16")
+  expect_identical(shape(s), integer())
+  expect_identical(as_array(s), 3.140625)
+})
+
+test_that("doubles round to bf16 to nearest, ties to even, not via float", {
+  # The double just below 1.01171875 must give 1.0078125. Rounding it through
+  # float first lands exactly on 1.01171875, which is a bf16 midpoint and then
+  # ties up to 1.015625 -- the double-rounding failure this test pins.
+  expect_identical(
+    as_array(pjrt_buffer(1.01171875 - 2^-52, dtype = "bf16")),
+    array(1.0078125)
+  )
+  # The midpoint itself ties to even, which here means rounding up: 1.0078125
+  # has an odd mantissa (0x3F81) and 1.015625 an even one (0x3F82).
+  expect_identical(
+    as_array(pjrt_buffer(1.01171875, dtype = "bf16")),
+    array(1.015625)
+  )
+
+  # Ties to even at the subnormal boundary: 2^-134 is midway between 0 and the
+  # smallest subnormal 2^-133 and rounds to the even neighbour 0; 1.5 * 2^-133
+  # is midway between 2^-133 and 2^-132 and rounds to 2^-132.
+  buf <- pjrt_buffer(c(2^-134, 1.5 * 2^-133), dtype = "bf16")
+  expect_identical(as_array(buf), array(c(0, 2^-132)))
+})
+
+test_that("bf16 raw and empty buffers work", {
+  empty <- pjrt_empty(dtype = "bf16", shape = c(0, 2))
+  expect_identical(shape(empty), c(0L, 2L))
+  expect_equal(as.character(elt_type(empty)), "bf16")
+
+  # 0x3F80 = 1.0 and 0xBF00 = -0.5, as little-endian byte pairs
+  raw_bytes <- as.raw(c(0x80, 0x3f, 0x00, 0xbf))
+  buf <- pjrt_buffer(raw_bytes, dtype = "bf16", shape = 2L, row_major = TRUE)
+  expect_identical(as_array(buf), array(c(1, -0.5)))
+  expect_identical(as_raw(buf, row_major = TRUE), raw_bytes)
+
+  expect_error(
+    pjrt_buffer(
+      as.raw(c(0, 0, 0)),
+      dtype = "bf16",
+      shape = 2L,
+      row_major = TRUE
+    ),
+    "requires 4 bytes"
+  )
+})
+
+test_that("a logical uploads at bf16 like the other float dtypes", {
+  # A logical travels as.integer(), so TRUE/FALSE become 1/0 and NA becomes
+  # NA_integer_, which widens to NaN as it does for f32.
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "bf16")),
+    array(c(1, 0), 2L)
+  )
+  expect_identical(as_array(pjrt_buffer(NA, dtype = "bf16")), array(NaN, 1L))
+  expect_identical(
+    as_array(pjrt_buffer(NA_integer_, dtype = "bf16")),
+    array(NaN, 1L)
+  )
+})
+
+test_that("dtype() on a bf16 buffer round-trips through xlamisc", {
+  # xlamisc's dtype enum already names bf16, so the buffer-level dtype and the
+  # xlamisc DataType agree.
+  buf <- pjrt_buffer(1.5, dtype = "bf16")
+  expect_equal(as.character(elt_type(buf)), "bf16")
+  expect_identical(dtype(buf), xlamisc::as_dtype("bf16"))
+  expect_identical(as_array(pjrt_buffer(1.5, dtype = xlamisc::as_dtype("bf16"))), array(1.5))
+})
+
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
   expect_error(pjrt_buffer(logical(0), shape = c(1, 4)), "but specified shape is")
@@ -1331,7 +1438,7 @@ describe("CPU buffer memory management", {
   # buffer's device memory genuinely lives inside the RAWSXP -- i.e. the
   # zero-copy path was actually taken, not a silent copy into pool memory.
   expect_raw_backing <- function(buf, bytes) {
-    p <- impl_test_xptr_prot(buf)
+    p <- impl_test_buffer_prot(buf)
     expect_true(is.raw(p))
     expect_gte(length(p), bytes)
     expect_lt(length(p), bytes + 64L)
@@ -1426,5 +1533,88 @@ describe("CPU buffer memory management", {
     gc(full = TRUE)
     after <- vcells_mb()
     expect_lt(abs(after - before), 5)
+  })
+})
+
+describe("PJRTBuffer serialization", {
+  roundtrip <- function(x) unserialize(serialize(x, NULL))
+
+  it("round-trips the data, dtype and shape", {
+    bufs <- list(
+      pjrt_buffer(matrix(c(1.5, 2.5, 3.5, 4.5, 5.5, 6.5), 2L), dtype = "f32"),
+      pjrt_buffer(array(1:24, 2:4), dtype = "i64"),
+      pjrt_buffer(c(TRUE, FALSE, TRUE)),
+      pjrt_buffer(matrix(c(1.5, -2, 3, 0.25), 2L), dtype = "bf16"),
+      pjrt_scalar(3L, dtype = "ui8"),
+      pjrt_empty(dtype = "f64", shape = c(0L, 3L))
+    )
+    for (buf in bufs) {
+      buf2 <- roundtrip(buf)
+      expect_class(buf2, "PJRTBuffer")
+      expect_identical(dtype(buf2), dtype(buf))
+      expect_identical(shape(buf2), shape(buf))
+      expect_identical(as_array(buf2), as_array(buf))
+    }
+  })
+
+  it("restores the buffer on the default device", {
+    skip_if(!is_cpu())
+    buf <- pjrt_buffer(c(1, 2, 3), device = "cpu:1")
+    buf2 <- roundtrip(buf)
+    expect_identical(device(buf2), as_pjrt_device(NULL))
+    expect_identical(as_array(buf2), as_array(buf))
+  })
+
+  it("restores the buffer on the device the unserialize hook names", {
+    skip_if(!is_cpu())
+    buf <- pjrt_buffer(c(1, 2, 3))
+    old <- the[["unserialize_device"]]
+    withr::defer(assign("unserialize_device", old, envir = the))
+    the[["unserialize_device"]] <- "cpu:1"
+    expect_identical(device(roundtrip(buf)), pjrt_device("cpu:1"))
+    the[["unserialize_device"]] <- function() pjrt_device("cpu:1")
+    expect_identical(device(roundtrip(buf)), pjrt_device("cpu:1"))
+  })
+
+  it("round-trips buffers nested in other objects through saveRDS()", {
+    path <- withr::local_tempfile(fileext = ".rds")
+    x <- list(a = pjrt_buffer(1:3), b = list(pjrt_buffer(c(1, 2))))
+    saveRDS(x, path)
+    y <- readRDS(path)
+    expect_identical(as_array(y$a), as_array(x$a))
+    expect_identical(as_array(y$b[[1L]]), as_array(x$b[[1L]]))
+  })
+
+  it("loads pjrt when read in a fresh session", {
+    skip_on_cran()
+    skip_if_not_installed("callr")
+    path <- withr::local_tempfile(fileext = ".rds")
+    saveRDS(pjrt_buffer(c(1, 2, 3)), path)
+    res <- callr::r(function(path) pjrt::as_array(readRDS(path)), list(path = path))
+    expect_identical(res, array(c(1, 2, 3)))
+  })
+
+  it("keeps working after a copy that modifies attributes", {
+    buf <- pjrt_buffer(c(1, 2, 3))
+    buf2 <- buf
+    attr(buf2, "foo") <- "bar"
+    class(buf2) <- c("Foo", class(buf2))
+    expect_identical(attr(buf, "foo"), NULL)
+    expect_identical(as_array(buf2), as_array(buf))
+    expect_identical(as_array(roundtrip(buf2)), as_array(buf))
+    expect_identical(attr(roundtrip(buf2), "foo"), "bar")
+  })
+})
+
+describe("PJRTBuffer", {
+  it("is identical only to itself", {
+    buf <- pjrt_buffer(c(1, 2, 3))
+    expect_true(identical(buf, buf))
+    expect_false(identical(buf, pjrt_buffer(c(1, 2, 3))))
+  })
+
+  it("can't be modified as a list", {
+    buf <- pjrt_buffer(c(1, 2, 3))
+    expect_error(buf[[1L]] <- 1, "can't be modified")
   })
 })
