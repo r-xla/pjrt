@@ -2,9 +2,7 @@
 
 ## Breaking changes
 
-* The boolean data type is now named `"bool"` everywhere, e.g. by
-  `elt_type()` and in error messages; compare with `"bool"` instead of `"pred"`.
-  `"pred"` and `"i1"` are still accepted as aliases.
+* The boolean data type is now named `"bool"` everywhere.
 * A `PJRTBuffer` is now a length-1 list (an ALTREP object) rather than an
   external pointer.
 * The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry a
@@ -20,6 +18,9 @@
 * New built-in `potrf` custom call: a batched Cholesky factorisation through
   LAPACK on the host and cuSOLVER on CUDA, reporting each matrix's `info`
   instead of failing on one that is not positive definite.
+* New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
+  a `!stablehlo.token`, so that a chain of prints runs in order.
+
 
 # pjrt 0.6.0
 
