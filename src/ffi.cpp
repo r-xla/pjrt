@@ -149,6 +149,21 @@ xla::ffi::Error do_print_call(Dictionary attrs, AnyBuffer buffer) {
 
 XLA_FFI_DEFINE_HANDLER_AUTO(print_handler, do_print_call);
 
+// The ordered print takes a token and returns one, so that a print that takes
+// the token another one returned runs after it.
+xla::ffi::Error do_print_ordered_call(Dictionary attrs, AnyBuffer buffer,
+                                      xla::ffi::Token,
+                                      Result<xla::ffi::Token>) {
+  return print_host_buffer(buffer.untyped_data(), attrs, buffer);
+}
+
+XLA_FFI_DEFINE_HANDLER(print_ordered_handler, do_print_ordered_call,
+                       xla::ffi::Ffi::Bind()
+                           .Attrs<Dictionary>()
+                           .Arg<AnyBuffer>()
+                           .Arg<xla::ffi::Token>()
+                           .Ret<xla::ffi::Token>());
+
 xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
                                    AnyBuffer buffer) {
 #ifdef _WIN32
@@ -179,6 +194,20 @@ XLA_FFI_DEFINE_HANDLER(print_handler_cuda, do_print_call_cuda,
                            .Ctx<PlatformStream<void *>>()
                            .Attrs<Dictionary>()
                            .Arg<AnyBuffer>());
+
+xla::ffi::Error do_print_ordered_call_cuda(void *stream, Dictionary attrs,
+                                           AnyBuffer buffer, xla::ffi::Token,
+                                           Result<xla::ffi::Token>) {
+  return do_print_call_cuda(stream, attrs, buffer);
+}
+
+XLA_FFI_DEFINE_HANDLER(print_ordered_handler_cuda, do_print_ordered_call_cuda,
+                       xla::ffi::Ffi::Bind()
+                           .Ctx<PlatformStream<void *>>()
+                           .Attrs<Dictionary>()
+                           .Arg<AnyBuffer>()
+                           .Arg<xla::ffi::Token>()
+                           .Ret<xla::ffi::Token>());
 
 void register_ffi_handlers(PJRTPlugin *plugin,
                            const std::string &platform_name) {
@@ -226,6 +255,18 @@ void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin,
 SEXP get_print_handler() {
   return R_MakeExternalPtr((void *)rpjrt::print_handler, R_NilValue,
                            R_NilValue);
+}
+
+// [[Rcpp::export]]
+SEXP get_print_ordered_handler() {
+  return R_MakeExternalPtr((void *)rpjrt::print_ordered_handler, R_NilValue,
+                           R_NilValue);
+}
+
+// [[Rcpp::export]]
+SEXP get_print_ordered_handler_cuda() {
+  return R_MakeExternalPtr((void *)rpjrt::print_ordered_handler_cuda,
+                           R_NilValue, R_NilValue);
 }
 
 // [[Rcpp::export]]
