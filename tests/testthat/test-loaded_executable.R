@@ -88,6 +88,26 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
   expect_equal(as.vector(arr), as.vector(matrix(1:4, 2, 2) + matrix(5:8, 2, 2)), tolerance = 1e-6)
 })
 
+test_that("bf16 programs compile and execute", {
+  src <- r"(
+func.func @main(%x: tensor<4xbf16>, %y: tensor<4xbf16>) -> tensor<4xbf16> {
+  %0 = "stablehlo.add"(%x, %y) : (tensor<4xbf16>, tensor<4xbf16>) -> tensor<4xbf16>
+  "func.return"(%0): (tensor<4xbf16>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src))
+
+  x <- pjrt_buffer(c(1, 2.5, 0.333984375, 2^128 * (1 - 2^-8)), dtype = "bf16")
+  y <- pjrt_buffer(c(1, 0.5, 0.333984375, 2^128 * (1 - 2^-8)), dtype = "bf16")
+
+  result <- pjrt_execute(executable, x, y)
+
+  expect_equal(as.character(elt_type(result)), "bf16")
+  # 0.333984375 doubles exactly (an exponent shift), and the largest finite
+  # value overflows to Inf
+  expect_identical(as_array(result), array(c(2, 3, 0.66796875, Inf)))
+})
+
 test_that("wrong shape input raises error", {
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
@@ -419,14 +439,14 @@ module @double_inplace {
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
     x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
-    x_prot <- impl_test_xptr_prot(x)
+    x_prot <- impl_test_buffer_prot(x)
     expect_true(is.raw(x_prot))
 
     out <- pjrt_execute(exec, x)
 
     # Output's prot slot now holds the input's RAWSXP; input's is cleared.
-    expect_identical(impl_test_xptr_prot(out), x_prot)
-    expect_null(impl_test_xptr_prot(x))
+    expect_identical(impl_test_buffer_prot(out), x_prot)
+    expect_null(impl_test_buffer_prot(x))
 
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
   })
@@ -483,13 +503,13 @@ module @double_inplace {
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
     x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
-    x_prot <- impl_test_xptr_prot(x)
+    x_prot <- impl_test_buffer_prot(x)
 
     opts <- pjrt_execution_options(non_donatable_input_indices = 0L)
     out <- pjrt_execute(exec, x, execution_options = opts)
 
     # Input was copied, not donated: its keepalive stays put and input remains readable.
-    expect_identical(impl_test_xptr_prot(x), x_prot)
+    expect_identical(impl_test_buffer_prot(x), x_prot)
     expect_equal(as.numeric(as_array(x)), c(10, 20, 30, 40), tolerance = 1e-6)
 
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
@@ -534,15 +554,15 @@ module @two_donations {
     exec <- pjrt_compile(prog, device = "cpu")
     a <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
     b <- pjrt_buffer(c(4, 5, 6), dtype = "f32")
-    a_prot <- impl_test_xptr_prot(a)
-    b_prot <- impl_test_xptr_prot(b)
+    a_prot <- impl_test_buffer_prot(a)
+    b_prot <- impl_test_buffer_prot(b)
 
     outs <- pjrt_execute(exec, a, b, simplify = FALSE)
 
-    expect_identical(impl_test_xptr_prot(outs[[1]]), a_prot)
-    expect_identical(impl_test_xptr_prot(outs[[2]]), b_prot)
-    expect_null(impl_test_xptr_prot(a))
-    expect_null(impl_test_xptr_prot(b))
+    expect_identical(impl_test_buffer_prot(outs[[1]]), a_prot)
+    expect_identical(impl_test_buffer_prot(outs[[2]]), b_prot)
+    expect_null(impl_test_buffer_prot(a))
+    expect_null(impl_test_buffer_prot(b))
 
     expect_equal(as.numeric(as_array(outs[[1]])), c(2, 4, 6), tolerance = 1e-6)
     expect_equal(as.numeric(as_array(outs[[2]])), c(16, 25, 36), tolerance = 1e-6)

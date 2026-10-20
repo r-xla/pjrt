@@ -61,6 +61,16 @@ test_that("integer-valued floats beyond the int64 range", {
   expect_snapshot(pjrt_buffer(1e38, "f32"))
 })
 
+test_that("printer for bf16", {
+  skip_if(is_cuda())
+  # integer-valued bfloat16s print without decimals, like the other floats
+  expect_snapshot(pjrt_buffer(1:10, "bf16"))
+  expect_snapshot(pjrt_buffer(c(1.5, -0.25, 3.140625), dtype = "bf16"))
+  expect_snapshot(
+    pjrt_buffer(c(2^128 * (1 - 2^-8), Inf, NaN, 2^-133), dtype = "bf16")
+  )
+})
+
 test_that("integer-valued floats with truncation", {
   skip_if(is_cuda())
   # > 30 rows triggers row truncation

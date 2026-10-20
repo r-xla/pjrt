@@ -197,8 +197,9 @@ sits behind it:
 inputs contribute their \verb{$data} buffer, bare R literals and arrays are
 uploaded at the dtype the entry's \code{input_dtypes} declared for them, and
 the outputs are wrapped back into
-\code{"AnvlArray"}s -- lists of \verb{$data}, \verb{$dtype}, \verb{$shape}, \verb{$device} and
-\verb{$backend} -- and re-nested via \code{out_tree}, all without
+\code{"AnvlArray"}s -- lists of \verb{$data}, \verb{$dtype}, \verb{$shape} and \verb{$backend}
+(the device is the buffer's own; an external pointer field would not
+survive serialization) -- and re-nested via \code{out_tree}, all without
 leaving C++.
 \item any other \code{backend} calls the compiled R closure \code{compile} returned, which
 returns the call's finished value. Execution, output wrapping and input

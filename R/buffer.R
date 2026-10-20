@@ -54,6 +54,15 @@ is_buffer <- function(x) {
 #' * [`safetensors::safe_save_file`] for writing to a safetensors file.
 #' * [`safetensors::safe_load_file`] for reading from a safetensors file.
 #'
+#' A buffer can also be serialized like any R object, e.g. with [`saveRDS()`]:
+#' its data is copied to the host, and unserializing it uploads the data to the
+#' default device (the first device of the `PJRT_PLATFORM` platform, `"cpu"`
+#' unless set) -- not to the device it was saved from. A buffer saved on a GPU
+#' therefore also loads on a machine without one; use [`copy_buffer()`] to move
+#' it afterwards.
+#' This requires serialization format version 3 (R's default); under version 2,
+#' the buffer is written without its data.
+#'
 #' @section Scalars:
 #' When calling this function on a vector of length 1, the resulting shape is `1L`.
 #' To create a 0-dimensional buffer, use `pjrt_scalar` where the resulting shape is `integer()`.
@@ -67,6 +76,10 @@ is_buffer <- function(x) {
 #'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
 #'     `double` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
+#'   - `"bf16"`: bfloat16 (for `double` or `integer` data). Values are rounded
+#'     to the nearest bfloat16 value, ties to even; the largest finite value is
+#'     about 3.3895e38, and larger magnitudes round to `Inf`.
+#'     [`as_array()`] returns the exactly representable values as `double`.
 #'   The default (`NULL`) depends on the method:
 #'   - `logical` -> `"bool"`
 #'   - `integer` -> `"i32"`
@@ -609,6 +622,37 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
   assert_flag(row_major)
   client <- client_from_device(device(x))
   impl_buffer_to_raw(client, x, row_major = row_major)
+}
+
+# Called by the PJRTBuffer ALTREP class (src/buffer_sexp.cpp) to serialize a
+# buffer: its host bytes, plus what is needed to upload them again. The device
+# is left out, so a buffer loads on any machine. The bytes are row-major, the
+# device's own layout, so neither direction transposes them.
+buffer_serialized_state <- function(x) {
+  list(
+    data = as_raw(x, row_major = TRUE),
+    dtype = as.character(elt_type(x)),
+    shape = shape(x)
+  )
+}
+
+# Called by the PJRTBuffer ALTREP class to unserialize a buffer from the state
+# buffer_serialized_state() produced. It is uploaded to
+# `the[["unserialize_device"]]` -- a device, a device specification, or a
+# function returning one -- else to the default device. anvl sets that entry so
+# that buffers load onto its own default device.
+buffer_unserialize <- function(state) {
+  device <- the[["unserialize_device"]]
+  if (is.function(device)) {
+    device <- device()
+  }
+  pjrt_buffer(
+    state$data,
+    dtype = state$dtype,
+    shape = state$shape,
+    device = device,
+    row_major = TRUE
+  )
 }
 
 #' @title Copy Buffer to Device
