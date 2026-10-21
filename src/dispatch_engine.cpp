@@ -378,6 +378,14 @@ class ClosureEngine : public Engine {
           "compile callback must return a function `r_fun` "
           "(engine = \"closure\")");
     }
+    if (res.containsElementNamed("implicit_inputs") ||
+        res.containsElementNamed("implicit_outputs") ||
+        res.containsElementNamed("on_success")) {
+      Rcpp::stop(
+          "`implicit_inputs`, `implicit_outputs` and `on_success` are only "
+          "supported by the pjrt engine: `r_fun` reads its own inputs and runs "
+          "its own code");
+    }
     e.data = std::make_unique<ClosureEntry>(r_fun);
   }
 
@@ -385,9 +393,10 @@ class ClosureEngine : public Engine {
   // `r_fun` for, and `r_fun` is what places the inputs on it -- pjrt cannot,
   // since `$data` is the backend's own array type. So there is nothing to do
   // here either way: the inputs go to the closure exactly as they arrived.
-  SEXP run(const CacheEntry& e,
-           const std::vector<ExecInput>& exec_inputs) const override {
-    const auto* ce = static_cast<const ClosureEntry*>(e.data.get());
+  SEXP run(const CacheEntry& e, const std::vector<ExecInput>& exec_inputs,
+           SEXP /* args */) const override {
+    const auto hold = std::static_pointer_cast<const ClosureEntry>(e.data);
+    const ClosureEntry* ce = hold.get();
     Rcpp::List flat(exec_inputs.size());
     for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
       flat[k] = exec_inputs[k].value;
@@ -406,6 +415,15 @@ class ClosureEngine : public Engine {
 // One output-donation phantom buffer to allocate per call (CPU memory mgmt).
 struct PhantomSpec {
   PJRT_Buffer_Type dtype = PJRT_Buffer_Type_INVALID;
+  std::vector<int64_t> shape;
+};
+
+// One implicit input (?dispatcher's `implicit_inputs`): a value the program
+// takes after the call's own inputs that no argument supplies, read with
+// `get()` before every run.
+struct ImplicitInput {
+  Rcpp::RObject get;  // function(): the current value, a PJRTBuffer
+  PJRT_Buffer_Type buffer_type = PJRT_Buffer_Type_INVALID;
   std::vector<int64_t> shape;
 };
 
@@ -432,6 +450,10 @@ struct PjrtEntry : EntryData {
   Rcpp::List templates;                     // one template AnvlArray per output
   std::vector<Rcpp::RObject> const_arrays;  // buffers prepended to the inputs
   std::vector<PhantomSpec> phantom_specs;
+  std::vector<ImplicitInput> implicit_inputs;  // read before every run
+  Rcpp::List implicit_templates;  // one template AnvlArray per implicit output
+  // function(outputs, args) called after every run, or NULL
+  Rcpp::RObject on_success;
 };
 
 // The `$data` field's position in a wrap template (see PjrtEntry::templates).
@@ -562,13 +584,74 @@ class PjrtEngine : public Engine {
       }
     }
 
+    std::vector<ImplicitInput> implicit_inputs;
+    SEXP list = named("implicit_inputs");
+    if (list != R_NilValue) {
+      if (TYPEOF(list) != VECSXP) {
+        Rcpp::stop("`implicit_inputs` must be a list or NULL");
+      }
+      implicit_inputs.reserve(XLENGTH(list));
+      for (R_xlen_t i = 0; i < XLENGTH(list); ++i) {
+        const int k = static_cast<int>(i) + 1;
+        SEXP el = VECTOR_ELT(list, i);
+        if (TYPEOF(el) != VECSXP) {
+          Rcpp::stop(
+              "`implicit_inputs[[%d]]` must be a list(get, dtype, shape)", k);
+        }
+        Rcpp::List spec(el);
+        auto field = [&](const char* nm) -> SEXP {
+          return spec.containsElementNamed(nm) ? static_cast<SEXP>(spec[nm])
+                                               : R_NilValue;
+        };
+        SEXP get = field("get");
+        SEXP dtype = field("dtype");
+        if (!Rf_isFunction(get)) {
+          Rcpp::stop("`implicit_inputs[[%d]]$get` must be a function", k);
+        }
+        if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
+          Rcpp::stop("`implicit_inputs[[%d]]$dtype` must be a string", k);
+        }
+        ImplicitInput ii;
+        ii.get = get;
+        try {
+          ii.buffer_type =
+              string_to_pjrt_buffer_type(CHAR(STRING_ELT(dtype, 0)));
+        } catch (const std::exception& ex) {
+          Rcpp::stop("`implicit_inputs[[%d]]$dtype`: %s", k, ex.what());
+        }
+        ii.shape = implicit_input_shape(field("shape"), k);
+        implicit_inputs.push_back(std::move(ii));
+      }
+    }
+    SEXP implicit_outputs = named("implicit_outputs");
+    if (implicit_outputs != R_NilValue && TYPEOF(implicit_outputs) != VECSXP) {
+      Rcpp::stop("`implicit_outputs` must be a list or NULL");
+    }
+    SEXP on_success = named("on_success");
+    if (on_success != R_NilValue && !Rf_isFunction(on_success)) {
+      Rcpp::stop("`on_success` must be a function or NULL");
+    }
+    if (implicit_outputs != R_NilValue && XLENGTH(implicit_outputs) > 0 &&
+        on_success == R_NilValue) {
+      Rcpp::stop(
+          "`implicit_outputs` need an `on_success` that the outputs are handed "
+          "to");
+    }
+
     // The wrap templates, built from the callback's declared output avals --
     // the last thing that can throw.
-    Rcpp::List templates = build_templates(out_avals);
+    Rcpp::List templates = build_templates(out_avals, "out_avals");
+    Rcpp::List implicit_templates =
+        implicit_outputs == R_NilValue
+            ? Rcpp::List(0)
+            : build_templates(implicit_outputs, "implicit_outputs");
 
     auto data = std::make_unique<PjrtEntry>(exec, client, device, out_tree,
                                             std::move(templates));
     data->phantom_specs = std::move(phantom_specs);
+    data->implicit_inputs = std::move(implicit_inputs);
+    data->implicit_templates = std::move(implicit_templates);
+    data->on_success = on_success;
     if (consts != R_NilValue) {
       Rcpp::List cl(consts);
       data->const_arrays.reserve(cl.size());
@@ -579,12 +662,16 @@ class PjrtEngine : public Engine {
     e.data = std::move(data);
   }
 
-  SEXP run(const CacheEntry& e,
-           const std::vector<ExecInput>& exec_inputs) const override {
-    const auto* pe = static_cast<const PjrtEntry*>(e.data.get());
+  SEXP run(const CacheEntry& e, const std::vector<ExecInput>& exec_inputs,
+           SEXP args) const override {
+    // `e` may be evicted by an R callback during the run; `hold` keeps its
+    // data.
+    const auto hold = std::static_pointer_cast<const PjrtEntry>(e.data);
+    const PjrtEntry* pe = hold.get();
 
     // Assemble the executable's inputs: const_arrays ++ the call's inputs ++
-    // freshly allocated phantom donation buffers. A buffer input passes through
+    // the implicit inputs ++ freshly allocated phantom donation buffers. A
+    // buffer input passes through
     // -- or, under `move_inputs`, is copied to the entry's device when it lives
     // elsewhere; a bare R literal/array is uploaded to the entry's device, at
     // the dtype `input_dtypes` declared for it. The GC-rooted
@@ -592,24 +679,13 @@ class PjrtEngine : public Engine {
     // phantom) written straight into its slot: it is reachable only through
     // `inputs` (the R GC does not scan C++ locals across the next allocation).
     Rcpp::List inputs(pe->const_arrays.size() + exec_inputs.size() +
-                      pe->phantom_specs.size());
+                      pe->implicit_inputs.size() + pe->phantom_specs.size());
     R_xlen_t pos = 0;
     for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
       if (in.aval->kind != AvalKind::kRData) {
-        if (move_inputs_) {
-          Rcpp::XPtr<PJRTBuffer> buf = as_buffer(in.value);
-          if (buf->device_ptr() != pe->device->device) {
-            // Same plugin <=> same client (clients are per-platform
-            // singletons), so a differing API pointer means a cross-client
-            // host-roundtrip copy -- mirrors pjrt::copy_buffer().
-            const bool cross = buf->get_api().get() != pe->client->api.get();
-            inputs[pos++] = impl_buffer_copy_to_device(in.value, pe->device,
-                                                       pe->client, cross);
-            continue;
-          }
-        }
-        inputs[pos++] = in.value;
+        inputs[pos++] =
+            move_inputs_ ? on_entry_device(*pe, in.value) : in.value;
         continue;
       }
       // The dtype the program was compiled to take this input at. The
@@ -632,6 +708,10 @@ class PjrtEngine : public Engine {
           break;
       }
     }
+    for (std::size_t k = 0; k < pe->implicit_inputs.size(); ++k) {
+      inputs[pos++] = read_implicit_input(*pe, pe->implicit_inputs[k],
+                                          static_cast<int>(k) + 1);
+    }
     for (const PhantomSpec& ps : pe->phantom_specs) {
       inputs[pos++] =
           client_buffer_empty(pe->client, pe->device, ps.shape, ps.dtype);
@@ -643,11 +723,19 @@ class PjrtEngine : public Engine {
     // The declared output count against the real one -- the half of the
     // callback's out_avals claim that only the executable can settle. It keeps
     // a miscounted callback from silently wrapping the wrong buffers.
-    const R_xlen_t n_out = out_bufs.size();
-    if (n_out != pe->templates.size()) {
+    const R_xlen_t n_out = pe->templates.size();
+    const R_xlen_t n_implicit = pe->implicit_templates.size();
+    if (out_bufs.size() != n_out + n_implicit) {
+      if (n_implicit == 0) {
+        Rcpp::stop(
+            "out_tree has %d leaves but the executable returned %d outputs",
+            static_cast<int>(n_out), static_cast<int>(out_bufs.size()));
+      }
       Rcpp::stop(
-          "out_tree has %d leaves but the executable returned %d outputs",
-          static_cast<int>(pe->templates.size()), static_cast<int>(n_out));
+          "out_tree has %d leaves and the entry declares %d implicit outputs, "
+          "but the executable returned %d outputs",
+          static_cast<int>(n_out), static_cast<int>(n_implicit),
+          static_cast<int>(out_bufs.size()));
     }
 
     // Wrap each output: a shallow copy of its template with the buffer written
@@ -663,11 +751,77 @@ class PjrtEngine : public Engine {
       SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[i]);
       wrapped[i] = w;
     }
+    // Only a run that got this far succeeded. The implicit outputs, which
+    // follow the out_tree's, go to `on_success`.
+    if (pe->on_success != R_NilValue) {
+      Rcpp::List implicit(n_implicit);
+      for (R_xlen_t k = 0; k < n_implicit; ++k) {
+        SEXP w = Rf_shallow_duplicate(VECTOR_ELT(pe->implicit_templates, k));
+        SET_VECTOR_ELT(implicit, k, w);
+        SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[n_out + k]);
+      }
+      Rcpp::Function on_success(pe->on_success);
+      on_success(implicit, args);
+    }
     std::size_t p = 0, li = 0;
     return unflatten_rec(*pe->out_tree, wrapped, p, li);
   }
 
  private:
+  // The shape `shape` of implicit input `k`: a vector of whole numbers that
+  // are not negative.
+  static std::vector<int64_t> implicit_input_shape(SEXP shape, int k) {
+    if (TYPEOF(shape) != INTSXP && TYPEOF(shape) != REALSXP) {
+      Rcpp::stop("`implicit_inputs[[%d]]$shape` must be an integer vector", k);
+    }
+    std::vector<int64_t> out;
+    for (double d : Rcpp::as<std::vector<double>>(shape)) {
+      if (ISNAN(d) || d < 0 ||
+          d != static_cast<double>(static_cast<int64_t>(d))) {
+        Rcpp::stop(
+            "`implicit_inputs[[%d]]$shape` must hold whole numbers that are "
+            "not "
+            "negative",
+            k);
+      }
+      out.push_back(static_cast<int64_t>(d));
+    }
+    return out;
+  }
+
+  // The PJRTBuffer `buffer` on the device of `pe`: itself, or a copy of it when
+  // it lives elsewhere.
+  static SEXP on_entry_device(const PjrtEntry& pe, SEXP buffer) {
+    Rcpp::XPtr<PJRTBuffer> buf = as_buffer(buffer);
+    if (buf->device_ptr() == pe.device->device) return buffer;
+    // Same plugin <=> same client (clients are per-platform singletons), so a
+    // differing API pointer means a cross-client host-roundtrip copy -- mirrors
+    // pjrt::copy_buffer().
+    const bool cross = buf->get_api().get() != pe.client->api.get();
+    return impl_buffer_copy_to_device(buffer, pe.device, pe.client, cross);
+  }
+
+  // The buffer implicit input `ii` (the `k`th) supplies to a run of `pe`: the
+  // PJRTBuffer its `get()` returns, of the input's dtype and shape, copied to
+  // the entry's device if it lives elsewhere.
+  SEXP read_implicit_input(const PjrtEntry& pe, const ImplicitInput& ii,
+                           int k) const {
+    Rcpp::Function get(ii.get);
+    Rcpp::RObject val = get();
+    if (!is_buffer(val)) {
+      Rcpp::stop("`get()` of implicit input %d must return a PJRTBuffer", k);
+    }
+    Rcpp::XPtr<PJRTBuffer> buf = as_buffer(val);
+    if (buf->element_type() != ii.buffer_type ||
+        buf->dimensions() != ii.shape) {
+      Rcpp::stop(
+          "the buffer `get()` of implicit input %d returns must have the "
+          "declared dtype (%s) and shape",
+          k, PJRTElementType(ii.buffer_type).as_string().c_str());
+    }
+    return on_entry_device(pe, val);
+  }
+
   // One template AnvlArray per output, built on the compile (cold) path from
   // the avals the callback declared: a named list (data = NULL, dtype, shape,
   // backend) of class "AnvlArray" -- the wrapper layout an pjrt leaf
@@ -677,7 +831,7 @@ class PjrtEngine : public Engine {
   //
   // `out_avals[[i]]` is list(dtype = <string>, shape = <integer>). See
   // ?dispatcher.
-  Rcpp::List build_templates(SEXP out_avals) const {
+  Rcpp::List build_templates(SEXP out_avals, const char* field) const {
     const R_xlen_t n_out = XLENGTH(out_avals);
     Rcpp::Environment xlamisc = Rcpp::Environment::namespace_env("xlamisc");
     Rcpp::Function as_dtype = xlamisc["as_dtype"];
@@ -687,13 +841,13 @@ class PjrtEngine : public Engine {
     for (R_xlen_t i = 0; i < n_out; ++i) {
       SEXP av = VECTOR_ELT(out_avals, i);
       if (TYPEOF(av) != VECSXP) {
-        Rcpp::stop("`out_avals[[%d]]` must be a list(dtype, shape)",
+        Rcpp::stop("`%s[[%d]]` must be a list(dtype, shape)", field,
                    static_cast<int>(i) + 1);
       }
       Rcpp::List aval(av);
       if (!aval.containsElementNamed("dtype") ||
           !aval.containsElementNamed("shape")) {
-        Rcpp::stop("`out_avals[[%d]]` must carry $dtype and $shape",
+        Rcpp::stop("`%s[[%d]]` must carry $dtype and $shape", field,
                    static_cast<int>(i) + 1);
       }
       // The wrapper's $dtype is a xlamisc object, so the name goes to

@@ -8,6 +8,11 @@
 
 ## New features
 
+* A `dispatcher()` compile callback can declare `implicit_inputs` and
+  `implicit_outputs`, values the program takes and returns beyond the call's
+  arguments and result, and an `on_success` function that receives the implicit
+  outputs and the call's arguments after every successful run. An implicit
+  input's `get()` returns the buffer to pass on.
 * `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
   the default device.
 * `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.

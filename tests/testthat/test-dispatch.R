@@ -476,6 +476,252 @@ test_that("move_inputs copies a pjrt input to the entry's device", {
   expect_equal(dispatcher_size(d), 1L)
 })
 
+# `x - s` for an implicit input `s` (not commutative, so that the order of the
+# inputs shows).
+implicit_exec <- function(device = NULL) {
+  pjrt_compile(
+    pjrt_program(
+      src = 'func.func @main(%x: tensor<2xf32>, %s: tensor<2xf32>) -> tensor<2xf32> {
+       %0 = "stablehlo.subtract"(%x, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0): (tensor<2xf32>) -> ()
+     }'
+    ),
+    device = device
+  )
+}
+
+# A dispatcher whose program reads its implicit input, a buffer, from `env$s`
+# and, after a successful run, calls `on_success`, by default to add 1 to it.
+implicit_dispatcher <- function(
+  env,
+  on_success = function(outputs, args) {
+    env$s <- pjrt_buffer(as_array(env$s) + 1, dtype = "f32")
+  }
+) {
+  input <- list(get = function() env$s, dtype = "f32", shape = 2L)
+  dispatcher(
+    10L,
+    function(info) {
+      pjrt_entry(
+        implicit_exec(test_pjrt_device()),
+        implicit_inputs = list(input),
+        on_success = on_success
+      )
+    },
+    default_device = test_pjrt_device
+  )
+}
+
+test_that("an implicit input is read before every run, and on_success runs after it", {
+  skip_if_not(plugins_downloaded())
+  env <- new.env()
+  env$s <- pjrt_buffer(c(2, 3), dtype = "f32")
+  d <- implicit_dispatcher(env)
+  x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x))), c(8, 7))
+  expect_equal(as.numeric(as_array(env$s)), c(3, 4))
+  # the next call reads the advanced value, from the same entry
+  expect_equal(out(dispatch(d, list(x = x))), c(7, 6))
+  expect_equal(dispatcher_size(d), 1L)
+})
+
+test_that("an implicit input must be a buffer of the declared dtype and shape", {
+  skip_if_not(plugins_downloaded())
+  env <- new.env()
+  d <- implicit_dispatcher(env, on_success = NULL)
+  x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+  env$s <- c(1, 1)
+  expect_error(dispatch(d, list(x = x)), "must return a PJRTBuffer")
+  env$s <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  expect_error(dispatch(d, list(x = x)), "must return a PJRTBuffer")
+  env$s <- pjrt_buffer(c(1, 1), dtype = "f64")
+  expect_error(dispatch(d, list(x = x)), "must have the declared dtype \\(f32\\) and shape")
+  env$s <- pjrt_buffer(c(1, 1, 1), dtype = "f32")
+  expect_error(dispatch(d, list(x = x)), "must have the declared dtype \\(f32\\) and shape")
+})
+
+test_that("a buffer implicit input on another device is copied to the entry's", {
+  skip_if_not(plugins_downloaded())
+  skip_if(length(devices(pjrt_client("cpu"))) < 2L, "needs a second cpu device")
+  env <- new.env()
+  env$s <- pjrt_buffer(c(4, 5), dtype = "f32", device = "cpu:1")
+  d <- implicit_dispatcher(env, on_success = NULL)
+  expect_equal(out(dispatch(d, list(x = parr(pjrt_buffer(c(10, 10), dtype = "f32"))))), c(6, 5))
+})
+
+test_that("on_success is not called after a failed run", {
+  skip_if_not(plugins_downloaded())
+  env <- new.env()
+  env$s <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+  d <- implicit_dispatcher(env)
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  expect_error(dispatch(d, list(x = x)), "must have the declared dtype")
+  expect_equal(as.numeric(as_array(env$s)), c(1, 2, 3))
+})
+
+test_that("implicit inputs and on_success are validated", {
+  skip_if_not(plugins_downloaded())
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  run <- function(...) {
+    d <- dispatcher(
+      10L,
+      function(info) pjrt_entry(implicit_exec(test_pjrt_device()), ...),
+      default_device = test_pjrt_device
+    )
+    dispatch(d, list(x = x))
+  }
+  expect_error(run(implicit_inputs = 1), "`implicit_inputs` must be a list")
+  expect_error(run(implicit_inputs = list(1)), "must be a list\\(get, dtype, shape\\)")
+  expect_error(run(implicit_inputs = list(list(get = 1, dtype = "f32", shape = 2L))), "\\$get` must be a function")
+  expect_error(
+    run(implicit_inputs = list(list(get = function() 1, dtype = 1, shape = 2L))),
+    "\\$dtype` must be a string"
+  )
+  expect_error(run(implicit_inputs = list(list(get = function() 1, dtype = "nope", shape = 2L))), "\\$dtype`: ")
+  expect_error(run(implicit_inputs = list(list(get = function() 1, dtype = "f32", shape = -1L))), "not negative")
+  expect_error(run(implicit_inputs = list(list(get = function() 1, dtype = "f32"))), "must be an integer vector")
+  expect_error(run(on_success = 1), "`on_success` must be a function or NULL")
+  expect_error(
+    run(implicit_outputs = list(1), on_success = function(outputs, args) NULL),
+    "`implicit_outputs\\[\\[1\\]\\]`"
+  )
+})
+
+test_that("a run outlives the eviction of its entry by a callback that dispatches again", {
+  skip_if_not(plugins_downloaded())
+  # With room for one entry, the dispatch in `on_success` (another static `k`)
+  # evicts the entry whose run is still under way.
+  env <- new.env()
+  env$s <- pjrt_buffer(c(1, 2), dtype = "f32")
+  reentered <- FALSE
+  d <- NULL
+  d <- dispatcher(
+    1L,
+    function(info) {
+      pjrt_entry(
+        implicit_exec(test_pjrt_device()),
+        implicit_inputs = list(list(get = function() env$s, dtype = "f32", shape = 2L)),
+        on_success = function(outputs, args) {
+          if (!reentered) {
+            reentered <<- TRUE
+            dispatch(d, list(x = x, k = 2L))
+          }
+        }
+      )
+    },
+    static = "k",
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x, k = 1L))), c(9, 8))
+  expect_true(reentered)
+  expect_equal(dispatcher_size(d), 1L)
+})
+
+test_that("implicit outputs are handed to on_success, not returned", {
+  skip_if_not(plugins_downloaded())
+  exec <- pjrt_compile(pjrt_program(
+    src = 'func.func @main(%x: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
+       %0 = "stablehlo.add"(%x, %x) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       %1 = "stablehlo.multiply"(%x, %x) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
+     }'
+  ))
+  received <- NULL
+  d <- dispatcher(
+    10L,
+    function(info) {
+      pjrt_entry(
+        exec,
+        implicit_outputs = list(oav()),
+        on_success = function(outputs, args) {
+          received <<- outputs
+        }
+      )
+    },
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(2, 3), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x))), c(4, 6))
+  expect_length(received, 1L)
+  expect_s3_class(received[[1L]], "AnvlArray")
+  expect_equal(out(received[[1L]]), c(4, 9))
+})
+
+test_that("a value can stay on the device, as an implicit input and output", {
+  skip_if_not(plugins_downloaded())
+  # `x - s`, and the next `s`, `s + 1`, which on_success keeps as a buffer
+  exec <- pjrt_compile(pjrt_program(
+    src = 'func.func @main(%x: tensor<2xf32>, %s: tensor<2xf32>) -> (tensor<2xf32>, tensor<2xf32>) {
+       %one = stablehlo.constant dense<1.0> : tensor<2xf32>
+       %0 = "stablehlo.subtract"(%x, %s) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       %1 = "stablehlo.add"(%s, %one) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+       "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
+     }'
+  ))
+  env <- new.env()
+  env$s <- pjrt_buffer(c(1, 2), dtype = "f32")
+  d <- dispatcher(
+    10L,
+    function(info) {
+      pjrt_entry(
+        exec,
+        implicit_inputs = list(list(get = function() env$s, dtype = "f32", shape = 2L)),
+        implicit_outputs = list(oav()),
+        on_success = function(outputs, args) {
+          env$s <- outputs[[1L]]$data
+        }
+      )
+    },
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+  expect_equal(out(dispatch(d, list(x = x))), c(9, 8))
+  expect_s3_class(env$s, "PJRTBuffer")
+  expect_equal(out(dispatch(d, list(x = x))), c(8, 7))
+  expect_equal(as.numeric(as_array(env$s)), c(3, 4))
+})
+
+test_that("an entry whose program returns fewer outputs than it declares is an error", {
+  skip_if_not(plugins_downloaded())
+  identity_exec <- pjrt_compile(pjrt_program(
+    src = 'func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
+       "func.return"(%x): (tensor<2xf32>) -> ()
+     }'
+  ))
+  d <- dispatcher(
+    10L,
+    function(info) pjrt_entry(identity_exec, implicit_outputs = list(oav()), on_success = function(outputs, args) NULL),
+    default_device = test_pjrt_device
+  )
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  expect_error(dispatch(d, list(x = x)), "declares 1 implicit outputs, but the executable returned 1 outputs")
+})
+
+test_that("implicit outputs need an on_success", {
+  skip_if_not(plugins_downloaded())
+  x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
+  d <- dispatcher(
+    10L,
+    function(info) pjrt_entry(implicit_exec(test_pjrt_device()), implicit_outputs = list(oav())),
+    default_device = test_pjrt_device
+  )
+  expect_error(dispatch(d, list(x = x)), "need an `on_success`")
+})
+
+test_that("the closure engine rejects implicit inputs and on_success", {
+  d <- new_dispatcher(
+    10L,
+    function(info) list(r_fun = function(flat) NULL, on_success = function(outputs, args) NULL),
+    character(0),
+    "closure",
+    "quickr",
+    FALSE,
+    test_quickr_device
+  )
+  expect_error(dispatch(d, list(x = qarr(1))), "only supported by the pjrt engine")
+})
+
 test_that("phantom_specs allocate donation buffers of the requested dtype", {
   skip_if_not(plugins_downloaded())
   # An identity executable whose only input is supplied by the phantom spec,
@@ -1491,4 +1737,53 @@ test_that("`input_dtypes` may not declare a dtype for an array input", {
     as.numeric(xlamisc::as_array(await(dispatch(d, list(x = arr))$data))),
     1
   )
+})
+
+describe("dispatch", {
+  it("hands on_success the call's arguments", {
+    skip_if_not(plugins_downloaded())
+    state <- new.env()
+    state$s <- pjrt_buffer(c(2, 3), dtype = "f32")
+    d <- implicit_dispatcher(state, on_success = function(outputs, args) {
+      state$args <- args
+    })
+    x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+    dispatch(d, list(x = x))
+    expect_identical(state$args, list(x = x))
+  })
+
+  it("compiles a new entry when the context names a new implicit input type", {
+    skip_if_not(plugins_downloaded())
+    # `x`, taking an implicit input `s` of shape `n` it does not read
+    ignore_exec <- function(n) {
+      pjrt_compile(pjrt_program(
+        src = sprintf(
+          'func.func @main(%%x: tensor<2xf32>, %%s: tensor<%dxf32>) -> tensor<2xf32> {
+             "func.return"(%%x): (tensor<2xf32>) -> ()
+           }',
+          n
+        )
+      ))
+    }
+    state <- new.env()
+    state$s <- pjrt_buffer(c(1, 2), dtype = "f32")
+    shape <- function() length(as_array(state$s))
+    d <- dispatcher(
+      10L,
+      function(info) {
+        n <- as.integer(info$context)
+        pjrt_entry(
+          ignore_exec(n),
+          implicit_inputs = list(list(get = function() state$s, dtype = "f32", shape = n))
+        )
+      },
+      default_device = test_pjrt_device,
+      context = function() as.character(shape())
+    )
+    x <- parr(pjrt_buffer(c(10, 20), dtype = "f32"))
+    expect_equal(out(dispatch(d, list(x = x))), c(10, 20))
+    state$s <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+    expect_equal(out(dispatch(d, list(x = x))), c(10, 20))
+    expect_identical(dispatcher_size(d), 2L)
+  })
 })

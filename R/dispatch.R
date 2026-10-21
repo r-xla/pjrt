@@ -85,6 +85,28 @@
 #'   * `const_arrays` (optional): buffers prepended to the inputs,
 #'   * `phantom_specs` (optional): a list of `list(dtype = <string>, shape =
 #'     <integer>)` donation-output buffers to allocate fresh per call.
+#'   * `implicit_inputs` (optional): a list of `list(get, dtype, shape)`, one
+#'     per value the program takes that no argument supplies, e.g. a global
+#'     RNG state. The program takes them after the call's own inputs (and
+#'     before the phantoms). Before every run the engine calls `get()`, which
+#'     returns a `PJRTBuffer` of `dtype` and `shape`; it is passed on, copied
+#'     to the entry's device if it lives on another one. A value can so stay
+#'     on the device from run to run, e.g. the `$data` of an implicit output
+#'     that `on_success` keeps. An implicit input is not part of the cache key,
+#'     which is resolved before the lookup, while only the program decides
+#'     that it needs one: a buffer of another dtype or shape is an error. A
+#'     caller whose implicit inputs can change type puts their types into
+#'     `context`, so that a change compiles a new entry.
+#'   * `implicit_outputs` (optional): a list of `list(dtype = <string>, shape =
+#'     <integer>)`, one per value the program returns beyond the `out_tree`'s
+#'     outputs, after them, e.g. an error code. They are not part of the call's
+#'     result but are handed to `on_success`, which is then required.
+#'   * `on_success` (optional): a function called with the list of the implicit
+#'     outputs, wrapped like the other outputs, and the call's argument list
+#'     `args`, after every run of the entry that was launched without an error,
+#'     before the call returns, e.g. to advance what an implicit input's `get()`
+#'     reads, or an object among the arguments. Execution is asynchronous: the
+#'     outputs may not be computed yet.
 #'
 #'   Either kind of result may additionally carry:
 #'   * `input_dtypes`: a `character()` with one entry per dynamic leaf, in
@@ -170,7 +192,8 @@
 #' @param context (`function` | `NULL`)\cr
 #'   Called with no arguments on *every* dispatch to get whatever the compiled
 #'   program depends on beyond its inputs -- anvl passes the backend's current
-#'   default dtypes. Must return a `character()` without `NA`s; its value is
+#'   default dtypes, say, or the types of the values `implicit_inputs` read.
+#'   Must return a `character()` without `NA`s; its value is
 #'   part of the cache key, so an entry compiled under one context is never
 #'   served under another, and it reaches `compile` as `info$context`. Unlike
 #'   `default_device`, which is consulted only when no array names a device,
