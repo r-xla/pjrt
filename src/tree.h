@@ -77,14 +77,16 @@ inline bool is_bare_list(SEXP x) {
 }
 
 // A class registered with register_tree_node(): `flatten(x)` returns
-// `list(children, aux)` for an object of the class, and
-// `unflatten(children, aux)` rebuilds an object from them.
+// `list(children, aux)` for an object of the class,
+// `unflatten(children, aux)` rebuilds an object from them, and `repr(aux)`
+// labels the node in its tree's repr.
 struct TreeNodeType {
   std::string cls;
   // The class name's CHARSXP, kept alive so its address stays the registry key.
   Rcpp::RObject cls_char;
   Rcpp::RObject flatten;
   Rcpp::RObject unflatten;
+  Rcpp::RObject repr;
 };
 
 // The registered classes, keyed by the CHARSXP of the class name. R caches

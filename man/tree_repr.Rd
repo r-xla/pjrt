@@ -15,9 +15,9 @@ A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \description{
 A canonical structural string for a tree: \code{"*"} for a leaf, \code{"NULL"} for an
-empty node, \code{"list(...)"} for list nodes, and \code{"<cls>(...)"} for an object
-of the registered class \code{cls}, or \code{"<cls: aux>(...)"} with its aux data
-deparsed when that is not \code{NULL}. A named node is tagged
+empty node, \code{"list(...)"} for list nodes, and \code{"<cls: label>(...)"} for an
+object of the registered class \code{cls}, labelled by the class's \code{repr} (see
+\code{\link[=register_tree_node]{register_tree_node()}}). A named node is tagged
 (\code{"list<named>(...)"}, \code{"<cls><named>(...)"}), so that a node whose names
 are all empty is told apart from an unnamed one.
 }

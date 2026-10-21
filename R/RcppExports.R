@@ -345,8 +345,8 @@ impl_tree_diff <- function(a, b) {
     .Call(`_pjrt_impl_tree_diff`, a, b)
 }
 
-impl_register_tree_node <- function(cls, flatten, unflatten) {
-    invisible(.Call(`_pjrt_impl_register_tree_node`, cls, flatten, unflatten))
+impl_register_tree_node <- function(cls, flatten, unflatten, repr) {
+    invisible(.Call(`_pjrt_impl_register_tree_node`, cls, flatten, unflatten, repr))
 }
 
 impl_unregister_tree_node <- function(cls) {

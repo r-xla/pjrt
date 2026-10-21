@@ -5,7 +5,7 @@
 \alias{unregister_tree_node}
 \title{Register a Class as a Tree Node}
 \usage{
-register_tree_node(class, flatten, unflatten)
+register_tree_node(class, flatten, unflatten, repr)
 
 unregister_tree_node(class)
 }
@@ -21,15 +21,22 @@ value (\code{NULL} if there is none).}
 \item{unflatten}{(\code{function})\cr
 Takes the children, a \code{list} named as \code{flatten} names them, and the aux
 data, and returns an object of the class.}
+
+\item{repr}{(\code{function})\cr
+Takes the aux data and returns a \code{character(1)} label for it, which
+\code{\link[=tree_repr]{tree_repr()}} shows as \verb{<class: label>(...)}, followed by the children (or
+\verb{<class>(...)} for \code{""}). Give aux data that are not \code{\link[=identical]{identical()}}
+distinct labels, so that trees that are not equal print differently.}
 }
 \value{
 \code{NULL}, invisibly.
 }
 \description{
 Makes the objects of a class nodes of a tree rather than leaves: \code{\link[=flatten]{flatten()}}
-and \code{\link[=build_tree]{build_tree()}} recurse into the children \code{flatten} returns, and
-\code{\link[=unflatten]{unflatten()}} rebuilds an object of the class from them with \code{unflatten}.
-This is JAX's \code{register_pytree_node()}.
+and \code{\link[=build_tree]{build_tree()}} recurse into the children \code{flatten} returns,
+\code{\link[=unflatten]{unflatten()}} rebuilds an object of the class from them with \code{unflatten},
+and \code{\link[=tree_repr]{tree_repr()}} (and so the tree's printer) labels the node with \code{repr}.
+This is JAX's \code{register_pytree_node()}, plus the printer.
 
 Besides its children, \code{flatten} returns the object's aux data: whatever else
 \code{unflatten} needs to rebuild it, such as a setting that is not an array.
@@ -48,7 +55,8 @@ point <- function(x, y, unit) {
 register_tree_node(
   "point",
   flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
-  unflatten = function(children, unit) point(children$x, children$y, unit)
+  unflatten = function(children, unit) point(children$x, children$y, unit),
+  repr = function(unit) unit
 )
 flatten(list(point(1, 2, "cm"), 3))
 tree <- build_tree(list(point(1, 2, "cm"), 3))

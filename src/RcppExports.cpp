@@ -998,14 +998,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_register_tree_node
-void impl_register_tree_node(std::string cls, SEXP flatten, SEXP unflatten);
-RcppExport SEXP _pjrt_impl_register_tree_node(SEXP clsSEXP, SEXP flattenSEXP, SEXP unflattenSEXP) {
+void impl_register_tree_node(std::string cls, SEXP flatten, SEXP unflatten, SEXP repr);
+RcppExport SEXP _pjrt_impl_register_tree_node(SEXP clsSEXP, SEXP flattenSEXP, SEXP unflattenSEXP, SEXP reprSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::string >::type cls(clsSEXP);
     Rcpp::traits::input_parameter< SEXP >::type flatten(flattenSEXP);
     Rcpp::traits::input_parameter< SEXP >::type unflatten(unflattenSEXP);
-    impl_register_tree_node(cls, flatten, unflatten);
+    Rcpp::traits::input_parameter< SEXP >::type repr(reprSEXP);
+    impl_register_tree_node(cls, flatten, unflatten, repr);
     return R_NilValue;
 END_RCPP
 }
@@ -1109,7 +1110,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_tree_mask_from_names", (DL_FUNC) &_pjrt_impl_tree_mask_from_names, 2},
     {"_pjrt_impl_tree_repr", (DL_FUNC) &_pjrt_impl_tree_repr, 1},
     {"_pjrt_impl_tree_diff", (DL_FUNC) &_pjrt_impl_tree_diff, 2},
-    {"_pjrt_impl_register_tree_node", (DL_FUNC) &_pjrt_impl_register_tree_node, 3},
+    {"_pjrt_impl_register_tree_node", (DL_FUNC) &_pjrt_impl_register_tree_node, 4},
     {"_pjrt_impl_unregister_tree_node", (DL_FUNC) &_pjrt_impl_unregister_tree_node, 1},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}

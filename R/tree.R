@@ -27,9 +27,10 @@ flatten <- function(x) {
 #' @title Register a Class as a Tree Node
 #' @description
 #' Makes the objects of a class nodes of a tree rather than leaves: [flatten()]
-#' and [build_tree()] recurse into the children `flatten` returns, and
-#' [unflatten()] rebuilds an object of the class from them with `unflatten`.
-#' This is JAX's `register_pytree_node()`.
+#' and [build_tree()] recurse into the children `flatten` returns,
+#' [unflatten()] rebuilds an object of the class from them with `unflatten`,
+#' and [tree_repr()] (and so the tree's printer) labels the node with `repr`.
+#' This is JAX's `register_pytree_node()`, plus the printer.
 #'
 #' Besides its children, `flatten` returns the object's aux data: whatever else
 #' `unflatten` needs to rebuild it, such as a setting that is not an array.
@@ -49,6 +50,11 @@ flatten <- function(x) {
 #' @param unflatten (`function`)\cr
 #'   Takes the children, a `list` named as `flatten` names them, and the aux
 #'   data, and returns an object of the class.
+#' @param repr (`function`)\cr
+#'   Takes the aux data and returns a `character(1)` label for it, which
+#'   [tree_repr()] shows as `<class: label>(...)`, followed by the children (or
+#'   `<class>(...)` for `""`). Give aux data that are not [identical()]
+#'   distinct labels, so that trees that are not equal print differently.
 #' @return `NULL`, invisibly.
 #' @seealso [flatten()], [build_tree()]
 #' @examples
@@ -58,7 +64,8 @@ flatten <- function(x) {
 #' register_tree_node(
 #'   "point",
 #'   flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
-#'   unflatten = function(children, unit) point(children$x, children$y, unit)
+#'   unflatten = function(children, unit) point(children$x, children$y, unit),
+#'   repr = function(unit) unit
 #' )
 #' flatten(list(point(1, 2, "cm"), 3))
 #' tree <- build_tree(list(point(1, 2, "cm"), 3))
@@ -67,11 +74,12 @@ flatten <- function(x) {
 #' build_tree(point(1, 2, "cm")) == build_tree(point(1, 2, "in"))
 #' unregister_tree_node("point")
 #' @export
-register_tree_node <- function(class, flatten, unflatten) {
+register_tree_node <- function(class, flatten, unflatten, repr) {
   checkmate::assert_string(class)
   checkmate::assert_function(flatten)
   checkmate::assert_function(unflatten)
-  impl_register_tree_node(class, flatten, unflatten)
+  checkmate::assert_function(repr)
+  impl_register_tree_node(class, flatten, unflatten, repr)
   invisible(NULL)
 }
 
@@ -332,9 +340,9 @@ tree_leaf_mask <- function(tree, groups) {
 #' @title Canonical Tree Representation
 #' @description
 #' A canonical structural string for a tree: `"*"` for a leaf, `"NULL"` for an
-#' empty node, `"list(...)"` for list nodes, and `"<cls>(...)"` for an object
-#' of the registered class `cls`, or `"<cls: aux>(...)"` with its aux data
-#' deparsed when that is not `NULL`. A named node is tagged
+#' empty node, `"list(...)"` for list nodes, and `"<cls: label>(...)"` for an
+#' object of the registered class `cls`, labelled by the class's `repr` (see
+#' [register_tree_node()]). A named node is tagged
 #' (`"list<named>(...)"`, `"<cls><named>(...)"`), so that a node whose names
 #' are all empty is told apart from an unnamed one.
 #' @param tree (`RTree`)\cr

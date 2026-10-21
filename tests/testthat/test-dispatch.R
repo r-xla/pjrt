@@ -1754,7 +1754,8 @@ describe("dispatch", {
           stop("cannot rebuild the box")
         }
         box(children$v, unit)
-      }
+      },
+      repr = function(unit) unit
     )
     withr::defer(unregister_tree_node("box"), envir = envir)
   }

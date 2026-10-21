@@ -462,13 +462,29 @@ test_that("property: random nested structures round-trip", {
   }
 })
 
+describe("print.RTree", {
+  it("prints the structure of a tree", {
+    expect_snapshot({
+      build_tree(1)
+      build_tree(NULL)
+      build_tree(list())
+      build_tree(structure(list(), names = character(0L)))
+      build_tree(list(1, NULL, list(2, 3)))
+      build_tree(list(a = 1, b = list(c = 2, d = NULL)))
+      build_tree(list(a = 1, 2))
+      tree_concat(list(build_tree(list(1, 2)), build_tree(3)), names = c("value", "grad"))
+    })
+  })
+})
+
 describe("register_tree_node", {
   point <- function(x, y, unit = "cm") structure(list(x = x, y = y, unit = unit), class = "point")
   local_point <- function(envir = parent.frame()) {
     register_tree_node(
       "point",
       flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
-      unflatten = function(children, unit) point(children$x, children$y, unit)
+      unflatten = function(children, unit) point(children$x, children$y, unit),
+      repr = function(unit) unit %||% ""
     )
     withr::defer(unregister_tree_node("point"), envir = envir)
   }
@@ -509,22 +525,40 @@ describe("register_tree_node", {
     expect_identical(tree_child_kinds(build_tree(list(point(1, 2), 3))), c("object", "leaf"))
   })
 
-  it("renders the class, the aux data and the named-ness", {
+  it("renders the class, the label repr gives the aux data, and the named-ness", {
     local_point()
-    expect_identical(format(build_tree(list(p = point(1, 2)))), "list<named>(p = <point: \"cm\"><named>(x = *, y = *))")
+    expect_identical(format(build_tree(list(p = point(1, 2)))), "list<named>(p = <point: cm><named>(x = *, y = *))")
     expect_identical(format(build_tree(point(1, 2, NULL))), "<point><named>(x = *, y = *)")
     diff <- tree_diff(build_tree(list(p = point(1, 2, "cm"))), build_tree(list(p = point(1, 2, "in"))))
     expect_identical(diff$prefix, "p")
-    expect_identical(
-      c(diff$a, diff$b),
-      c("<point: \"cm\"><named>(x = *, y = *)", "<point: \"in\"><named>(x = *, y = *)")
-    )
+    expect_identical(c(diff$a, diff$b), c("<point: cm><named>(x = *, y = *)", "<point: in><named>(x = *, y = *)"))
+  })
+
+  it("prints an object node with its class and label", {
+    local_point()
+    expect_snapshot({
+      build_tree(point(1, 2))
+      build_tree(list(a = point(1, list(2, NULL)), b = 3))
+      build_tree(point(point(1, 2, "in"), point(3, 4, "mm"), "km"))
+      build_tree(point(1, 2, NULL))
+      tree_diff(build_tree(list(p = point(1, 2, "cm"))), build_tree(list(p = point(1, 2, "in"))))
+    })
+  })
+
+  it("prints an object node without a label once its class is unregistered", {
+    local_point()
+    tree <- build_tree(point(1, 2))
+    unregister_tree_node("point")
+    expect_snapshot(tree)
   })
 
   it("tells an unnamed object from one whose names are all empty", {
-    register_tree_node("pair", flatten = function(p) list(unclass(p), NULL), unflatten = function(children, aux) {
-      children
-    })
+    register_tree_node(
+      "pair",
+      flatten = function(p) list(unclass(p), NULL),
+      unflatten = function(children, aux) children,
+      repr = function(aux) ""
+    )
     withr::defer(unregister_tree_node("pair"))
     unnamed <- build_tree(structure(list(1, 2), class = "pair"))
     empty_names <- build_tree(structure(list(1, 2), names = c("", ""), class = "pair"))
@@ -558,10 +592,26 @@ describe("register_tree_node", {
   })
 
   it("requires flatten to return list(children, aux)", {
-    register_tree_node("point", flatten = function(p) unclass(p), unflatten = identity)
+    register_tree_node("point", flatten = function(p) unclass(p), unflatten = identity, repr = toString)
     withr::defer(unregister_tree_node("point"))
-    expect_error(flatten(point(1, 2)), "must return `list\\(children, aux\\)`")
-    register_tree_node("point", flatten = function(p) list(1, NULL), unflatten = identity)
-    expect_error(flatten(point(1, 2)), "must return `list\\(children, aux\\)`")
+    expect_snapshot(flatten(point(1, 2)), error = TRUE)
+    register_tree_node("point", flatten = function(p) list(1, NULL), unflatten = identity, repr = toString)
+    expect_snapshot(flatten(point(1, 2)), error = TRUE)
+  })
+
+  it("requires repr to return a string", {
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
+      unflatten = identity,
+      repr = function(unit) NA_character_
+    )
+    withr::defer(unregister_tree_node("point"))
+    expect_snapshot(format(build_tree(point(1, 2))), error = TRUE)
+  })
+
+  it("validates its arguments", {
+    expect_snapshot(register_tree_node("point", identity, identity), error = TRUE)
+    expect_snapshot(register_tree_node(c("a", "b"), identity, identity, identity), error = TRUE)
   })
 })

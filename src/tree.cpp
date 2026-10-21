@@ -98,9 +98,10 @@ static void append_subtree(RTree& dst, const RTree& src, std::size_t c) {
 }
 
 // The canonical structural string: "*" for a leaf, "NULL" for a null tree,
-// "list(a = *, list(*, NULL))" for lists, "<cls>(a = *)" for an object of the
-// registered class "cls", or "<cls: aux>(a = *)" with its aux data deparsed
-// when that is not NULL. A named node is tagged -- "list<named>(...)",
+// "list(a = *, list(*, NULL))" for lists, "<cls: label>(a = *)" for an object
+// of the registered class "cls", whose `repr` labels its aux data ("<cls>(...)"
+// for an empty label, or when the class is no longer registered). A named node
+// is tagged -- "list<named>(...)",
 // "<cls><named>(...)" -- so the named/unnamed distinction stays visible even
 // when the names are empty or the node has no children (individual "" names
 // are otherwise printed positionally). `p` advances past the rendered subtree,
@@ -123,9 +124,21 @@ static void repr_rec(const RTree& t, std::size_t& p, std::size_t& o,
       if (t.kind[node] == RTree::ObjectNode) {
         const RTree::Object& obj = t.objects[o++];
         out += "<" + obj.cls;
-        if (obj.aux != R_NilValue) {
-          Rcpp::Function deparse1("deparse1", R_BaseNamespace);
-          out += ": " + Rcpp::as<std::string>(deparse1(obj.aux));
+        auto it = tree_node_types().find(tree_node_key(obj.cls));
+        if (it != tree_node_types().end()) {
+          Rcpp::Function repr(it->second.repr);
+          Rcpp::RObject label = repr(obj.aux);
+          if (TYPEOF(label) != STRSXP || XLENGTH(label) != 1 ||
+              STRING_ELT(label, 0) == NA_STRING) {
+            Rcpp::stop(
+                "the `repr` registered for class \"%s\" must return a string",
+                obj.cls.c_str());
+          }
+          const char* text = CHAR(STRING_ELT(label, 0));
+          if (*text != '\0') {
+            out += ": ";
+            out += text;
+          }
         }
         out += ">";
         out += named ? "<named>(" : "(";
@@ -507,12 +520,13 @@ SEXP impl_tree_diff(SEXP a, SEXP b) {
 }
 
 // [[Rcpp::export]]
-void impl_register_tree_node(std::string cls, SEXP flatten, SEXP unflatten) {
+void impl_register_tree_node(std::string cls, SEXP flatten, SEXP unflatten,
+                             SEXP repr) {
   using namespace rpjrt;
   // Protected until `cls_char` preserves it: preserving allocates.
   Rcpp::Shield<SEXP> key(tree_node_key(cls));
   tree_node_types()[key] = {cls, Rcpp::RObject(key), Rcpp::RObject(flatten),
-                            Rcpp::RObject(unflatten)};
+                            Rcpp::RObject(unflatten), Rcpp::RObject(repr)};
 }
 
 // [[Rcpp::export]]
