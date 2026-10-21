@@ -1793,8 +1793,7 @@ describe("dispatch", {
   it("rebuilds an object result, and runs on_success only once it has", {
     skip_if_not(plugins_downloaded())
     local_box()
-    state <- new.env()
-    state$n_success <- 0L
+    n_success <- 0L
     d <- dispatcher(
       10L,
       function(info) {
@@ -1802,7 +1801,7 @@ describe("dispatch", {
           id_exec(),
           out_tree = build_tree(box(0, "cm")),
           on_success = function(outputs, args) {
-            state$n_success <- state$n_success + 1L
+            n_success <<- n_success + 1L
           }
         )
       },
@@ -1813,14 +1812,14 @@ describe("dispatch", {
     expect_s3_class(res, "box")
     expect_identical(res$unit, "cm")
     expect_equal(out(res$v), c(1, 2))
-    expect_identical(state$n_success, 1L)
+    expect_identical(n_success, 1L)
 
     env$fail <- TRUE
     withr::defer({
       env$fail <- FALSE
     })
     expect_error(dispatch(d, list(x = x)), "cannot rebuild the box")
-    expect_identical(state$n_success, 1L)
+    expect_identical(n_success, 1L)
   })
 
   it("compiles a new entry when the context names a new implicit input type", {
