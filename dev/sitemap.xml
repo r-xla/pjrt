@@ -31,7 +31,6 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/is_ready.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/map_tree.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt-package.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_array_promise.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/pjrt_compile.html</loc></url>
@@ -63,6 +62,5 @@
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/tree_root_kind.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/tree_size.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/dev/reference/unflatten.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/dev/reference/value.html</loc></url>
 </urlset>
 

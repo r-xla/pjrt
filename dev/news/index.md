@@ -7,6 +7,11 @@
 - The boolean data type is now named `"bool"` everywhere.
 - The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry
   a `$device` field; read the device off `$data`.
+- [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
+  now returns an R array whose values materialize when first read,
+  instead of a `PJRTArrayPromise`; `value()` is removed, use the array
+  directly or
+  [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) it.
 
 ### New features
 
@@ -252,8 +257,7 @@ considerable performance benefits, especially on GPU. Specifically:
   is still synchronous, but there is now the asynchronous version
   [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
   but this is rarely needed. If used, it returns a `PJRTArrayPromise`
-  object which can be converted to an R `array`/`vector` via
-  [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md).
+  object which can be converted to an R `array`/`vector` via `value()`.
 - To check whether a `PJRTBuffer` or `PJRTArrayPromise` is ready, use
   [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md).
 

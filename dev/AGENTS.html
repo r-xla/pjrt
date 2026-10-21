@@ -69,7 +69,6 @@
 <pre><code>PJRTProgram            – MLIR or HLO source code ready for compilation
   └─ PJRTLoadedExecutable  – compiled, device-specific executable</code></pre>
 <pre><code>PJRTBuffer         – device-resident tensor (the main data object)
-PJRTArrayPromise   – async device-to-host transfer result (environment-based)
 PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)</code></pre>
 <p>A <code>PJRTBuffer</code> is an external pointer whose protected slot holds an ALTREP <em>carrier</em> (<code>src/buffer_sexp.{h,cpp}</code>). The carrier holds the CPU keepalive and gives buffers a custom serialization (host bytes plus dtype and shape, re-uploaded on load to <code>the[["unserialize_device"]]</code>, else the default device – the device is deliberately not saved; anvl writes that entry from its <code>.onLoad()</code> so that buffers load onto its own default device; see <code>buffer_serialized_state()</code>/<code>buffer_unserialize()</code> in <code>buffer.R</code>). Since R tracks external pointers by reference, a buffer referenced several times is written once and loads as one object. A loaded buffer is a NULL pointer until its first use, when <code>rpjrt::buffer_xptr()</code> moves the uploaded buffer into it, so C++ must reach a buffer only through <code>rpjrt::buffer_xptr()</code>/<code>rpjrt::as_buffer()</code>, and its keepalive only through <code>rpjrt::buffer_keepalive()</code>/<code>rpjrt::set_buffer_keepalive()</code> – never <code>R_ExternalPtrAddr()</code>/<code>R_ExternalPtrProtected()</code> directly. C++ creates buffer objects with <code>rpjrt::wrap_buffer()</code>.</p>
 </div>
@@ -97,9 +96,9 @@ PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)</code><
 <ul><li>
 <code><a href="reference/pjrt_execute.html">pjrt_execute()</a></code> returns <code>PJRTBuffer</code>s that may not be ready yet. PJRT tracks dependencies internally, so unready buffers can be passed directly as inputs to the next execution.</li>
 <li>
-<code><a href="reference/as_array_async.html">as_array_async()</a></code> returns a <code>PJRTArrayPromise</code> (non-blocking device-to-host transfer).</li>
+<code><a href="reference/as_array_async.html">as_array_async()</a></code> returns a plain-looking R array that is an ALTREP <em>host array</em> (<code>src/host_array.cpp</code>): it has its final type, <code>dim</code> and class at once, and the first read of its data waits for the device-to-host transfer and materializes it.</li>
 <li>
-<code><a href="reference/is_ready.html">is_ready()</a></code> polls without blocking; <code><a href="reference/await.html">await()</a></code> and <code><a href="reference/value.html">value()</a></code> block until complete.</li>
+<code><a href="reference/is_ready.html">is_ready()</a></code> polls without blocking; <code><a href="reference/await.html">await()</a></code> blocks until complete (and materializes a host array). On any other R object, <code><a href="reference/is_ready.html">is_ready()</a></code> is <code>TRUE</code> and <code><a href="reference/await.html">await()</a></code> is a no-op.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="column-major-convention">Column-Major Convention<a class="anchor" aria-label="anchor" href="#column-major-convention"></a></h3>
@@ -119,7 +118,7 @@ PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)</code><
 <code>loaded_executable.R</code> – <code><a href="reference/pjrt_execute.html">pjrt_execute()</a></code>
 </li>
 <li>
-<code>async.R</code> – <code><a href="reference/value.html">value()</a></code>, <code><a href="reference/is_ready.html">is_ready()</a></code>, <code><a href="reference/await.html">await()</a></code>, <code>PJRTArrayPromise</code>
+<code>async.R</code> – <code><a href="reference/is_ready.html">is_ready()</a></code>, <code><a href="reference/await.html">await()</a></code>
 </li>
 <li>
 <code>device.R</code> – <code><a href="reference/pjrt_device.html">pjrt_device()</a></code>, device spec parsing (“cpu:0”)</li>

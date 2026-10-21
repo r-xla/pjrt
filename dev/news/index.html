@@ -55,6 +55,8 @@
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
 <ul><li>The boolean data type is now named <code>"bool"</code> everywhere.</li>
 <li>The <code>"AnvlArray"</code>s the dispatcher wraps its outputs in no longer carry a <code>$device</code> field; read the device off <code>$data</code>.</li>
+<li>
+<code><a href="../reference/as_array_async.html">as_array_async()</a></code> now returns an R array whose values materialize when first read, instead of a <code>PJRTArrayPromise</code>; <code>value()</code> is removed, use the array directly or <code><a href="../reference/await.html">await()</a></code> it.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
@@ -180,7 +182,7 @@
 <ul><li>
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> and <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code> return immediately, but the returned buffer is not necessarily ready. To await a transfer or computation of a buffer, use <code><a href="../reference/await.html">await()</a></code>. However, this is handled within PJRT, so this function never has to be called by a user.</li>
 <li>
-<code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> is still synchronous, but there is now the asynchronous version <code><a href="../reference/as_array_async.html">as_array_async()</a></code> but this is rarely needed. If used, it returns a <code>PJRTArrayPromise</code> object which can be converted to an R <code>array</code>/<code>vector</code> via <code><a href="../reference/value.html">value()</a></code>.</li>
+<code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> is still synchronous, but there is now the asynchronous version <code><a href="../reference/as_array_async.html">as_array_async()</a></code> but this is rarely needed. If used, it returns a <code>PJRTArrayPromise</code> object which can be converted to an R <code>array</code>/<code>vector</code> via <code>value()</code>.</li>
 <li>To check whether a <code>PJRTBuffer</code> or <code>PJRTArrayPromise</code> is ready, use <code><a href="../reference/is_ready.html">is_ready()</a></code>.</li>
 </ul></div>
 <div class="section level3">

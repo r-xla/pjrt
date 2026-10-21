@@ -162,6 +162,3 @@
 
 - [`unflatten()`](https://r-xla.github.io/pjrt/dev/reference/unflatten.md)
   : Unflatten
-
-- [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) : Get
-  the value of an async operation

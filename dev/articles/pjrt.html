@@ -258,7 +258,8 @@ synchronization cost when you actually need the host-side result
 </tr>
 <tr class="odd">
 <td><code><a href="../reference/as_array_async.html">as_array_async()</a></code></td>
-<td><code>PJRTArrayPromise</code></td>
+<td>R <code>array</code>
+</td>
 <td>Device-to-host transfer</td>
 </tr>
 </tbody>
@@ -266,24 +267,22 @@ synchronization cost when you actually need the host-side result
 <p><code>PJRTBuffer</code> is a transparent async type — it can be used
 directly in operations even if the underlying computation hasn’t
 completed yet. PJRT handles the dependencies internally.</p>
-<p><code>PJRTArrayPromise</code> represents data in transit from device
-to host. Because R arrays are plain R objects (not under our control
-like <code>PJRTBuffer</code>), we need a separate promise type to
-represent “array that isn’t ready yet.” This is why there are two
-functions for synchronization:</p>
+<p><code><a href="../reference/as_array_async.html">as_array_async()</a></code> returns an ordinary-looking R array
+whose data is still in transit from device to host. Its type,
+<code>dim</code> and class are there right away; the first time its
+values are read, R blocks until the transfer has completed. Both kinds
+of async values support the same two functions:</p>
 <ul>
 <li>
-<code>await(x)</code> — block until a <code>PJRTBuffer</code> is
-ready on the device. Pure synchronization; no data leaves the device.
-Useful for timing or error checking, but <strong>not required</strong>
-before passing a buffer to <code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code>.</li>
+<code>await(x)</code> — block until <code>x</code> is ready. For a
+<code>PJRTBuffer</code>, this is pure synchronization; no data leaves
+the device. Useful for timing or error checking, but <strong>not
+required</strong> before passing a buffer to
+<code><a href="../reference/pjrt_execute.html">pjrt_execute()</a></code>. For an array from
+<code><a href="../reference/as_array_async.html">as_array_async()</a></code>, it waits for the transfer.</li>
 <li>
-<code>value(x)</code> — block until a <code>PJRTArrayPromise</code>
-completes, then materialize and return the R array. This is how you get
-data out of the device.</li>
+<code>is_ready(x)</code> — non-blocking readiness check.</li>
 </ul>
-<p>Both types also support <code>is_ready(x)</code> for non-blocking
-readiness checks.</p>
 </div>
 <div class="section level3">
 <h3 id="chaining-operations">Chaining operations<a class="anchor" aria-label="anchor" href="#chaining-operations"></a>
@@ -320,10 +319,14 @@ PJRT handles the dependencies internally:</p>
 <span></span>
 <span><span class="co"># R can do other work here...</span></span>
 <span></span>
-<span><span class="co"># Block only when we need the final R array</span></span>
-<span><span class="va">output</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/value.html">value</a></span><span class="op">(</span><span class="va">async_output</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">output</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 1000 1000</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/is_ready.html">is_ready</a></span><span class="op">(</span><span class="va">async_output</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span></span>
+<span><span class="co"># Reading the values blocks until the transfer is done</span></span>
+<span><span class="va">async_output</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span></span>
+<span><span class="co">#&gt;           [,1]      [,2]</span></span>
+<span><span class="co">#&gt; [1,] 0.1615003 0.4767595</span></span>
+<span><span class="co">#&gt; [2,] 1.6686661 0.8233600</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="when-does-blocking-happen">When does blocking happen?<a class="anchor" aria-label="anchor" href="#when-does-blocking-happen"></a>
@@ -332,7 +335,8 @@ PJRT handles the dependencies internally:</p>
 <ol style="list-style-type: decimal">
 <li>Calling <code><a href="../reference/await.html">await()</a></code> on a buffer</li>
 <li>Calling <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> on a buffer</li>
-<li>Calling <code><a href="../reference/value.html">value()</a></code> on a <code>PJRTArrayPromise</code>
+<li>Reading the values of an array returned by
+<code><a href="../reference/as_array_async.html">as_array_async()</a></code>
 </li>
 <li>Printing a buffer (needs to read values to display them)</li>
 </ol>

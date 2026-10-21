@@ -1,12 +1,18 @@
 # Convert buffer to R array asynchronously
 
 Start an asynchronous transfer of buffer data from device to host.
-Returns immediately with a `PJRTArrayPromise` object.
 
-Use [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) to
-get the R array (blocks if not ready). Use
+Returns immediately with an R array that stands for the transfer's
+result: it has its final type, `dim` and class already, and reading its
+values blocks until the transfer has completed. Use
 [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
-to check if transfer has completed (non-blocking).
+to check if the transfer has completed (non-blocking), and
+[`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) to
+block until it has.
+
+Unlike
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html),
+the values are not checked for being representable in R.
 
 ## Usage
 
@@ -26,17 +32,15 @@ as_array_async(x, ...)
 
 ## Value
 
-A `PJRTArrayPromise` object. Call
-[`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) to get
-the R array.
+An R `array` (or `vector` for shape
+[`integer()`](https://rdrr.io/r/base/integer.html)).
 
 ## See also
 
 [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html),
-[`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md),
 [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md),
-[`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md),
-[`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md)
+[`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md),
+[`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)
 
 ## Examples
 
@@ -45,7 +49,7 @@ buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 result <- as_array_async(buf)
 is_ready(result)
 #> [1] TRUE
-value(result)
+result
 #>      [,1] [,2]
 #> [1,]    1    3
 #> [2,]    2    4

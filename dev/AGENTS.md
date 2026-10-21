@@ -48,7 +48,6 @@ Rcpp):
       └─ PJRTLoadedExecutable  – compiled, device-specific executable
 
     PJRTBuffer         – device-resident tensor (the main data object)
-    PJRTArrayPromise   – async device-to-host transfer result (environment-based)
     PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)
 
 A `PJRTBuffer` is an external pointer whose protected slot holds an
@@ -105,12 +104,19 @@ Both execution and buffer transfers are asynchronous:
   dependencies internally, so unready buffers can be passed directly as
   inputs to the next execution.
 - [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
-  returns a `PJRTArrayPromise` (non-blocking device-to-host transfer).
+  returns a plain-looking R array that is an ALTREP *host array*
+  (`src/host_array.cpp`): it has its final type, `dim` and class at
+  once, and the first read of its data waits for the device-to-host
+  transfer and materializes it.
 - [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
   polls without blocking;
-  [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) and
-  [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md) block
-  until complete.
+  [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md)
+  blocks until complete (and materializes a host array). On any other R
+  object,
+  [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
+  is `TRUE` and
+  [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) is a
+  no-op.
 
 ### Column-Major Convention
 
@@ -132,10 +138,8 @@ buffers.
 - `loaded_executable.R` –
   [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md)
 - `async.R` –
-  [`value()`](https://r-xla.github.io/pjrt/dev/reference/value.md),
   [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md),
-  [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md),
-  `PJRTArrayPromise`
+  [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md)
 - `device.R` –
   [`pjrt_device()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_device.md),
   device spec parsing (“cpu:0”)
