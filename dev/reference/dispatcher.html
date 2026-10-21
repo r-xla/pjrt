@@ -128,6 +128,27 @@ compiled for,</p></li>
 from these.</p></li>
 <li><p><code>const_arrays</code> (optional): buffers prepended to the inputs,</p></li>
 <li><p><code>phantom_specs</code> (optional): a list of <code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;)</code> donation-output buffers to allocate fresh per call.</p></li>
+<li><p><code>implicit_inputs</code> (optional): a list of <code>list(get, dtype, shape)</code>, one
+per value the program takes that no argument supplies, e.g. a global
+RNG state. The program takes them after the call's own inputs (and
+before the phantoms). Before every run the engine calls <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code>, which
+returns a <code>PJRTBuffer</code> of <code>dtype</code> and <code>shape</code>; it is passed on, copied
+to the entry's device if it lives on another one. A value can so stay
+on the device from run to run, e.g. the <code>$data</code> of an implicit output
+that <code>on_success</code> keeps. An implicit input is not part of the cache key,
+which is resolved before the lookup, while only the program decides
+that it needs one: a buffer of another dtype or shape is an error. A
+caller whose implicit inputs can change type puts their types into
+<code>context</code>, so that a change compiles a new entry.</p></li>
+<li><p><code>implicit_outputs</code> (optional): a list of <code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;)</code>, one per value the program returns beyond the <code>out_tree</code>'s
+outputs, after them, e.g. an error code. They are not part of the call's
+result but are handed to <code>on_success</code>, which is then required.</p></li>
+<li><p><code>on_success</code> (optional): a function called with the list of the implicit
+outputs, wrapped like the other outputs, and the call's argument list
+<code>args</code>, after every run of the entry that was launched without an error,
+before the call returns, e.g. to advance what an implicit input's <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code>
+reads, or an object among the arguments. Execution is asynchronous: the
+outputs may not be computed yet.</p></li>
 </ul><p>Either kind of result may additionally carry:</p><ul><li><p><code>input_dtypes</code>: a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> with one entry per dynamic leaf, in
 order, naming the dtype that input is supplied at. <code>NA</code> leaves an input
 alone, and is the only valid entry for an array input: an array is
@@ -221,7 +242,8 @@ Required for any backend other than <code>"pjrt"</code>; ignored for <code>"pjrt
 <dd><p>(<code>function</code> | <code>NULL</code>)<br>
 Called with no arguments on <em>every</em> dispatch to get whatever the compiled
 program depends on beyond its inputs – anvl passes the backend's current
-default dtypes. Must return a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> without <code>NA</code>s; its value is
+default dtypes, say, or the types of the values <code>implicit_inputs</code> read.
+Must return a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> without <code>NA</code>s; its value is
 part of the cache key, so an entry compiled under one context is never
 served under another, and it reaches <code>compile</code> as <code>info$context</code>. Unlike
 <code>default_device</code>, which is consulted only when no array names a device,

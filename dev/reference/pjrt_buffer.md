@@ -215,7 +215,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  nan nan nan
-#>  nan nan nan
+#>  -2.5583e+23  3.0759e-41 -2.9974e+24
+#>   3.0759e-41 -1.7585e+20  3.0759e-41
 #> [ CPUf32{2x3} ] 
 ```

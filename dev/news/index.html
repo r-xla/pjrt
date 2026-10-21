@@ -58,7 +58,8 @@
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
-<ul><li>
+<ul><li>A <code><a href="../reference/dispatcher.html">dispatcher()</a></code> compile callback can declare <code>implicit_inputs</code> and <code>implicit_outputs</code>, values the program takes and returns beyond the call’s arguments and result, and an <code>on_success</code> function that receives the implicit outputs and the call’s arguments after every successful run. An implicit input’s <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code> returns the buffer to pass on.</li>
+<li>
 <code>PJRTBuffer</code>s can now be serialized, e.g. with <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>; they load onto the default device.</li>
 <li>
 <code>PJRTBuffer</code> supports the <code>"bf16"</code> (bfloat16) element type.</li>
