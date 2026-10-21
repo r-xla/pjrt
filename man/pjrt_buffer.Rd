@@ -26,8 +26,9 @@ Currently supported types are:
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 \item \code{"bf16"}: bfloat16 (for \code{double} or \code{integer} data). Values are rounded
 to the nearest bfloat16 value, ties to even; the largest finite value is
-about 3.3895e38, and larger magnitudes round to \code{Inf}.
-\code{\link[=as_array]{as_array()}} returns the exactly representable values as \code{double}.
+about 3.3895e38, and magnitudes at or above the overflow midpoint
+(about 3.3962e38) round to \code{Inf}. \code{\link[=as_array]{as_array()}} returns the exactly
+representable values as \code{double}.
 The default (\code{NULL}) depends on the method:
 \item \code{logical} -> \code{"bool"}
 \item \code{integer} -> \code{"i32"}
