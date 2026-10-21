@@ -223,7 +223,8 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         }
       }
       key.leaves.push_back(std::move(kl));
-      // `$data` is a field of a leaf of `args`, which roots it for the call.
+      // `$data` is a field of a leaf, which `args` roots for the call -- or,
+      // for a leaf a registered class's `flatten` returned, `keep`.
       exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval});
       continue;
     }

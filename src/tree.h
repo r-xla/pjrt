@@ -6,8 +6,10 @@
 //   * bare list         -> ListNode (recurses; remembers names)
 //   * object of a registered class
 //                       -> ObjectNode (recurses into the children the class's
-//                          `flatten` returns; remembers their names and the
-//                          class, whose `unflatten` rebuilds the object)
+//                          `flatten` returns; remembers their names, the class
+//                          and the aux data `flatten` returns beside them,
+//                          from which the class's `unflatten` rebuilds the
+//                          object)
 //   * anything else     -> LeafNode (a classed object or atomic is a leaf)
 // "bare list" == VECSXP without a class attribute, matching R's is.object().
 // Classes are registered with register_tree_node() (see tree_node_class()).
@@ -32,6 +34,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "hash.h"
+
 namespace rpjrt {
 
 struct RTree {
@@ -52,8 +56,14 @@ struct RTree {
   // All child-name strings, concatenated in node preorder: the names of an
   // earlier (by node index) named list node come before those of a later one.
   std::vector<std::string> names;
-  // ObjectNode: the registered class of the object; "" for any other node.
-  std::vector<std::string> node_class;
+  // One entry per ObjectNode, in node preorder (like `names`, and so an
+  // ObjectNode's entry is implicit: its rank among the ObjectNodes): the
+  // registered class of the object and the aux data its `flatten` returned.
+  struct Object {
+    std::string cls;
+    Rcpp::RObject aux;
+  };
+  std::vector<Object> objects;
 
   bool is_named(std::size_t pos) const { return name_off[pos] != -1; }
   // A node with children: a list or an object.
@@ -66,37 +76,58 @@ inline bool is_bare_list(SEXP x) {
   return TYPEOF(x) == VECSXP && !Rf_isObject(x);
 }
 
-// A class registered with register_tree_node(): `flatten(x)` returns the
-// children of an object of the class as a bare list, and `unflatten(children)`
-// rebuilds an object from such a list.
+// A class registered with register_tree_node(): `flatten(x)` returns
+// `list(children, aux)` for an object of the class, and
+// `unflatten(children, aux)` rebuilds an object from them.
 struct TreeNodeType {
+  std::string cls;
+  // The class name's CHARSXP, kept alive so its address stays the registry key.
+  Rcpp::RObject cls_char;
   Rcpp::RObject flatten;
   Rcpp::RObject unflatten;
 };
 
-// The registered classes, by class name.
-std::unordered_map<std::string, TreeNodeType>& tree_node_types();
+// The registered classes, keyed by the CHARSXP of the class name. R caches
+// CHARSXPs, so a class attribute names a registered class exactly when its
+// element is the same CHARSXP: flatten_rec() looks a classed leaf up by
+// pointer, without reading or hashing its class strings.
+std::unordered_map<SEXP, TreeNodeType>& tree_node_types();
+
+// The registry key of the class named `cls`: its CHARSXP, as UTF-8 (which for
+// an ASCII name is the one CHARSXP that any encoding of it yields).
+inline SEXP tree_node_key(const std::string& cls) {
+  return Rf_mkCharCE(cls.c_str(), CE_UTF8);
+}
 
 // The registered class `x` is an object of (its first class that is
 // registered), or nullptr. Cheap when nothing is registered.
-inline const std::pair<const std::string, TreeNodeType>* tree_node_class(
-    SEXP x) {
+inline const TreeNodeType* tree_node_class(SEXP x) {
   auto& types = tree_node_types();
   if (types.empty() || !Rf_isObject(x)) return nullptr;
   SEXP cls = Rf_getAttrib(x, R_ClassSymbol);
   for (R_xlen_t k = 0; k < XLENGTH(cls); ++k) {
-    auto it = types.find(CHAR(STRING_ELT(cls, k)));
-    if (it != types.end()) return &*it;
+    auto it = types.find(STRING_ELT(cls, k));
+    if (it != types.end()) return &it->second;
   }
   return nullptr;
+}
+
+// The number of ObjectNodes before node `pos`, i.e. the index into
+// `tree.objects` of the first object at or after it.
+inline std::size_t object_index(const RTree& tree, std::size_t pos) {
+  std::size_t n = 0;
+  for (std::size_t q = 0; q < pos; ++q) {
+    if (tree.kind[q] == RTree::ObjectNode) ++n;
+  }
+  return n;
 }
 
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
                         std::vector<Rcpp::RObject>& keep);
 
 // Append a node with the children `x` (a list, possibly named) to `tree` and
-// recurse into them; `kind` and `cls` say what node it is.
-inline void flatten_children(SEXP x, RTree::Kind kind, const std::string& cls,
+// recurse into them; `kind` says what node it is.
+inline void flatten_children(SEXP x, RTree::Kind kind,
                              std::vector<SEXP>& leaves, RTree& tree,
                              std::vector<Rcpp::RObject>& keep) {
   const std::size_t pos = tree.kind.size();
@@ -106,7 +137,6 @@ inline void flatten_children(SEXP x, RTree::Kind kind, const std::string& cls,
   tree.kind.push_back(kind);
   tree.n_children.push_back(static_cast<std::int32_t>(n));
   tree.subtree_nodes.push_back(0);  // place-holder. Set correctly at the end
-  tree.node_class.push_back(cls);
   if (has_names) {
     tree.name_off.push_back(static_cast<std::int32_t>(tree.names.size()));
     for (R_xlen_t k = 0; k < n; ++k) {
@@ -126,9 +156,9 @@ inline void flatten_children(SEXP x, RTree::Kind kind, const std::string& cls,
   tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
 }
 
-// Append the preorder encoding of `x` to `t`, collecting leaves in order. The
-// children a registered class's `flatten` returns are kept alive in `keep`, as
-// the leaves may point into them.
+// Append the preorder encoding of `x` to `t`, collecting leaves in order. What
+// a registered class's `flatten` returns is kept alive in `keep`, as the leaves
+// may point into it.
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
                         std::vector<Rcpp::RObject>& keep) {
   if (x == R_NilValue) {
@@ -136,38 +166,40 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
     tree.n_children.push_back(0);
     tree.subtree_nodes.push_back(1);
     tree.name_off.push_back(-1);
-    tree.node_class.push_back(std::string());
     return;
   }
   if (is_bare_list(x)) {
-    flatten_children(x, RTree::ListNode, std::string(), leaves, tree, keep);
+    flatten_children(x, RTree::ListNode, leaves, tree, keep);
     return;
   }
   if (const auto* type = tree_node_class(x)) {
-    Rcpp::Function flatten(type->second.flatten);
-    Rcpp::RObject children = flatten(x);
-    if (!is_bare_list(children)) {
-      Rcpp::stop("the `flatten` registered for class \"%s\" must return a list",
-                 type->first.c_str());
+    Rcpp::Function flatten(type->flatten);
+    Rcpp::RObject res = flatten(x);
+    if (!is_bare_list(res) || XLENGTH(res) != 2 ||
+        !is_bare_list(VECTOR_ELT(res, 0))) {
+      Rcpp::stop(
+          "the `flatten` registered for class \"%s\" must return "
+          "`list(children, aux)`, where `children` is a list",
+          type->cls.c_str());
     }
-    keep.push_back(children);
-    flatten_children(children, RTree::ObjectNode, type->first, leaves, tree,
-                     keep);
+    keep.push_back(res);
+    tree.objects.push_back({type->cls, Rcpp::RObject(VECTOR_ELT(res, 1))});
+    flatten_children(VECTOR_ELT(res, 0), RTree::ObjectNode, leaves, tree, keep);
     return;
   }
   tree.kind.push_back(RTree::LeafNode);
   tree.n_children.push_back(0);
   tree.subtree_nodes.push_back(1);
   tree.name_off.push_back(-1);
-  tree.node_class.push_back(std::string());
   leaves.push_back(x);
 }
 
 // Reconstruct an R object from the subtree at `pos`, consuming leaves in order
-// via `li`. `pos` advances past the whole subtree (children follow their parent
-// contiguously in preorder). The caller must size `leaves` to the leaf count.
+// via `li` and objects via `oi`. `pos` advances past the whole subtree
+// (children follow their parent contiguously in preorder). The caller must size
+// `leaves` to the leaf count.
 inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
-                          std::size_t& pos, std::size_t& li) {
+                          std::size_t& pos, std::size_t& li, std::size_t& oi) {
   const std::size_t node = pos++;
   switch (tree.kind[node]) {
     case RTree::NullNode:
@@ -177,9 +209,11 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
     case RTree::ListNode:
     case RTree::ObjectNode: {
       const int n = tree.n_children[node];
+      // Taken before the children's: objects are numbered in preorder.
+      const std::size_t obj = tree.kind[node] == RTree::ObjectNode ? oi++ : 0;
       SEXP out = PROTECT(Rf_allocVector(VECSXP, n));
       for (int k = 0; k < n; ++k) {
-        SET_VECTOR_ELT(out, k, unflatten_rec(tree, leaves, pos, li));
+        SET_VECTOR_ELT(out, k, unflatten_rec(tree, leaves, pos, li, oi));
       }
       if (tree.is_named(node)) {
         const std::int32_t off = tree.name_off[node];
@@ -191,14 +225,15 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
         UNPROTECT(1);
       }
       if (tree.kind[node] == RTree::ObjectNode) {
-        auto it = tree_node_types().find(tree.node_class[node]);
+        const RTree::Object& o = tree.objects[obj];
+        auto it = tree_node_types().find(tree_node_key(o.cls));
         if (it == tree_node_types().end()) {
           UNPROTECT(1);
           Rcpp::stop("the tree node class \"%s\" is no longer registered",
-                     tree.node_class[node].c_str());
+                     o.cls.c_str());
         }
         Rcpp::Function unflatten(it->second.unflatten);
-        out = unflatten(out);
+        out = unflatten(out, o.aux);
       }
       UNPROTECT(1);
       return out;
@@ -238,15 +273,25 @@ inline std::vector<std::size_t> child_nodes(const RTree& tree,
 }
 
 // Structural equality: identical kinds, child counts, name offsets, child
-// names and object classes -- together the full canonical encoding.
+// names, and object classes and aux data (the latter by r_identical()) --
+// together the full canonical encoding.
 // subtree_nodes is derived from the shape, so it needs no separate check; and
 // name_off is canonical (a named node's offset is fixed by the shape, and -1
 // exactly when unnamed), so comparing it directly also captures each node's
 // named-ness.
 inline bool tree_eq(const RTree& a, const RTree& b) {
-  return a.kind == b.kind && a.n_children == b.n_children &&
-         a.name_off == b.name_off && a.names == b.names &&
-         a.node_class == b.node_class;
+  if (!(a.kind == b.kind && a.n_children == b.n_children &&
+        a.name_off == b.name_off && a.names == b.names)) {
+    return false;
+  }
+  // Equal kinds imply equally many objects.
+  for (std::size_t k = 0; k < a.objects.size(); ++k) {
+    if (a.objects[k].cls != b.objects[k].cls ||
+        !r_identical(a.objects[k].aux, b.objects[k].aux)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Structural hash of an RTree, consistent with tree_eq: trees that compare

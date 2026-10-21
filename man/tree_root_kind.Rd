@@ -15,7 +15,8 @@ A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \description{
 The kind of a tree's root node: \code{"leaf"} for a single leaf, \code{"list"} for a
-list node, or \code{"null"} for the empty (\code{NULL}) node.
+list node, \code{"object"} for an object of a class registered with
+\code{\link[=register_tree_node]{register_tree_node()}}, or \code{"null"} for the empty (\code{NULL}) node.
 }
 \examples{
 tree_root_kind(build_tree(1))

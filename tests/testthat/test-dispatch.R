@@ -249,11 +249,12 @@ test_that("distinct static values never merge", {
 
 test_that("the pjrt engine wraps its outputs and caches one entry per signature", {
   skip_if_not(plugins_downloaded())
-  n_compile <- 0L
+  state <- new.env()
+  state$n_compile <- 0L
   d <- dispatcher(
     10L,
     function(info) {
-      n_compile <<- n_compile + 1L
+      state$n_compile <- state$n_compile + 1L
       n <- info$avals[[1L]]$shape
       pjrt_entry(
         binop_exec(sprintf("tensor<%dxf32>", n)),
@@ -278,7 +279,7 @@ test_that("the pjrt engine wraps its outputs and caches one entry per signature"
   # A second call of the same signature is a cache hit...
   expect_equal(out(dispatch(d, list(x = x, y = y))), c(11, 22, 33))
   expect_equal(dispatcher_size(d), 1L)
-  expect_equal(n_compile, 1L)
+  expect_equal(state$n_compile, 1L)
 
   # ...an output feeds straight back in as an input, without re-compiling...
   expect_equal(out(dispatch(d, list(x = r1, y = y))), c(21, 42, 63))
@@ -351,17 +352,18 @@ test_that("bare R data is keyed by its R storage type and uploaded column-major"
     vapply(
       list(5, 3L, TRUE),
       function(x) {
-        av <- NULL
+        state <- new.env()
+        state$av <- NULL
         dd <- dispatcher(
           1L,
           function(info) {
-            av <<- info$avals[[1L]]$dtype
+            state$av <- info$avals[[1L]]$dtype
             stop("not compiled")
           },
           default_device = test_pjrt_device
         )
         try(dispatch(dd, list(x = x)), silent = TRUE)
-        av
+        state$av
       },
       character(1L)
     ),
@@ -552,16 +554,6 @@ test_that("a buffer implicit input on another device is copied to the entry's", 
   expect_equal(out(dispatch(d, list(x = parr(pjrt_buffer(c(10, 10), dtype = "f32"))))), c(6, 5))
 })
 
-test_that("on_success is handed the call's arguments", {
-  skip_if_not(plugins_downloaded())
-  env <- new.env()
-  env$s <- c(2, 3)
-  d <- implicit_dispatcher(env, on_success = function(outputs, args) env$args <- args)
-  x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
-  dispatch(d, list(x = x))
-  expect_identical(env$args, list(x = x))
-})
-
 test_that("on_success is not called after a failed run", {
   skip_if_not(plugins_downloaded())
   env <- new.env()
@@ -608,7 +600,8 @@ test_that("a run outlives the eviction of its entry by a callback that dispatche
   # evicts the entry whose run is still under way.
   env <- new.env()
   env$s <- c(1, 2)
-  reentered <- FALSE
+  state <- new.env()
+  state$reentered <- FALSE
   d <- NULL
   d <- dispatcher(
     1L,
@@ -617,8 +610,8 @@ test_that("a run outlives the eviction of its entry by a callback that dispatche
         implicit_exec(test_pjrt_device()),
         implicit_inputs = list(list(get = function() env$s, dtype = "f32", shape = 2L)),
         on_success = function(outputs, args) {
-          if (!reentered) {
-            reentered <<- TRUE
+          if (!state$reentered) {
+            state$reentered <- TRUE
             dispatch(d, list(x = x, k = 2L))
           }
         }
@@ -629,7 +622,7 @@ test_that("a run outlives the eviction of its entry by a callback that dispatche
   )
   x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
   expect_equal(out(dispatch(d, list(x = x, k = 1L))), c(9, 8))
-  expect_true(reentered)
+  expect_true(state$reentered)
   expect_equal(dispatcher_size(d), 1L)
 })
 
@@ -642,23 +635,26 @@ test_that("implicit outputs are handed to on_success, not returned", {
        "func.return"(%0, %1): (tensor<2xf32>, tensor<2xf32>) -> ()
      }'
   ))
-  received <- NULL
+  state <- new.env()
+  state$received <- NULL
   d <- dispatcher(
     10L,
     function(info) {
       pjrt_entry(
         exec,
         implicit_outputs = list(oav()),
-        on_success = function(outputs, args) received <<- outputs
+        on_success = function(outputs, args) {
+          state$received <- outputs
+        }
       )
     },
     default_device = test_pjrt_device
   )
   x <- parr(pjrt_buffer(c(2, 3), dtype = "f32"))
   expect_equal(out(dispatch(d, list(x = x))), c(4, 6))
-  expect_length(received, 1L)
-  expect_s3_class(received[[1L]], "AnvlArray")
-  expect_equal(out(received[[1L]]), c(4, 9))
+  expect_length(state$received, 1L)
+  expect_s3_class(state$received[[1L]], "AnvlArray")
+  expect_equal(out(state$received[[1L]]), c(4, 9))
 })
 
 test_that("a value can stay on the device, as an implicit input and output", {
@@ -681,7 +677,9 @@ test_that("a value can stay on the device, as an implicit input and output", {
         exec,
         implicit_inputs = list(list(get = function() env$s, dtype = "f32", shape = 2L)),
         implicit_outputs = list(oav()),
-        on_success = function(outputs, args) env$s <- outputs[[1L]]
+        on_success = function(outputs, args) {
+          env$s <- outputs[[1L]]
+        }
       )
     },
     default_device = test_pjrt_device
@@ -827,11 +825,12 @@ test_that("`dispatcher()` picks the engine from the backend", {
 })
 
 test_that("the closure engine passes the dynamic leaves to `r_fun`, and nothing else", {
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   d <- new_dispatcher(
     10L,
     function(info) {
-      n_miss <<- n_miss + 1L
+      state$n_miss <- state$n_miss + 1L
       # `r_fun` receives the call's inputs: "quickr" AnvlArrays contribute
       # their $data, bare R data passes through. The static `flag` is not among
       # them -- it is a constant of this very closure, which closes over the
@@ -854,12 +853,12 @@ test_that("the closure engine passes the dynamic leaves to `r_fun`, and nothing 
   expect_identical(r1, list(n_inputs = 2L, sum = c(11, 22), flag = TRUE))
   r2 <- impl_dispatch_run(d, list(x = a, y = b, flag = TRUE))
   expect_identical(r2, list(n_inputs = 2L, sum = c(11, 22), flag = TRUE))
-  expect_equal(n_miss, 1L) # same signature -> hit
+  expect_equal(state$n_miss, 1L) # same signature -> hit
   expect_equal(impl_dispatcher_size(d), 1L)
 
   # a different dtype is a new signature
   invisible(impl_dispatch_run(d, list(x = qarr(c(1L, 2L), "i32"), y = b, flag = TRUE)))
-  expect_equal(n_miss, 2L)
+  expect_equal(state$n_miss, 2L)
 
   # a bare R literal passes through to the closure as-is
   d2 <- new_dispatcher(
@@ -878,11 +877,12 @@ test_that("the closure engine serves a backend pjrt has never heard of", {
   # The dispatcher's `backend` is a parameter, not a hardcoded pair: a new
   # backend brings interned devices, AnvlArrays tagged with its own name, and
   # a compile callback -- and dispatches natively with no C++ of its own.
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   d <- new_dispatcher(
     10L,
     function(info) {
-      n_miss <<- n_miss + 1L
+      state$n_miss <- state$n_miss + 1L
       list(r_fun = function(flat) flat[[1]] * 2)
     },
     character(0),
@@ -894,7 +894,7 @@ test_that("the closure engine serves a backend pjrt has never heard of", {
   myarr <- qarr(c(1, 2), device = test_device("mydev"), backend = "mybackend")
   expect_identical(impl_dispatch_run(d, list(myarr)), c(2, 4))
   invisible(impl_dispatch_run(d, list(myarr)))
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
 
   # ...and an array of any other backend is rejected by name.
   expect_error(
@@ -908,17 +908,18 @@ test_that("the closure engine can pin a device (move_inputs): `r_fun` places its
   # is not key material and inputs may arrive from any device. The closure
   # engine delegates the placing to `r_fun` -- like the execution and the
   # output wrapping it already delegates -- so pjrt copies nothing here.
-  n_miss <- 0L
-  placed_on <- NULL
+  state <- new.env()
+  state$n_miss <- 0L
+  state$placed_on <- NULL
   d <- new_dispatcher(
     10L,
     function(info) {
-      n_miss <<- n_miss + 1L
+      state$n_miss <- state$n_miss + 1L
       # the device this entry is compiled for; `r_fun` closes over it
       target <- test_device("gpu")
       list(
         r_fun = function(flat) {
-          placed_on <<- target
+          state$placed_on <- target
           list(v = flat[[1]] + flat[[2]])
         }
       )
@@ -936,7 +937,7 @@ test_that("the closure engine can pin a device (move_inputs): `r_fun` places its
     list(x = qarr(1, device = test_device("cpu")), y = qarr(2, device = test_device("gpu")))
   )
   expect_identical(r1, list(v = 3))
-  expect_identical(placed_on, test_device("gpu"))
+  expect_identical(state$placed_on, test_device("gpu"))
 
   # the device is not part of the key: the same signature from another device
   # hits the entry that is already there
@@ -945,7 +946,7 @@ test_that("the closure engine can pin a device (move_inputs): `r_fun` places its
     list(x = qarr(1, device = test_device("gpu")), y = qarr(2, device = test_device("gpu")))
   )
   expect_identical(r2, list(v = 3))
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
   expect_equal(impl_dispatcher_size(d), 1L)
 })
 
@@ -955,13 +956,14 @@ test_that("devices are canonicalized: identity first, identical() fallback", {
   # canonical (a pointer compare); an equal-but-distinct one collapses to it via
   # identical(). The closure engine uses this base canonicalization; pjrt's own
   # engine interns by PJRT_Device* instead.
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   mk <- function() {
-    n_miss <<- 0L
+    state$n_miss <- 0L
     new_dispatcher(
       10L,
       function(info) {
-        n_miss <<- n_miss + 1L
+        state$n_miss <- state$n_miss + 1L
         list(r_fun = function(flat) list(v = flat[[1]]))
       },
       character(0),
@@ -977,11 +979,11 @@ test_that("devices are canonicalized: identity first, identical() fallback", {
   d <- mk()
   invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), device = dev))))
   invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), device = dev))))
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
 
   # ...and a different device is a different key.
   invisible(impl_dispatch_run(d, list(x = qarr(c(1, 2), device = test_device("gpu")))))
-  expect_equal(n_miss, 2L)
+  expect_equal(state$n_miss, 2L)
   expect_equal(impl_dispatcher_size(d), 2L)
 
   # Two arrays on different devices conflict, naming the offender.
@@ -1006,7 +1008,7 @@ test_that("devices are canonicalized: identity first, identical() fallback", {
     d2,
     list(x = qarr(c(1, 2), device = test_device("cpu")), y = qarr(c(1, 2), device = test_device("cpu")))
   ))
-  expect_equal(n_miss, 1L) # one device, one entry, however it is spelled
+  expect_equal(state$n_miss, 1L) # one device, one entry, however it is spelled
   # ...while genuinely different devices still conflict.
   expect_error(
     impl_dispatch_run(
@@ -1028,12 +1030,13 @@ test_that("a call with no array input keys on the resolved default device", {
   # one. Resolving per call means an entry compiled under one default device is
   # never served after the default changes -- a default anvl reads off the
   # session, and so cannot change mid-test.
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   current <- "cpu"
   d <- new_dispatcher(
     10L,
     function(info) {
-      n_miss <<- n_miss + 1L
+      state$n_miss <- state$n_miss + 1L
       list(r_fun = function(flat) list(v = info$default_device))
     },
     character(0),
@@ -1044,17 +1047,17 @@ test_that("a call with no array input keys on the resolved default device", {
   )
 
   r1 <- impl_dispatch_run(d, list(x = 1))
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
   # The resolved device reaches the callback, so it compiles for the same one.
   expect_s3_class(r1$v, "QuickrDevice")
   expect_identical(r1$v$device, "cpu")
 
   invisible(impl_dispatch_run(d, list(x = 1))) # same default -> hit
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
 
   current <- "gpu" # the default changes mid-session
   r2 <- impl_dispatch_run(d, list(x = 1))
-  expect_equal(n_miss, 2L) # ...so the old entry must not be served
+  expect_equal(state$n_miss, 2L) # ...so the old entry must not be served
   expect_identical(r2$v$device, "gpu")
   expect_equal(impl_dispatcher_size(d), 2L)
 })
@@ -1063,12 +1066,13 @@ test_that("the context resolver is part of the key and reaches the callback", {
   # The compiled program depends on what `context` returns (anvl: the default
   # dtypes), so it is resolved on every call -- also one with array inputs --
   # and an entry compiled under one context is never served under another.
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   current <- c(float = "f32", int = "i32")
   d <- new_dispatcher(
     10L,
     function(info) {
-      n_miss <<- n_miss + 1L
+      state$n_miss <- state$n_miss + 1L
       ctx <- info$context
       list(r_fun = function(flat) list(ctx = ctx))
     },
@@ -1082,37 +1086,38 @@ test_that("the context resolver is part of the key and reaches the callback", {
 
   x <- qarr(c(1, 2))
   r1 <- impl_dispatch_run(d, list(x = x))
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
   expect_identical(r1$ctx, c(float = "f32", int = "i32"))
 
   invisible(impl_dispatch_run(d, list(x = x))) # same context -> hit
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
 
   current <- c(float = "f64", int = "i32") # the context changes mid-session
   r2 <- impl_dispatch_run(d, list(x = x))
-  expect_equal(n_miss, 2L) # ...so the old entry must not be served
+  expect_equal(state$n_miss, 2L) # ...so the old entry must not be served
   expect_identical(r2$ctx, c(float = "f64", int = "i32"))
   expect_equal(impl_dispatcher_size(d), 2L)
 
   current <- c(float = "f32", int = "i32") # ...but is still there to come back to
   invisible(impl_dispatch_run(d, list(x = x)))
-  expect_equal(n_miss, 2L)
+  expect_equal(state$n_miss, 2L)
 
   # An all-literal call keys on the context as well.
   r3 <- impl_dispatch_run(d, list(x = 1))
-  expect_equal(n_miss, 3L)
+  expect_equal(state$n_miss, 3L)
   expect_identical(r3$ctx, c(float = "f32", int = "i32"))
 })
 
 test_that("the context keys the cache under move_inputs too", {
   # move_inputs keeps the *device* out of the key deliberately; the context
   # stays in it, since any entry may depend on it.
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   current <- c(float = "f32")
   d <- new_dispatcher(
     10L,
     function(info) {
-      n_miss <<- n_miss + 1L
+      state$n_miss <- state$n_miss + 1L
       ctx <- info$context
       list(r_fun = function(flat) list(ctx = ctx))
     },
@@ -1127,10 +1132,10 @@ test_that("the context keys the cache under move_inputs too", {
   x <- qarr(c(1, 2))
   expect_identical(impl_dispatch_run(d, list(x = x))$ctx, c(float = "f32"))
   invisible(impl_dispatch_run(d, list(x = x)))
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
   current <- c(float = "f64")
   expect_identical(impl_dispatch_run(d, list(x = x))$ctx, c(float = "f64"))
-  expect_equal(n_miss, 2L)
+  expect_equal(state$n_miss, 2L)
 })
 
 test_that("`dispatcher()` passes `context` through, and validates it", {
@@ -1210,11 +1215,12 @@ test_that("a context resolver must return a character vector without NAs", {
 })
 
 test_that("without a context resolver the callback sees info$context = NULL", {
-  seen <- NULL
+  state <- new.env()
+  state$seen <- NULL
   d <- new_dispatcher(
     10L,
     function(info) {
-      seen <<- info
+      state$seen <- info
       list(r_fun = function(flat) list(v = 1))
     },
     character(0),
@@ -1224,8 +1230,8 @@ test_that("without a context resolver the callback sees info$context = NULL", {
     test_quickr_device
   )
   invisible(impl_dispatch_run(d, list(x = 1)))
-  expect_true("context" %in% names(seen))
-  expect_null(seen$context)
+  expect_true("context" %in% names(state$seen))
+  expect_null(state$seen$context)
 })
 
 test_that("a dispatcher without a default_device rejects a call with no arrays", {
@@ -1244,12 +1250,13 @@ test_that("a dispatcher without a default_device rejects a call with no arrays",
 test_that("an input pjrt cannot classify is rejected, naming the offending argument", {
   # jit() covers the values a user can plausibly pass; these are the ones only a
   # broken caller produces -- a mistagged array, or a leaf buried in a list.
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   mk <- function(engine) {
     new_dispatcher(
       10L,
       function(info) {
-        n_miss <<- n_miss + 1L
+        state$n_miss <- state$n_miss + 1L
         list(r_fun = function(flat) list(v = flat[[1]]))
       },
       character(0),
@@ -1317,7 +1324,7 @@ test_that("an input pjrt cannot classify is rejected, naming the offending argum
     "invalid input `x`.*dtype is not one anvl can represent"
   )
 
-  expect_equal(n_miss, 0L) # every rejection happened before the cache was probed
+  expect_equal(state$n_miss, 0L) # every rejection happened before the cache was probed
 })
 
 test_that("a closure backend can compute metadata via accessors, storing no fields", {
@@ -1325,7 +1332,8 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
   # device/backend may be computed by the backend's accessors rather
   # than stored as fields. The dispatcher must read them through the extractor,
   # never by reaching for fields -- this array carries $data and nothing else.
-  n_miss <- 0L
+  state <- new.env()
+  state$n_miss <- 0L
   dev <- test_device("cpu")
   extractor <- function(leaf) {
     list(
@@ -1337,7 +1345,7 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
   d <- impl_dispatcher_create(
     10L,
     function(info) {
-      n_miss <<- n_miss + 1L
+      state$n_miss <- state$n_miss + 1L
       list(r_fun = function(flat) list(v = flat[[1]] * 2))
     },
     character(0),
@@ -1352,7 +1360,7 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
   expect_identical(impl_dispatch_run(d, list(bare(c(1, 2, 3))))$v, c(2, 4, 6))
   # A second call of the same accessor-derived aval is a cache hit.
   invisible(impl_dispatch_run(d, list(bare(c(5, 6, 7)))))
-  expect_equal(n_miss, 1L)
+  expect_equal(state$n_miss, 1L)
 })
 
 test_that("a capacity below 1 is rejected rather than segfaulting", {
@@ -1690,10 +1698,11 @@ test_that("`input_dtypes` is indexed by dynamic leaf, skipping statics", {
     "func.return"(%x): (tensor<f64>) -> ()
   }'
   exec <- pjrt_compile(pjrt_program(src = src))
-  seen <- NULL
+  state <- new.env()
+  state$seen <- NULL
   cb <- function(dtypes) {
     function(info) {
-      seen <<- info$avals
+      state$seen <- info$avals
       pjrt_entry(
         exec,
         out_tree = build_tree(0),
@@ -1709,9 +1718,9 @@ test_that("`input_dtypes` is indexed by dynamic leaf, skipping statics", {
   res <- dispatch(mk("f64"), list(s = 42L, x = sqrt(2)))
   expect_identical(as.numeric(xlamisc::as_array(await(res$data))), sqrt(2))
   # `info$avals` is the other indexing: per leaf, NULL where a static sits.
-  expect_length(seen, 2L)
-  expect_null(seen[[1L]])
-  expect_identical(seen[[2L]]$dtype, "double")
+  expect_length(state$seen, 2L)
+  expect_null(state$seen[[1L]])
+  expect_identical(state$seen[[2L]]$dtype, "double")
 
   # One entry per argument is the mistake this catches.
   expect_error(
@@ -1748,4 +1757,89 @@ test_that("`input_dtypes` may not declare a dtype for an array input", {
     as.numeric(xlamisc::as_array(await(dispatch(d, list(x = arr))$data))),
     1
   )
+})
+
+describe("dispatch", {
+  # A registered class whose aux data is `unit`; `env$fail` makes its unflatten
+  # error.
+  env <- new.env()
+  env$fail <- FALSE
+  box <- function(v, unit) structure(list(v = v, unit = unit), class = "box")
+  local_box <- function(envir = parent.frame()) {
+    register_tree_node(
+      "box",
+      flatten = function(b) list(list(v = b$v), b$unit),
+      unflatten = function(children, unit) {
+        if (env$fail) {
+          stop("cannot rebuild the box")
+        }
+        box(children$v, unit)
+      }
+    )
+    withr::defer(unregister_tree_node("box"), envir = envir)
+  }
+
+  it("hands on_success the call's arguments", {
+    skip_if_not(plugins_downloaded())
+    state <- new.env()
+    state$s <- c(2, 3)
+    d <- implicit_dispatcher(state, on_success = function(outputs, args) {
+      state$args <- args
+    })
+    x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
+    dispatch(d, list(x = x))
+    expect_identical(state$args, list(x = x))
+  })
+
+  it("keys the cache on the aux data of an object argument", {
+    local_box()
+    d <- new_dispatcher(
+      10L,
+      function(info) list(r_fun = function(flat) flat[[1L]]),
+      character(0),
+      "closure",
+      "quickr",
+      FALSE,
+      test_quickr_device
+    )
+    x <- qarr(c(1, 2))
+    invisible(dispatch(d, list(b = box(x, "cm"))))
+    invisible(dispatch(d, list(b = box(x, "cm"))))
+    expect_identical(dispatcher_size(d), 1L)
+    invisible(dispatch(d, list(b = box(x, "in"))))
+    expect_identical(dispatcher_size(d), 2L)
+  })
+
+  it("rebuilds an object result, and runs on_success only once it has", {
+    skip_if_not(plugins_downloaded())
+    local_box()
+    state <- new.env()
+    state$n_success <- 0L
+    d <- dispatcher(
+      10L,
+      function(info) {
+        pjrt_entry(
+          id_exec(),
+          out_tree = build_tree(box(0, "cm")),
+          on_success = function(outputs, args) {
+            state$n_success <- state$n_success + 1L
+          }
+        )
+      },
+      default_device = test_pjrt_device
+    )
+    x <- parr(pjrt_buffer(c(1, 2), dtype = "f32"))
+    res <- dispatch(d, list(x = x))
+    expect_s3_class(res, "box")
+    expect_identical(res$unit, "cm")
+    expect_equal(out(res$v), c(1, 2))
+    expect_identical(state$n_success, 1L)
+
+    env$fail <- TRUE
+    withr::defer({
+      env$fail <- FALSE
+    })
+    expect_error(dispatch(d, list(x = x)), "cannot rebuild the box")
+    expect_identical(state$n_success, 1L)
+  })
 })

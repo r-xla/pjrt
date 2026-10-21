@@ -14,12 +14,13 @@ unregister_tree_node(class)
 The class.}
 
 \item{flatten}{(\code{function})\cr
-Takes an object of the class and returns its children, a bare \code{list},
-whose names the tree keeps.}
+Takes an object of the class and returns \code{list(children, aux)}: its
+children, a bare \code{list} whose names the tree keeps, and its aux data, any
+value (\code{NULL} if there is none).}
 
 \item{unflatten}{(\code{function})\cr
-Takes the children, a \code{list} named as \code{flatten} names them, and returns an
-object of the class.}
+Takes the children, a \code{list} named as \code{flatten} names them, and the aux
+data, and returns an object of the class.}
 }
 \value{
 \code{NULL}, invisibly.
@@ -28,23 +29,32 @@ object of the class.}
 Makes the objects of a class nodes of a tree rather than leaves: \code{\link[=flatten]{flatten()}}
 and \code{\link[=build_tree]{build_tree()}} recurse into the children \code{flatten} returns, and
 \code{\link[=unflatten]{unflatten()}} rebuilds an object of the class from them with \code{unflatten}.
-The class is part of the tree's structure, so two trees that differ only in
-the class of an object node are not equal. This is JAX's
-\code{register_pytree_node()}.
+This is JAX's \code{register_pytree_node()}.
+
+Besides its children, \code{flatten} returns the object's aux data: whatever else
+\code{unflatten} needs to rebuild it, such as a setting that is not an array.
+The class and the aux data are part of the tree's structure, compared with
+\code{\link[=identical]{identical()}}, so two trees that differ in either are not equal and the
+dispatcher compiles them separately. Keep the aux data small and put the
+arrays among the children.
 
 An object is a node of the first of its classes that is registered.
 Registering a class again replaces its functions.
 }
 \examples{
-point <- function(x, y) structure(list(x = x, y = y), class = "point")
+point <- function(x, y, unit) {
+  structure(list(x = x, y = y, unit = unit), class = "point")
+}
 register_tree_node(
   "point",
-  flatten = function(p) unclass(p),
-  unflatten = function(children) point(children$x, children$y)
+  flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
+  unflatten = function(children, unit) point(children$x, children$y, unit)
 )
-flatten(list(point(1, 2), 3))
-tree <- build_tree(list(point(1, 2), 3))
+flatten(list(point(1, 2, "cm"), 3))
+tree <- build_tree(list(point(1, 2, "cm"), 3))
+tree
 unflatten(tree, list(10, 20, 30))
+build_tree(point(1, 2, "cm")) == build_tree(point(1, 2, "in"))
 unregister_tree_node("point")
 }
 \seealso{
