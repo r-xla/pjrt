@@ -492,10 +492,15 @@ implicit_exec <- function(device = NULL) {
   )
 }
 
-# A dispatcher whose program reads its implicit input from `env$s` and, after a
-# successful run, calls `on_success`, by default to add 1 to it.
-implicit_dispatcher <- function(env, dtype = "f32", on_success = function(outputs, args) env$s <- env$s + 1) {
-  input <- list(get = function() env$s, dtype = dtype, shape = 2L)
+# A dispatcher whose program reads its implicit input, a buffer, from `env$s`
+# and, after a successful run, calls `on_success`, by default to add 1 to it.
+implicit_dispatcher <- function(
+  env,
+  on_success = function(outputs, args) {
+    env$s <- pjrt_buffer(as_array(env$s) + 1, dtype = "f32")
+  }
+) {
+  input <- list(get = function() env$s, dtype = "f32", shape = 2L)
   dispatcher(
     10L,
     function(info) {
@@ -512,33 +517,25 @@ implicit_dispatcher <- function(env, dtype = "f32", on_success = function(output
 test_that("an implicit input is read before every run, and on_success runs after it", {
   skip_if_not(plugins_downloaded())
   env <- new.env()
-  env$s <- c(2, 3)
+  env$s <- pjrt_buffer(c(2, 3), dtype = "f32")
   d <- implicit_dispatcher(env)
   x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
   expect_equal(out(dispatch(d, list(x = x))), c(8, 7))
-  expect_equal(env$s, c(3, 4))
+  expect_equal(as.numeric(as_array(env$s)), c(3, 4))
   # the next call reads the advanced value, from the same entry
   expect_equal(out(dispatch(d, list(x = x))), c(7, 6))
   expect_equal(dispatcher_size(d), 1L)
-  # an integer vector is uploaded too
-  env$s <- c(1L, 2L)
-  expect_equal(out(dispatch(d, list(x = x))), c(9, 8))
-  # a bit64 integer64 is refused rather than read as a double
-  env$s <- structure(c(0, 0), class = "integer64")
-  expect_error(dispatch(d, list(x = x)), "or integer vector")
 })
 
-test_that("an implicit input can be a buffer, which is passed on", {
+test_that("an implicit input must be a buffer of the declared dtype and shape", {
   skip_if_not(plugins_downloaded())
   env <- new.env()
   d <- implicit_dispatcher(env, on_success = NULL)
   x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
-  env$s <- pjrt_buffer(c(2, 3), dtype = "f32")
-  expect_equal(out(dispatch(d, list(x = x))), c(8, 7))
-  # also held by an AnvlArray
+  env$s <- c(1, 1)
+  expect_error(dispatch(d, list(x = x)), "must return a PJRTBuffer")
   env$s <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
-  expect_equal(out(dispatch(d, list(x = x))), c(9, 9))
-  # whose dtype and shape must be the declared ones
+  expect_error(dispatch(d, list(x = x)), "must return a PJRTBuffer")
   env$s <- pjrt_buffer(c(1, 1), dtype = "f64")
   expect_error(dispatch(d, list(x = x)), "must have the declared dtype \\(f32\\) and shape")
   env$s <- pjrt_buffer(c(1, 1, 1), dtype = "f32")
@@ -557,13 +554,11 @@ test_that("a buffer implicit input on another device is copied to the entry's", 
 test_that("on_success is not called after a failed run", {
   skip_if_not(plugins_downloaded())
   env <- new.env()
-  env$s <- c(1, 2, 3)
+  env$s <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
   d <- implicit_dispatcher(env)
   x <- parr(pjrt_buffer(c(1, 1), dtype = "f32"))
-  expect_error(dispatch(d, list(x = x)), "must return a buffer, or a double or integer vector of length 2")
-  expect_equal(env$s, c(1, 2, 3))
-  env$s <- "a"
-  expect_error(dispatch(d, list(x = x)), "or integer vector")
+  expect_error(dispatch(d, list(x = x)), "must have the declared dtype")
+  expect_equal(as.numeric(as_array(env$s)), c(1, 2, 3))
 })
 
 test_that("implicit inputs and on_success are validated", {
@@ -599,7 +594,7 @@ test_that("a run outlives the eviction of its entry by a callback that dispatche
   # With room for one entry, the dispatch in `on_success` (another static `k`)
   # evicts the entry whose run is still under way.
   env <- new.env()
-  env$s <- c(1, 2)
+  env$s <- pjrt_buffer(c(1, 2), dtype = "f32")
   state <- new.env()
   state$reentered <- FALSE
   d <- NULL
@@ -669,7 +664,7 @@ test_that("a value can stay on the device, as an implicit input and output", {
      }'
   ))
   env <- new.env()
-  env$s <- c(1, 2)
+  env$s <- pjrt_buffer(c(1, 2), dtype = "f32")
   d <- dispatcher(
     10L,
     function(info) {
@@ -678,7 +673,7 @@ test_that("a value can stay on the device, as an implicit input and output", {
         implicit_inputs = list(list(get = function() env$s, dtype = "f32", shape = 2L)),
         implicit_outputs = list(oav()),
         on_success = function(outputs, args) {
-          env$s <- outputs[[1L]]
+          env$s <- outputs[[1L]]$data
         }
       )
     },
@@ -686,9 +681,9 @@ test_that("a value can stay on the device, as an implicit input and output", {
   )
   x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
   expect_equal(out(dispatch(d, list(x = x))), c(9, 8))
-  expect_s3_class(env$s, "AnvlArray")
+  expect_s3_class(env$s, "PJRTBuffer")
   expect_equal(out(dispatch(d, list(x = x))), c(8, 7))
-  expect_equal(out(env$s), c(3, 4))
+  expect_equal(as.numeric(as_array(env$s)), c(3, 4))
 })
 
 test_that("an entry whose program returns fewer outputs than it declares is an error", {
@@ -1782,7 +1777,7 @@ describe("dispatch", {
   it("hands on_success the call's arguments", {
     skip_if_not(plugins_downloaded())
     state <- new.env()
-    state$s <- c(2, 3)
+    state$s <- pjrt_buffer(c(2, 3), dtype = "f32")
     d <- implicit_dispatcher(state, on_success = function(outputs, args) {
       state$args <- args
     })
