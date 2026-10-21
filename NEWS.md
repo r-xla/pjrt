@@ -26,6 +26,8 @@
   instead of failing on one that is not positive definite.
 * New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
   a `!stablehlo.token`, so that a chain of prints runs in order.
+* Bugfix: `build_tree()`, `flatten()` and `dispatch()` raise an error for a
+  value nested more than 10000 lists deep instead of crashing R.
 
 
 # pjrt 0.6.0

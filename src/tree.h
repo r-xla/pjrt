@@ -53,8 +53,15 @@ inline bool is_bare_list(SEXP x) {
   return TYPEOF(x) == VECSXP && !Rf_isObject(x);
 }
 
+// The deepest list nesting flatten_rec accepts. The tree functions recurse once
+// per level, so an unbounded depth would overflow the C stack and kill the R
+// session; past this limit flatten_rec raises an R error instead.
+inline constexpr int kMaxTreeDepth = 10000;
+
 // Append the preorder encoding of `x` to `t`, collecting leaves in order.
-inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
+// `depth` is the list nesting of `x` within the value being flattened.
+inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
+                        int depth = 0) {
   const std::size_t pos = tree.kind.size();
   if (x == R_NilValue) {
     tree.kind.push_back(RTree::NullNode);
@@ -64,6 +71,9 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
     return;
   }
   if (is_bare_list(x)) {
+    if (depth >= kMaxTreeDepth) {
+      Rcpp::stop("tree is nested more than %d lists deep", kMaxTreeDepth);
+    }
     const R_xlen_t n = XLENGTH(x);
     SEXP nms = Rf_getAttrib(x, R_NamesSymbol);
     const bool has_names = (nms != R_NilValue);
@@ -84,7 +94,7 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
       tree.name_off.push_back(-1);
     }
     for (R_xlen_t k = 0; k < n; ++k) {
-      flatten_rec(VECTOR_ELT(x, k), leaves, tree);
+      flatten_rec(VECTOR_ELT(x, k), leaves, tree, depth + 1);
     }
     tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
     return;
