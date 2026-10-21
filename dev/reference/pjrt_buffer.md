@@ -75,8 +75,8 @@ pjrt_empty(dtype, shape, device = NULL)
 
   - `"bf16"`: bfloat16 (for `double` or `integer` data). Values are
     rounded to the nearest bfloat16 value, ties to even; the largest
-    finite value is about 3.3895e38, and larger magnitudes round to
-    `Inf`.
+    finite value is about 3.3895e38, and magnitudes at or above the
+    overflow midpoint (about 3.3962e38) round to `Inf`.
     [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
     returns the exactly representable values as `double`. The default
     (`NULL`) depends on the method:
@@ -215,7 +215,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  2.3263e-09 3.0892e-41 2.3281e-09
-#>  3.0892e-41 2.3262e-09 3.0892e-41
+#>  nan nan nan
+#>  nan nan nan
 #> [ CPUf32{2x3} ] 
 ```
