@@ -5,6 +5,11 @@
 // carries its dim and class attributes from the start and reads as an ordinary
 // R array; the first access to its data waits for the transfer and converts
 // the bytes into a plain R vector, which the host array then wraps.
+//
+// That first access may come from any code that reads the vector's data,
+// including C++ code. A failed transfer then raises an R error from inside it
+// (see call_pjrt()), so C++ that reads arrays which may be host arrays should
+// await() them first.
 
 #include <Rcpp.h>
 // Rcpp.h first: the R headers below need its definition of SEXP.
@@ -177,8 +182,11 @@ void set_array_attributes(SEXP x, const HostTransfer& t) {
 }
 
 // A host array's data1 is an external pointer to its HostTransfer, and its
-// data2 the materialized vector. Materializing sets data2 and drops data1,
-// freeing the transfer's bytes.
+// data2 the materialized vector. The external pointer protects the source
+// buffer, which PJRT may still be reading from: on CPU, a buffer made from R
+// data aliases memory that only the buffer object keeps alive. Materializing
+// sets data2 and drops data1, freeing the transfer's bytes and releasing the
+// buffer.
 R_altrep_class_t real_class;
 R_altrep_class_t integer_class;
 R_altrep_class_t logical_class;
@@ -271,7 +279,7 @@ SEXP impl_buffer_to_host_async(SEXP buffer_sexp) {
       cls = logical_class;
   }
   const HostTransfer& ref = *t;
-  Rcpp::XPtr<HostTransfer> xptr(t.release(), true);
+  Rcpp::XPtr<HostTransfer> xptr(t.release(), true, R_NilValue, buffer_sexp);
   Rcpp::Shield<SEXP> out(R_new_altrep(cls, xptr, R_NilValue));
   set_array_attributes(out, ref);
   return out;
