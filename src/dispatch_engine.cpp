@@ -422,11 +422,10 @@ struct PhantomSpec {
 // takes after the call's own inputs that no argument supplies, read with
 // `get()` before every run.
 struct ImplicitInput {
-  Rcpp::RObject get;  // function(): the current value, a buffer or R vector
+  Rcpp::RObject get;  // function(): the current value, a PJRTBuffer
   std::string dtype;
   PJRT_Buffer_Type buffer_type = PJRT_Buffer_Type_INVALID;  // of `dtype`
   std::vector<int64_t> shape;
-  R_xlen_t length = 1;  // the number of elements `shape` holds
 };
 
 // What a compiled PJRT program needs at execute time, plus the material the
@@ -622,13 +621,6 @@ class PjrtEngine : public Engine {
           Rcpp::stop("`implicit_inputs[[%d]]$dtype`: %s", k, ex.what());
         }
         ii.shape = implicit_input_shape(field("shape"), k);
-        for (int64_t d : ii.shape) {
-          if (d > 0 && ii.length > R_XLEN_T_MAX / d) {
-            Rcpp::stop("`implicit_inputs[[%d]]$shape` has too many elements",
-                       k);
-          }
-          ii.length *= d;
-        }
         implicit_inputs.push_back(std::move(ii));
       }
     }
@@ -810,41 +802,25 @@ class PjrtEngine : public Engine {
     return impl_buffer_copy_to_device(buffer, pe.device, pe.client, cross);
   }
 
-  // The buffer implicit input `ii` (the `k`th) supplies to a run of `pe`, from
-  // the value its `get()` returns: a PJRTBuffer of the input's dtype and shape,
-  // or an AnvlArray holding one, is passed on (copied to the entry's device if
-  // it lives elsewhere); an R double or integer vector holding the input's
-  // elements is uploaded to the entry's device at the input's dtype.
+  // The buffer implicit input `ii` (the `k`th) supplies to a run of `pe`: the
+  // PJRTBuffer its `get()` returns, of the input's dtype and shape, copied to
+  // the entry's device if it lives elsewhere.
   SEXP read_implicit_input(const PjrtEntry& pe, const ImplicitInput& ii,
                            int k) const {
     Rcpp::Function get(ii.get);
     Rcpp::RObject val = get();
-    if (is_anvl_array(val)) val = anvl_field(val, "data");
-    if (is_buffer(val)) {
-      Rcpp::XPtr<PJRTBuffer> buf = as_buffer(val);
-      if (buf->element_type() != ii.buffer_type ||
-          buf->dimensions() != ii.shape) {
-        Rcpp::stop(
-            "the buffer `get()` of implicit input %d returns must have the "
-            "declared dtype (%s) and shape",
-            k, ii.dtype.c_str());
-      }
-      return on_entry_device(pe, val);
+    if (!is_buffer(val)) {
+      Rcpp::stop("`get()` of implicit input %d must return a PJRTBuffer", k);
     }
-    // a bit64 integer64 is a double vector holding other bits
-    if ((TYPEOF(val) != REALSXP && TYPEOF(val) != INTSXP) ||
-        Rf_inherits(val, "integer64") || XLENGTH(val) != ii.length) {
+    Rcpp::XPtr<PJRTBuffer> buf = as_buffer(val);
+    if (buf->element_type() != ii.buffer_type ||
+        buf->dimensions() != ii.shape) {
       Rcpp::stop(
-          "`get()` of implicit input %d must return a buffer, or a double or "
-          "integer vector of length %lld",
-          k, static_cast<long long>(ii.length));
+          "the buffer `get()` of implicit input %d returns must have the "
+          "declared dtype (%s) and shape",
+          k, ii.dtype.c_str());
     }
-    if (TYPEOF(val) == REALSXP) {
-      return impl_client_buffer_from_double(pe.client, pe.device, val, ii.shape,
-                                            ii.dtype);
-    }
-    return impl_client_buffer_from_integer(pe.client, pe.device, val, ii.shape,
-                                           ii.dtype);
+    return on_entry_device(pe, val);
   }
 
   // One template AnvlArray per output, built on the compile (cold) path from
