@@ -78,8 +78,9 @@ inline bool is_bare_list(SEXP x) {
 
 // A class registered with register_tree_node(): `flatten(x)` returns
 // `list(children, aux)` for an object of the class,
-// `unflatten(children, aux)` rebuilds an object from them, and `repr(aux)`
-// labels the node in its tree's repr.
+// `unflatten(children, aux)` rebuilds an object from them, and
+// `repr(children, aux)` renders the node in its tree's repr from its children's
+// strings.
 struct TreeNodeType {
   std::string cls;
   // The class name's CHARSXP, kept alive so its address stays the registry key.

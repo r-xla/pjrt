@@ -29,7 +29,7 @@ flatten <- function(x) {
 #' Makes the objects of a class nodes of a tree rather than leaves: [flatten()]
 #' and [build_tree()] recurse into the children `flatten` returns,
 #' [unflatten()] rebuilds an object of the class from them with `unflatten`,
-#' and [tree_repr()] (and so the tree's printer) labels the node with `repr`.
+#' and [tree_repr()] (and so the tree's printer) renders the node with `repr`.
 #' This is JAX's `register_pytree_node()`, plus the printer.
 #'
 #' Besides its children, `flatten` returns the object's aux data: whatever else
@@ -51,10 +51,11 @@ flatten <- function(x) {
 #'   Takes the children, a `list` named as `flatten` names them, and the aux
 #'   data, and returns an object of the class.
 #' @param repr (`function`)\cr
-#'   Takes the aux data and returns a `character(1)` label for it, which
-#'   [tree_repr()] shows as `<class: label>(...)`, followed by the children (or
-#'   `<class>(...)` for `""`). Give aux data that are not [identical()]
-#'   distinct labels, so that trees that are not equal print differently.
+#'   Takes the children's [tree_repr()] strings, a `character` vector named as
+#'   `flatten` names the children, and the aux data, and returns the node's
+#'   string, a `character(1)`, which [tree_repr()] shows as it is. Render
+#'   nodes that differ in their aux data or their children's names
+#'   differently, so that trees that are not equal print differently.
 #' @return `NULL`, invisibly.
 #' @seealso [flatten()], [build_tree()]
 #' @examples
@@ -65,7 +66,9 @@ flatten <- function(x) {
 #'   "point",
 #'   flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
 #'   unflatten = function(children, unit) point(children$x, children$y, unit),
-#'   repr = function(unit) unit
+#'   repr = function(children, unit) {
+#'     sprintf("point[%s](%s)", unit, paste(children, collapse = ", "))
+#'   }
 #' )
 #' flatten(list(point(1, 2, "cm"), 3))
 #' tree <- build_tree(list(point(1, 2, "cm"), 3))
@@ -337,14 +340,16 @@ tree_leaf_mask <- function(tree, groups) {
   impl_tree_mask_from_names(tree, as.character(groups))
 }
 
-#' @title Canonical Tree Representation
+#' @title Tree Representation
 #' @description
-#' A canonical structural string for a tree: `"*"` for a leaf, `"NULL"` for an
-#' empty node, `"list(...)"` for list nodes, and `"<cls: label>(...)"` for an
-#' object of the registered class `cls`, labelled by the class's `repr` (see
-#' [register_tree_node()]). A named node is tagged
-#' (`"list<named>(...)"`, `"<cls><named>(...)"`), so that a node whose names
-#' are all empty is told apart from an unnamed one.
+#' A structural string for a tree: `"*"` for a leaf, `"NULL"` for an empty
+#' node, `"list(...)"` for list nodes, and for an object of a class registered
+#' with [register_tree_node()] whatever its `repr` makes of it (`"<cls>(...)"`
+#' once the class is no longer registered). A named list is tagged
+#' `"list<named>(...)"`, so that a list whose names are all empty is told apart
+#' from an unnamed one. The string is canonical -- trees that are not
+#' [tree_equal()] print differently -- as far as the `repr`s of their classes
+#' are.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`

@@ -1755,7 +1755,7 @@ describe("dispatch", {
         }
         box(children$v, unit)
       },
-      repr = function(unit) unit
+      repr = function(children, unit) unit
     )
     withr::defer(unregister_tree_node("box"), envir = envir)
   }

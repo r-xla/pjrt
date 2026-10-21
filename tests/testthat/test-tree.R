@@ -484,7 +484,9 @@ describe("register_tree_node", {
       "point",
       flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
       unflatten = function(children, unit) point(children$x, children$y, unit),
-      repr = function(unit) unit %||% ""
+      repr = function(children, unit) {
+        sprintf("point[%s](%s)", unit %||% "", paste(names(children), "=", children, collapse = ", "))
+      }
     )
     withr::defer(unregister_tree_node("point"), envir = envir)
   }
@@ -525,16 +527,16 @@ describe("register_tree_node", {
     expect_identical(tree_child_kinds(build_tree(list(point(1, 2), 3))), c("object", "leaf"))
   })
 
-  it("renders the class, the label repr gives the aux data, and the named-ness", {
+  it("renders an object node with its class's repr", {
     local_point()
-    expect_identical(format(build_tree(list(p = point(1, 2)))), "list<named>(p = <point: cm><named>(x = *, y = *))")
-    expect_identical(format(build_tree(point(1, 2, NULL))), "<point><named>(x = *, y = *)")
+    expect_identical(format(build_tree(list(p = point(1, 2)))), "list<named>(p = point[cm](x = *, y = *))")
+    expect_identical(format(build_tree(point(1, list(2, NULL), NULL))), "point[](x = *, y = list(*, NULL))")
     diff <- tree_diff(build_tree(list(p = point(1, 2, "cm"))), build_tree(list(p = point(1, 2, "in"))))
     expect_identical(diff$prefix, "p")
-    expect_identical(c(diff$a, diff$b), c("<point: cm><named>(x = *, y = *)", "<point: in><named>(x = *, y = *)"))
+    expect_identical(c(diff$a, diff$b), c("point[cm](x = *, y = *)", "point[in](x = *, y = *)"))
   })
 
-  it("prints an object node with its class and label", {
+  it("prints an object node as its class's repr renders it", {
     local_point()
     expect_snapshot({
       build_tree(point(1, 2))
@@ -545,25 +547,31 @@ describe("register_tree_node", {
     })
   })
 
-  it("prints an object node without a label once its class is unregistered", {
+  it("prints an object node generically once its class is unregistered", {
     local_point()
     tree <- build_tree(point(1, 2))
     unregister_tree_node("point")
     expect_snapshot(tree)
   })
 
-  it("tells an unnamed object from one whose names are all empty", {
+  it("hands repr the children's strings, named as the children are, and the aux data", {
+    seen <- list()
     register_tree_node(
       "pair",
-      flatten = function(p) list(unclass(p), NULL),
+      flatten = function(p) list(unclass(p), "aux"),
       unflatten = function(children, aux) children,
-      repr = function(aux) ""
+      repr = function(children, aux) {
+        seen[[length(seen) + 1L]] <<- list(children = children, aux = aux)
+        "pair"
+      }
     )
     withr::defer(unregister_tree_node("pair"))
-    unnamed <- build_tree(structure(list(1, 2), class = "pair"))
-    empty_names <- build_tree(structure(list(1, 2), names = c("", ""), class = "pair"))
-    expect_false(tree_equal(unnamed, empty_names))
-    expect_identical(c(format(unnamed), format(empty_names)), c("<pair>(*, *)", "<pair><named>(*, *)"))
+    expect_identical(format(build_tree(structure(list(1, list(2, NULL)), class = "pair"))), "pair")
+    format(build_tree(structure(list(1, 2), names = c("", ""), class = "pair")))
+    format(build_tree(structure(list(a = 1), class = "pair")))
+    expect_identical(seen[[1L]], list(children = c("*", "list(*, NULL)"), aux = "aux"))
+    expect_identical(seen[[2L]]$children, stats::setNames(c("*", "*"), c("", "")))
+    expect_identical(seen[[3L]]$children, c(a = "*"))
   })
 
   it("serves the top-level child functions at an object root", {
@@ -604,7 +612,7 @@ describe("register_tree_node", {
       "point",
       flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
       unflatten = identity,
-      repr = function(unit) NA_character_
+      repr = function(children, unit) NA_character_
     )
     withr::defer(unregister_tree_node("point"))
     expect_snapshot(format(build_tree(point(1, 2))), error = TRUE)

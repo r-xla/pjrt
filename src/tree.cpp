@@ -97,13 +97,12 @@ static void append_subtree(RTree& dst, const RTree& src, std::size_t c) {
   }
 }
 
-// The canonical structural string: "*" for a leaf, "NULL" for a null tree,
-// "list(a = *, list(*, NULL))" for lists, "<cls: label>(a = *)" for an object
-// of the registered class "cls", whose `repr` labels its aux data ("<cls>(...)"
-// for an empty label, or when the class is no longer registered). A named node
-// is tagged -- "list<named>(...)",
-// "<cls><named>(...)" -- so the named/unnamed distinction stays visible even
-// when the names are empty or the node has no children (individual "" names
+// The structural string: "*" for a leaf, "NULL" for a null tree,
+// "list(a = *, list(*, NULL))" for lists, and for an object of a registered
+// class whatever its `repr` makes of its aux data and its children's strings
+// ("<cls>(a = *)" once the class is no longer registered). A named list is
+// tagged "list<named>(...)" so the named/unnamed distinction stays visible even
+// when the names are empty or the list has no children (individual "" names
 // are otherwise printed positionally). `p` advances past the rendered subtree,
 // `o` past its objects.
 static void repr_rec(const RTree& t, std::size_t& p, std::size_t& o,
@@ -123,25 +122,31 @@ static void repr_rec(const RTree& t, std::size_t& p, std::size_t& o,
       const std::int32_t off = named ? t.name_off[node] : 0;
       if (t.kind[node] == RTree::ObjectNode) {
         const RTree::Object& obj = t.objects[o++];
-        out += "<" + obj.cls;
         auto it = tree_node_types().find(tree_node_key(obj.cls));
         if (it != tree_node_types().end()) {
+          // The children's strings, named as the children are.
+          Rcpp::CharacterVector children(n);
+          for (int k = 0; k < n; ++k) {
+            std::string child;
+            repr_rec(t, p, o, child);
+            children[k] = child;
+          }
+          if (named) {
+            children.attr("names") = std::vector<std::string>(
+                t.names.begin() + off, t.names.begin() + off + n);
+          }
           Rcpp::Function repr(it->second.repr);
-          Rcpp::RObject label = repr(obj.aux);
-          if (TYPEOF(label) != STRSXP || XLENGTH(label) != 1 ||
-              STRING_ELT(label, 0) == NA_STRING) {
+          Rcpp::RObject res = repr(children, obj.aux);
+          if (TYPEOF(res) != STRSXP || XLENGTH(res) != 1 ||
+              STRING_ELT(res, 0) == NA_STRING) {
             Rcpp::stop(
                 "the `repr` registered for class \"%s\" must return a string",
                 obj.cls.c_str());
           }
-          const char* text = CHAR(STRING_ELT(label, 0));
-          if (*text != '\0') {
-            out += ": ";
-            out += text;
-          }
+          out += CHAR(STRING_ELT(res, 0));
+          return;
         }
-        out += ">";
-        out += named ? "<named>(" : "(";
+        out += "<" + obj.cls + ">(";
       } else {
         out += named ? "list<named>(" : "list(";
       }

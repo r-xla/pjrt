@@ -11,7 +11,7 @@
 * `register_tree_node()` makes the objects of a class nodes of a tree, which
   `flatten()` and the dispatcher recurse into, rather than leaves. Its
   `flatten` returns the children and aux data, which the tree's structure, and
-  so the dispatcher's cache key, includes; its `repr` labels the node when the
+  so the dispatcher's cache key, includes; its `repr` renders the node when the
   tree is printed.
 * A `dispatcher()` compile callback can declare `implicit_inputs` and
   `implicit_outputs`, values the program takes and returns beyond the call's

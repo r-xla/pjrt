@@ -34,24 +34,24 @@
     Output
       list<named>(value = list(*, *), grad = *)
 
-# register_tree_node / prints an object node with its class and label
+# register_tree_node / prints an object node as its class's repr renders it
 
     Code
       build_tree(point(1, 2))
     Output
-      <point: cm><named>(x = *, y = *)
+      point[cm](x = *, y = *)
     Code
       build_tree(list(a = point(1, list(2, NULL)), b = 3))
     Output
-      list<named>(a = <point: cm><named>(x = *, y = list(*, NULL)), b = *)
+      list<named>(a = point[cm](x = *, y = list(*, NULL)), b = *)
     Code
       build_tree(point(point(1, 2, "in"), point(3, 4, "mm"), "km"))
     Output
-      <point: km><named>(x = <point: in><named>(x = *, y = *), y = <point: mm><named>(x = *, y = *))
+      point[km](x = point[in](x = *, y = *), y = point[mm](x = *, y = *))
     Code
       build_tree(point(1, 2, NULL))
     Output
-      <point><named>(x = *, y = *)
+      point[](x = *, y = *)
     Code
       tree_diff(build_tree(list(p = point(1, 2, "cm"))), build_tree(list(p = point(1,
         2, "in"))))
@@ -60,18 +60,18 @@
       [1] "p"
       
       $a
-      [1] "<point: cm><named>(x = *, y = *)"
+      [1] "point[cm](x = *, y = *)"
       
       $b
-      [1] "<point: in><named>(x = *, y = *)"
+      [1] "point[in](x = *, y = *)"
       
 
-# register_tree_node / prints an object node without a label once its class is unregistered
+# register_tree_node / prints an object node generically once its class is unregistered
 
     Code
       tree
     Output
-      <point><named>(x = *, y = *)
+      <point>(x = *, y = *)
 
 # register_tree_node / requires flatten to return list(children, aux)
 
