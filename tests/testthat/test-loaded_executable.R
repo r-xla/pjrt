@@ -439,14 +439,14 @@ module @double_inplace {
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
     x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
-    x_prot <- impl_test_buffer_prot(x)
-    expect_true(is.raw(x_prot))
+    x_keepalive <- impl_test_buffer_keepalive(x)
+    expect_true(is.raw(x_keepalive))
 
     out <- pjrt_execute(exec, x)
 
-    # Output's prot slot now holds the input's RAWSXP; input's is cleared.
-    expect_identical(impl_test_buffer_prot(out), x_prot)
-    expect_null(impl_test_buffer_prot(x))
+    # Output's keepalive is now the input's RAWSXP; input's is cleared.
+    expect_identical(impl_test_buffer_keepalive(out), x_keepalive)
+    expect_null(impl_test_buffer_keepalive(x))
 
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
   })
@@ -503,13 +503,13 @@ module @double_inplace {
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
     x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
-    x_prot <- impl_test_buffer_prot(x)
+    x_keepalive <- impl_test_buffer_keepalive(x)
 
     opts <- pjrt_execution_options(non_donatable_input_indices = 0L)
     out <- pjrt_execute(exec, x, execution_options = opts)
 
     # Input was copied, not donated: its keepalive stays put and input remains readable.
-    expect_identical(impl_test_buffer_prot(x), x_prot)
+    expect_identical(impl_test_buffer_keepalive(x), x_keepalive)
     expect_equal(as.numeric(as_array(x)), c(10, 20, 30, 40), tolerance = 1e-6)
 
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
@@ -554,15 +554,15 @@ module @two_donations {
     exec <- pjrt_compile(prog, device = "cpu")
     a <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
     b <- pjrt_buffer(c(4, 5, 6), dtype = "f32")
-    a_prot <- impl_test_buffer_prot(a)
-    b_prot <- impl_test_buffer_prot(b)
+    a_keepalive <- impl_test_buffer_keepalive(a)
+    b_keepalive <- impl_test_buffer_keepalive(b)
 
     outs <- pjrt_execute(exec, a, b, simplify = FALSE)
 
-    expect_identical(impl_test_buffer_prot(outs[[1]]), a_prot)
-    expect_identical(impl_test_buffer_prot(outs[[2]]), b_prot)
-    expect_null(impl_test_buffer_prot(a))
-    expect_null(impl_test_buffer_prot(b))
+    expect_identical(impl_test_buffer_keepalive(outs[[1]]), a_keepalive)
+    expect_identical(impl_test_buffer_keepalive(outs[[2]]), b_keepalive)
+    expect_null(impl_test_buffer_keepalive(a))
+    expect_null(impl_test_buffer_keepalive(b))
 
     expect_equal(as.numeric(as_array(outs[[1]])), c(2, 4, 6), tolerance = 1e-6)
     expect_equal(as.numeric(as_array(outs[[2]])), c(16, 25, 36), tolerance = 1e-6)
@@ -618,15 +618,15 @@ module @square_into_phantom {
     x <- pjrt_buffer(as.numeric(1:1024), dtype = "f32")
     # every CPU creation path must produce a genuinely zero-copy buffer: its
     # device memory lives inside the prot-slot RAWSXP (64-byte-aligned there)
-    expect_true(impl_test_buffer_aliases_prot(x))
+    expect_true(impl_test_buffer_aliases_keepalive(x))
     p <- pjrt_empty(dtype = "f32", shape = 1024L)
-    expect_true(impl_test_buffer_aliases_prot(p))
+    expect_true(impl_test_buffer_aliases_keepalive(p))
 
     out <- pjrt_execute(exec, x, p)
     await(out)
     # donation reused the phantom's storage: the output lives in the migrated
     # RAWSXP, and reading it back yields the computed values
-    expect_true(impl_test_buffer_aliases_prot(out))
+    expect_true(impl_test_buffer_aliases_keepalive(out))
     expect_equal(as.numeric(as_array(out)), (1:1024)^2, tolerance = 1e-6)
   })
 
@@ -651,11 +651,11 @@ module @square_into_phantom_2d {
     m <- matrix(as.numeric(1:128), nrow = 16L, ncol = 8L)
     x <- pjrt_buffer(m, dtype = "f32")
     p <- pjrt_empty(dtype = "f32", shape = c(16L, 8L))
-    expect_true(impl_test_buffer_aliases_prot(p))
+    expect_true(impl_test_buffer_aliases_keepalive(p))
 
     out <- pjrt_execute(exec, x, p)
     await(out)
-    expect_true(impl_test_buffer_aliases_prot(out))
+    expect_true(impl_test_buffer_aliases_keepalive(out))
     expect_equal(as_array(out), m^2, tolerance = 1e-6)
   })
 

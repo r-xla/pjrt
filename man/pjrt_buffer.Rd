@@ -26,8 +26,9 @@ Currently supported types are:
 \item \code{"f{32,64}"}: Floating point (for \code{double} or \code{integer} data).
 \item \code{"bf16"}: bfloat16 (for \code{double} or \code{integer} data). Values are rounded
 to the nearest bfloat16 value, ties to even; the largest finite value is
-about 3.3895e38, and larger magnitudes round to \code{Inf}.
-\code{\link[=as_array]{as_array()}} returns the exactly representable values as \code{double}.
+about 3.3895e38, and magnitudes at or above the overflow midpoint
+(about 3.3962e38) round to \code{Inf}. \code{\link[=as_array]{as_array()}} returns the exactly
+representable values as \code{double}.
 The default (\code{NULL}) depends on the method:
 \item \code{logical} -> \code{"bool"}
 \item \code{integer} -> \code{"i32"}
@@ -134,8 +135,12 @@ default device (the first device of the \code{PJRT_PLATFORM} platform, \code{"cp
 unless set) -- not to the device it was saved from. A buffer saved on a GPU
 therefore also loads on a machine without one; use \code{\link[=copy_buffer]{copy_buffer()}} to move
 it afterwards.
-This requires serialization format version 3 (R's default); under version 2,
-the buffer is written without its data.
+A buffer referenced several times in one serialized object is written once,
+and loads as one buffer.
+A loaded buffer is a NULL external pointer until its first use (e.g. by
+\code{\link[=as_array]{as_array()}}, \code{\link[=shape]{shape()}} or printing), which fills in its address.
+This requires serialization format version 3 (R's default); a buffer
+serialized under version 2 loads without its data.
 }
 
 \section{Scalars}{

@@ -360,9 +360,10 @@ std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
 // Build a CPU buffer backed by a fresh RAWSXP. `fill` receives a pointer to
 // `total_bytes` of writable storage and must populate it with the buffer's
 // host bytes (a conversion, a memcpy, or nothing for uninitialized contents).
-// PJRT then aliases those bytes via kMutableZeroCopy and the RAWSXP is parked
-// in the buffer XPtr's protected slot, so R's GC both keeps it alive exactly as
-// long as the PJRTBuffer XPtr is reachable AND accounts for its memory. Every
+// PJRT then aliases those bytes via kMutableZeroCopy and the RAWSXP becomes
+// the buffer's keepalive (see buffer_sexp.h), so R's GC both keeps it alive
+// exactly as long as the PJRTBuffer XPtr is reachable AND accounts for its
+// memory. Every
 // CPU buffer-creation path funnels through here, so no CPU buffer's host
 // storage is ever invisible to R's GC.
 //
@@ -387,7 +388,7 @@ SEXP make_cpu_buffer(Rcpp::XPtr<rpjrt::PJRTClient> &client, size_t total_bytes,
                      const std::optional<std::vector<int64_t>> &byte_strides,
                      PJRT_Buffer_Type dtype, PJRT_Device *device, Fill fill) {
   // PROTECT across buffer_from_host_async: PJRT allocation may trigger R's GC.
-  // Once the XPtr holds raw_sexp in its prot slot it stays reachable.
+  // Once the XPtr holds raw_sexp as its keepalive it stays reachable.
   //
   // R only guarantees ~16-byte alignment for vector data, and cannot be asked
   // for more, so the alignment is produced inside the allocation: allocate
@@ -595,7 +596,7 @@ SEXP impl_client_buffer_from_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // Allocate a buffer with unspecified contents. On CPU, backs the buffer with
-// a RAWSXP stashed in the XPtr's protected slot so that R's GC keeps the host
+// a RAWSXP kept as the buffer's keepalive so that R's GC keeps the host
 // bytes alive for the buffer's lifetime and counts the memory. On other
 // platforms, allocates a host vector, transfers, and releases it when the
 // transfer completes.
@@ -1030,23 +1031,22 @@ void impl_test_enqueue_release(SEXP x) {
   rpjrt::queue_release(x);
 }
 
-// Test-only: read the SEXP stored in a buffer's external pointer's protected
-// slot. Used to assert the keepalive invariant — which RAWSXP a CPU buffer's
-// XPtr pins.
+// Test-only: read a buffer's keepalive. Used to assert the keepalive invariant
+// — which RAWSXP a CPU buffer's XPtr pins.
 // [[Rcpp::export()]]
-SEXP impl_test_buffer_prot(SEXP x) {
-  return R_ExternalPtrProtected(rpjrt::buffer_xptr(x));
+SEXP impl_test_buffer_keepalive(SEXP x) {
+  return rpjrt::buffer_keepalive(rpjrt::buffer_xptr(x));
 }
 
-// Test-only: whether the buffer's device memory lives inside the RAWSXP held
-// in its XPtr's protected slot -- i.e. whether the buffer genuinely aliases
+// Test-only: whether the buffer's device memory lives inside its keepalive
+// RAWSXP -- i.e. whether the buffer genuinely aliases
 // R-owned host bytes. TRUE for a zero-copy CPU buffer and for an aliased
 // output written in place into a donated input's storage; FALSE when PJRT
 // copied (pool-backed storage) or when no keepalive is attached.
 // [[Rcpp::export()]]
-bool impl_test_buffer_aliases_prot(SEXP x) {
-  SEXP prot = R_ExternalPtrProtected(rpjrt::buffer_xptr(x));
-  if (TYPEOF(prot) != RAWSXP) return false;
+bool impl_test_buffer_aliases_keepalive(SEXP x) {
+  SEXP keepalive = rpjrt::buffer_keepalive(rpjrt::buffer_xptr(x));
+  if (TYPEOF(keepalive) != RAWSXP) return false;
   auto buf = rpjrt::as_buffer(x);
   if (buf->buffer == nullptr) return false;
   auto api = buf->get_api();
@@ -1055,8 +1055,9 @@ bool impl_test_buffer_aliases_prot(SEXP x) {
   args.buffer = buf->buffer;
   check_err(api.get(), api->PJRT_Buffer_UnsafePointer_(&args));
   const std::uintptr_t p = args.buffer_pointer;
-  const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(prot));
-  return p >= base && p < base + static_cast<std::uintptr_t>(XLENGTH(prot));
+  const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(keepalive));
+  return p >= base &&
+         p < base + static_cast<std::uintptr_t>(XLENGTH(keepalive));
 }
 
 // [[Rcpp::export()]]
@@ -1218,19 +1219,19 @@ Rcpp::List impl_loaded_executable_execute(
   // Everything that must stay alive for the duration of the async Execute:
   // seeded here with the input buffer XPtrs, and extended after Execute with
   // the migrated donation keepalives that back the aliased *outputs* (see the
-  // alias loop below). A CPU buffer's bytes live in a RAWSXP parked in the
-  // XPtr's prot slot, which PJRT only aliases (zero-copy); the Execute reads
+  // alias loop below). A CPU buffer's bytes live in its keepalive RAWSXP,
+  // which PJRT only aliases (zero-copy); the Execute reads
   // input bytes and writes donated-output bytes on a background thread, but
   // nothing else keeps a *dropped* buffer alive until the computation finishes
   // with it. Pinning the XPtr keeps the buffer -- and transitively its RAWSXP
   // -- reachable, so an un-awaited Execute can't touch freed memory. Device
-  // inputs (CUDA) are PJRT-owned and carry a NilValue prot slot, so they
+  // inputs (CUDA) are PJRT-owned and carry no keepalive, so they
   // are skipped: PJRT already defers their device-memory free until pending
   // ops complete.
   std::vector<SEXP> keepalives;
   for (auto i = 0; i < input.size(); ++i) {
     SEXP xptr = rpjrt::buffer_xptr(VECTOR_ELT(input, i));
-    if (R_ExternalPtrProtected(xptr) != R_NilValue) {
+    if (rpjrt::buffer_keepalive(xptr) != R_NilValue) {
       keepalives.push_back(xptr);
     }
   }
@@ -1283,9 +1284,9 @@ Rcpp::List impl_loaded_executable_execute(
 
     SEXP out_xptr_sexp =
         rpjrt::buffer_xptr(VECTOR_ELT(buffers, alias.output_index));
-    SEXP keepalive = R_ExternalPtrProtected(in_xptr_sexp);
-    R_SetExternalPtrProtected(out_xptr_sexp, keepalive);
-    R_SetExternalPtrProtected(in_xptr_sexp, R_NilValue);
+    SEXP keepalive = rpjrt::buffer_keepalive(in_xptr_sexp);
+    rpjrt::set_buffer_keepalive(out_xptr_sexp, keepalive);
+    rpjrt::set_buffer_keepalive(in_xptr_sexp, R_NilValue);
     in_buf->buffer = nullptr;
 
     // With in-place donation the still-pending execution WRITES the output

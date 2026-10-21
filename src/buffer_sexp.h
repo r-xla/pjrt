@@ -8,31 +8,42 @@
 
 namespace rpjrt {
 
-// The R representation of a PJRTBuffer: a length-1 ALTLIST of class
-// "PJRTBuffer" whose only element is the external pointer that owns the
-// buffer (its finalizer deletes it; its protected slot holds the CPU
-// keepalive). An external pointer cannot survive serialization, but an ALTREP
-// object can provide its own: the ALTREP class serializes a buffer as its
-// host bytes and re-uploads them on unserialization, so saveRDS() and
-// friends round-trip buffers.
+// The R representation of a PJRTBuffer: an external pointer of class
+// "PJRTBuffer" that owns the buffer (its finalizer deletes it). Its protected
+// slot holds the buffer's *carrier*, an ALTRAW object pointing back at the
+// external pointer and holding the CPU keepalive (the RAWSXP whose bytes a
+// zero-copy buffer aliases); it reads as the keepalive's bytes.
 //
-// A length-1 list rather than a bare external pointer wrapper keeps the
-// handle visible to base R: identical() compares the external pointers, and a
-// copy that drops the ALTREP class (anything bypassing Duplicate) still holds
-// the pointer rather than nothing.
+// The carrier gives the buffer its serialization. R writes an external
+// pointer's protected slot (but not its address) and puts the pointer in its
+// reference table, so the carrier's ALTREP methods write the buffer's host
+// bytes once per serialize() call, however often the buffer is referenced, and
+// on unserialization upload them into a fresh buffer that every reference
+// shares. The pointer read back has a NULL address; buffer_xptr() moves the
+// fresh buffer into it on first use.
+//
+// Never read or write the protected slot directly: use buffer_keepalive() and
+// set_buffer_keepalive().
 
-// Wraps `buffer` (taking ownership) in a new R buffer object. `keepalive` goes
-// into the external pointer's protected slot.
+// Wraps `buffer` (taking ownership) in a new R buffer object, keeping
+// `keepalive` alive with it.
 SEXP wrap_buffer(std::unique_ptr<PJRTBuffer> buffer,
                  SEXP keepalive = R_NilValue);
 
-// Whether `x` is a buffer object created by wrap_buffer().
+// Whether `x` is a buffer object.
 bool is_buffer(SEXP x);
 
-// The external pointer inside a buffer object; errors if `x` is not one.
+// The external pointer of a buffer object -- `x` itself, after moving an
+// unserialized buffer into it; errors if `x` is not a buffer object or holds no
+// buffer.
 SEXP buffer_xptr(SEXP x);
 
-// The PJRTBuffer behind a buffer object; errors if `x` is not one.
+// The PJRTBuffer behind a buffer object; errors as buffer_xptr() does.
 Rcpp::XPtr<PJRTBuffer> as_buffer(SEXP x);
+
+// The keepalive of the buffer object `x`; R_NilValue if it has none.
+SEXP buffer_keepalive(SEXP x);
+
+void set_buffer_keepalive(SEXP x, SEXP keepalive);
 
 }  // namespace rpjrt
