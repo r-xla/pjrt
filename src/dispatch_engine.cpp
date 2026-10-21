@@ -423,8 +423,7 @@ struct PhantomSpec {
 // `get()` before every run.
 struct ImplicitInput {
   Rcpp::RObject get;  // function(): the current value, a PJRTBuffer
-  std::string dtype;
-  PJRT_Buffer_Type buffer_type = PJRT_Buffer_Type_INVALID;  // of `dtype`
+  PJRT_Buffer_Type buffer_type = PJRT_Buffer_Type_INVALID;
   std::vector<int64_t> shape;
 };
 
@@ -614,9 +613,9 @@ class PjrtEngine : public Engine {
         }
         ImplicitInput ii;
         ii.get = get;
-        ii.dtype = CHAR(STRING_ELT(dtype, 0));
         try {
-          ii.buffer_type = string_to_pjrt_buffer_type(ii.dtype);
+          ii.buffer_type =
+              string_to_pjrt_buffer_type(CHAR(STRING_ELT(dtype, 0)));
         } catch (const std::exception& ex) {
           Rcpp::stop("`implicit_inputs[[%d]]$dtype`: %s", k, ex.what());
         }
@@ -822,7 +821,7 @@ class PjrtEngine : public Engine {
       Rcpp::stop(
           "the buffer `get()` of implicit input %d returns must have the "
           "declared dtype (%s) and shape",
-          k, ii.dtype.c_str());
+          k, PJRTElementType(ii.buffer_type).as_string().c_str());
     }
     return on_entry_device(pe, val);
   }
