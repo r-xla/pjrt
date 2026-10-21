@@ -592,6 +592,65 @@ describe("register_tree_node", {
     expect_equal(flatten(list(p)), list(p))
   })
 
+  it("keys an environment aux by identity, however its bindings change", {
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x), p$env),
+      unflatten = function(children, env) point(children$x, 0, env),
+      repr = function(children, env) "point"
+    )
+    withr::defer(unregister_tree_node("point"))
+    env <- new.env()
+    before <- build_tree(point(1, 2, env))
+    env$x <- 1
+    after <- build_tree(point(1, 2, env))
+    expect_true(tree_equal(before, after))
+    expect_identical(tree_hash(before), tree_hash(after))
+  })
+
+  it("keeps each object's aux data when filtering by names", {
+    local_point()
+    x <- list(a = point(1, 2, "in"), b = point(3, point(4, 5, "mm")), c = point(6, 7, "km"))
+    sub <- tree_filter_by_names(build_tree(x), c("a", "c"))
+    expect_equal(unflatten(sub, list(10, 20, 60, 70)), list(a = point(10, 20, "in"), c = point(60, 70, "km")))
+    sub <- tree_filter_by_names(build_tree(x), "b")
+    expect_equal(unflatten(sub, list(30, 40, 50)), list(b = point(30, point(40, 50, "mm"))))
+  })
+
+  it("survives a flatten or a repr that changes the registry", {
+    register_tree_node(
+      "point",
+      flatten = function(p) {
+        unregister_tree_node("point")
+        list(list(x = p$x), NULL)
+      },
+      unflatten = function(children, aux) children,
+      repr = toString
+    )
+    withr::defer(unregister_tree_node("point"))
+    expect_identical(tree_size(build_tree(point(1, 2))), 1L)
+    # a child's repr that registers enough classes to rehash the registry
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x), p$unit),
+      unflatten = function(children, unit) point(children$x, 0, unit),
+      repr = function(children, unit) {
+        if (unit == "inner") {
+          for (i in seq_len(100L)) {
+            register_tree_node(paste0("rehash", i), identity, identity, identity)
+          }
+        }
+        sprintf("point[%s](%s)", unit, paste(children, collapse = ", "))
+      }
+    )
+    withr::defer(
+      for (i in seq_len(100L)) {
+        unregister_tree_node(paste0("rehash", i))
+      }
+    )
+    expect_identical(format(build_tree(point(point(1, 2, "inner"), 3, "outer"))), "point[outer](point[inner](*))")
+  })
+
   it("errors when unflattening an object whose class is no longer registered", {
     local_point()
     tree <- build_tree(point(1, 2))

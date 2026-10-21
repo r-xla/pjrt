@@ -210,6 +210,13 @@ test_that("static args that identical() joins share one cache entry", {
   expect_true(same_key(1.5, 1.5))
   expect_true(same_key(NaN, NaN))
   expect_true(same_key(1:3, c(1L, 2L, 3L))) # ALTREP compact seq vs materialized
+  # one environment, which gains a binding between the two calls (`b` is forced
+  # only by the second dispatch)
+  env <- new.env()
+  expect_true(same_key(env, {
+    env$x <- 1
+    env
+  }))
 })
 
 test_that("static numbers are keyed bitwise: +0 and -0 are distinct", {

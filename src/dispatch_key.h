@@ -324,17 +324,14 @@ struct CacheKeyHash {
       //
       // Atomics fold their contents (hash_atomic), closures their formals and
       // body (hash_closure). A static of any other type -- a list, an
-      // environment -- folds nothing and is separated only by its type and
-      // length here, and by r_identical() in CacheKeyEq. That is conservative,
+      // environment -- folds nothing and is separated only by its type (and a
+      // list's length) here, and by r_identical() in CacheKeyEq: an
+      // environment's length, its number of bindings, changes while it stays
+      // the same object (see hash_value()). That is conservative,
       // never wrong: a coarser hash costs a bucket collision, never a wrong
       // cache hit.
-      h = hash_combine(h, static_cast<std::uint64_t>(TYPEOF(leaf.value)));
-      h = hash_combine(h, static_cast<std::uint64_t>(Rf_xlength(leaf.value)));
-      if (TYPEOF(leaf.value) == CLOSXP) {
-        h = hash_closure(h, leaf.value);
-      } else {
-        h = hash_atomic(h, leaf.value);
-      }
+      h = hash_value(h, leaf.value);
+      if (TYPEOF(leaf.value) == CLOSXP) h = hash_closure(h, leaf.value);
     }
     return static_cast<std::size_t>(h);
   }

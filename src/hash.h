@@ -45,6 +45,18 @@ std::uint64_t hash_double(std::uint64_t h, double x);
 // closure, environment) folds nothing and leaves `h` untouched.
 std::uint64_t hash_atomic(std::uint64_t h, SEXP v);
 
+// Fold any R value into `h` as far as r_identical() allows: its type, its
+// length when it is a vector, and its atomic contents (hash_atomic()). Only a
+// vector's length: an environment's is its number of bindings, which changes
+// while it stays the same object.
+inline std::uint64_t hash_value(std::uint64_t h, SEXP v) {
+  h = hash_combine(h, static_cast<std::uint64_t>(TYPEOF(v)));
+  if (Rf_isVector(v)) {
+    h = hash_combine(h, static_cast<std::uint64_t>(Rf_xlength(v)));
+  }
+  return hash_atomic(h, v);
+}
+
 // identical(), tightened for use as a cache key -- the equality the folds
 // above must agree with, used for static leaves and a tree's aux data alike.
 //

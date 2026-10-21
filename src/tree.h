@@ -60,7 +60,10 @@ struct RTree {
   // ObjectNode's entry is implicit: its rank among the ObjectNodes): the
   // registered class of the object and the aux data its `flatten` returned.
   struct Object {
-    std::string cls;
+    // The CHARSXP of the class name, the class's registry key. Registering a
+    // class preserves it for good (see tree_node_key()), so it stays valid,
+    // and names its class alone, after the class is unregistered.
+    SEXP cls;
     Rcpp::RObject aux;
   };
   std::vector<Object> objects;
@@ -82,9 +85,6 @@ inline bool is_bare_list(SEXP x) {
 // `repr(children, aux)` renders the node in its tree's repr from its children's
 // strings.
 struct TreeNodeType {
-  std::string cls;
-  // The class name's CHARSXP, kept alive so its address stays the registry key.
-  Rcpp::RObject cls_char;
   Rcpp::RObject flatten;
   Rcpp::RObject unflatten;
   Rcpp::RObject repr;
@@ -97,20 +97,21 @@ struct TreeNodeType {
 std::unordered_map<SEXP, TreeNodeType>& tree_node_types();
 
 // The registry key of the class named `cls`: its CHARSXP, as UTF-8 (which for
-// an ASCII name is the one CHARSXP that any encoding of it yields).
-inline SEXP tree_node_key(const std::string& cls) {
-  return Rf_mkCharCE(cls.c_str(), CE_UTF8);
-}
+// an ASCII name is the one CHARSXP that any encoding of it yields). Defined in
+// tree.cpp; with `preserve`, the key is kept alive for the rest of the session,
+// as every key a tree stores must be.
+SEXP tree_node_key(const std::string& cls, bool preserve = false);
 
 // The registered class `x` is an object of (its first class that is
-// registered), or nullptr. Cheap when nothing is registered.
-inline const TreeNodeType* tree_node_class(SEXP x) {
+// registered), as its registry entry, or nullptr. Cheap when nothing is
+// registered.
+inline const std::pair<const SEXP, TreeNodeType>* tree_node_class(SEXP x) {
   auto& types = tree_node_types();
   if (types.empty() || !Rf_isObject(x)) return nullptr;
   SEXP cls = Rf_getAttrib(x, R_ClassSymbol);
   for (R_xlen_t k = 0; k < XLENGTH(cls); ++k) {
     auto it = types.find(STRING_ELT(cls, k));
-    if (it != types.end()) return &it->second;
+    if (it != types.end()) return &*it;
   }
   return nullptr;
 }
@@ -176,17 +177,20 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
     return;
   }
   if (const auto* type = tree_node_class(x)) {
-    Rcpp::Function flatten(type->flatten);
+    // Copied out of the registry entry, which `flatten`, being R code, may
+    // replace or erase.
+    SEXP cls = type->first;
+    Rcpp::Function flatten(type->second.flatten);
     Rcpp::RObject res = flatten(x);
     if (!is_bare_list(res) || XLENGTH(res) != 2 ||
         !is_bare_list(VECTOR_ELT(res, 0))) {
       Rcpp::stop(
           "the `flatten` registered for class \"%s\" must return "
           "`list(children, aux)`, where `children` is a list",
-          type->cls.c_str());
+          CHAR(cls));
     }
     keep.push_back(res);
-    tree.objects.push_back({type->cls, Rcpp::RObject(VECTOR_ELT(res, 1))});
+    tree.objects.push_back({cls, Rcpp::RObject(VECTOR_ELT(res, 1))});
     flatten_children(VECTOR_ELT(res, 0), RTree::ObjectNode, leaves, tree, keep);
     return;
   }
@@ -229,11 +233,11 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
       }
       if (tree.kind[node] == RTree::ObjectNode) {
         const RTree::Object& o = tree.objects[obj];
-        auto it = tree_node_types().find(tree_node_key(o.cls));
+        auto it = tree_node_types().find(o.cls);
         if (it == tree_node_types().end()) {
           UNPROTECT(1);
           Rcpp::stop("the tree node class \"%s\" is no longer registered",
-                     o.cls.c_str());
+                     CHAR(o.cls));
         }
         Rcpp::Function unflatten(it->second.unflatten);
         out = unflatten(out, o.aux);
