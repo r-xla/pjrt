@@ -106,6 +106,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_print_ordered_handler
+SEXP get_print_ordered_handler();
+RcppExport SEXP _pjrt_get_print_ordered_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_print_ordered_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_print_ordered_handler_cuda
+SEXP get_print_ordered_handler_cuda();
+RcppExport SEXP _pjrt_get_print_ordered_handler_cuda() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_print_ordered_handler_cuda());
+    return rcpp_result_gen;
+END_RCPP
+}
 // get_print_handler_cuda
 SEXP get_print_handler_cuda();
 RcppExport SEXP _pjrt_get_print_handler_cuda() {
@@ -989,6 +1009,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
     {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},
     {"_pjrt_get_print_handler", (DL_FUNC) &_pjrt_get_print_handler, 0},
+    {"_pjrt_get_print_ordered_handler", (DL_FUNC) &_pjrt_get_print_ordered_handler, 0},
+    {"_pjrt_get_print_ordered_handler_cuda", (DL_FUNC) &_pjrt_get_print_ordered_handler_cuda, 0},
     {"_pjrt_get_print_handler_cuda", (DL_FUNC) &_pjrt_get_print_handler_cuda, 0},
     {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 2},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
