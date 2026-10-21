@@ -1438,27 +1438,27 @@ describe("CPU buffer memory management", {
   # buffer's device memory genuinely lives inside the RAWSXP -- i.e. the
   # zero-copy path was actually taken, not a silent copy into pool memory.
   expect_raw_backing <- function(buf, bytes) {
-    p <- impl_test_buffer_prot(buf)
+    p <- impl_test_buffer_keepalive(buf)
     expect_true(is.raw(p))
     expect_gte(length(p), bytes)
     expect_lt(length(p), bytes + 64L)
-    expect_true(impl_test_buffer_aliases_prot(buf))
+    expect_true(impl_test_buffer_aliases_keepalive(buf))
   }
 
-  it("keeps pjrt_buffer's backing RAWSXP in the XPtr's prot slot", {
+  it("keeps pjrt_buffer's backing RAWSXP as the buffer's keepalive", {
     skip_if(!is_cpu())
     nfloats <- 1024L * 256L
     b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
     expect_raw_backing(b, nfloats * 4L)
   })
 
-  it("keeps pjrt_empty's backing RAWSXP in the XPtr's prot slot", {
+  it("keeps pjrt_empty's backing RAWSXP as the buffer's keepalive", {
     skip_if(!is_cpu())
     e <- pjrt_empty("f32", c(256L, 256L))
     expect_raw_backing(e, 256L * 256L * 4L)
   })
 
-  # Every CPU buffer must be backed by a prot-slot RAWSXP, including the
+  # Every CPU buffer must be backed by a keepalive RAWSXP, including the
   # paths where R's in-memory layout already matches the dtype byte-for-byte
   # (so no per-element conversion happens) and the raw path. Otherwise that
   # buffer's host memory would be invisible to R's garbage collector.
@@ -1495,7 +1495,7 @@ describe("CPU buffer memory management", {
     expected_bytes <- nfloats * 4L
     b <- pjrt_buffer(matrix(1.25, nfloats, 1), dtype = "f32")
     size <- as.numeric(object.size(b))
-    # The RAWSXP backing the buffer lives in the XPtr's prot slot, so
+    # The RAWSXP backing the buffer is its keepalive, so
     # object.size traverses it and reports (at least) the data's bytes,
     # rather than the handful of bytes an external pointer alone occupies.
     expect_gte(size, expected_bytes)
@@ -1594,15 +1594,58 @@ describe("PJRTBuffer serialization", {
     expect_identical(res, array(c(1, 2, 3)))
   })
 
-  it("keeps working after a copy that modifies attributes", {
+  it("writes a buffer referenced several times once and loads it as one", {
+    buf <- pjrt_buffer(as.double(seq_len(10000L)))
+    other <- pjrt_buffer(as.double(seq_len(10000L)))
+    env <- new.env(parent = emptyenv())
+    env$buf <- buf
+    once <- serialize(list(buf), NULL)
+    twice <- serialize(list(buf, other), NULL)
+    shared <- serialize(list(buf, list(buf), env, structure(1L, buf = buf)), NULL)
+    expect_gt(length(twice) - length(once), 40000L)
+    expect_lt(length(shared) - length(once), 1000L)
+
+    x <- unserialize(shared)
+    expect_identical(x[[1L]], x[[2L]][[1L]])
+    expect_identical(x[[1L]], x[[3L]]$buf)
+    expect_identical(x[[1L]], attr(x[[4L]], "buf"))
+    expect_identical(as_array(x[[2L]][[1L]]), as_array(buf))
+    expect_identical(as_array(attr(x[[4L]], "buf")), as_array(buf))
+  })
+
+  it("loads distinct buffers as distinct objects", {
     buf <- pjrt_buffer(c(1, 2, 3))
-    buf2 <- buf
-    attr(buf2, "foo") <- "bar"
-    class(buf2) <- c("Foo", class(buf2))
-    expect_identical(attr(buf, "foo"), NULL)
-    expect_identical(as_array(buf2), as_array(buf))
-    expect_identical(as_array(roundtrip(buf2)), as_array(buf))
-    expect_identical(attr(roundtrip(buf2), "foo"), "bar")
+    x <- roundtrip(list(buf, pjrt_buffer(c(1, 2, 3))))
+    expect_false(identical(x[[1L]], x[[2L]]))
+    bytes <- serialize(buf, NULL)
+    expect_false(identical(unserialize(bytes), unserialize(bytes)))
+    as_array(x[[1L]])
+    as_array(x[[2L]])
+    expect_false(identical(x[[1L]], x[[2L]]))
+  })
+
+  it("serializes deterministically and leaves the buffer unchanged", {
+    buf <- pjrt_buffer(c(1, 2, 3))
+    attrs <- attributes(buf)
+    expect_identical(serialize(buf, NULL), serialize(buf, NULL))
+    expect_identical(attributes(buf), attrs)
+    expect_equal(roundtrip(buf), buf)
+  })
+
+  it("loads a buffer donated before serialization without data", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<2xf32> {tf.aliasing_output = 0 : i32}) -> tensor<2xf32> {
+    %out = stablehlo.add %arg0, %arg0 : tensor<2xf32>
+    return %out : tensor<2xf32>
+  }
+}
+'
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"), device = "cpu")
+    x <- pjrt_buffer(c(1, 2), dtype = "f32")
+    pjrt_execute(exec, x)
+    expect_error(as_array(roundtrip(x)), "holds no data")
   })
 })
 
@@ -1613,8 +1656,10 @@ describe("PJRTBuffer", {
     expect_false(identical(buf, pjrt_buffer(c(1, 2, 3))))
   })
 
-  it("can't be modified as a list", {
+  it("stays whole when combined with c()", {
     buf <- pjrt_buffer(c(1, 2, 3))
-    expect_error(buf[[1L]] <- 1, "can't be modified")
+    x <- c(list(buf), buf)
+    expect_length(x, 2L)
+    expect_identical(x[[2L]], buf)
   })
 })

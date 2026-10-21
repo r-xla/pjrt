@@ -60,8 +60,10 @@ is_buffer <- function(x) {
 #' unless set) -- not to the device it was saved from. A buffer saved on a GPU
 #' therefore also loads on a machine without one; use [`copy_buffer()`] to move
 #' it afterwards.
-#' This requires serialization format version 3 (R's default); under version 2,
-#' the buffer is written without its data.
+#' A buffer referenced several times in one serialized object is written once,
+#' and loads as one buffer.
+#' This requires serialization format version 3 (R's default); a buffer
+#' serialized under version 2 loads without its data.
 #'
 #' @section Scalars:
 #' When calling this function on a vector of length 1, the resulting shape is `1L`.
@@ -624,7 +626,7 @@ as_raw.PJRTBuffer <- function(x, row_major, ...) {
   impl_buffer_to_raw(client, x, row_major = row_major)
 }
 
-# Called by the PJRTBuffer ALTREP class (src/buffer_sexp.cpp) to serialize a
+# Called by the buffer's ALTREP carrier (src/buffer_sexp.cpp) to serialize a
 # buffer: its host bytes, plus what is needed to upload them again. The device
 # is left out, so a buffer loads on any machine. The bytes are row-major, the
 # device's own layout, so neither direction transposes them.
@@ -636,7 +638,7 @@ buffer_serialized_state <- function(x) {
   )
 }
 
-# Called by the PJRTBuffer ALTREP class to unserialize a buffer from the state
+# Called by the buffer's ALTREP carrier to unserialize a buffer from the state
 # buffer_serialized_state() produced. It is uploaded to
 # `the[["unserialize_device"]]` -- a device, a device specification, or a
 # function returning one -- else to the default device. anvl sets that entry so

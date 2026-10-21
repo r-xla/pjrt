@@ -3,10 +3,17 @@
 #include <R_ext/Altrep.h>
 #include <R_ext/Rdynload.h>
 
+#include <cstdint>
+#include <cstring>
+#include <random>
+
 namespace {
 
-R_altrep_class_t buffer_class;
+R_altrep_class_t carrier_class;
+R_altrep_class_t token_class;
 SEXP buffer_class_attr = R_NilValue;
+SEXP token_sym = R_NilValue;
+SEXP live_token = R_NilValue;
 
 // Evaluates `fun(arg)` in pjrt's namespace.
 //
@@ -23,66 +30,177 @@ SEXP call_pjrt(const char* fun, SEXP arg) {
   return out;
 }
 
-R_xlen_t buffer_length(SEXP) { return 1; }
-
-SEXP buffer_elt(SEXP x, R_xlen_t) { return R_altrep_data1(x); }
-
-void buffer_set_elt(SEXP, R_xlen_t, SEXP) {
-  Rf_error("A PJRTBuffer can't be modified");
+// `xptr` is the buffer's external pointer, or R_NilValue for a buffer that was
+// serialized without data.
+SEXP new_carrier(SEXP xptr, SEXP keepalive) {
+  return R_new_altrep(carrier_class, xptr, keepalive);
 }
 
-// Buffers are immutable, so a duplicate -- deep or not -- shares the external
-// pointer. The default DuplicateEX copies the attributes.
-SEXP buffer_duplicate(SEXP x, Rboolean) {
-  return R_new_altrep(buffer_class, R_altrep_data1(x), R_NilValue);
+bool is_carrier(SEXP x) { return R_altrep_inherits(x, carrier_class); }
+
+// The carrier reads as its keepalive's bytes, so that object.size() -- which
+// sizes a raw vector by its length -- counts a CPU buffer's memory.
+R_xlen_t carrier_length(SEXP x) {
+  SEXP keepalive = R_altrep_data2(x);
+  return keepalive == R_NilValue ? 0 : XLENGTH(keepalive);
 }
 
-SEXP buffer_serialized_state(SEXP x) {
-  return call_pjrt("buffer_serialized_state", x);
+void* carrier_dataptr(SEXP x, Rboolean) {
+  static Rbyte empty;
+  SEXP keepalive = R_altrep_data2(x);
+  return keepalive == R_NilValue ? &empty : RAW(keepalive);
 }
 
-SEXP buffer_unserialize(SEXP, SEXP state) {
-  return call_pjrt("buffer_unserialize", state);
+const void* carrier_dataptr_or_null(SEXP x) {
+  return carrier_dataptr(x, FALSE);
+}
+
+SEXP carrier_duplicate(SEXP x, Rboolean) { return x; }
+
+// A donated buffer has no data to write; it serializes as NULL and loads as a
+// buffer without data.
+SEXP carrier_serialized_state(SEXP x) {
+  SEXP xptr = R_altrep_data1(x);
+  if (xptr == R_NilValue) return R_NilValue;
+  auto* buf = static_cast<rpjrt::PJRTBuffer*>(R_ExternalPtrAddr(xptr));
+  if (buf == nullptr || buf->buffer == nullptr) return R_NilValue;
+  return call_pjrt("buffer_serialized_state", xptr);
+}
+
+SEXP carrier_unserialize(SEXP, SEXP state) {
+  if (state == R_NilValue) return new_carrier(R_NilValue, R_NilValue);
+  SEXP buf = PROTECT(call_pjrt("buffer_unserialize", state));
+  SEXP carrier = R_ExternalPtrProtected(buf);
+  UNPROTECT(1);
+  return carrier;
+}
+
+// The buffer's token: a 16-byte ALTRAW attribute whose bytes (data1) are
+// zero on every live buffer and random on every unserialized one.
+//
+// identical() compares external pointers by address alone, and every
+// unserialized pointer has a NULL one until buffer_xptr() fills it in. It
+// compares attributes first, though, so the tokens tell distinct loaded
+// buffers apart -- the references of one buffer share its attributes, and so
+// still load as one object. A token serializes as nothing, which keeps a
+// serialized buffer's bytes deterministic.
+SEXP new_token(SEXP bytes) {
+  return R_new_altrep(token_class, bytes, R_NilValue);
+}
+
+R_xlen_t token_length(SEXP) { return 16; }
+
+void* token_dataptr(SEXP x, Rboolean) { return RAW(R_altrep_data1(x)); }
+
+const void* token_dataptr_or_null(SEXP x) { return token_dataptr(x, FALSE); }
+
+SEXP token_serialized_state(SEXP) { return R_NilValue; }
+
+SEXP token_unserialize(SEXP, SEXP) {
+  // Seeded apart from R's RNG, so that loading a buffer leaves `.Random.seed`
+  // alone. No exception may leave this ALTREP method.
+  static std::mt19937_64 rng = [] {
+    std::uint64_t entropy = reinterpret_cast<std::uintptr_t>(&entropy);
+    try {
+      entropy ^= (static_cast<std::uint64_t>(std::random_device{}()) << 32) |
+                 std::random_device{}();
+    } catch (...) {
+    }
+    return std::mt19937_64(entropy);
+  }();
+  SEXP bytes = PROTECT(Rf_allocVector(RAWSXP, 16));
+  for (int i = 0; i < 16; i += 8) {
+    const std::uint64_t r = rng();
+    for (int j = 0; j < 8; ++j) RAW(bytes)[i + j] = (Rbyte)(r >> (8 * j));
+  }
+  SEXP token = new_token(bytes);
+  UNPROTECT(1);
+  return token;
+}
+
+// Moves the buffer that unserialization uploaded into the buffer object `x`
+// that R read back: `x` takes over its address, finalizer and carrier, and the
+// pointer that held it is left empty.
+void adopt_unserialized(SEXP x) {
+  SEXP carrier = R_ExternalPtrProtected(x);
+  SEXP src = is_carrier(carrier) ? R_altrep_data1(carrier) : R_NilValue;
+  if (src == R_NilValue || R_ExternalPtrAddr(src) == nullptr) {
+    Rcpp::stop(
+        "The PJRTBuffer holds no data: it was serialized after being donated, "
+        "or with serialization format version 2");
+  }
+  R_SetExternalPtrAddr(x, R_ExternalPtrAddr(src));
+  R_ClearExternalPtr(src);
+  R_SetExternalPtrProtected(src, R_NilValue);
+  R_set_altrep_data1(carrier, x);
+  Rcpp::XPtr<rpjrt::PJRTBuffer>(x).setDeleteFinalizer();
 }
 
 }  // namespace
 
 // [[Rcpp::init]]
 void register_buffer_altrep(DllInfo* dll) {
-  buffer_class = R_make_altlist_class("PJRTBuffer", "pjrt", dll);
-  R_set_altrep_Length_method(buffer_class, buffer_length);
-  R_set_altrep_Duplicate_method(buffer_class, buffer_duplicate);
-  R_set_altrep_Serialized_state_method(buffer_class, buffer_serialized_state);
-  R_set_altrep_Unserialize_method(buffer_class, buffer_unserialize);
-  R_set_altlist_Elt_method(buffer_class, buffer_elt);
-  R_set_altlist_Set_elt_method(buffer_class, buffer_set_elt);
+  carrier_class = R_make_altraw_class("PJRTBufferCarrier", "pjrt", dll);
+  R_set_altrep_Length_method(carrier_class, carrier_length);
+  R_set_altrep_Duplicate_method(carrier_class, carrier_duplicate);
+  R_set_altrep_Serialized_state_method(carrier_class, carrier_serialized_state);
+  R_set_altrep_Unserialize_method(carrier_class, carrier_unserialize);
+  R_set_altvec_Dataptr_method(carrier_class, carrier_dataptr);
+  R_set_altvec_Dataptr_or_null_method(carrier_class, carrier_dataptr_or_null);
+
+  token_class = R_make_altraw_class("PJRTBufferToken", "pjrt", dll);
+  R_set_altrep_Length_method(token_class, token_length);
+  R_set_altrep_Serialized_state_method(token_class, token_serialized_state);
+  R_set_altrep_Unserialize_method(token_class, token_unserialize);
+  R_set_altvec_Dataptr_method(token_class, token_dataptr);
+  R_set_altvec_Dataptr_or_null_method(token_class, token_dataptr_or_null);
 
   buffer_class_attr = Rf_mkString("PJRTBuffer");
   R_PreserveObject(buffer_class_attr);
   MARK_NOT_MUTABLE(buffer_class_attr);
+  token_sym = Rf_install("serialization_token");
+  live_token = new_token(PROTECT(Rf_allocVector(RAWSXP, 16)));
+  memset(RAW(R_altrep_data1(live_token)), 0, 16);
+  R_PreserveObject(live_token);
+  MARK_NOT_MUTABLE(live_token);
+  UNPROTECT(1);
 }
 
 namespace rpjrt {
 
 SEXP wrap_buffer(std::unique_ptr<PJRTBuffer> buffer, SEXP keepalive) {
-  Rcpp::XPtr<PJRTBuffer> xptr(buffer.release(), true, R_NilValue, keepalive);
-  SEXP out = PROTECT(R_new_altrep(buffer_class, xptr, R_NilValue));
-  Rf_setAttrib(out, R_ClassSymbol, buffer_class_attr);
-  UNPROTECT(1);
-  return out;
+  Rcpp::XPtr<PJRTBuffer> xptr(buffer.release(), true);
+  R_SetExternalPtrProtected(xptr, new_carrier(xptr, keepalive));
+  Rf_setAttrib(xptr, R_ClassSymbol, buffer_class_attr);
+  Rf_setAttrib(xptr, token_sym, live_token);
+  return xptr;
 }
 
-bool is_buffer(SEXP x) { return R_altrep_inherits(x, buffer_class); }
+bool is_buffer(SEXP x) {
+  return TYPEOF(x) == EXTPTRSXP && Rf_inherits(x, "PJRTBuffer");
+}
 
 SEXP buffer_xptr(SEXP x) {
   if (!is_buffer(x)) {
     Rcpp::stop("Expected a PJRTBuffer");
   }
-  return R_altrep_data1(x);
+  if (R_ExternalPtrAddr(x) == nullptr) {
+    adopt_unserialized(x);
+  }
+  return x;
 }
 
 Rcpp::XPtr<PJRTBuffer> as_buffer(SEXP x) {
   return Rcpp::XPtr<PJRTBuffer>(buffer_xptr(x));
+}
+
+SEXP buffer_keepalive(SEXP x) {
+  SEXP carrier = R_ExternalPtrProtected(x);
+  return is_carrier(carrier) ? R_altrep_data2(carrier) : R_NilValue;
+}
+
+void set_buffer_keepalive(SEXP x, SEXP keepalive) {
+  R_set_altrep_data2(R_ExternalPtrProtected(x), keepalive);
 }
 
 }  // namespace rpjrt

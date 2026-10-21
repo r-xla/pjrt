@@ -134,8 +134,10 @@ default device (the first device of the \code{PJRT_PLATFORM} platform, \code{"cp
 unless set) -- not to the device it was saved from. A buffer saved on a GPU
 therefore also loads on a machine without one; use \code{\link[=copy_buffer]{copy_buffer()}} to move
 it afterwards.
-This requires serialization format version 3 (R's default); under version 2,
-the buffer is written without its data.
+A buffer referenced several times in one serialized object is written once,
+and loads as one buffer.
+This requires serialization format version 3 (R's default); a buffer
+serialized under version 2 loads without its data.
 }
 
 \section{Scalars}{

@@ -583,25 +583,25 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// impl_test_buffer_prot
-SEXP impl_test_buffer_prot(SEXP x);
-RcppExport SEXP _pjrt_impl_test_buffer_prot(SEXP xSEXP) {
+// impl_test_buffer_keepalive
+SEXP impl_test_buffer_keepalive(SEXP x);
+RcppExport SEXP _pjrt_impl_test_buffer_keepalive(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_test_buffer_prot(x));
+    rcpp_result_gen = Rcpp::wrap(impl_test_buffer_keepalive(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_test_buffer_aliases_prot
-bool impl_test_buffer_aliases_prot(SEXP x);
-RcppExport SEXP _pjrt_impl_test_buffer_aliases_prot(SEXP xSEXP) {
+// impl_test_buffer_aliases_keepalive
+bool impl_test_buffer_aliases_keepalive(SEXP x);
+RcppExport SEXP _pjrt_impl_test_buffer_aliases_keepalive(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_test_buffer_aliases_prot(x));
+    rcpp_result_gen = Rcpp::wrap(impl_test_buffer_aliases_keepalive(x));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1031,8 +1031,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_process_pending_releases", (DL_FUNC) &_pjrt_impl_process_pending_releases, 0},
     {"_pjrt_impl_pending_release_count", (DL_FUNC) &_pjrt_impl_pending_release_count, 0},
     {"_pjrt_impl_test_enqueue_release", (DL_FUNC) &_pjrt_impl_test_enqueue_release, 1},
-    {"_pjrt_impl_test_buffer_prot", (DL_FUNC) &_pjrt_impl_test_buffer_prot, 1},
-    {"_pjrt_impl_test_buffer_aliases_prot", (DL_FUNC) &_pjrt_impl_test_buffer_aliases_prot, 1},
+    {"_pjrt_impl_test_buffer_keepalive", (DL_FUNC) &_pjrt_impl_test_buffer_keepalive, 1},
+    {"_pjrt_impl_test_buffer_aliases_keepalive", (DL_FUNC) &_pjrt_impl_test_buffer_aliases_keepalive, 1},
     {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 4},
     {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
     {"_pjrt_impl_loaded_executable_aliases", (DL_FUNC) &_pjrt_impl_loaded_executable_aliases, 1},
