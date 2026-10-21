@@ -393,8 +393,8 @@ class ClosureEngine : public Engine {
   // `r_fun` for, and `r_fun` is what places the inputs on it -- pjrt cannot,
   // since `$data` is the backend's own array type. So there is nothing to do
   // here either way: the inputs go to the closure exactly as they arrived.
-  SEXP run(const CacheEntry& e,
-           const std::vector<ExecInput>& exec_inputs) const override {
+  SEXP run(const CacheEntry& e, const std::vector<ExecInput>& exec_inputs,
+           SEXP /* args */) const override {
     const auto hold = std::static_pointer_cast<const ClosureEntry>(e.data);
     const ClosureEntry* ce = hold.get();
     Rcpp::List flat(exec_inputs.size());
@@ -454,7 +454,8 @@ struct PjrtEntry : EntryData {
   std::vector<PhantomSpec> phantom_specs;
   std::vector<ImplicitInput> implicit_inputs;  // read before every run
   Rcpp::List implicit_templates;  // one template AnvlArray per implicit output
-  Rcpp::RObject on_success;  // function(outputs) called after every run, or NULL
+  // function(outputs, args) called after every run, or NULL
+  Rcpp::RObject on_success;
 };
 
 // The `$data` field's position in a wrap template (see PjrtEntry::templates).
@@ -596,8 +597,8 @@ class PjrtEngine : public Engine {
         const int k = static_cast<int>(i) + 1;
         SEXP el = VECTOR_ELT(list, i);
         if (TYPEOF(el) != VECSXP) {
-          Rcpp::stop("`implicit_inputs[[%d]]` must be a list(get, dtype, shape)",
-                     k);
+          Rcpp::stop(
+              "`implicit_inputs[[%d]]` must be a list(get, dtype, shape)", k);
         }
         Rcpp::List spec(el);
         auto field = [&](const char* nm) -> SEXP {
@@ -623,7 +624,8 @@ class PjrtEngine : public Engine {
         ii.shape = implicit_input_shape(field("shape"), k);
         for (int64_t d : ii.shape) {
           if (d > 0 && ii.length > R_XLEN_T_MAX / d) {
-            Rcpp::stop("`implicit_inputs[[%d]]$shape` has too many elements", k);
+            Rcpp::stop("`implicit_inputs[[%d]]$shape` has too many elements",
+                       k);
           }
           ii.length *= d;
         }
@@ -669,14 +671,16 @@ class PjrtEngine : public Engine {
     e.data = std::move(data);
   }
 
-  SEXP run(const CacheEntry& e,
-           const std::vector<ExecInput>& exec_inputs) const override {
-    // `e` may be evicted by an R callback during the run; `hold` keeps its data.
+  SEXP run(const CacheEntry& e, const std::vector<ExecInput>& exec_inputs,
+           SEXP args) const override {
+    // `e` may be evicted by an R callback during the run; `hold` keeps its
+    // data.
     const auto hold = std::static_pointer_cast<const PjrtEntry>(e.data);
     const PjrtEntry* pe = hold.get();
 
     // Assemble the executable's inputs: const_arrays ++ the call's inputs ++
-    // the implicit inputs ++ freshly allocated phantom donation buffers. A buffer input passes through
+    // the implicit inputs ++ freshly allocated phantom donation buffers. A
+    // buffer input passes through
     // -- or, under `move_inputs`, is copied to the entry's device when it lives
     // elsewhere; a bare R literal/array is uploaded to the entry's device, at
     // the dtype `input_dtypes` declared for it. The GC-rooted
@@ -689,7 +693,8 @@ class PjrtEngine : public Engine {
     for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
       if (in.aval->kind != AvalKind::kRData) {
-        inputs[pos++] = move_inputs_ ? on_entry_device(*pe, in.value) : in.value;
+        inputs[pos++] =
+            move_inputs_ ? on_entry_device(*pe, in.value) : in.value;
         continue;
       }
       // The dtype the program was compiled to take this input at. The
@@ -765,7 +770,7 @@ class PjrtEngine : public Engine {
         SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[n_out + k]);
       }
       Rcpp::Function on_success(pe->on_success);
-      on_success(implicit);
+      on_success(implicit, args);
     }
     std::size_t p = 0, li = 0;
     return unflatten_rec(*pe->out_tree, wrapped, p, li);
@@ -780,9 +785,11 @@ class PjrtEngine : public Engine {
     }
     std::vector<int64_t> out;
     for (double d : Rcpp::as<std::vector<double>>(shape)) {
-      if (ISNAN(d) || d < 0 || d != static_cast<double>(static_cast<int64_t>(d))) {
+      if (ISNAN(d) || d < 0 ||
+          d != static_cast<double>(static_cast<int64_t>(d))) {
         Rcpp::stop(
-            "`implicit_inputs[[%d]]$shape` must hold whole numbers that are not "
+            "`implicit_inputs[[%d]]$shape` must hold whole numbers that are "
+            "not "
             "negative",
             k);
       }

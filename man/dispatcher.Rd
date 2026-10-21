@@ -76,10 +76,11 @@ not part of the cache key: only the program decides that it needs one.
 outputs, after them, e.g. an error code. They are not part of the call's
 result but are handed to \code{on_success}, which is then required.
 \item \code{on_success} (optional): a function called with the list of the implicit
-outputs, wrapped like the other outputs, after every run of the entry
-that was launched without an error, before the call returns, e.g. to
-advance what an implicit input's \code{get()} reads. Execution is
-asynchronous: the outputs may not be computed yet.
+outputs, wrapped like the other outputs, and the call's argument list
+\code{args}, after every run of the entry that was launched without an error,
+before the call returns, e.g. to advance what an implicit input's \code{get()}
+reads, or an object among the arguments. Execution is asynchronous: the
+outputs may not be computed yet.
 }
 
 Either kind of result may additionally carry:

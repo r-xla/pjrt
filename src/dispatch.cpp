@@ -359,5 +359,5 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       exec_inputs[k].dtype = entry->input_dtypes[k];
     }
   }
-  return engine.run(*entry, exec_inputs);
+  return engine.run(*entry, exec_inputs, args);
 }
