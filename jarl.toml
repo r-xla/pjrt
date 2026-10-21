@@ -1,2 +1,5 @@
 [lint]
 exclude = ["inst/extra-tests"]
+
+[lint.undesirable_operator]
+operators = ["->>", ":::"]
