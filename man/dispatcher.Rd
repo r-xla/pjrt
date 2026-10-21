@@ -67,8 +67,11 @@ before the phantoms). Before every run the engine calls \code{get()}, which
 returns a \code{PJRTBuffer} of \code{dtype} and \code{shape}; it is passed on, copied
 to the entry's device if it lives on another one. A value can so stay
 on the device from run to run, e.g. the \verb{$data} of an implicit output
-that \code{on_success} keeps. An implicit input is not part of the cache key:
-only the program decides that it needs one.
+that \code{on_success} keeps. An implicit input is not part of the cache key,
+which is resolved before the lookup, while only the program decides
+that it needs one: a buffer of another dtype or shape is an error. A
+caller whose implicit inputs can change type puts their types into
+\code{context}, so that a change compiles a new entry.
 \item \code{implicit_outputs} (optional): a list of \verb{list(dtype = <string>, shape = <integer>)}, one per value the program returns beyond the \code{out_tree}'s
 outputs, after them, e.g. an error code. They are not part of the call's
 result but are handed to \code{on_success}, which is then required.
@@ -173,7 +176,8 @@ Required for any backend other than \code{"pjrt"}; ignored for \code{"pjrt"} (se
 \item{context}{(\code{function} | \code{NULL})\cr
 Called with no arguments on \emph{every} dispatch to get whatever the compiled
 program depends on beyond its inputs -- anvl passes the backend's current
-default dtypes. Must return a \code{character()} without \code{NA}s; its value is
+default dtypes, say, or the types of the values \code{implicit_inputs} read.
+Must return a \code{character()} without \code{NA}s; its value is
 part of the cache key, so an entry compiled under one context is never
 served under another, and it reaches \code{compile} as \code{info$context}. Unlike
 \code{default_device}, which is consulted only when no array names a device,
