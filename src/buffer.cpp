@@ -290,21 +290,4 @@ bool PJRTBuffer::is_deleted() {
   return args.is_deleted;
 }
 
-// PJRTHostData implementation
-
-PJRTHostData::PJRTHostData(std::unique_ptr<std::vector<uint8_t>> data,
-                           std::unique_ptr<PJRTEvent> event)
-    : data_(std::move(data)), event_(std::move(event)) {}
-
-bool PJRTHostData::is_ready() const {
-  if (!event_) return true;
-  return event_->is_ready();
-}
-
-void PJRTHostData::await() {
-  if (!event_) return;
-  event_->await();
-  event_->check_error();
-}
-
 }  // namespace rpjrt

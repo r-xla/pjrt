@@ -527,7 +527,7 @@ elt_type <- function(x) {
 #' @return An R `array` (or `vector` for shape `integer()`).
 #' @export
 as_array.PJRTBuffer <- function(x, check = "warn", ...) {
-  result <- value(as_array_async(x))
+  result <- impl_buffer_to_host(x)
   check <- check_level(check)
   if (!identical(check, "none")) {
     dt <- as.character(elt_type(x))
@@ -596,20 +596,25 @@ report_lossy <- function(check, message, .envir = parent.frame()) {
 #' @title Convert buffer to R array asynchronously
 #' @description
 #' Start an asynchronous transfer of buffer data from device to host.
-#' Returns immediately with a `PJRTArrayPromise` object.
 #'
-#' Use `value()` to get the R array (blocks if not ready).
-#' Use `is_ready()` to check if transfer has completed (non-blocking).
+#' Returns immediately with an R array that stands for the transfer's result:
+#' it has its final type, `dim` and class already, and reading its values
+#' blocks until the transfer has completed.
+#' Use `is_ready()` to check if the transfer has completed (non-blocking), and
+#' `await()` to block until it has.
+#'
+#' Unlike [as_array()], the values are not checked for being representable in
+#' R.
 #'
 #' @param x A `PJRTBuffer` object.
 #' @param ... Additional arguments (unused).
-#' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
-#' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()], [await()]
+#' @return An R `array` (or `vector` for shape `integer()`).
+#' @seealso [as_array()], [is_ready()], [await()], [pjrt_execute()]
 #' @examplesIf plugins_downloaded()
 #' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 #' result <- as_array_async(buf)
 #' is_ready(result)
-#' value(result)
+#' result
 #' @export
 as_array_async <- function(x, ...) {
   UseMethod("as_array_async")
@@ -617,10 +622,8 @@ as_array_async <- function(x, ...) {
 
 #' @export
 as_array_async.PJRTBuffer <- function(x, ...) {
-  result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$dtype, result$dims, result$minor_to_major)
+  impl_buffer_to_host_async(x)
 }
-
 
 #' @export
 as_raw.PJRTBuffer <- function(x, row_major, ...) {

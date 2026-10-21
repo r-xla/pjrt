@@ -16,4 +16,8 @@ The awaited object (invisibly).
 }
 \description{
 Block until the async operation is complete and return the object.
+
+For a \code{\link[=pjrt_buffer]{PJRTBuffer}}, waits for its computation or transfer.
+For an array returned by \code{\link[=as_array_async]{as_array_async()}}, waits for its transfer to the
+host and materializes the array. Any other R object is returned as is.
 }

@@ -156,16 +156,14 @@ In pjrt, this happens automatically. Both `pjrt_buffer()` and `pjrt_execute()` r
 |-----------|---------|-------------|
 | `pjrt_buffer()` | `PJRTBuffer` | Host-to-device transfer |
 | `pjrt_execute()` | `PJRTBuffer` | Program execution |
-| `as_array_async()` | `PJRTArrayPromise` | Device-to-host transfer |
+| `as_array_async()` | R `array` | Device-to-host transfer |
 
 `PJRTBuffer` is a transparent async type — it can be used directly in operations even if the underlying computation hasn't completed yet. PJRT handles the dependencies internally.
 
-`PJRTArrayPromise` represents data in transit from device to host. Because R arrays are plain R objects (not under our control like `PJRTBuffer`), we need a separate promise type to represent "array that isn't ready yet." This is why there are two functions for synchronization:
+`as_array_async()` returns an ordinary-looking R array whose data is still in transit from device to host. Its type, `dim` and class are there right away; the first time its values are read, R blocks until the transfer has completed. Both kinds of async values support the same two functions:
 
-- `await(x)` — block until a `PJRTBuffer` is ready on the device. Pure synchronization; no data leaves the device. Useful for timing or error checking, but **not required** before passing a buffer to `pjrt_execute()`.
-- `value(x)` — block until a `PJRTArrayPromise` completes, then materialize and return the R array. This is how you get data out of the device.
-
-Both types also support `is_ready(x)` for non-blocking readiness checks.
+- `await(x)` — block until `x` is ready. For a `PJRTBuffer`, this is pure synchronization; no data leaves the device. Useful for timing or error checking, but **not required** before passing a buffer to `pjrt_execute()`. For an array from `as_array_async()`, it waits for the transfer.
+- `is_ready(x)` — non-blocking readiness check.
 
 ### Chaining operations
 
@@ -201,9 +199,10 @@ async_output <- as_array_async(result)   # returns immediately
 
 # R can do other work here...
 
-# Block only when we need the final R array
-output <- value(async_output)
-dim(output)
+is_ready(async_output)
+
+# Reading the values blocks until the transfer is done
+async_output[1:2, 1:2]
 ```
 
 ### When does blocking happen?
@@ -212,7 +211,7 @@ Blocking occurs when:
 
 1. Calling `await()` on a buffer
 2. Calling `as_array()` on a buffer
-3. Calling `value()` on a `PJRTArrayPromise`
+3. Reading the values of an array returned by `as_array_async()`
 4. Printing a buffer (needs to read values to display them)
 
 Operations like `shape()`, `elt_type()`, and `device()` do **not** block — buffer metadata is available immediately.

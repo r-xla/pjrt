@@ -29,7 +29,6 @@ PJRTProgram            – MLIR or HLO source code ready for compilation
 
 ```
 PJRTBuffer         – device-resident tensor (the main data object)
-PJRTArrayPromise   – async device-to-host transfer result (environment-based)
 PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)
 ```
 
@@ -60,8 +59,8 @@ arr  <- as_array(out)                              # R array (device → host, b
 Both execution and buffer transfers are asynchronous:
 
 - `pjrt_execute()` returns `PJRTBuffer`s that may not be ready yet. PJRT tracks dependencies internally, so unready buffers can be passed directly as inputs to the next execution.
-- `as_array_async()` returns a `PJRTArrayPromise` (non-blocking device-to-host transfer).
-- `is_ready()` polls without blocking; `await()` and `value()` block until complete.
+- `as_array_async()` returns a plain-looking R array that is an ALTREP *host array* (`src/host_array.cpp`): it has its final type, `dim` and class at once, and the first read of its data waits for the device-to-host transfer and materializes it.
+- `is_ready()` polls without blocking; `await()` blocks until complete (and materializes a host array). On any other R object, `is_ready()` is `TRUE` and `await()` is a no-op.
 
 ### Column-Major Convention
 
@@ -73,7 +72,7 @@ R uses column-major (Fortran) order. The C++ layer handles row-to-column-major c
 - `client.R` – `pjrt_client()`, `pjrt_compile()`
 - `buffer.R` – `pjrt_buffer()`, `pjrt_scalar()`, `pjrt_empty()`, type dispatch
 - `loaded_executable.R` – `pjrt_execute()`
-- `async.R` – `value()`, `is_ready()`, `await()`, `PJRTArrayPromise`
+- `async.R` – `is_ready()`, `await()`
 - `device.R` – `pjrt_device()`, device spec parsing ("cpu:0")
 - `program.R` – `pjrt_program()` (MLIR/HLO loading)
 - `format.R` – buffer pretty-printing

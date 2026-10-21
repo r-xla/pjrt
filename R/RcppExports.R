@@ -61,6 +61,22 @@ impl_call_r_gc <- function() {
     invisible(.Call(`_pjrt_impl_call_r_gc`))
 }
 
+impl_buffer_to_host <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_to_host`, buffer_sexp)
+}
+
+impl_buffer_to_host_async <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp)
+}
+
+impl_host_array_materialize <- function(x) {
+    invisible(.Call(`_pjrt_impl_host_array_materialize`, x))
+}
+
+impl_host_array_is_ready <- function(x) {
+    .Call(`_pjrt_impl_host_array_is_ready`, x)
+}
+
 get_lu_handler <- function() {
     .Call(`_pjrt_get_lu_handler`)
 }
@@ -189,14 +205,6 @@ impl_buffer_await <- function(buffer_sexp) {
     invisible(.Call(`_pjrt_impl_buffer_await`, buffer_sexp))
 }
 
-impl_host_data_is_ready <- function(data) {
-    .Call(`_pjrt_impl_host_data_is_ready`, data)
-}
-
-impl_host_data_await <- function(data) {
-    invisible(.Call(`_pjrt_impl_host_data_await`, data))
-}
-
 impl_process_pending_releases <- function() {
     invisible(.Call(`_pjrt_impl_process_pending_releases`))
 }
@@ -215,14 +223,6 @@ impl_test_buffer_keepalive <- function(x) {
 
 impl_test_buffer_aliases_keepalive <- function(x) {
     .Call(`_pjrt_impl_test_buffer_aliases_keepalive`, x)
-}
-
-impl_raw_to_array <- function(host_data, dtype, dims, minor_to_major) {
-    .Call(`_pjrt_impl_raw_to_array`, host_data, dtype, dims, minor_to_major)
-}
-
-impl_buffer_to_host_async <- function(buffer_sexp) {
-    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp)
 }
 
 impl_loaded_executable_aliases <- function(executable) {

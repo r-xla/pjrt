@@ -180,6 +180,49 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// impl_buffer_to_host
+SEXP impl_buffer_to_host(SEXP buffer_sexp);
+RcppExport SEXP _pjrt_impl_buffer_to_host(SEXP buffer_sexpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type buffer_sexp(buffer_sexpSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host(buffer_sexp));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_buffer_to_host_async
+SEXP impl_buffer_to_host_async(SEXP buffer_sexp);
+RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP buffer_sexpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type buffer_sexp(buffer_sexpSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer_sexp));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_host_array_materialize
+void impl_host_array_materialize(SEXP x);
+RcppExport SEXP _pjrt_impl_host_array_materialize(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    impl_host_array_materialize(x);
+    return R_NilValue;
+END_RCPP
+}
+// impl_host_array_is_ready
+bool impl_host_array_is_ready(SEXP x);
+RcppExport SEXP _pjrt_impl_host_array_is_ready(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_host_array_is_ready(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // get_lu_handler
 SEXP get_lu_handler();
 RcppExport SEXP _pjrt_get_lu_handler() {
@@ -553,27 +596,6 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// impl_host_data_is_ready
-bool impl_host_data_is_ready(Rcpp::XPtr<rpjrt::PJRTHostData> data);
-RcppExport SEXP _pjrt_impl_host_data_is_ready(SEXP dataSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTHostData> >::type data(dataSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_host_data_is_ready(data));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_host_data_await
-void impl_host_data_await(Rcpp::XPtr<rpjrt::PJRTHostData> data);
-RcppExport SEXP _pjrt_impl_host_data_await(SEXP dataSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTHostData> >::type data(dataSEXP);
-    impl_host_data_await(data);
-    return R_NilValue;
-END_RCPP
-}
 // impl_process_pending_releases
 void impl_process_pending_releases();
 RcppExport SEXP _pjrt_impl_process_pending_releases() {
@@ -622,31 +644,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_test_buffer_aliases_keepalive(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_raw_to_array
-SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data, const std::string& dtype, Rcpp::IntegerVector dims, Rcpp::IntegerVector minor_to_major);
-RcppExport SEXP _pjrt_impl_raw_to_array(SEXP host_dataSEXP, SEXP dtypeSEXP, SEXP dimsSEXP, SEXP minor_to_majorSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTHostData> >::type host_data(host_dataSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type dtype(dtypeSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dims(dimsSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type minor_to_major(minor_to_majorSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_raw_to_array(host_data, dtype, dims, minor_to_major));
-    return rcpp_result_gen;
-END_RCPP
-}
-// impl_buffer_to_host_async
-Rcpp::List impl_buffer_to_host_async(SEXP buffer_sexp);
-RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP buffer_sexpSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type buffer_sexp(buffer_sexpSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer_sexp));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1016,6 +1013,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
     {"_pjrt_impl_gc_call_count", (DL_FUNC) &_pjrt_impl_gc_call_count, 0},
     {"_pjrt_impl_call_r_gc", (DL_FUNC) &_pjrt_impl_call_r_gc, 0},
+    {"_pjrt_impl_buffer_to_host", (DL_FUNC) &_pjrt_impl_buffer_to_host, 1},
+    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
+    {"_pjrt_impl_host_array_materialize", (DL_FUNC) &_pjrt_impl_host_array_materialize, 1},
+    {"_pjrt_impl_host_array_is_ready", (DL_FUNC) &_pjrt_impl_host_array_is_ready, 1},
     {"_pjrt_get_lu_handler", (DL_FUNC) &_pjrt_get_lu_handler, 0},
     {"_pjrt_get_lu_handler_cuda", (DL_FUNC) &_pjrt_get_lu_handler_cuda, 0},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
@@ -1048,15 +1049,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
     {"_pjrt_impl_buffer_is_ready", (DL_FUNC) &_pjrt_impl_buffer_is_ready, 1},
     {"_pjrt_impl_buffer_await", (DL_FUNC) &_pjrt_impl_buffer_await, 1},
-    {"_pjrt_impl_host_data_is_ready", (DL_FUNC) &_pjrt_impl_host_data_is_ready, 1},
-    {"_pjrt_impl_host_data_await", (DL_FUNC) &_pjrt_impl_host_data_await, 1},
     {"_pjrt_impl_process_pending_releases", (DL_FUNC) &_pjrt_impl_process_pending_releases, 0},
     {"_pjrt_impl_pending_release_count", (DL_FUNC) &_pjrt_impl_pending_release_count, 0},
     {"_pjrt_impl_test_enqueue_release", (DL_FUNC) &_pjrt_impl_test_enqueue_release, 1},
     {"_pjrt_impl_test_buffer_keepalive", (DL_FUNC) &_pjrt_impl_test_buffer_keepalive, 1},
     {"_pjrt_impl_test_buffer_aliases_keepalive", (DL_FUNC) &_pjrt_impl_test_buffer_aliases_keepalive, 1},
-    {"_pjrt_impl_raw_to_array", (DL_FUNC) &_pjrt_impl_raw_to_array, 4},
-    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
     {"_pjrt_impl_loaded_executable_aliases", (DL_FUNC) &_pjrt_impl_loaded_executable_aliases, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
     {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 5},
@@ -1092,8 +1089,10 @@ static const R_CallMethodDef CallEntries[] = {
 };
 
 void register_buffer_altrep(DllInfo* dll);
+void register_host_array_altrep(DllInfo* dll);
 RcppExport void R_init_pjrt(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
     register_buffer_altrep(dll);
+    register_host_array_altrep(dll);
 }
