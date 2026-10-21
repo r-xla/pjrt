@@ -11,6 +11,10 @@
 
 ## New features
 
+* A `dispatcher()`'s `compile` callback can return
+  `uses_default_device = FALSE` to have an entry that fixes its own device
+  served under any default device, instead of recompiled when it changes.
+
 * A `dispatcher()` compile callback can declare `implicit_inputs` and
   `implicit_outputs`, values the program takes and returns beyond the call's
   arguments and result, and an `on_success` function that receives the implicit

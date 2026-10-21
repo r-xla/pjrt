@@ -58,6 +58,18 @@ inline std::vector<char> static_leaf_mask(
 // any other class -- a PJRTBuffer, an RTree -- would be reinterpreted as a
 // Dispatcher* and dereferenced: undefined behaviour that reads arbitrary memory
 // rather than erroring. Mirrors as_tree() in tree.cpp.
+// The compile result's `uses_default_device` flag: FALSE declares that the
+// entry's program fixes its own device, so it does not depend on the default
+// device it was compiled under. Absent means TRUE, the safe reading.
+bool uses_default_device(const Rcpp::List& res) {
+  if (!res.containsElementNamed("uses_default_device")) return true;
+  SEXP v = res["uses_default_device"];
+  if (TYPEOF(v) != LGLSXP || XLENGTH(v) != 1 || LOGICAL(v)[0] == NA_LOGICAL) {
+    Rcpp::stop("`uses_default_device` must be TRUE or FALSE");
+  }
+  return LOGICAL(v)[0] == TRUE;
+}
+
 Dispatcher& as_dispatcher(SEXP handle) {
   if (TYPEOF(handle) != EXTPTRSXP || !Rf_inherits(handle, "Dispatcher")) {
     Rcpp::stop("expected a `Dispatcher` (as returned by `dispatcher()`)");
@@ -240,27 +252,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     exec_inputs.push_back({leaf, &key.leaves.back().aval});
   }
 
-  // 3. No array leaf named a device, so the call runs on the backend's
-  // *current* default. That device still binds the entry the callback will
-  // compile, so the key must name it: without this, `f(1)` compiled under one
-  // default device would be served back after the default changed. Resolved per
-  // call, and never under `move_inputs`, where the entry's device is fixed and
-  // the call's own must stay out of the key.
-  Rcpp::RObject default_device;  // the resolved object, for the callback
-  if (!move && !have_device) {
-    const std::optional<Rcpp::Function>& resolve = d.default_device_fn();
-    if (!resolve) {
-      Rcpp::stop(
-          "this dispatcher cannot dispatch a call with no array inputs: it was "
-          "created without a `default_device` resolver");
-    }
-    // Canonicalized like a leaf's device, so a resolver that returns a fresh
-    // (equal) object per call still lands on the entry it compiled.
-    default_device = engine.canonical_device((*resolve)());
-    key.device = static_cast<DeviceToken>(SEXP(default_device));
-  }
-
-  // 3b. The caller's context: key material the compiled program depends on
+  // 3. The caller's context: key material the compiled program depends on
   // beyond its inputs (anvl's default dtypes). Resolved on every call, not only
   // when nothing else names it -- any entry may depend on it -- so an entry
   // compiled under one context is never served under another.
@@ -281,8 +273,32 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     }
   }
 
-  // 4. Probe the cache; compile via the R callback on a miss.
+  // 4. No array leaf named a device, so the call runs on the backend's
+  // *current* default -- unless the entry declared it does not use the default
+  // (`uses_default_device = FALSE`): its program fixes its own device, and it
+  // is filed under a key naming no device. Probe for that entry first; a hit
+  // needs no default at all. Otherwise the default device still binds the entry
+  // the callback will compile, so the key must name it: without this, `f(1)`
+  // compiled under one default device would be served back after the default
+  // changed. Resolved per call, and never under `move_inputs`, where the
+  // entry's device is fixed and the call's own must stay out of the key.
+  Rcpp::RObject default_device;  // the resolved object, for the callback
   CacheEntry* entry = d.cache().get(key);
+  if (entry == nullptr && !move && !have_device) {
+    const std::optional<Rcpp::Function>& resolve = d.default_device_fn();
+    if (!resolve) {
+      Rcpp::stop(
+          "this dispatcher cannot dispatch a call with no array inputs: it was "
+          "created without a `default_device` resolver");
+    }
+    // Canonicalized like a leaf's device, so a resolver that returns a fresh
+    // (equal) object per call still lands on the entry it compiled.
+    default_device = engine.canonical_device((*resolve)());
+    key.device = static_cast<DeviceToken>(SEXP(default_device));
+    entry = d.cache().get(key);
+  }
+
+  // 5. Compile via the R callback on a miss.
   if (entry == nullptr) {
     // Hand the callback the material this call already derived -- the tree, the
     // flat leaves, the static mask, and each dynamic leaf's Aval -- rather than
@@ -337,11 +353,17 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     // alive for the dispatcher's lifetime.
     for (KeyLeaf& kl : key.leaves) e.keep_alive(kl.value);
 
+    // An entry that does not use the default device it was compiled under is
+    // served whatever the default is: file it under the key that names none.
+    if (!default_device.isNULL() && !uses_default_device(res)) {
+      key.device = nullptr;
+    }
+
     d.cache().set(key, std::move(e));
     entry = d.cache().get(key);
   }
 
-  // 5. Stamp each input with the dtype the entry was compiled to take it at,
+  // 6. Stamp each input with the dtype the entry was compiled to take it at,
   // then let the engine run the call and return the finished value.
   if (!entry->input_dtypes.empty()) {
     // Sizes agree by construction: the key fixes which leaves are static, so
