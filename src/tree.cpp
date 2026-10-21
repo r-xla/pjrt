@@ -299,7 +299,7 @@ SEXP impl_tree_child_names(SEXP tree) {
   const int n = t.n_children[0];
   Rcpp::CharacterVector out(n);
   const std::int32_t off = t.name_off[0];
-  for (int k = 0; k < n; ++k) out[k] = t.names[off + k];
+  for (int k = 0; k < n; ++k) out[k] = tree_name_charsxp(t.names[off + k]);
   return out;
 }
 
@@ -356,7 +356,7 @@ SEXP impl_tree_filter_by_names(SEXP tree, Rcpp::CharacterVector names) {
   if (!t.is_named(0)) Rcpp::stop("filter_by_names(): tree must have names");
   std::unordered_set<std::string> keep(names.size());
   for (R_xlen_t k = 0; k < names.size(); ++k) {
-    keep.insert(std::string(names[k]));
+    keep.insert(tree_name(names[k]));
   }
   const std::vector<std::size_t> kids = child_nodes(t, 0);
 
@@ -405,7 +405,7 @@ SEXP impl_tree_concat(Rcpp::List children, SEXP names) {
       if (STRING_ELT(names, k) == NA_STRING) {
         Rcpp::stop("tree_concat(): names must not be NA");
       }
-      out->names.push_back(std::string(nms[k]));
+      out->names.push_back(tree_name(nms[k]));
     }
   } else {
     out->name_off.push_back(-1);
@@ -425,7 +425,7 @@ Rcpp::LogicalVector impl_tree_mask_from_names(SEXP tree,
   require_list(t, "mask_from_names()");
   std::unordered_set<std::string> marked(names.size());
   for (R_xlen_t k = 0; k < names.size(); ++k) {
-    marked.insert(std::string(names[k]));
+    marked.insert(tree_name(names[k]));
   }
   const std::vector<std::size_t> kids = child_nodes(t, 0);
   Rcpp::LogicalVector out(tree_size_rec(t));

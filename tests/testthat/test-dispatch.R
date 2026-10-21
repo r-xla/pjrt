@@ -212,6 +212,30 @@ test_that("static args that identical() joins share one cache entry", {
   expect_true(same_key(1:3, c(1L, 2L, 3L))) # ALTREP compact seq vs materialized
 })
 
+describe("dispatch", {
+  it("keys argument names on their text, not their declared encoding", {
+    utf8 <- "\u00e9"
+    latin1 <- iconv(utf8, "UTF-8", "latin1")
+    d <- new_dispatcher(
+      10L,
+      function(info) list(r_fun = function(flat) flat[[1L]]),
+      latin1,
+      "closure",
+      "quickr",
+      FALSE,
+      test_quickr_device
+    )
+    x <- qarr(c(1, 2))
+    invisible(dispatch(d, setNames(list(x, 1L), c("x", utf8))))
+    invisible(dispatch(d, setNames(list(x, 1L), c("x", latin1))))
+    expect_equal(dispatcher_size(d), 1L)
+    # The UTF-8 spelling is still recognized as the latin1-declared static: a
+    # dynamic leaf of the same value would have keyed by its aval instead.
+    invisible(dispatch(d, setNames(list(x, 2L), c("x", utf8))))
+    expect_equal(dispatcher_size(d), 2L)
+  })
+})
+
 test_that("static numbers are keyed bitwise: +0 and -0 are distinct", {
   # A literal `-0` is constant-folded to `+0` by R's byte compiler, so build it
   # from a variable -- otherwise this would quietly compare 0 against 0.

@@ -318,6 +318,21 @@ test_that("tree_diff locates the first divergence", {
   )
 })
 
+describe("build_tree", {
+  it("keys names on their text, not their declared encoding", {
+    utf8 <- "\u00e9"
+    latin1 <- iconv(utf8, "UTF-8", "latin1")
+    a <- build_tree(setNames(list(1), utf8))
+    b <- build_tree(setNames(list(1), latin1))
+    expect_true(tree_equal(a, b))
+    expect_identical(tree_hash(a), tree_hash(b))
+    nms <- tree_child_names(b)
+    expect_identical(nms, utf8)
+    expect_identical(Encoding(nms), "UTF-8")
+    expect_identical(names(unflatten(b, list(1))), utf8)
+  })
+})
+
 describe("map_tree", {
   it("preserves structure and applies f to leaves", {
     # leaf input

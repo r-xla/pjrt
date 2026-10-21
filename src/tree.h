@@ -53,6 +53,18 @@ inline bool is_bare_list(SEXP x) {
   return TYPEOF(x) == VECSXP && !Rf_isObject(x);
 }
 
+// A name as RTree stores it: its UTF-8 bytes, so the same text gives the same
+// tree whether it was declared latin1, UTF-8 or native. A "bytes"-encoded
+// string cannot be translated, so its raw bytes are taken as they are.
+inline std::string tree_name(SEXP s) {
+  return Rf_getCharCE(s) == CE_BYTES ? CHAR(s) : Rf_translateCharUTF8(s);
+}
+
+// The CHARSXP for a stored name -- the inverse of tree_name().
+inline SEXP tree_name_charsxp(const std::string& s) {
+  return Rf_mkCharCE(s.c_str(), CE_UTF8);
+}
+
 // Append the preorder encoding of `x` to `t`, collecting leaves in order.
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
   const std::size_t pos = tree.kind.size();
@@ -74,11 +86,11 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
       tree.name_off.push_back(static_cast<std::int32_t>(tree.names.size()));
       for (R_xlen_t k = 0; k < n; ++k) {
         SEXP nm = STRING_ELT(nms, k);
-        // NA_STRING would round-trip through CHAR() as the literal "NA",
+        // NA_STRING would round-trip as the literal "NA",
         // silently conflating an NA name with a "NA" name (and poisoning
         // tree_equal); reject it instead.
         if (nm == NA_STRING) Rcpp::stop("tree names must not be NA");
-        tree.names.push_back(std::string(CHAR(nm)));
+        tree.names.push_back(tree_name(nm));
       }
     } else {
       tree.name_off.push_back(-1);
@@ -117,7 +129,7 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
         const std::int32_t off = tree.name_off[node];
         SEXP nms = PROTECT(Rf_allocVector(STRSXP, n));
         for (int k = 0; k < n; ++k) {
-          SET_STRING_ELT(nms, k, Rf_mkChar(tree.names[off + k].c_str()));
+          SET_STRING_ELT(nms, k, tree_name_charsxp(tree.names[off + k]));
         }
         Rf_setAttrib(out, R_NamesSymbol, nms);
         UNPROTECT(1);

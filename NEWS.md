@@ -26,6 +26,8 @@
   instead of failing on one that is not positive definite.
 * New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
   a `!stablehlo.token`, so that a chain of prints runs in order.
+* Bugfix: the Rtree reads list names by their text, so the same name in latin1
+  and UTF-8 gives one tree, and one dispatcher cache entry.
 
 
 # pjrt 0.6.0

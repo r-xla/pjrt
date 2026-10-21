@@ -101,9 +101,10 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   if (context_fn != R_NilValue) context.emplace(context_fn);
   std::unordered_set<std::string> statics;
   if (static_names.isNotNull()) {
-    for (const auto& nm : Rcpp::CharacterVector(static_names)) {
-      statics.insert(Rcpp::as<std::string>(nm));
-    }
+    // Spelled as the tree spells argument names, so a static matches its
+    // argument whatever encoding either string was declared in.
+    const Rcpp::CharacterVector nms(static_names);
+    for (R_xlen_t k = 0; k < nms.size(); ++k) statics.insert(tree_name(nms[k]));
   }
   auto d = std::make_unique<Dispatcher>(
       static_cast<std::size_t>(capacity), compile_fn, std::move(statics),
