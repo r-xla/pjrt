@@ -12,23 +12,28 @@ as_array_async(x, ...)
 \item{...}{Additional arguments (unused).}
 }
 \value{
-A \code{PJRTArrayPromise} object. Call \code{value()} to get the R array.
+An R \code{array} (or \code{vector} for shape \code{integer()}).
 }
 \description{
 Start an asynchronous transfer of buffer data from device to host.
-Returns immediately with a \code{PJRTArrayPromise} object.
 
-Use \code{value()} to get the R array (blocks if not ready).
-Use \code{is_ready()} to check if transfer has completed (non-blocking).
+Returns immediately with an R array that stands for the transfer's result:
+it has its final type, \code{dim} and class already, and reading its values
+blocks until the transfer has completed.
+Use \code{is_ready()} to check if the transfer has completed (non-blocking), and
+\code{await()} to block until it has.
+
+Unlike \code{\link[=as_array]{as_array()}}, the values are not checked for being representable in
+R.
 }
 \examples{
 \dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
 buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
 result <- as_array_async(buf)
 is_ready(result)
-value(result)
+result
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=as_array]{as_array()}}, \code{\link[=value]{value()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=pjrt_execute]{pjrt_execute()}}, \code{\link[=await]{await()}}
+\code{\link[=as_array]{as_array()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=await]{await()}}, \code{\link[=pjrt_execute]{pjrt_execute()}}
 }
