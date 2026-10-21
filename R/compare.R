@@ -5,7 +5,7 @@ compare_proxy.PJRTBuffer <- function(x, path) { # nolint
       x = as_array(x, check = FALSE),
       dim = shape(x),
       dtype = as.character(elt_type(x)),
-      attr = attributes(x)[names(attributes(x)) != "serialization_token"]
+      attr = attributes(x)
     ),
     path = path
   )

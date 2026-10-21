@@ -136,6 +136,8 @@ therefore also loads on a machine without one; use \code{\link[=copy_buffer]{cop
 it afterwards.
 A buffer referenced several times in one serialized object is written once,
 and loads as one buffer.
+A loaded buffer is a NULL external pointer until its first use (e.g. by
+\code{\link[=as_array]{as_array()}}, \code{\link[=shape]{shape()}} or printing), which fills in its address.
 This requires serialization format version 3 (R's default); a buffer
 serialized under version 2 loads without its data.
 }

@@ -3,17 +3,10 @@
 #include <R_ext/Altrep.h>
 #include <R_ext/Rdynload.h>
 
-#include <cstdint>
-#include <cstring>
-#include <random>
-
 namespace {
 
 R_altrep_class_t carrier_class;
-R_altrep_class_t token_class;
 SEXP buffer_class_attr = R_NilValue;
-SEXP token_sym = R_NilValue;
-SEXP live_token = R_NilValue;
 
 // Evaluates `fun(arg)` in pjrt's namespace.
 //
@@ -75,49 +68,6 @@ SEXP carrier_unserialize(SEXP, SEXP state) {
   return carrier;
 }
 
-// The buffer's token: a 16-byte ALTRAW attribute whose bytes (data1) are
-// zero on every live buffer and random on every unserialized one.
-//
-// identical() compares external pointers by address alone, and every
-// unserialized pointer has a NULL one until buffer_xptr() fills it in. It
-// compares attributes first, though, so the tokens tell distinct loaded
-// buffers apart -- the references of one buffer share its attributes, and so
-// still load as one object. A token serializes as nothing, which keeps a
-// serialized buffer's bytes deterministic.
-SEXP new_token(SEXP bytes) {
-  return R_new_altrep(token_class, bytes, R_NilValue);
-}
-
-R_xlen_t token_length(SEXP) { return 16; }
-
-void* token_dataptr(SEXP x, Rboolean) { return RAW(R_altrep_data1(x)); }
-
-const void* token_dataptr_or_null(SEXP x) { return token_dataptr(x, FALSE); }
-
-SEXP token_serialized_state(SEXP) { return R_NilValue; }
-
-SEXP token_unserialize(SEXP, SEXP) {
-  // Seeded apart from R's RNG, so that loading a buffer leaves `.Random.seed`
-  // alone. No exception may leave this ALTREP method.
-  static std::mt19937_64 rng = [] {
-    std::uint64_t entropy = reinterpret_cast<std::uintptr_t>(&entropy);
-    try {
-      entropy ^= (static_cast<std::uint64_t>(std::random_device{}()) << 32) |
-                 std::random_device{}();
-    } catch (...) {
-    }
-    return std::mt19937_64(entropy);
-  }();
-  SEXP bytes = PROTECT(Rf_allocVector(RAWSXP, 16));
-  for (int i = 0; i < 16; i += 8) {
-    const std::uint64_t r = rng();
-    for (int j = 0; j < 8; ++j) RAW(bytes)[i + j] = (Rbyte)(r >> (8 * j));
-  }
-  SEXP token = new_token(bytes);
-  UNPROTECT(1);
-  return token;
-}
-
 // Moves the buffer that unserialization uploaded into the buffer object `x`
 // that R read back: `x` takes over its address, finalizer and carrier, and the
 // pointer that held it is left empty.
@@ -148,22 +98,9 @@ void register_buffer_altrep(DllInfo* dll) {
   R_set_altvec_Dataptr_method(carrier_class, carrier_dataptr);
   R_set_altvec_Dataptr_or_null_method(carrier_class, carrier_dataptr_or_null);
 
-  token_class = R_make_altraw_class("PJRTBufferToken", "pjrt", dll);
-  R_set_altrep_Length_method(token_class, token_length);
-  R_set_altrep_Serialized_state_method(token_class, token_serialized_state);
-  R_set_altrep_Unserialize_method(token_class, token_unserialize);
-  R_set_altvec_Dataptr_method(token_class, token_dataptr);
-  R_set_altvec_Dataptr_or_null_method(token_class, token_dataptr_or_null);
-
   buffer_class_attr = Rf_mkString("PJRTBuffer");
   R_PreserveObject(buffer_class_attr);
   MARK_NOT_MUTABLE(buffer_class_attr);
-  token_sym = Rf_install("serialization_token");
-  live_token = new_token(PROTECT(Rf_allocVector(RAWSXP, 16)));
-  memset(RAW(R_altrep_data1(live_token)), 0, 16);
-  R_PreserveObject(live_token);
-  MARK_NOT_MUTABLE(live_token);
-  UNPROTECT(1);
 }
 
 namespace rpjrt {
@@ -172,7 +109,6 @@ SEXP wrap_buffer(std::unique_ptr<PJRTBuffer> buffer, SEXP keepalive) {
   Rcpp::XPtr<PJRTBuffer> xptr(buffer.release(), true);
   R_SetExternalPtrProtected(xptr, new_carrier(xptr, keepalive));
   Rf_setAttrib(xptr, R_ClassSymbol, buffer_class_attr);
-  Rf_setAttrib(xptr, token_sym, live_token);
   return xptr;
 }
 

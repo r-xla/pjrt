@@ -1613,15 +1613,12 @@ describe("PJRTBuffer serialization", {
     expect_identical(as_array(attr(x[[4L]], "buf")), as_array(buf))
   })
 
-  it("loads distinct buffers as distinct objects", {
-    buf <- pjrt_buffer(c(1, 2, 3))
-    x <- roundtrip(list(buf, pjrt_buffer(c(1, 2, 3))))
+  it("loads distinct buffers as objects that are identical() until used", {
+    x <- roundtrip(list(pjrt_buffer(c(1, 2, 3)), pjrt_buffer(c(4, 5, 6))))
+    expect_true(identical(x[[1L]], x[[2L]]))
+    expect_identical(as_array(x[[1L]]), array(c(1, 2, 3)))
     expect_false(identical(x[[1L]], x[[2L]]))
-    bytes <- serialize(buf, NULL)
-    expect_false(identical(unserialize(bytes), unserialize(bytes)))
-    as_array(x[[1L]])
-    as_array(x[[2L]])
-    expect_false(identical(x[[1L]], x[[2L]]))
+    expect_identical(as_array(x[[2L]]), array(c(4, 5, 6)))
   })
 
   it("serializes deterministically and leaves the buffer unchanged", {
