@@ -165,8 +165,14 @@ to the host, and unserializing it uploads the data to the default device
 not to the device it was saved from. A buffer saved on a GPU therefore
 also loads on a machine without one; use
 [`copy_buffer()`](https://r-xla.github.io/pjrt/dev/reference/copy_buffer.md)
-to move it afterwards. This requires serialization format version 3 (R's
-default); under version 2, the buffer is written without its data.
+to move it afterwards. A buffer referenced several times in one
+serialized object is written once, and loads as one buffer. A loaded
+buffer is a NULL external pointer until its first use (e.g. by
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html),
+[`shape()`](https://r-xla.github.io/xlamisc/reference/shape.html) or
+printing), which fills in its address. This requires serialization
+format version 3 (R's default); a buffer serialized under version 2
+loads without its data.
 
 ## Scalars
 
@@ -209,7 +215,7 @@ scalar
 empty <- pjrt_empty(dtype = "f32", shape = c(2, 3))
 empty
 #> PJRTBuffer 
-#>  7.9479e+24 3.0864e-41 7.9794e+24
-#>  3.0864e-41 8.0105e+24 3.0864e-41
+#>  2.3263e-09 3.0892e-41 2.3281e-09
+#>  3.0892e-41 2.3262e-09 3.0892e-41
 #> [ CPUf32{2x3} ] 
 ```

@@ -237,8 +237,12 @@ default device (the first device of the <code>PJRT_PLATFORM</code> platform, <co
 unless set) – not to the device it was saved from. A buffer saved on a GPU
 therefore also loads on a machine without one; use <code><a href="copy_buffer.html">copy_buffer()</a></code> to move
 it afterwards.
-This requires serialization format version 3 (R's default); under version 2,
-the buffer is written without its data.</p>
+A buffer referenced several times in one serialized object is written once,
+and loads as one buffer.
+A loaded buffer is a NULL external pointer until its first use (e.g. by
+<code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code>, <code><a href="https://r-xla.github.io/xlamisc/reference/shape.html" class="external-link">shape()</a></code> or printing), which fills in its address.
+This requires serialization format version 3 (R's default); a buffer
+serialized under version 2 loads without its data.</p>
     </div>
     <div class="section level2">
     <h2 id="scalars">Scalars<a class="anchor" aria-label="anchor" href="#scalars"></a></h2>
@@ -282,8 +286,8 @@ To create a 0-dimensional buffer, use <code>pjrt_scalar</code> where the resulti
 <span class="r-in"><span><span class="va">empty</span> <span class="op">&lt;-</span> <span class="fu">pjrt_empty</span><span class="op">(</span>dtype <span class="op">=</span> <span class="st">"f32"</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">empty</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PJRTBuffer </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  7.9479e+24 3.0864e-41 7.9794e+24</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  3.0864e-41 8.0105e+24 3.0864e-41</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  2.3263e-09 3.0892e-41 2.3281e-09</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  3.0892e-41 2.3262e-09 3.0892e-41</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [ CPUf32{2x3} ] </span>
 </code></pre></div>
     </div>
