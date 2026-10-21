@@ -32,14 +32,15 @@ namespace rpjrt {
 // outside this set maps to kInvalid rather than silently becoming a
 // neighbouring dtype.
 //
-// pjrt's buffer layer deliberately runs ahead of the dispatcher: bf16 buffers
-// exist and a compiled bf16 program executes, so string_to_pjrt_buffer_type()
-// accepts "bf16", but there is no kBF16 here. A bf16 buffer reaching the
-// dispatcher maps to kInvalid and is rejected by check_dtype_representable()
-// rather than being keyed as a neighbouring dtype. Eager arithmetic on bf16 is
-// a separate step that needs the promotion lattice, so keeping it out here is
-// the point, not an omission. Add kBF16 (and the conversions below) when that
-// step happens.
+// pjrt's buffer layer deliberately runs ahead of the dispatcher: f16 and bf16
+// buffers exist and compiled f16/bf16 programs execute, so
+// string_to_pjrt_buffer_type() accepts both names, but there is no kF16 or
+// kBF16 here. Such a buffer reaching the dispatcher maps to kInvalid and is
+// rejected by check_dtype_representable() rather than being keyed as a
+// neighbouring dtype. Eager arithmetic on half precision is a separate step
+// that needs the promotion lattice, so keeping it out here is the point, not
+// an omission. Add kF16/kBF16 (and the conversions below) when that step
+// happens.
 enum class AnvlDtype {
   kInvalid,
   kBool,

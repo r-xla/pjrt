@@ -19,6 +19,8 @@
 * `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
   the default device.
 * `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.
+* `PJRTBuffer` supports the `"f16"` (IEEE 754 binary16) element type, using
+  a bundled copy of Christian Rau's half.hpp (MIT, see `inst/COPYRIGHTS`).
 * Bugfix: the `lu` custom call factorises a singular matrix instead of
   failing with `getrf failed with info = <k>`.
 * New built-in `potrf` custom call: a batched Cholesky factorisation through
@@ -26,7 +28,6 @@
   instead of failing on one that is not positive definite.
 * New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
   a `!stablehlo.token`, so that a chain of prints runs in order.
-
 
 # pjrt 0.6.0
 
