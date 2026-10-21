@@ -1837,4 +1837,39 @@ describe("dispatch", {
     expect_error(dispatch(d, list(x = x)), "cannot rebuild the box")
     expect_identical(state$n_success, 1L)
   })
+
+  it("compiles a new entry when the context names a new implicit input type", {
+    skip_if_not(plugins_downloaded())
+    # `x`, taking an implicit input `s` of shape `n` it does not read
+    ignore_exec <- function(n) {
+      pjrt_compile(pjrt_program(
+        src = sprintf(
+          'func.func @main(%%x: tensor<2xf32>, %%s: tensor<%dxf32>) -> tensor<2xf32> {
+             "func.return"(%%x): (tensor<2xf32>) -> ()
+           }',
+          n
+        )
+      ))
+    }
+    state <- new.env()
+    state$s <- pjrt_buffer(c(1, 2), dtype = "f32")
+    shape <- function() length(as_array(state$s))
+    d <- dispatcher(
+      10L,
+      function(info) {
+        n <- as.integer(info$context)
+        pjrt_entry(
+          ignore_exec(n),
+          implicit_inputs = list(list(get = function() state$s, dtype = "f32", shape = n))
+        )
+      },
+      default_device = test_pjrt_device,
+      context = function() as.character(shape())
+    )
+    x <- parr(pjrt_buffer(c(10, 20), dtype = "f32"))
+    expect_equal(out(dispatch(d, list(x = x))), c(10, 20))
+    state$s <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
+    expect_equal(out(dispatch(d, list(x = x))), c(10, 20))
+    expect_identical(dispatcher_size(d), 2L)
+  })
 })
