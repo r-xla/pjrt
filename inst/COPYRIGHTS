@@ -59,8 +59,8 @@ DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
 
-inst/include/half/half.hpp
---------------------------
+src/half/half.hpp
+-----------------
 A verbatim copy of half.hpp version 2.2.0, the IEEE 754-based half-precision
 floating-point library by Christian Rau. It provides the C++ `half` type used
 for host-side f16 (binary16) buffer conversion and printing.
