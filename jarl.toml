@@ -1,4 +1,5 @@
 [lint]
 exclude = ["inst/extra-tests"]
-# The tests let callbacks record what they saw with `<<-`.
-ignore = ["undesirable_operator"]
+
+[lint.undesirable_operator]
+operators = ["->>", ":::"]
