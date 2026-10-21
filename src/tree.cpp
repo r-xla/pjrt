@@ -20,11 +20,16 @@
 
 namespace rpjrt {
 
+std::unordered_map<std::string, TreeNodeType>& tree_node_types() {
+  static std::unordered_map<std::string, TreeNodeType> types;
+  return types;
+}
+
 // Structural hash of an RTree, consistent with tree_eq (declared in tree.h):
 // hashes exactly the fields tree_eq compares -- kinds, child counts, name
-// offsets, and child names -- as flat linear scans. The node count seeds the
-// hash and the name count precedes the names, so that the flat stream of
-// values cannot be regrouped into a different tree.
+// offsets, child names and object classes -- as flat linear scans. The node
+// count seeds the hash and the name count precedes the names, so that the flat
+// stream of values cannot be regrouped into a different tree.
 std::uint64_t tree_hash(const RTree& tree) {
   std::uint64_t h = tree.kind.size();
   for (std::uint8_t k : tree.kind) h = hash_combine(h, k);
@@ -32,6 +37,9 @@ std::uint64_t tree_hash(const RTree& tree) {
   for (std::int32_t off : tree.name_off) h = hash_combine(h, off);
   h = hash_combine(h, tree.names.size());
   for (const std::string& s : tree.names) {
+    h = hash_combine(h, std::hash<std::string>{}(s));
+  }
+  for (const std::string& s : tree.node_class) {
     h = hash_combine(h, std::hash<std::string>{}(s));
   }
   return h;
@@ -52,6 +60,8 @@ static const char* kind_string(std::uint8_t k) {
       return "leaf";
     case RTree::ListNode:
       return "list";
+    case RTree::ObjectNode:
+      return "object";
     default:
       return "null";
   }
@@ -66,6 +76,7 @@ static void append_subtree(RTree& dst, const RTree& src, std::size_t c) {
     dst.kind.push_back(src.kind[q]);
     dst.n_children.push_back(src.n_children[q]);
     dst.subtree_nodes.push_back(src.subtree_nodes[q]);
+    dst.node_class.push_back(src.node_class[q]);
     if (src.is_named(q)) {
       dst.name_off.push_back(static_cast<std::int32_t>(dst.names.size()));
       const std::int32_t off = src.name_off[q];
@@ -79,7 +90,8 @@ static void append_subtree(RTree& dst, const RTree& src, std::size_t c) {
 }
 
 // The canonical structural string: "*" for a leaf, "NULL" for a null tree,
-// "list(a = *, list(*, NULL))" for lists. A named list is tagged
+// "list(a = *, list(*, NULL))" for lists, "<cls>(a = *)" for an object of the
+// registered class "cls". A named list is tagged
 // "list<named>(...)" so the named/unnamed distinction stays visible even when
 // the names are empty or the list has no children (individual "" names are
 // otherwise printed positionally). `p` advances past the rendered subtree.
@@ -92,11 +104,16 @@ static void repr_rec(const RTree& t, std::size_t& p, std::string& out) {
     case RTree::NullNode:
       out += "NULL";
       return;
-    case RTree::ListNode: {
+    case RTree::ListNode:
+    case RTree::ObjectNode: {
       const int n = t.n_children[node];
       const bool named = t.is_named(node);
       const std::int32_t off = named ? t.name_off[node] : 0;
-      out += named ? "list<named>(" : "list(";
+      if (t.kind[node] == RTree::ObjectNode) {
+        out += "<" + t.node_class[node] + ">(";
+      } else {
+        out += named ? "list<named>(" : "list(";
+      }
       for (int k = 0; k < n; ++k) {
         if (k > 0) out += ", ";
         if (named && !t.names[off + k].empty()) {
@@ -156,7 +173,8 @@ static bool tree_path_rec(const RTree& t, std::size_t& p, int target, int& next,
       return true;
     case RTree::NullNode:
       return false;
-    case RTree::ListNode: {
+    case RTree::ListNode:
+    case RTree::ObjectNode: {
       const int n = t.n_children[node];
       for (int k = 0; k < n; ++k) {
         const std::string child_prefix =
@@ -185,7 +203,8 @@ static bool tree_diff_rec(const RTree& A, std::size_t& pa, const RTree& B,
     return true;
   };
   if (A.kind[na] != B.kind[nb]) return diverge();
-  if (A.kind[na] != RTree::ListNode) return false;
+  if (A.node_class[na] != B.node_class[nb]) return diverge();
+  if (!A.has_children(na)) return false;
 
   const int an = A.n_children[na];
   const int bn = B.n_children[nb];
@@ -233,7 +252,8 @@ SEXP impl_tree_build(SEXP x) {
   using namespace rpjrt;
   auto tree = std::make_unique<RTree>();
   std::vector<SEXP> leaves;
-  flatten_rec(x, leaves, *tree);
+  std::vector<Rcpp::RObject> keep;
+  flatten_rec(x, leaves, *tree, keep);
   return tree_xptr(tree.release());
 }
 
@@ -246,7 +266,8 @@ Rcpp::List impl_tree_build_flatten(SEXP x) {
   using namespace rpjrt;
   auto tree = std::make_unique<RTree>();
   std::vector<SEXP> leaves;
-  flatten_rec(x, leaves, *tree);
+  std::vector<Rcpp::RObject> keep;
+  flatten_rec(x, leaves, *tree, keep);
   Rcpp::List out(leaves.size());
   for (std::size_t k = 0; k < leaves.size(); ++k) out[k] = leaves[k];
   return Rcpp::List::create(Rcpp::Named("tree") = tree_xptr(tree.release()),
@@ -376,6 +397,7 @@ SEXP impl_tree_filter_by_names(SEXP tree, Rcpp::CharacterVector names) {
   out->n_children.push_back(static_cast<std::int32_t>(kept_names.size()));
   out->subtree_nodes.push_back(0);  // backpatched below
   out->name_off.push_back(0);
+  out->node_class.push_back(std::string());
   for (const std::string& nm : kept_names) out->names.push_back(nm);
   for (std::size_t c : kept) append_subtree(*out, t, c);
   out->subtree_nodes[0] = static_cast<std::int32_t>(out->kind.size());
@@ -399,6 +421,7 @@ SEXP impl_tree_concat(Rcpp::List children, SEXP names) {
   out->kind.push_back(RTree::ListNode);
   out->n_children.push_back(static_cast<std::int32_t>(children.size()));
   out->subtree_nodes.push_back(0);  // backpatched below
+  out->node_class.push_back(std::string());
   if (has_names) {
     out->name_off.push_back(0);
     for (R_xlen_t k = 0; k < nms.size(); ++k) {
@@ -457,4 +480,15 @@ SEXP impl_tree_diff(SEXP a, SEXP b) {
   return Rcpp::List::create(Rcpp::Named("prefix") = prefix,
                             Rcpp::Named("a") = subtree_repr(A, sub_a),
                             Rcpp::Named("b") = subtree_repr(B, sub_b));
+}
+
+// [[Rcpp::export]]
+void impl_register_tree_node(std::string cls, SEXP flatten, SEXP unflatten) {
+  rpjrt::tree_node_types()[cls] = {Rcpp::RObject(flatten),
+                                   Rcpp::RObject(unflatten)};
+}
+
+// [[Rcpp::export]]
+void impl_unregister_tree_node(std::string cls) {
+  rpjrt::tree_node_types().erase(cls);
 }

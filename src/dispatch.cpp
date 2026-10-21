@@ -137,7 +137,9 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   // overlay is not part of the shared Rtree API).
   std::vector<SEXP> leaves;
   RTree in_tree;
-  flatten_rec(args, leaves, in_tree);
+  // the children of registered tree node objects, which `leaves` points into
+  std::vector<Rcpp::RObject> keep;
+  flatten_rec(args, leaves, in_tree, keep);
   const std::vector<char> is_static = static_leaf_mask(in_tree, statics);
 
   // 2. Validate and classify leaves into key leaves + per-leaf execute
@@ -359,5 +361,5 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
       exec_inputs[k].dtype = entry->input_dtypes[k];
     }
   }
-  return engine.run(*entry, exec_inputs);
+  return engine.run(*entry, exec_inputs, args);
 }

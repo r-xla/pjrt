@@ -461,3 +461,47 @@ test_that("property: random nested structures round-trip", {
     }
   }
 })
+
+describe("register_tree_node", {
+  point <- function(x, y) structure(list(x = x, y = y), class = "point")
+  local_point <- function(envir = parent.frame()) {
+    register_tree_node(
+      "point",
+      flatten = function(p) unclass(p),
+      unflatten = function(children) point(children$x, children$y)
+    )
+    withr::defer(unregister_tree_node("point"), envir = envir)
+  }
+
+  it("makes an object a node whose children are flattened", {
+    local_point()
+    x <- list(a = point(1, list(2, 3)), b = 4)
+    expect_equal(flatten(x), list(1, 2, 3, 4))
+    tree <- build_tree(x)
+    expect_identical(tree_size(tree), 4L)
+    expect_equal(unflatten(tree, list(10, 20, 30, 40)), list(a = point(10, list(20, 30)), b = 40))
+  })
+
+  it("keeps the class in the structure", {
+    local_point()
+    expect_false(tree_equal(build_tree(point(1, 2)), build_tree(list(x = 1, y = 2))))
+    expect_identical(tree_hash(build_tree(point(1, 2))), tree_hash(build_tree(point(3, 4))))
+    expect_false(identical(tree_hash(build_tree(point(1, 2))), tree_hash(build_tree(list(x = 1, y = 2)))))
+    expect_identical(format(build_tree(list(p = point(1, 2)))), "list<named>(p = <point>(x = *, y = *))")
+    expect_identical(tree_path(build_tree(list(p = point(1, 2))), 2L), "p$y")
+    expect_identical(tree_child_kinds(build_tree(list(point(1, 2), 3))), c("object", "leaf"))
+  })
+
+  it("leaves an object a leaf once its class is unregistered", {
+    local_point()
+    unregister_tree_node("point")
+    p <- point(1, 2)
+    expect_equal(flatten(list(p)), list(p))
+  })
+
+  it("requires flatten to return a list", {
+    register_tree_node("point", flatten = function(p) 1, unflatten = identity)
+    withr::defer(unregister_tree_node("point"))
+    expect_error(flatten(point(1, 2)), "must return a list")
+  })
+})

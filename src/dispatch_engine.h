@@ -179,9 +179,10 @@ class Engine {
   // argument.
   //
   // The entry is const: build_entry() constructs it whole, so execution only
-  // ever reads it.
-  virtual SEXP run(const CacheEntry& e,
-                   const std::vector<ExecInput>& inputs) const = 0;
+  // ever reads it. `args` is the call's argument list, which an entry's
+  // `on_success` is handed.
+  virtual SEXP run(const CacheEntry& e, const std::vector<ExecInput>& inputs,
+                   SEXP args) const = 0;
 
  private:
   // The distinct devices this dispatcher has seen, each rooted for the

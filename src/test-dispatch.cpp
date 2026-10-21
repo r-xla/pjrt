@@ -36,11 +36,13 @@ RTree flat_tree(std::size_t n) {
   t.n_children.push_back(static_cast<std::int32_t>(n));
   t.subtree_nodes.push_back(static_cast<std::int32_t>(n + 1));
   t.name_off.push_back(-1);
+  t.node_class.push_back(std::string());
   for (std::size_t k = 0; k < n; ++k) {
     t.kind.push_back(RTree::LeafNode);
     t.n_children.push_back(0);
     t.subtree_nodes.push_back(1);
     t.name_off.push_back(-1);
+    t.node_class.push_back(std::string());
   }
   return t;
 }

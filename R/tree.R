@@ -3,8 +3,10 @@
 #' Recursively flattens a nested list into a single flat list containing only
 #' the leaf values, preserving left-to-right order.
 #'
-#' A bare (class-less) list is recursed into; `NULL` contributes no leaves;
-#' everything else (a classed object, an atomic, a function, ...) is a leaf.
+#' A bare (class-less) list is recursed into; `NULL` contributes no leaves; an
+#' object of a class registered with [register_tree_node()] is recursed into
+#' through the children its `flatten` returns; everything else (a classed
+#' object, an atomic, a function, ...) is a leaf.
 #'
 #' Use [build_tree()] to capture the nesting structure so it can be restored
 #' with [unflatten()].
@@ -20,6 +22,54 @@
 #' @export
 flatten <- function(x) {
   impl_tree_build_flatten(x)$leaves
+}
+
+#' @title Register a Class as a Tree Node
+#' @description
+#' Makes the objects of a class nodes of a tree rather than leaves: [flatten()]
+#' and [build_tree()] recurse into the children `flatten` returns, and
+#' [unflatten()] rebuilds an object of the class from them with `unflatten`.
+#' The class is part of the tree's structure, so two trees that differ only in
+#' the class of an object node are not equal. This is JAX's
+#' `register_pytree_node()`.
+#'
+#' An object is a node of the first of its classes that is registered.
+#' Registering a class again replaces its functions.
+#' @param class (`character(1)`)\cr
+#'   The class.
+#' @param flatten (`function`)\cr
+#'   Takes an object of the class and returns its children, a bare `list`,
+#'   whose names the tree keeps.
+#' @param unflatten (`function`)\cr
+#'   Takes the children, a `list` named as `flatten` names them, and returns an
+#'   object of the class.
+#' @return `NULL`, invisibly.
+#' @seealso [flatten()], [build_tree()]
+#' @examples
+#' point <- function(x, y) structure(list(x = x, y = y), class = "point")
+#' register_tree_node(
+#'   "point",
+#'   flatten = function(p) unclass(p),
+#'   unflatten = function(children) point(children$x, children$y)
+#' )
+#' flatten(list(point(1, 2), 3))
+#' tree <- build_tree(list(point(1, 2), 3))
+#' unflatten(tree, list(10, 20, 30))
+#' unregister_tree_node("point")
+#' @export
+register_tree_node <- function(class, flatten, unflatten) {
+  stopifnot(is.character(class), length(class) == 1L, !is.na(class))
+  stopifnot(is.function(flatten), is.function(unflatten))
+  impl_register_tree_node(class, flatten, unflatten)
+  invisible(NULL)
+}
+
+#' @rdname register_tree_node
+#' @export
+unregister_tree_node <- function(class) {
+  stopifnot(is.character(class), length(class) == 1L, !is.na(class))
+  impl_unregister_tree_node(class)
+  invisible(NULL)
 }
 
 #' @title Build Tree

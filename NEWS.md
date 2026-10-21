@@ -10,11 +10,13 @@
 
 ## New features
 
+* `register_tree_node()` makes the objects of a class nodes of a tree, which
+  `flatten()` and the dispatcher recurse into, rather than leaves.
 * A `dispatcher()` compile callback can declare `implicit_inputs` and
   `implicit_outputs`, values the program takes and returns beyond the call's
   arguments and result, and an `on_success` function that receives the implicit
-  outputs after every successful run. An implicit input's `get()` returns an R
-  vector to upload or a buffer to pass on.
+  outputs and the call's arguments after every successful run. An implicit
+  input's `get()` returns an R vector to upload or a buffer to pass on.
 * `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
   the default device.
 * `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.
