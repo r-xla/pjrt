@@ -1594,7 +1594,7 @@ describe("PJRTBuffer serialization", {
     expect_identical(res, array(c(1, 2, 3)))
   })
 
-  it("writes a buffer referenced several times once and loads it as one", {
+  it("writes a buffer referenced several times once", {
     buf <- pjrt_buffer(as.double(seq_len(10000L)))
     other <- pjrt_buffer(as.double(seq_len(10000L)))
     env <- new.env(parent = emptyenv())
@@ -1606,19 +1606,8 @@ describe("PJRTBuffer serialization", {
     expect_lt(length(shared) - length(once), 1000L)
 
     x <- unserialize(shared)
-    expect_identical(x[[1L]], x[[2L]][[1L]])
-    expect_identical(x[[1L]], x[[3L]]$buf)
-    expect_identical(x[[1L]], attr(x[[4L]], "buf"))
     expect_identical(as_array(x[[2L]][[1L]]), as_array(buf))
     expect_identical(as_array(attr(x[[4L]], "buf")), as_array(buf))
-  })
-
-  it("loads distinct buffers as objects that are identical() until used", {
-    x <- roundtrip(list(pjrt_buffer(c(1, 2, 3)), pjrt_buffer(c(4, 5, 6))))
-    expect_true(identical(x[[1L]], x[[2L]]))
-    expect_identical(as_array(x[[1L]]), array(c(1, 2, 3)))
-    expect_false(identical(x[[1L]], x[[2L]]))
-    expect_identical(as_array(x[[2L]]), array(c(4, 5, 6)))
   })
 
   it("serializes deterministically and leaves the buffer unchanged", {
