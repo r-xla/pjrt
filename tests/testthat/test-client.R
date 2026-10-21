@@ -21,6 +21,17 @@ test_that("compile program with one input", {
   expect_equal(r_res, 9)
 })
 
+describe("pjrt_compile", {
+  it("rejects an HLO program that declares input/output aliasing", {
+    # test_hlo_alias.pb is test_hlo.pb with `input_output_alias` set (parameter
+    # 0 may alias the output), encoded with protoc from inst/proto. XLA compiles
+    # it; pjrt then rejects it, after the executable exists, and must free it.
+    path <- system.file("programs/test_hlo_alias.pb", package = "pjrt")
+    program <- pjrt_program(path = path, format = "hlo")
+    expect_error(pjrt_compile(program), "aliasing is not supported for HLO")
+  })
+})
+
 test_that("compile program with multiple inputs", {
   path <- system.file("programs/stablehlo.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")

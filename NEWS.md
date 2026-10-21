@@ -26,6 +26,8 @@
   instead of failing on one that is not positive definite.
 * New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
   a `!stablehlo.token`, so that a chain of prints runs in order.
+* Bugfix: a compile that fails after XLA compiled the program, such as an HLO
+  program with input/output aliasing, no longer leaks the executable.
 
 
 # pjrt 0.6.0
