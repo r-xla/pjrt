@@ -1303,6 +1303,37 @@ describe("as_array_async", {
     expect_identical(as.vector(result), c(1, 2, 3))
   })
 
+  it("checks its values when they are first read", {
+    buf <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
+    result <- as_array_async(buf)
+    expect_warning(result[1L], "distinguish from")
+    expect_no_warning(result[1L])
+    expect_true(is.na(result))
+    expect_no_warning(as.vector(as_array_async(buf, check = FALSE)))
+  })
+
+  it("checks its values when awaited", {
+    buf <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
+    result <- as_array_async(buf)
+    expect_warning(await(result), "distinguish from")
+    expect_true(is_ready(result))
+    expect_no_warning(result[1L])
+  })
+
+  it("errors on every read with check = \"err\"", {
+    client <- pjrt_client("cpu")
+    bytes <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
+    buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui64")
+    result <- as_array_async(buf, check = "err")
+    expect_error(result[1L], "wrapped through")
+    expect_error(await(result), "wrapped through")
+    expect_error(print(result), "wrapped through")
+  })
+
+  it("validates check before starting the transfer", {
+    expect_error(as_array_async(pjrt_buffer(1, dtype = "f32"), check = TRUE), "must be")
+  })
+
   it("can be collected before it is read", {
     expect_no_error({
       for (i in 1:5) {

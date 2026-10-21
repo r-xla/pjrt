@@ -23,8 +23,9 @@ blocks until the transfer has completed.
 Use \code{is_ready()} to check if the transfer has completed (non-blocking), and
 \code{await()} to block until it has.
 
-Unlike \code{\link[=as_array]{as_array()}}, the values are not checked for being representable in
-R.
+The values are checked as \code{\link[=as_array]{as_array()}} checks them, once the transfer has
+completed: when they are first read, or by \code{await()}. With \code{check = "err"},
+an array holding a value R cannot represent errors on every read.
 }
 \examples{
 \dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}

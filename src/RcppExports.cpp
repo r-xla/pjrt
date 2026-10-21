@@ -192,23 +192,36 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_buffer_to_host_async
-SEXP impl_buffer_to_host_async(SEXP buffer_sexp);
-RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP buffer_sexpSEXP) {
+SEXP impl_buffer_to_host_async(SEXP buffer_sexp, std::string check);
+RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP buffer_sexpSEXP, SEXP checkSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type buffer_sexp(buffer_sexpSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer_sexp));
+    Rcpp::traits::input_parameter< std::string >::type check(checkSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer_sexp, check));
     return rcpp_result_gen;
 END_RCPP
 }
-// impl_host_array_materialize
-void impl_host_array_materialize(SEXP x);
-RcppExport SEXP _pjrt_impl_host_array_materialize(SEXP xSEXP) {
+// impl_host_array_pending
+SEXP impl_host_array_pending(SEXP x);
+RcppExport SEXP _pjrt_impl_host_array_pending(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_host_array_pending(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// impl_host_array_set
+void impl_host_array_set(SEXP x, SEXP values);
+RcppExport SEXP _pjrt_impl_host_array_set(SEXP xSEXP, SEXP valuesSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    impl_host_array_materialize(x);
+    Rcpp::traits::input_parameter< SEXP >::type values(valuesSEXP);
+    impl_host_array_set(x, values);
     return R_NilValue;
 END_RCPP
 }
@@ -1014,8 +1027,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_gc_call_count", (DL_FUNC) &_pjrt_impl_gc_call_count, 0},
     {"_pjrt_impl_call_r_gc", (DL_FUNC) &_pjrt_impl_call_r_gc, 0},
     {"_pjrt_impl_buffer_to_host", (DL_FUNC) &_pjrt_impl_buffer_to_host, 1},
-    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 1},
-    {"_pjrt_impl_host_array_materialize", (DL_FUNC) &_pjrt_impl_host_array_materialize, 1},
+    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 2},
+    {"_pjrt_impl_host_array_pending", (DL_FUNC) &_pjrt_impl_host_array_pending, 1},
+    {"_pjrt_impl_host_array_set", (DL_FUNC) &_pjrt_impl_host_array_set, 2},
     {"_pjrt_impl_host_array_is_ready", (DL_FUNC) &_pjrt_impl_host_array_is_ready, 1},
     {"_pjrt_get_lu_handler", (DL_FUNC) &_pjrt_get_lu_handler, 0},
     {"_pjrt_get_lu_handler_cuda", (DL_FUNC) &_pjrt_get_lu_handler_cuda, 0},

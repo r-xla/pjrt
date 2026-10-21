@@ -40,8 +40,7 @@ await.PJRTBuffer <- function(x, ...) {
 
 #' @export
 await.default <- function(x, ...) {
-  impl_host_array_materialize(x)
-  invisible(x)
+  host_array_materialize(x)
 }
 
 #' @export

@@ -4,7 +4,9 @@
 // or logical) that stands for the result of a transfer still in flight. It
 // carries its dim and class attributes from the start and reads as an ordinary
 // R array; the first access to its data waits for the transfer and converts
-// the bytes into a plain R vector, which the host array then wraps.
+// the bytes into a plain R vector, which the host array then wraps. That
+// first access goes through pjrt's R function host_array_materialize(), which
+// checks the values as as_array() does before the host array takes them.
 //
 // That first access may come from any code that reads the vector's data,
 // including C++ code. A failed transfer then raises an R error from inside it
@@ -19,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -38,6 +41,7 @@ struct HostTransfer {
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
   std::vector<int64_t> minor_to_major;
+  std::string check;  // as_array_async()'s `check` level
 
   HostTransfer() = default;
   HostTransfer(const HostTransfer&) = delete;
@@ -221,7 +225,7 @@ R_xlen_t host_array_length(SEXP x) {
 
 void* host_array_dataptr(SEXP x, Rboolean) {
   if (!is_materialized(x)) {
-    rpjrt::call_pjrt("impl_host_array_materialize", x);
+    rpjrt::call_pjrt("host_array_materialize", x);
   }
   return vector_dataptr(R_altrep_data2(x));
 }
@@ -265,8 +269,9 @@ SEXP impl_buffer_to_host(SEXP buffer_sexp) {
 }
 
 // [[Rcpp::export()]]
-SEXP impl_buffer_to_host_async(SEXP buffer_sexp) {
+SEXP impl_buffer_to_host_async(SEXP buffer_sexp, std::string check) {
   auto t = start_transfer(buffer_sexp);
+  t->check = std::move(check);
   R_altrep_class_t cls;
   switch (r_type(t->type)) {
     case REALSXP:
@@ -285,11 +290,25 @@ SEXP impl_buffer_to_host_async(SEXP buffer_sexp) {
   return out;
 }
 
-// Materializes the host array `x`; a no-op for any other object.
+// For a host array `x` that is not materialized yet: waits for its transfer
+// and returns its values (as an R array), dtype and `check` level. NULL for
+// any other object.
 // [[Rcpp::export()]]
-void impl_host_array_materialize(SEXP x) {
-  if (!is_host_array(x) || is_materialized(x)) return;
-  R_set_altrep_data2(x, to_vector(transfer(x)));
+SEXP impl_host_array_pending(SEXP x) {
+  if (!is_host_array(x) || is_materialized(x)) return R_NilValue;
+  const HostTransfer& t = transfer(x);
+  Rcpp::Shield<SEXP> values(to_vector(transfer(x)));
+  set_array_attributes(values, t);
+  return Rcpp::List::create(
+      Rcpp::Named("values") = values,
+      Rcpp::Named("dtype") = rpjrt::PJRTElementType(t.type).as_string(),
+      Rcpp::Named("check") = t.check);
+}
+
+// Makes the host array `x` wrap `values`, from impl_host_array_pending(x).
+// [[Rcpp::export()]]
+void impl_host_array_set(SEXP x, SEXP values) {
+  R_set_altrep_data2(x, values);
   Rcpp::XPtr<HostTransfer>(R_altrep_data1(x)).release();
   R_set_altrep_data1(x, R_NilValue);
 }
