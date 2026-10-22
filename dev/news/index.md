@@ -9,8 +9,9 @@
   a `$device` field; read the device off `$data`.
 - [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
   now returns an R array whose values materialize when first read,
-  instead of a `PJRTArrayPromise`; `value()` is removed, use the array
-  directly or
+  instead of a `PJRTArrayPromise`, and takes
+  [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)’s
+  `check`; `value()` is removed, use the array directly or
   [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) it.
 
 ### New features

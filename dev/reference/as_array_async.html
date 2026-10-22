@@ -11,15 +11,17 @@ it has its final type, dim and class already, and reading its values
 blocks until the transfer has completed.
 Use is_ready() to check if the transfer has completed (non-blocking), and
 await() to block until it has.
-Unlike as_array(), the values are not checked for being representable in
-R."><meta property="og:description" content="Start an asynchronous transfer of buffer data from device to host.
+The values are checked as as_array() checks them, once the transfer has
+completed: when they are first read, or by await(). With check = &quot;err&quot;,
+an array holding a value R cannot represent errors on every read."><meta property="og:description" content="Start an asynchronous transfer of buffer data from device to host.
 Returns immediately with an R array that stands for the transfer's result:
 it has its final type, dim and class already, and reading its values
 blocks until the transfer has completed.
 Use is_ready() to check if the transfer has completed (non-blocking), and
 await() to block until it has.
-Unlike as_array(), the values are not checked for being representable in
-R."><meta name="robots" content="noindex"></head><body>
+The values are checked as as_array() checks them, once the transfer has
+completed: when they are first read, or by await(). With check = &quot;err&quot;,
+an array holding a value R cannot represent errors on every read."><meta name="robots" content="noindex"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -71,8 +73,9 @@ it has its final type, <code>dim</code> and class already, and reading its value
 blocks until the transfer has completed.
 Use <code><a href="is_ready.html">is_ready()</a></code> to check if the transfer has completed (non-blocking), and
 <code><a href="await.html">await()</a></code> to block until it has.</p>
-<p>Unlike <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code>, the values are not checked for being representable in
-R.</p>
+<p>The values are checked as <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> checks them, once the transfer has
+completed: when they are first read, or by <code><a href="await.html">await()</a></code>. With <code>check = "err"</code>,
+an array holding a value R cannot represent errors on every read.</p>
     </div>
 
     <div class="section level2">

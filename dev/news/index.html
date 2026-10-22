@@ -56,7 +56,7 @@
 <ul><li>The boolean data type is now named <code>"bool"</code> everywhere.</li>
 <li>The <code>"AnvlArray"</code>s the dispatcher wraps its outputs in no longer carry a <code>$device</code> field; read the device off <code>$data</code>.</li>
 <li>
-<code><a href="../reference/as_array_async.html">as_array_async()</a></code> now returns an R array whose values materialize when first read, instead of a <code>PJRTArrayPromise</code>; <code>value()</code> is removed, use the array directly or <code><a href="../reference/await.html">await()</a></code> it.</li>
+<code><a href="../reference/as_array_async.html">as_array_async()</a></code> now returns an R array whose values materialize when first read, instead of a <code>PJRTArrayPromise</code>, and takes <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code>’s <code>check</code>; <code>value()</code> is removed, use the array directly or <code><a href="../reference/await.html">await()</a></code> it.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>

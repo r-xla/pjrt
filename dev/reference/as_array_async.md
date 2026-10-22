@@ -10,9 +10,12 @@ to check if the transfer has completed (non-blocking), and
 [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) to
 block until it has.
 
-Unlike
-[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html),
-the values are not checked for being representable in R.
+The values are checked as
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+checks them, once the transfer has completed: when they are first read,
+or by [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md).
+With `check = "err"`, an array holding a value R cannot represent errors
+on every read.
 
 ## Usage
 
