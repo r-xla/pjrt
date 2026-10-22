@@ -36,6 +36,13 @@
   definite.
 - New custom call `print_tensor_ordered`: `print_tensor` that takes and
   returns a `!stablehlo.token`, so that a chain of prints runs in order.
+- Bugfix:
+  [`build_tree()`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md),
+  [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md)
+  and
+  [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)
+  raise an error for a value nested more than 10000 lists deep instead
+  of crashing R.
 - Bugfix: a compile that fails after XLA compiled the program, such as
   an HLO program with input/output aliasing, no longer leaks the
   executable.
