@@ -527,13 +527,21 @@ elt_type <- function(x) {
 #' @return An R `array` (or `vector` for shape `integer()`).
 #' @export
 as_array.PJRTBuffer <- function(x, check = "warn", ...) {
-  result <- impl_buffer_to_host(x)
   check <- check_level(check)
+  result <- impl_buffer_to_host(x)
+  check_representable(result, as.character(elt_type(x)), check)
+  result
+}
+
+# Reports, at the level `check` asks for, a value in `result` -- materialized
+# from a buffer of dtype `dt` -- that R's type cannot hold. An error names
+# `call`.
+check_representable <- function(result, dt, check, call = rlang::caller_env()) {
   if (!identical(check, "none")) {
-    dt <- as.character(elt_type(x))
     if (dt %in% c("i32", "i64") && anyNA(result)) {
       report_lossy(
         check,
+        call,
         c(
           "Materialized {.cls {dt}} buffer contains a value that R cannot distinguish from {.val NA}.",
           i = "{.val i32} reserves the bit pattern {.val -2147483648} ({.code INT_MIN}); {.val i64} reserves {.val -9223372036854775808} ({.code INT64_MIN})."
@@ -547,6 +555,7 @@ as_array.PJRTBuffer <- function(x, check = "warn", ...) {
       # produce a negative value; no check needed.)
       report_lossy(
         check,
+        call,
         c(
           "Materialized {.cls ui64} buffer contains a value `>= 2^63` that wrapped through R's signed {.cls integer64}.",
           i = "Exactly {.code 2^63} becomes {.code NA_integer64_}; larger values become negative {.cls integer64}."
@@ -554,7 +563,6 @@ as_array.PJRTBuffer <- function(x, check = "warn", ...) {
       )
     }
   }
-  result
 }
 
 # `check` is "warn", "err" or FALSE, normalized to "warn" / "err" / "none".
@@ -573,14 +581,16 @@ check_level <- function(check) {
   ))
 }
 
-# Report a value the R type cannot hold, at the level `check` asks for. The
-# closing bullet names the way out of whichever level was used. `.envir` is
-# forwarded so that cli interpolates the caller's variables and not this
-# frame's -- an unbound `{dt}` would otherwise reach `stats::dt()`.
-report_lossy <- function(check, message, .envir = parent.frame()) {
+# Report a value the R type cannot hold, at the level `check` asks for; an
+# error names `call`. The closing bullet names the way out of whichever level
+# was used. `.envir` is forwarded so that cli interpolates the caller's
+# variables and not this frame's -- an unbound `{dt}` would otherwise reach
+# `stats::dt()`.
+report_lossy <- function(check, call, message, .envir = parent.frame()) {
   if (identical(check, "err")) {
     cli_abort(
       c(message, i = "Set {.code check = FALSE} to skip this check."),
+      call = call,
       .envir = .envir
     )
   }
@@ -603,11 +613,12 @@ report_lossy <- function(check, message, .envir = parent.frame()) {
 #' Use `is_ready()` to check if the transfer has completed (non-blocking), and
 #' `await()` to block until it has.
 #'
-#' Unlike [as_array()], the values are not checked for being representable in
-#' R.
+#' The values are checked as [as_array()] checks them, once the transfer has
+#' completed: when they are first read, or by `await()`. With `check = "err"`,
+#' an array holding a value R cannot represent errors on every read.
 #'
 #' @param x A `PJRTBuffer` object.
-#' @param ... Additional arguments (unused).
+#' @inheritParams as_array.PJRTBuffer
 #' @return An R `array` (or `vector` for shape `integer()`).
 #' @seealso [as_array()], [is_ready()], [await()], [pjrt_execute()]
 #' @examplesIf plugins_downloaded()
@@ -621,8 +632,21 @@ as_array_async <- function(x, ...) {
 }
 
 #' @export
-as_array_async.PJRTBuffer <- function(x, ...) {
-  impl_buffer_to_host_async(x)
+as_array_async.PJRTBuffer <- function(x, check = "warn", ...) {
+  impl_buffer_to_host_async(x, check_level(check))
+}
+
+# Called by a host array (src/host_array.cpp) on the first read of its data,
+# and by await(): waits for its transfer, checks the values and makes the host
+# array wrap them. A no-op for any other object.
+host_array_materialize <- function(x) {
+  pending <- impl_host_array_pending(x)
+  if (!is.null(pending)) {
+    # No call: the error surfaces from whatever first read the array.
+    check_representable(pending$values, pending$dtype, pending$check, call = NULL)
+    impl_host_array_set(x, pending$values)
+  }
+  invisible(x)
 }
 
 #' @export

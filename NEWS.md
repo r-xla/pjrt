@@ -6,8 +6,8 @@
 * The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry a
   `$device` field; read the device off `$data`.
 * `as_array_async()` now returns an R array whose values materialize when
-  first read, instead of a `PJRTArrayPromise`; `value()` is removed, use the
-  array directly or `await()` it.
+  first read, instead of a `PJRTArrayPromise`, and takes `as_array()`'s
+  `check`; `value()` is removed, use the array directly or `await()` it.
 
 ## New features
 
@@ -28,6 +28,10 @@
   a `!stablehlo.token`, so that a chain of prints runs in order.
 * Bugfix: `build_tree()`, `flatten()` and `dispatch()` raise an error for a
   value nested more than 10000 lists deep instead of crashing R.
+* Bugfix: a compile that fails after XLA compiled the program, such as an HLO
+  program with input/output aliasing, no longer leaks the executable.
+* Bugfix: a buffer donated to an execution is freed instead of leaking its
+  PJRT handle.
 
 
 # pjrt 0.6.0
