@@ -1,48 +1,19 @@
 #include "event.h"
 
+#include <utility>
+
 #include "utils.h"
 
 namespace rpjrt {
 
-PJRTEvent::PJRTEvent(PJRT_Event* event, std::shared_ptr<PJRT_Api> api)
-    : event_(event), api_(api) {}
-
-PJRTEvent::~PJRTEvent() {
-  if (event_ != nullptr) {
-    PJRT_Event_Destroy_Args args{};
-    args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
-    args.event = event_;
-    // A destructor can't propagate a failure, but the error object is ours to
-    // free -- and PJRT_Event_Destroy is [[nodiscard]] under clang.
-    destroy_error(api_.get(), api_->PJRT_Event_Destroy_(&args));
-  }
-}
-
-PJRTEvent::PJRTEvent(PJRTEvent&& other) noexcept
-    : event_(other.event_), api_(std::move(other.api_)) {
-  other.event_ = nullptr;
-}
-
-PJRTEvent& PJRTEvent::operator=(PJRTEvent&& other) noexcept {
-  if (this != &other) {
-    // Destroy current event if exists
-    if (event_ != nullptr) {
-      PJRT_Event_Destroy_Args args{};
-      args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
-      args.event = event_;
-      destroy_error(api_.get(), api_->PJRT_Event_Destroy_(&args));
-    }
-    event_ = other.event_;
-    api_ = std::move(other.api_);
-    other.event_ = nullptr;
-  }
-  return *this;
-}
+PJRTEvent::PJRTEvent(PJRTHandle<PJRT_Event> event,
+                     std::shared_ptr<PJRT_Api> api)
+    : api_(std::move(api)), event_(std::move(event)) {}
 
 bool PJRTEvent::is_ready() const {
   PJRT_Event_IsReady_Args args{};
   args.struct_size = PJRT_Event_IsReady_Args_STRUCT_SIZE;
-  args.event = event_;
+  args.event = event_.get();
   check_err(api_.get(), api_->PJRT_Event_IsReady_(&args));
   return args.is_ready;
 }
@@ -50,14 +21,14 @@ bool PJRTEvent::is_ready() const {
 void PJRTEvent::await() const {
   PJRT_Event_Await_Args args{};
   args.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
-  args.event = event_;
+  args.event = event_.get();
   check_err(api_.get(), api_->PJRT_Event_Await_(&args));
 }
 
 void PJRTEvent::check_error() const {
   PJRT_Event_Error_Args args{};
   args.struct_size = PJRT_Event_Error_Args_STRUCT_SIZE;
-  args.event = event_;
+  args.event = event_.get();
   PJRT_Error* error = api_->PJRT_Event_Error_(&args);
   if (error != nullptr) {
     check_err(api_.get(), error);
@@ -79,12 +50,7 @@ static void on_ready_callback_wrapper(PJRT_Error* error, void* user_arg) {
 
   // Per PJRT spec: "Ownership of `error` is passed to the callback.
   // The callback must destroy `error` via `PJRT_Error_Destroy`."
-  if (error != nullptr) {
-    PJRT_Error_Destroy_Args destroy_args{};
-    destroy_args.struct_size = PJRT_Error_Destroy_Args_STRUCT_SIZE;
-    destroy_args.error = error;
-    data->api->PJRT_Error_Destroy_(&destroy_args);
-  }
+  destroy_error(data->api.get(), error);
 
   // Per PJRT spec: "The caller retains ownership of `user_arg`."
   // We allocated it, so we must delete it.
@@ -103,7 +69,7 @@ void PJRTEvent::on_ready(std::function<void(PJRT_Error*)> callback) {
 
   PJRT_Event_OnReady_Args args{};
   args.struct_size = sizeof(PJRT_Event_OnReady_Args);
-  args.event = event_;
+  args.event = event_.get();
   args.callback = on_ready_callback_wrapper;
   args.user_arg = data;
 

@@ -2,6 +2,8 @@
 
 #include <Rcpp.h>
 
+#include <utility>
+
 #include "deferred_release.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
@@ -87,14 +89,15 @@ std::string PJRTMemory::to_string() {
 PJRTBufferMemoryLayout::PJRTBufferMemoryLayout(PJRT_Buffer_MemoryLayout layout)
     : layout(layout) {}
 
-PJRTBuffer::PJRTBuffer(PJRT_Buffer *buffer, std::shared_ptr<PJRT_Api> api)
-    : buffer(buffer), api(api) {}
+PJRTBuffer::PJRTBuffer(PJRTHandle<PJRT_Buffer> buffer,
+                       std::shared_ptr<PJRT_Api> api)
+    : api(std::move(api)), buffer(std::move(buffer)) {}
 
 PJRT_Buffer *PJRTBuffer::checked_buffer() const {
   if (this->buffer == nullptr) {
     Rcpp::stop("called on deleted or donated buffer");
   }
-  return this->buffer;
+  return this->buffer.get();
 }
 
 PJRTBuffer::~PJRTBuffer() {
@@ -102,16 +105,6 @@ PJRTBuffer::~PJRTBuffer() {
   // This ensures R objects preserved for zero-copy transfers get released
   // when buffers are garbage collected.
   process_pending_releases();
-
-  // A null `buffer` means this wrapper held a donated input whose PJRT
-  // handle was invalidated by Execute and explicitly nulled by the
-  // keepalive-transfer logic. There's nothing left to destroy.
-  if (this->buffer == nullptr) return;
-
-  PJRT_Buffer_Destroy_Args args{};
-  args.struct_size = sizeof(PJRT_Buffer_Destroy_Args);
-  args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_Destroy_(&args));
 }
 
 const std::vector<int64_t> &PJRTBuffer::dimensions() {
@@ -248,7 +241,8 @@ std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
   // Return the event - caller is responsible for waiting and keeping
   // host_buffer alive
   if (args.event != nullptr) {
-    return std::make_unique<PJRTEvent>(args.event, this->api);
+    return std::make_unique<PJRTEvent>(
+        make_pjrt_handle(this->api.get(), args.event), this->api);
   }
   return nullptr;
 }
@@ -258,7 +252,7 @@ PJRTEvent PJRTBuffer::ready_event() {
   args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
   args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
-  return PJRTEvent(args.event, this->api);
+  return PJRTEvent(make_pjrt_handle(this->api.get(), args.event), this->api);
 }
 
 bool PJRTBuffer::is_ready() {
@@ -278,14 +272,15 @@ std::unique_ptr<PJRTBuffer> PJRTBuffer::copy_to_device(PJRTDevice &dst_device) {
   args.buffer = checked_buffer();
   args.dst_device = dst_device.device;
   check_err(this->api.get(), this->api->PJRT_Buffer_CopyToDevice_(&args));
-  return std::make_unique<PJRTBuffer>(args.dst_buffer, this->api);
+  return std::make_unique<PJRTBuffer>(
+      make_pjrt_handle(this->api.get(), args.dst_buffer), this->api);
 }
 
 bool PJRTBuffer::is_deleted() {
   if (this->buffer == nullptr) return true;
   PJRT_Buffer_IsDeleted_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_IsDeleted_Args);
-  args.buffer = this->buffer;
+  args.buffer = this->buffer.get();
   check_err(this->api.get(), this->api->PJRT_Buffer_IsDeleted_(&args));
   return args.is_deleted;
 }

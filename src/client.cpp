@@ -14,19 +14,13 @@
 
 namespace rpjrt {
 
-PJRTClient::PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_Api> api)
-    : client(client), api(api) {}
-
-PJRTClient::~PJRTClient() {
-  PJRT_Client_Destroy_Args args{};
-  args.struct_size = sizeof(PJRT_Client_Destroy_Args);
-  args.client = this->client;
-  check_err(this->api.get(), this->api->PJRT_Client_Destroy_(&args));
-}
+PJRTClient::PJRTClient(PJRTHandle<PJRT_Client> client,
+                       std::shared_ptr<PJRT_Api> api)
+    : api(std::move(api)), client(std::move(client)) {}
 
 std::vector<PJRT_Device *> PJRTClient::devices() {
   PJRT_Client_AddressableDevices_Args args{};
-  args.client = this->client;
+  args.client = this->client.get();
   args.struct_size = sizeof(PJRT_Client_AddressableDevices_Args);
   check_err(this->api.get(), this->api->PJRT_Client_AddressableDevices_(&args));
   return std::vector(args.addressable_devices,
@@ -71,7 +65,7 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   PJRT_Client_Compile_Args args{};
   args.struct_size = sizeof(PJRT_Client_Compile_Args);
 
-  args.client = this->client;
+  args.client = this->client.get();
   args.program = &program.program;
 
   auto opts = compile_options.serialize();
@@ -96,7 +90,7 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
 
   PJRT_Client_BufferFromHostBuffer_Args args{};
   args.struct_size = sizeof(PJRT_Client_BufferFromHostBuffer_Args);
-  args.client = this->client;
+  args.client = this->client.get();
   args.data = data;
   args.type = dtype;
   args.dims = dims.has_value() ? dims->data() : nullptr;
@@ -113,12 +107,14 @@ AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
       /*suppress_logs=*/!this->is_cpu());
 
   AsyncBufferFromHostResult result;
-  result.buffer = std::make_unique<PJRTBuffer>(args.buffer, this->api);
+  result.buffer = std::make_unique<PJRTBuffer>(
+      make_pjrt_handle(this->api.get(), args.buffer), this->api);
 
   // Return the event so caller can wait for transfer completion
   if (args.done_with_host_buffer != nullptr) {
-    result.event =
-        std::make_unique<PJRTEvent>(args.done_with_host_buffer, this->api);
+    result.event = std::make_unique<PJRTEvent>(
+        make_pjrt_handle(this->api.get(), args.done_with_host_buffer),
+        this->api);
   }
 
   return result;
@@ -339,7 +335,7 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   // This is the actual parameters
   std::vector<PJRT_Buffer *> inner(input.size());
   for (size_t i = 0; i < input.size(); ++i) {
-    inner[i] = input[i]->buffer;
+    inner[i] = input[i]->buffer.get();
   }
   // We need an outer list, because its one input per execution device.
   // Currently we only support one device, so we have a single element in the
@@ -374,20 +370,31 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
   std::vector<PJRT_Event *> complete_events(1, nullptr);
   exec_args.device_complete_events = complete_events.data();
 
+  // Reserved up front: filling it after Execute must not allocate.
+  std::vector<PJRTHandle<PJRT_Buffer>> owned_out;
+  owned_out.reserve(num_outputs);
+
   try_alloc(
       this->api.get(),
       [&] { return this->api->PJRT_LoadedExecutable_Execute_(&exec_args); },
       /*suppress_logs=*/!this->is_cpu_);
 
-  // Build result
-  AsyncExecuteResult result;
-  if (complete_events[0] != nullptr) {
-    result.complete_event =
-        std::make_unique<PJRTEvent>(complete_events[0], this->api);
-  }
+  // Own every handle Execute returned before allocating anything, so that a
+  // failed allocation below cannot leak the ones not yet wrapped.
+  PJRTHandle<PJRT_Event> complete_event =
+      make_pjrt_handle(this->api.get(), complete_events[0]);
   for (size_t i = 0; i < num_outputs; ++i) {
-    auto buf = std::make_unique<PJRTBuffer>(outer_out[0][i], this->api);
-    result.buffers.push_back(std::move(buf));
+    owned_out.push_back(make_pjrt_handle(this->api.get(), inner_out[i]));
+  }
+
+  AsyncExecuteResult result;
+  if (complete_event != nullptr) {
+    result.complete_event =
+        std::make_unique<PJRTEvent>(std::move(complete_event), this->api);
+  }
+  for (auto &out : owned_out) {
+    result.buffers.push_back(
+        std::make_unique<PJRTBuffer>(std::move(out), this->api));
   }
 
   return result;
@@ -396,7 +403,7 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 std::string PJRTClient::platform() {
   PJRT_Client_PlatformName_Args args{};
   args.struct_size = sizeof(PJRT_Client_PlatformName_Args);
-  args.client = this->client;
+  args.client = this->client.get();
   check_err(this->api.get(), this->api->PJRT_Client_PlatformName_(&args));
   return std::string(args.platform_name, args.platform_name_size);
 }

@@ -98,10 +98,10 @@ class PJRTLoadedExecutable {
 
 class PJRTClient {
  public:
-  PJRT_Client *client;
+  // Declared before `client`, whose deleter uses it (see pjrt_handle.h).
   std::shared_ptr<PJRT_Api> api;
-  PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_Api> api);
-  ~PJRTClient();
+  PJRTHandle<PJRT_Client> client;
+  PJRTClient(PJRTHandle<PJRT_Client> client, std::shared_ptr<PJRT_Api> api);
   std::vector<PJRT_Device *> devices();
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options,

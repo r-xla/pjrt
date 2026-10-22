@@ -30,6 +30,36 @@ struct PJRTDestroy<PJRT_LoadedExecutable> {
 };
 
 template <>
+struct PJRTDestroy<PJRT_Client> {
+  static PJRT_Error *destroy(const PJRT_Api *api, PJRT_Client *p) {
+    PJRT_Client_Destroy_Args args{};
+    args.struct_size = sizeof(PJRT_Client_Destroy_Args);
+    args.client = p;
+    return api->PJRT_Client_Destroy_(&args);
+  }
+};
+
+template <>
+struct PJRTDestroy<PJRT_Buffer> {
+  static PJRT_Error *destroy(const PJRT_Api *api, PJRT_Buffer *p) {
+    PJRT_Buffer_Destroy_Args args{};
+    args.struct_size = sizeof(PJRT_Buffer_Destroy_Args);
+    args.buffer = p;
+    return api->PJRT_Buffer_Destroy_(&args);
+  }
+};
+
+template <>
+struct PJRTDestroy<PJRT_Event> {
+  static PJRT_Error *destroy(const PJRT_Api *api, PJRT_Event *p) {
+    PJRT_Event_Destroy_Args args{};
+    args.struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE;
+    args.event = p;
+    return api->PJRT_Event_Destroy_(&args);
+  }
+};
+
+template <>
 struct PJRTDestroy<PJRT_Executable> {
   static PJRT_Error *destroy(const PJRT_Api *api, PJRT_Executable *p) {
     PJRT_Executable_Destroy_Args args{};
