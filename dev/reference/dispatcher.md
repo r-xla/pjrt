@@ -29,7 +29,8 @@ dispatcher(
 - capacity:
 
   (`integer(1)`)  
-  Maximum number of compiled executables to cache.
+  Maximum number of entries to cache; the least recently used one is
+  evicted beyond that.
 
 - compile:
 
@@ -40,8 +41,9 @@ dispatcher(
 
   - `args`: the dispatched argument list,
 
-  - `in_tree`: its `RTree` (see
-    [`build_tree`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md)),
+  - `in_tree`: the `RTree` of `args` (see
+    [`build_tree`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md));
+    its root's children are the arguments,
 
   - `leaves`: the flat leaf list (see
     [`flatten`](https://r-xla.github.io/pjrt/dev/reference/flatten.md)),
@@ -62,7 +64,7 @@ dispatcher(
     it is not yet: `"double"` is not `"f64"`, and what the leaf is
     uploaded at is `input_dtypes`. `shape` is an
     [`integer()`](https://rdrr.io/r/base/integer.html), empty for a
-    scalar,
+    scalar.
 
   - `default_device`: the device this call resolved because no array
     input named one – the device the cache key was built on, so
@@ -82,7 +84,10 @@ dispatcher(
 
   - `client`, `device`: the
     [`pjrt_client`](https://r-xla.github.io/pjrt/dev/reference/pjrt_client.md)
-    and the device the entry is compiled for,
+    and the
+    [`pjrt_device`](https://r-xla.github.io/pjrt/dev/reference/pjrt_device.md)
+    the entry is compiled for; bare R inputs are uploaded to that
+    device,
 
   - `out_tree`: the `RTree` of the outputs (see
     [`build_tree`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md)),
@@ -91,11 +96,13 @@ dispatcher(
     `list(dtype = <string>, shape = <integer>)`. The outputs are wrapped
     from these.
 
-  - `const_arrays` (optional): buffers prepended to the inputs,
+  - `const_arrays` (optional): a list of `PJRTBuffer`s prepended to the
+    inputs,
 
   - `phantom_specs` (optional): a list of
-    `list(dtype = <string>, shape = <integer>)` donation-output buffers
-    to allocate fresh per call.
+    `list(dtype = <string>, shape = <integer>)`, one per buffer to
+    allocate fresh on every run and pass last, as an output-donation
+    target,
 
   - `implicit_inputs` (optional): a list of `list(get, dtype, shape)`,
     one per value the program takes that no argument supplies, e.g. a
@@ -124,6 +131,11 @@ dispatcher(
     implicit input's [`get()`](https://rdrr.io/r/base/get.html) reads,
     or an object among the arguments. Execution is asynchronous: the
     outputs may not be computed yet.
+
+  The program's inputs are, in order: `const_arrays`, the call's dynamic
+  leaves, the implicit inputs, the phantoms. Its outputs are the leaves
+  of `out_tree` followed by the implicit outputs; a count that disagrees
+  with the executable's is an error on its first run.
 
   Either kind of result may additionally carry:
 
@@ -165,13 +177,18 @@ dispatcher(
     [`identical()`](https://rdrr.io/r/base/identical.html) to the ones
     it was built from.
 
+  `implicit_inputs`, `implicit_outputs` and `on_success` are an error
+  here: `r_fun` reads its own inputs and runs its own code.
+
 - static:
 
   ([`character()`](https://rdrr.io/r/base/character.html))  
-  Names of top-level arguments that are static (not arrays). Static
-  values are part of the cache key and are excluded from execution.
-  Defaults to none. They are compared with `identical(num.eq = FALSE)`,
-  i.e. numbers compare bitwise, which is what keeps a
+  Names of top-level arguments that are static. Every leaf of a static
+  argument is keyed by its value and excluded from execution: it is a
+  constant of the compiled entry. A static leaf must not be an
+  `"AnvlArray"`. Defaults to none. Values are compared with
+  `identical(num.eq = FALSE)`, i.e. numbers compare bitwise, which is
+  what keeps a
   [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
   `NA` – stored as the bit pattern of `-0` – from sharing a cache entry
   with `0`.
@@ -194,8 +211,7 @@ dispatcher(
 
   It is a policy flag, not a device: *which* device an entry targets is
   the `compile` callback's business, and need not be the same for every
-  entry (anvl's `jit(device = )` fixes one up front, its `device_arg()`
-  derives one per static argument value).
+  entry (anvl's `jit(device = )` fixes one up front).
 
   Placing an input is the engine's business, since only it knows what
   `$data` holds. With `backend = "pjrt"` an input living elsewhere is
@@ -213,14 +229,16 @@ dispatcher(
   default device is never served after the default changes. Required
   unless `move_inputs = TRUE`, which fixes the device per entry.
 
-  Devices are compared by object identity first and by
+  With `backend = "pjrt"` it must return a
+  [`pjrt_device`](https://r-xla.github.io/pjrt/dev/reference/pjrt_device.md),
+  and devices are compared by the PJRT device they wrap. For any other
+  backend, devices are compared by object identity first and by
   [`identical()`](https://rdrr.io/r/base/identical.html) as a fallback,
   so equal-but-distinct device objects count as one device. Interning
-  them (one object per device, alive for the session, as
-  [`as_pjrt_device()`](https://r-xla.github.io/pjrt/dev/reference/as_pjrt_device.md)
-  does) is therefore not required, but is recommended: an interned
-  device resolves in one pointer comparison, and every distinct object a
-  backend hands out stays alive for the dispatcher's lifetime.
+  them (one object per device, alive for the session) is therefore not
+  required, but is recommended: an interned device resolves in one
+  pointer comparison, and every distinct object a backend hands out
+  stays alive for the dispatcher's lifetime.
 
 - extractor:
 
@@ -238,37 +256,51 @@ dispatcher(
 
   (`function` \| `NULL`)  
   Called with no arguments on *every* dispatch to get whatever the
-  compiled program depends on beyond its inputs – anvl passes the
-  backend's current default dtypes, say, or the types of the values
-  `implicit_inputs` read. Must return a
-  [`character()`](https://rdrr.io/r/base/character.html) without `NA`s;
-  its value is part of the cache key, so an entry compiled under one
-  context is never served under another, and it reaches `compile` as
-  `info$context`. Unlike `default_device`, which is consulted only when
-  no array names a device, this is resolved for every call: any entry
-  may depend on it. `NULL` (default) keys on the inputs alone.
+  compiled program depends on beyond its inputs, such as anvl's current
+  default dtypes or the types of the values `implicit_inputs` read. Must
+  return a [`character()`](https://rdrr.io/r/base/character.html)
+  without `NA`s; its value is part of the cache key, so an entry
+  compiled under one context is never served under another, and it
+  reaches `compile` as `info$context`. Unlike `default_device`, which is
+  consulted only when no array names a device, this is resolved for
+  every call: any entry may depend on it. `NULL` (default) keys on the
+  inputs alone.
 
 ## Value
 
-`dispatcher()` returns a `Dispatcher`.
+`dispatcher()` returns a `Dispatcher`, an external pointer to the native
+dispatcher and its cache.
 
 ## Details
 
 Each
 [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)
-call flattens the inputs and builds a cache key: a dynamic leaf
-contributes its abstract value – its kind (one of the backend's arrays,
-or bare R data), its dtype and its shape – a static leaf its value
-(compared with [`identical()`](https://rdrr.io/r/base/identical.html)).
-On a hit the cached executable runs immediately; on a miss `compile` is
-called to produce a new cache entry.
+call flattens the arguments (see
+[`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md))
+and builds a cache key from the argument tree, the call's device, the
+`context` and one entry per leaf: a dynamic leaf contributes its
+abstract value – its kind (one of the backend's arrays, or bare R data),
+its dtype and its shape – and a static leaf its value. On a hit the
+cached entry runs immediately; on a miss `compile` is called to produce
+a new entry, and once `capacity` entries are cached the least recently
+used one is evicted.
 
 Inputs are validated before the cache is probed, and a rejection names
-the offending argument by its path in the argument tree. An input must
-be an `"AnvlArray"` of the dispatcher's `backend`, a length-1 atomic
-scalar, or an [`is.array()`](https://rdrr.io/r/base/array.html) value.
-`compile` is therefore never asked to validate: it is called only on a
-cache miss, and only for inputs already known to be executable.
+the offending argument by its path in the argument tree. A dynamic leaf
+must be
+
+- an `"AnvlArray"` of the dispatcher's `backend` (an array of the
+  `"plain"` backend, which captures a trace-time constant, is never an
+  input), or
+
+- bare R data: an unclassed double, integer or logical vector that is
+  either an [`is.array()`](https://rdrr.io/r/base/array.html) value or a
+  length-1 scalar other than `NA`.
+
+Unless `move_inputs = TRUE`, all array inputs must also live on one
+device. `compile` is therefore never asked to validate: it is called
+only on a cache miss, and only for inputs already known to be
+executable.
 
 ## Backends
 
@@ -276,19 +308,21 @@ The `backend` selects the execution engine, and everything
 backend-specific sits behind it:
 
 - `backend = "pjrt"` executes a compiled PJRT executable natively: array
-  inputs contribute their `$data` buffer, bare R literals and arrays are
-  uploaded at the dtype the entry's `input_dtypes` declared for them,
-  and the outputs are wrapped back into `"AnvlArray"`s – lists of
-  `$data`, `$dtype`, `$shape` and `$backend` (the device is the buffer's
-  own; an external pointer field would not survive serialization) – and
-  re-nested via `out_tree`, all without leaving C++.
+  inputs contribute their `$data` buffer, bare R data is uploaded at the
+  dtype the entry's `input_dtypes` declares for it, and the outputs are
+  wrapped into `"AnvlArray"`s – lists of `$data` (the `PJRTBuffer`),
+  `$dtype` (a xlamisc `DataType`), `$shape` and `$backend`, with no
+  `$device`: the device is the buffer's own – and re-nested via
+  `out_tree`, all without leaving C++.
 
-- any other `backend` calls the compiled R closure `compile` returned,
-  which returns the call's finished value. Execution, output wrapping
-  and input placement therefore stay under the backend's control. This
-  is the path for any non-PJRT backend (e.g. anvl's `"quickr"`).
+- any other `backend` calls the R closure `r_fun` that `compile`
+  returned, which returns the call's finished value. Execution, output
+  wrapping and input placement therefore stay under the backend's
+  control. This is the path for any non-PJRT backend (e.g. anvl's
+  `"quickr"`).
 
-Of an array input, only `$data` is ever assumed: for `"pjrt"` its dtype,
-shape and device are read off the `PJRTBuffer` directly, and for any
-other backend they come from `extractor`. A backend is free to store
-them as fields or to compute them on demand.
+Of an array input, the dispatcher reads only `$data` directly, plus
+`$backend` for `"pjrt"`. For `"pjrt"` the dtype, shape and device are
+read off the `PJRTBuffer`; for any other backend all metadata comes from
+`extractor`. A backend is free to store it as fields or to compute it on
+demand.

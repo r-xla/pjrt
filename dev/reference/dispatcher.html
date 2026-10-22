@@ -89,7 +89,8 @@ compile only on a cache miss.</p>
 
 <dl><dt id="arg-capacity">capacity<a class="anchor" aria-label="anchor" href="#arg-capacity"></a></dt>
 <dd><p>(<code>integer(1)</code>)<br>
-Maximum number of compiled executables to cache.</p></dd>
+Maximum number of entries to cache; the least recently used one is
+evicted beyond that.</p></dd>
 
 
 <dt id="arg-compile">compile<a class="anchor" aria-label="anchor" href="#arg-compile"></a></dt>
@@ -97,7 +98,8 @@ Maximum number of compiled executables to cache.</p></dd>
 Cache-miss callback, called as <code>compile(info)</code>. <code>info</code> carries what the
 dispatch already derived from the call, so that the callback need not
 classify the inputs a second time:</p><ul><li><p><code>args</code>: the dispatched argument list,</p></li>
-<li><p><code>in_tree</code>: its <code>RTree</code> (see <code><a href="build_tree.html">build_tree</a></code>),</p></li>
+<li><p><code>in_tree</code>: the <code>RTree</code> of <code>args</code> (see <code><a href="build_tree.html">build_tree</a></code>); its root's
+children are the arguments,</p></li>
 <li><p><code>leaves</code>: the flat leaf list (see <code><a href="flatten.html">flatten</a></code>),</p></li>
 <li><p><code>is_static</code>: a <code><a href="https://rdrr.io/r/base/logical.html" class="external-link">logical()</a></code> mask over <code>leaves</code>,</p></li>
 <li><p><code>avals</code>: per leaf, <code>NULL</code> if static, else the <code>list(kind, dtype, shape)</code>
@@ -110,7 +112,7 @@ for an <code>"rdata"</code> leaf its R storage type instead – its <code><a hre
 so <code>"double"</code>, <code>"integer"</code> or <code>"logical"</code>. That is what the value <em>is</em>,
 not a dtype it is not yet: <code>"double"</code> is not <code>"f64"</code>, and what the leaf
 is uploaded at is <code>input_dtypes</code>. <code>shape</code> is an <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>, empty for a
-scalar,</p></li>
+scalar.</p></li>
 <li><p><code>default_device</code>: the device this call resolved because no array input
 named one – the device the cache key was built on, so <code>compile</code> must
 compile for it rather than resolve a default of its own. <code>NULL</code> when an
@@ -120,14 +122,16 @@ vector the cache key was built on, so <code>compile</code> must compile under it
 rather than resolve its own. <code>NULL</code> when the dispatcher has no
 <code>context</code>.</p></li>
 </ul><p>For <code>backend = "pjrt"</code> it must return a named list with:</p><ul><li><p><code>exec</code>: a <code><a href="pjrt_compile.html">pjrt_compile</a></code>d executable,</p></li>
-<li><p><code>client</code>, <code>device</code>: the <code><a href="pjrt_client.html">pjrt_client</a></code> and the device the entry is
-compiled for,</p></li>
+<li><p><code>client</code>, <code>device</code>: the <code><a href="pjrt_client.html">pjrt_client</a></code> and the <code><a href="pjrt_device.html">pjrt_device</a></code> the
+entry is compiled for; bare R inputs are uploaded to that device,</p></li>
 <li><p><code>out_tree</code>: the <code>RTree</code> of the outputs (see <code><a href="build_tree.html">build_tree</a></code>),</p></li>
 <li><p><code>out_avals</code>: one aval per output leaf of <code>out_tree</code>, each a
 <code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;)</code>. The outputs are wrapped
 from these.</p></li>
-<li><p><code>const_arrays</code> (optional): buffers prepended to the inputs,</p></li>
-<li><p><code>phantom_specs</code> (optional): a list of <code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;)</code> donation-output buffers to allocate fresh per call.</p></li>
+<li><p><code>const_arrays</code> (optional): a list of <code>PJRTBuffer</code>s prepended to the
+inputs,</p></li>
+<li><p><code>phantom_specs</code> (optional): a list of <code>list(dtype = &lt;string&gt;, shape = &lt;integer&gt;)</code>, one per buffer to allocate fresh on every run and pass
+last, as an output-donation target,</p></li>
 <li><p><code>implicit_inputs</code> (optional): a list of <code>list(get, dtype, shape)</code>, one
 per value the program takes that no argument supplies, e.g. a global
 RNG state. The program takes them after the call's own inputs (and
@@ -149,7 +153,11 @@ outputs, wrapped like the other outputs, and the call's argument list
 before the call returns, e.g. to advance what an implicit input's <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code>
 reads, or an object among the arguments. Execution is asynchronous: the
 outputs may not be computed yet.</p></li>
-</ul><p>Either kind of result may additionally carry:</p><ul><li><p><code>input_dtypes</code>: a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> with one entry per dynamic leaf, in
+</ul><p>The program's inputs are, in order: <code>const_arrays</code>, the call's dynamic
+leaves, the implicit inputs, the phantoms. Its outputs are the leaves of
+<code>out_tree</code> followed by the implicit outputs; a count that disagrees with
+the executable's is an error on its first run.</p>
+<p>Either kind of result may additionally carry:</p><ul><li><p><code>input_dtypes</code>: a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> with one entry per dynamic leaf, in
 order, naming the dtype that input is supplied at. <code>NA</code> leaves an input
 alone, and is the only valid entry for an array input: an array is
 supplied as it is, so declaring a dtype for one is an error rather than a
@@ -176,16 +184,19 @@ order and with an array leaf contributing its <code>$data</code>, returning the
 call's finished value. Static leaves are <em>not</em> passed: they are constants
 of the closure <code>compile</code> just built, and a cache hit already proves the
 call's statics are <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code> to the ones it was built from.</p></li>
-</ul></dd>
+</ul><p><code>implicit_inputs</code>, <code>implicit_outputs</code> and <code>on_success</code> are an error here:
+<code>r_fun</code> reads its own inputs and runs its own code.</p></dd>
 
 
 <dt id="arg-static">static<a class="anchor" aria-label="anchor" href="#arg-static"></a></dt>
 <dd><p>(<code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code>)<br>
-Names of top-level arguments that are static (not arrays). Static values
-are part of the cache key and are excluded from execution. Defaults to
-none. They are compared with <code>identical(num.eq = FALSE)</code>, i.e. numbers
-compare bitwise, which is what keeps a <code><a href="https://bit64.r-lib.org/reference/bit64-package.html" class="external-link">bit64::integer64</a></code> <code>NA</code> – stored as
-the bit pattern of <code>-0</code> – from sharing a cache entry with <code>0</code>.</p></dd>
+Names of top-level arguments that are static. Every leaf of a static
+argument is keyed by its value and excluded from execution: it is a
+constant of the compiled entry. A static leaf must not be an
+<code>"AnvlArray"</code>. Defaults to none. Values are compared with
+<code>identical(num.eq = FALSE)</code>, i.e. numbers compare bitwise, which is what
+keeps a <code><a href="https://bit64.r-lib.org/reference/bit64-package.html" class="external-link">bit64::integer64</a></code> <code>NA</code> – stored as the bit pattern of <code>-0</code> –
+from sharing a cache entry with <code>0</code>.</p></dd>
 
 
 <dt id="arg-backend">backend<a class="anchor" aria-label="anchor" href="#arg-backend"></a></dt>
@@ -204,8 +215,7 @@ from any device. Default <code>FALSE</code>: the first array's device is the cal
 device, and a conflicting input is an error.</p>
 <p>It is a policy flag, not a device: <em>which</em> device an entry targets is the
 <code>compile</code> callback's business, and need not be the same for every entry
-(anvl's <code>jit(device = )</code> fixes one up front, its <code>device_arg()</code> derives one
-per static argument value).</p>
+(anvl's <code>jit(device = )</code> fixes one up front).</p>
 <p>Placing an input is the engine's business, since only it knows what <code>$data</code>
 holds. With <code>backend = "pjrt"</code> an input living elsewhere is copied to the
 entry's device. With any other backend pjrt does nothing, so <strong><code>r_fun</code> must
@@ -220,12 +230,14 @@ whenever a call has no array input to read a device from. Its result is
 part of the cache key, so an entry compiled under one default device is
 never served after the default changes. Required unless
 <code>move_inputs = TRUE</code>, which fixes the device per entry.</p>
-<p>Devices are compared by object identity first and by <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code> as a
-fallback, so equal-but-distinct device objects count as one device.
-Interning them (one object per device, alive for the session, as
-<code><a href="as_pjrt_device.html">as_pjrt_device()</a></code> does) is therefore not required, but is recommended:
-an interned device resolves in one pointer comparison, and every distinct
-object a backend hands out stays alive for the dispatcher's lifetime.</p></dd>
+<p>With <code>backend = "pjrt"</code> it must return a <code><a href="pjrt_device.html">pjrt_device</a></code>, and devices are
+compared by the PJRT device they wrap. For any other backend, devices are
+compared by object identity first and by <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code> as a fallback, so
+equal-but-distinct device objects count as one device. Interning them (one
+object per device, alive for the session) is therefore not required, but
+is recommended: an interned device resolves in one pointer comparison, and
+every distinct object a backend hands out stays alive for the
+dispatcher's lifetime.</p></dd>
 
 
 <dt id="arg-extractor">extractor<a class="anchor" aria-label="anchor" href="#arg-extractor"></a></dt>
@@ -241,33 +253,38 @@ Required for any backend other than <code>"pjrt"</code>; ignored for <code>"pjrt
 <dt id="arg-context">context<a class="anchor" aria-label="anchor" href="#arg-context"></a></dt>
 <dd><p>(<code>function</code> | <code>NULL</code>)<br>
 Called with no arguments on <em>every</em> dispatch to get whatever the compiled
-program depends on beyond its inputs – anvl passes the backend's current
-default dtypes, say, or the types of the values <code>implicit_inputs</code> read.
-Must return a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> without <code>NA</code>s; its value is
-part of the cache key, so an entry compiled under one context is never
-served under another, and it reaches <code>compile</code> as <code>info$context</code>. Unlike
-<code>default_device</code>, which is consulted only when no array names a device,
-this is resolved for every call: any entry may depend on it. <code>NULL</code>
-(default) keys on the inputs alone.</p></dd>
+program depends on beyond its inputs, such as anvl's current default
+dtypes or the types of the values <code>implicit_inputs</code> read. Must return a
+<code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> without <code>NA</code>s; its value is part of the cache key, so an
+entry compiled under one context is never served under another, and it
+reaches <code>compile</code> as <code>info$context</code>. Unlike <code>default_device</code>, which is
+consulted only when no array names a device, this is resolved for every
+call: any entry may depend on it. <code>NULL</code> (default) keys on the inputs
+alone.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>dispatcher()</code> returns a <code>Dispatcher</code>.</p>
+    <p><code>dispatcher()</code> returns a <code>Dispatcher</code>, an external pointer to the
+native dispatcher and its cache.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Each <code><a href="dispatch.html">dispatch()</a></code> call flattens the inputs and builds a cache key: a
-dynamic leaf contributes its abstract value – its kind (one of the backend's
-arrays, or bare R data), its dtype and its shape – a static leaf
-its value (compared with <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code>). On a hit the cached executable runs
-immediately; on a miss <code>compile</code> is called to produce a new cache entry.</p>
+    <p>Each <code><a href="dispatch.html">dispatch()</a></code> call flattens the arguments (see <code><a href="flatten.html">flatten()</a></code>) and
+builds a cache key from the argument tree, the call's device, the <code>context</code>
+and one entry per leaf: a dynamic leaf contributes its abstract value – its
+kind (one of the backend's arrays, or bare R data), its dtype and its shape
+– and a static leaf its value. On a hit the cached entry runs immediately;
+on a miss <code>compile</code> is called to produce a new entry, and once <code>capacity</code>
+entries are cached the least recently used one is evicted.</p>
 <p>Inputs are validated before the cache is probed, and a rejection names the
-offending argument by its path in the argument tree. An input must be an
-<code>"AnvlArray"</code> of the dispatcher's <code>backend</code>, a length-1 atomic scalar, or an
-<code><a href="https://rdrr.io/r/base/array.html" class="external-link">is.array()</a></code> value. <code>compile</code> is therefore never asked to validate: it is
-called only on a cache miss, and only for inputs already known to be
-executable.</p>
+offending argument by its path in the argument tree. A dynamic leaf must be</p><ul><li><p>an <code>"AnvlArray"</code> of the dispatcher's <code>backend</code> (an array of the <code>"plain"</code>
+backend, which captures a trace-time constant, is never an input), or</p></li>
+<li><p>bare R data: an unclassed double, integer or logical vector that is
+either an <code><a href="https://rdrr.io/r/base/array.html" class="external-link">is.array()</a></code> value or a length-1 scalar other than <code>NA</code>.</p></li>
+</ul><p>Unless <code>move_inputs = TRUE</code>, all array inputs must also live on one device.
+<code>compile</code> is therefore never asked to validate: it is called only on a cache
+miss, and only for inputs already known to be executable.</p>
     </div>
     <div class="section level2">
     <h2 id="backends">Backends<a class="anchor" aria-label="anchor" href="#backends"></a></h2>
@@ -275,21 +292,21 @@ executable.</p>
 
 <p>The <code>backend</code> selects the execution engine, and everything backend-specific
 sits behind it:</p><ul><li><p><code>backend = "pjrt"</code> executes a compiled PJRT executable natively: array
-inputs contribute their <code>$data</code> buffer, bare R literals and arrays are
-uploaded at the dtype the entry's <code>input_dtypes</code> declared for them, and
-the outputs are wrapped back into
-<code>"AnvlArray"</code>s – lists of <code>$data</code>, <code>$dtype</code>, <code>$shape</code> and <code>$backend</code>
-(the device is the buffer's own; an external pointer field would not
-survive serialization) – and re-nested via <code>out_tree</code>, all without
-leaving C++.</p></li>
-<li><p>any other <code>backend</code> calls the compiled R closure <code>compile</code> returned, which
-returns the call's finished value. Execution, output wrapping and input
-placement therefore stay under the backend's control. This is the path for
-any non-PJRT backend (e.g. anvl's <code>"quickr"</code>).</p></li>
-</ul><p>Of an array input, only <code>$data</code> is ever assumed: for <code>"pjrt"</code> its dtype, shape
-and device are read off the <code>PJRTBuffer</code> directly, and for any other backend
-they come from <code>extractor</code>. A backend is free to store them as fields or to
-compute them on demand.</p>
+inputs contribute their <code>$data</code> buffer, bare R data is uploaded at the
+dtype the entry's <code>input_dtypes</code> declares for it, and the outputs are
+wrapped into <code>"AnvlArray"</code>s – lists of <code>$data</code> (the <code>PJRTBuffer</code>),
+<code>$dtype</code> (a xlamisc <code>DataType</code>), <code>$shape</code> and <code>$backend</code>, with no
+<code>$device</code>: the device is the buffer's own – and re-nested via
+<code>out_tree</code>, all without leaving C++.</p></li>
+<li><p>any other <code>backend</code> calls the R closure <code>r_fun</code> that <code>compile</code> returned,
+which returns the call's finished value. Execution, output wrapping and
+input placement therefore stay under the backend's control. This is the
+path for any non-PJRT backend (e.g. anvl's <code>"quickr"</code>).</p></li>
+</ul><p>Of an array input, the dispatcher reads only <code>$data</code> directly, plus
+<code>$backend</code> for <code>"pjrt"</code>. For <code>"pjrt"</code> the dtype, shape and device are read
+off the <code>PJRTBuffer</code>; for any other backend all metadata comes from
+<code>extractor</code>. A backend is free to store it as fields or to compute it on
+demand.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
