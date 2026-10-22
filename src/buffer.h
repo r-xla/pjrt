@@ -102,25 +102,4 @@ class PJRTBuffer {
   PJRT_Buffer* checked_buffer() const;
 };
 
-// Holds result of an async device-to-host transfer.
-// Owns the host data and the completion event.
-class PJRTHostData {
- public:
-  PJRTHostData(std::unique_ptr<std::vector<uint8_t>> data,
-               std::unique_ptr<PJRTEvent> event);
-
-  // Non-blocking check if the transfer is complete
-  bool is_ready() const;
-
-  // Block until the transfer is complete, then check for errors
-  void await();
-
-  // Access the raw data (only valid after await)
-  const std::vector<uint8_t>& data() const { return *data_; }
-
- private:
-  std::unique_ptr<std::vector<uint8_t>> data_;
-  std::unique_ptr<PJRTEvent> event_;
-};
-
 }  // namespace rpjrt

@@ -638,76 +638,6 @@ SEXP impl_client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
                              string_to_pjrt_buffer_type(dtype));
 }
 
-// Core conversion: raw bytes (row-major) -> R array (column-major) with type
-// casting. Used by both sync and async buffer-to-host paths.
-template <typename T>
-SEXP raw_to_array_impl(const uint8_t *raw_data,
-                       const std::vector<int64_t> &dimensions, int r_type,
-                       const std::vector<int64_t> &minor_to_major) {
-  const auto numel = number_of_elements(dimensions);
-
-  if (numel == 0) {
-    SEXP out = PROTECT(Rf_allocVector(r_type, 0));
-    if (dimensions.size() > 0) {
-      Rcpp::IntegerVector dims(dimensions.begin(), dimensions.end());
-      Rf_setAttrib(out, R_DimSymbol, dims);
-    }
-    UNPROTECT(1);
-    return out;
-  }
-
-  // Reinterpret the device-layout bytes and reorder them to logical row-major
-  // (a no-op copy when the device layout is already row-major).
-  const T *typed_data = reinterpret_cast<const T *>(raw_data);
-  std::vector<T> temp_vec(numel);
-  device_to_row_major<T>(typed_data, temp_vec.data(), dimensions,
-                         minor_to_major);
-
-  SEXP out = PROTECT(Rf_allocVector(r_type, numel));
-  void *out_data;
-
-  if (r_type == REALSXP) {
-    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
-                  std::is_same_v<T, uint32_t>) {
-      // Integer dtype that can't fit in R's signed int32 -> "pseudo-double":
-      // REALSXP slots carry the int64 bit pattern (the storage layout used by
-      // bit64::integer64). The R caller attaches the integer64 class. Widening
-      // uint32_t to int64_t is value-preserving (u32 max < 2^53).
-      static_assert(sizeof(double) == sizeof(int64_t),
-                    "bit64::integer64 layout requires sizeof(double) == "
-                    "sizeof(int64_t)");
-      int64_t *out_data_i64 = reinterpret_cast<int64_t *>(REAL(out));
-      row_to_col_order<T, int64_t>(temp_vec, out_data_i64, dimensions);
-    } else {
-      out_data = REAL(out);
-      row_to_col_order<T, double>(temp_vec, static_cast<double *>(out_data),
-                                  dimensions);
-    }
-  } else if (r_type == INTSXP) {
-    out_data = INTEGER(out);
-    row_to_col_order<T, int>(temp_vec, static_cast<int *>(out_data),
-                             dimensions);
-  } else if (r_type == LGLSXP) {
-    out_data = LOGICAL(out);
-    row_to_col_order<T, int>(temp_vec, static_cast<int *>(out_data),
-                             dimensions);
-  } else {
-    UNPROTECT(1);
-    Rcpp::stop("Unsupported R type: %d", r_type);
-  }
-
-  if (dimensions.size() > 0) {
-    SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
-    int *dim_data = INTEGER(dim_attr);
-    std::copy(dimensions.begin(), dimensions.end(), dim_data);
-    Rf_setAttrib(out, R_DimSymbol, dim_attr);
-    UNPROTECT(1);
-  }
-
-  UNPROTECT(1);
-  return out;
-}
-
 // [[Rcpp::export()]]
 Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                    SEXP buffer_sexp, bool row_major = false) {
@@ -1002,16 +932,6 @@ void impl_buffer_await(SEXP buffer_sexp) {
   rpjrt::process_pending_releases();
 }
 
-// [[Rcpp::export()]]
-bool impl_host_data_is_ready(Rcpp::XPtr<rpjrt::PJRTHostData> data) {
-  return data->is_ready();
-}
-
-// [[Rcpp::export()]]
-void impl_host_data_await(Rcpp::XPtr<rpjrt::PJRTHostData> data) {
-  data->await();
-}
-
 // Process any pending R object releases that were queued by PJRT callbacks.
 // [[Rcpp::export()]]
 void impl_process_pending_releases() { rpjrt::process_pending_releases(); }
@@ -1058,103 +978,6 @@ bool impl_test_buffer_aliases_keepalive(SEXP x) {
   const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(keepalive));
   return p >= base &&
          p < base + static_cast<std::uintptr_t>(XLENGTH(keepalive));
-}
-
-// [[Rcpp::export()]]
-SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
-                       const std::string &dtype, Rcpp::IntegerVector dims,
-                       Rcpp::IntegerVector minor_to_major) {
-  std::vector<int64_t> dimensions(dims.begin(), dims.end());
-  std::vector<int64_t> m2m(minor_to_major.begin(), minor_to_major.end());
-
-  // Handle null/empty data
-  const uint8_t *raw_data = nullptr;
-  if (host_data.get() != nullptr && !host_data->data().empty()) {
-    raw_data = host_data->data().data();
-  }
-
-  if (dtype == "bf16") {
-    // Widening bf16 -> double is exact, so as_array() returns precisely the
-    // values the buffer holds.
-    return raw_to_array_impl<rpjrt::bfloat16>(raw_data, dimensions, REALSXP,
-                                              m2m);
-  } else if (dtype == "f32") {
-    return raw_to_array_impl<float>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "f64") {
-    return raw_to_array_impl<double>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "i8") {
-    return raw_to_array_impl<int8_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "i16") {
-    return raw_to_array_impl<int16_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "i32") {
-    return raw_to_array_impl<int32_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "i64") {
-    return raw_to_array_impl<int64_t>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "ui8") {
-    return raw_to_array_impl<uint8_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "ui16") {
-    return raw_to_array_impl<uint16_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "ui32") {
-    // u32 -> integer64 storage: signed int32 has no headroom for ui32 values
-    // >= 2^31; widen to integer64 (53 bits of headroom) so the R caller gets
-    // the full unsigned magnitude. R-side classes the result as integer64.
-    return raw_to_array_impl<uint32_t>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "ui64") {
-    return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "bool") {
-    return raw_to_array_impl<uint8_t>(raw_data, dimensions, LGLSXP, m2m);
-  } else {
-    Rcpp::stop("Unsupported dtype: %s", dtype.c_str());
-  }
-}
-
-// [[Rcpp::export()]]
-Rcpp::List impl_buffer_to_host_async(SEXP buffer_sexp) {
-  auto buffer = rpjrt::as_buffer(buffer_sexp);
-  const auto dimensions = buffer->dimensions();
-  const auto element_type = buffer->element_type();
-  const auto numel = number_of_elements(dimensions);
-
-  // Get element type as string
-  rpjrt::PJRTElementType elt_type(element_type);
-  std::string dtype = elt_type.as_string();
-
-  Rcpp::IntegerVector dims(dimensions.begin(), dimensions.end());
-
-  // The bytes arrive in the device layout; carry it through so value() can
-  // reorder them to a column-major R array.
-  const auto m2m_vec = buffer->minor_to_major();
-  Rcpp::IntegerVector minor_to_major(m2m_vec.begin(), m2m_vec.end());
-
-  // Handle empty buffers
-  if (numel == 0) {
-    auto empty_vec = std::make_unique<std::vector<uint8_t>>();
-    auto empty_data =
-        std::make_unique<rpjrt::PJRTHostData>(std::move(empty_vec), nullptr);
-    Rcpp::XPtr<rpjrt::PJRTHostData> data_xptr(empty_data.release(), true);
-    return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
-                              Rcpp::Named("dtype") = dtype,
-                              Rcpp::Named("dims") = dims,
-                              Rcpp::Named("minor_to_major") = minor_to_major);
-  }
-
-  const size_t total_bytes = numel * sizeof_pjrt_buffer_type(element_type);
-
-  auto data_vec = std::make_unique<std::vector<uint8_t>>(total_bytes);
-  std::span<uint8_t> host_buffer(data_vec->data(), total_bytes);
-
-  // Start async copy (data will be in row-major order)
-  auto event = buffer->buffer_to_host_async(host_buffer);
-
-  // Wrap data + event in PJRTHostData (owns both)
-  auto host_data = std::make_unique<rpjrt::PJRTHostData>(std::move(data_vec),
-                                                         std::move(event));
-  Rcpp::XPtr<rpjrt::PJRTHostData> data_xptr(host_data.release(), true);
-
-  return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
-                            Rcpp::Named("dtype") = dtype,
-                            Rcpp::Named("dims") = dims,
-                            Rcpp::Named("minor_to_major") = minor_to_major);
 }
 
 static std::string device_to_string(PJRT_Device *device, PJRT_Api *api) {

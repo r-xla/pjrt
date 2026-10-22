@@ -46,4 +46,14 @@ SEXP buffer_keepalive(SEXP x);
 
 void set_buffer_keepalive(SEXP x, SEXP keepalive);
 
+// Evaluates `fun(arg)` in pjrt's namespace.
+//
+// R calls ALTREP methods from C, outside any Rcpp entry point, so they must not
+// throw C++ exceptions or hold objects with destructors: an R error inside
+// Rf_eval() jumps straight past their frames without unwinding them. Such a
+// method does its C++ work by calling an Rcpp-exported function through this,
+// whose wrapper turns exceptions into R errors; otherwise it sticks to plain R
+// C API calls (R resets the PROTECT stack itself after an error).
+SEXP call_pjrt(const char* fun, SEXP arg);
+
 }  // namespace rpjrt

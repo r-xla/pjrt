@@ -1,24 +1,12 @@
 # Async Value Classes for PJRT
 
-#' @title Get the value of an async operation
-#' @description
-#' Materialize and return the result of an async operation.
-#' Blocks until the operation is complete if it hasn't finished yet.
-#'
-#' For `PJRTArrayPromise`, returns the materialized R array.
-#' For `PJRTBuffer`, use `await()` to block until ready.
-#'
-#' @param x An async value object.
-#' @param ... Additional arguments (unused).
-#' @return The materialized value.
-#' @export
-value <- function(x, ...) {
-  UseMethod("value")
-}
-
 #' @title Check if an async operation is ready
 #' @description
 #' Non-blocking check to see if an async operation has completed.
+#'
+#' For a [`PJRTBuffer`][pjrt_buffer], whether its computation or transfer has
+#' finished. For an array returned by [as_array_async()], whether its transfer
+#' to the host has finished. Any other R object is always ready.
 #'
 #' @param x An async value object.
 #' @param ... Additional arguments (unused).
@@ -31,6 +19,10 @@ is_ready <- function(x, ...) {
 #' @title Await an async operation
 #' @description
 #' Block until the async operation is complete and return the object.
+#'
+#' For a [`PJRTBuffer`][pjrt_buffer], waits for its computation or transfer.
+#' For an array returned by [as_array_async()], waits for its transfer to the
+#' host and materializes the array. Any other R object is returned as is.
 #'
 #' @param x An async value object.
 #' @param ... Additional arguments (unused).
@@ -47,69 +39,16 @@ await.PJRTBuffer <- function(x, ...) {
 }
 
 #' @export
+await.default <- function(x, ...) {
+  host_array_materialize(x)
+}
+
+#' @export
 is_ready.PJRTBuffer <- function(x, ...) {
   impl_buffer_is_ready(x)
 }
 
-# PJRTArrayPromise Class -------------------------------------------------
-# Represents a promise of an R array (from device-to-host transfer)
-
-#' @title Create a PJRT Array Promise (internal)
-#' @description
-#' Internal constructor for async device-to-host transfer results.
-#' Users should not call this directly - use `as_array_async()` instead.
-#' @param data XPtr to PJRTHostData holding raw bytes and completion event.
-#' @param dtype Element type string (e.g., "f32", "i32").
-#' @param shape Integer vector of dimensions.
-#' @param minor_to_major Integer vector giving the device buffer's layout
-#'   (minor-to-major dimension order), used to reorder the bytes on readback.
-#' @return A `PJRTArrayPromise` object.
-#' @keywords internal
-pjrt_array_promise <- function(data, dtype, shape, minor_to_major) {
-  env <- new.env(parent = emptyenv())
-  env$data <- data
-  env$dtype <- dtype
-  env$shape <- shape
-  env$minor_to_major <- minor_to_major
-  env$materialized <- NULL
-  structure(env, class = "PJRTArrayPromise")
-}
-
 #' @export
-value.PJRTArrayPromise <- function(x, ...) {
-  if (is.null(x$materialized)) {
-    impl_host_data_await(x$data)
-    out <- impl_raw_to_array(x$data, x$dtype, x$shape, x$minor_to_major)
-    if (x$dtype %in% c("i64", "ui64", "ui32")) {
-      class(out) <- "integer64"
-    }
-    x$materialized <- out
-  }
-  x$materialized
-}
-
-#' @export
-is_ready.PJRTArrayPromise <- function(x, ...) {
-  impl_host_data_is_ready(x$data)
-}
-
-#' @export
-as_array.PJRTArrayPromise <- function(x, ...) {
-  value(x)
-}
-
-#' @export
-print.PJRTArrayPromise <- function(x, ...) {
-  cat("<PJRTArrayPromise>\n")
-  if (!is.null(x$materialized)) {
-    cat("Status: Materialized\n")
-    cat("Value:\n")
-    print(x$materialized)
-  } else {
-    cat("Status: Not materialized\n")
-    cat("dtype:", x$dtype, "\n")
-    cat("shape:", paste(x$shape, collapse = " x "), "\n")
-    cat("(Call value() to materialize the array)\n")
-  }
-  invisible(x)
+is_ready.default <- function(x, ...) {
+  impl_host_array_is_ready(x)
 }

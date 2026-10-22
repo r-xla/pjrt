@@ -8,21 +8,6 @@ namespace {
 R_altrep_class_t carrier_class;
 SEXP buffer_class_attr = R_NilValue;
 
-// Evaluates `fun(arg)` in pjrt's namespace.
-//
-// R's (un)serializer calls the ALTREP methods below from C, outside any Rcpp
-// entry point, so they must not throw C++ exceptions or hold objects with
-// destructors: an R error inside Rf_eval() jumps straight past these frames
-// without unwinding them. Hence plain R C API calls only; R resets the
-// PROTECT stack itself after an error.
-SEXP call_pjrt(const char* fun, SEXP arg) {
-  SEXP ns = PROTECT(R_FindNamespace(PROTECT(Rf_mkString("pjrt"))));
-  SEXP call = PROTECT(Rf_lang2(Rf_install(fun), arg));
-  SEXP out = Rf_eval(call, ns);
-  UNPROTECT(3);
-  return out;
-}
-
 // `xptr` is the buffer's external pointer, or R_NilValue for a buffer that was
 // serialized without data.
 SEXP new_carrier(SEXP xptr, SEXP keepalive) {
@@ -57,12 +42,12 @@ SEXP carrier_serialized_state(SEXP x) {
   if (xptr == R_NilValue) return R_NilValue;
   auto* buf = static_cast<rpjrt::PJRTBuffer*>(R_ExternalPtrAddr(xptr));
   if (buf == nullptr || buf->buffer == nullptr) return R_NilValue;
-  return call_pjrt("buffer_serialized_state", xptr);
+  return rpjrt::call_pjrt("buffer_serialized_state", xptr);
 }
 
 SEXP carrier_unserialize(SEXP, SEXP state) {
   if (state == R_NilValue) return new_carrier(R_NilValue, R_NilValue);
-  SEXP buf = PROTECT(call_pjrt("buffer_unserialize", state));
+  SEXP buf = PROTECT(rpjrt::call_pjrt("buffer_unserialize", state));
   SEXP carrier = R_ExternalPtrProtected(buf);
   UNPROTECT(1);
   return carrier;
@@ -87,6 +72,18 @@ void adopt_unserialized(SEXP x) {
 }
 
 }  // namespace
+
+namespace rpjrt {
+
+SEXP call_pjrt(const char* fun, SEXP arg) {
+  SEXP ns = PROTECT(R_FindNamespace(PROTECT(Rf_mkString("pjrt"))));
+  SEXP call = PROTECT(Rf_lang2(Rf_install(fun), arg));
+  SEXP out = Rf_eval(call, ns);
+  UNPROTECT(3);
+  return out;
+}
+
+}  // namespace rpjrt
 
 // [[Rcpp::init]]
 void register_buffer_altrep(DllInfo* dll) {
