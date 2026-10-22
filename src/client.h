@@ -66,9 +66,9 @@ class PJRTLoadedExecutable {
  public:
   // Declared before `executable`, whose deleter uses it (see pjrt_handle.h).
   std::shared_ptr<PJRT_Api> api;
-  PjrtHandle<PJRT_LoadedExecutable> executable;
-  PJRTLoadedExecutable(PjrtHandle<PJRT_LoadedExecutable> executable,
-                       std::shared_ptr<PJRT_Api> api,
+  PJRTHandle<PJRT_LoadedExecutable> executable;
+  PJRTLoadedExecutable(PJRTHandle<PJRT_LoadedExecutable> executable_handle,
+                       std::shared_ptr<PJRT_Api> client_api,
                        const std::string &program_code,
                        PJRTProgramFormat program_format, bool is_cpu);
   AsyncExecuteResult execute_async(

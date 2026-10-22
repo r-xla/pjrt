@@ -1,20 +1,9 @@
-// Owning handles for PJRT C API objects.
-//
-// A PjrtHandle<T> is a std::unique_ptr whose deleter calls T's PJRT_*_Destroy,
-// so an object is freed on every path out of its scope -- including a C++
-// exception thrown halfway through a constructor, which skips the destructor of
-// the object being built but still destroys its fully-constructed members.
-//
-// The deleter holds the PJRT_Api as a raw pointer rather than a copy of the
-// owner's std::shared_ptr<PJRT_Api>, so a handle costs no reference counting.
-// Whoever owns a handle must therefore keep the PJRT_Api alive at least as long
-// -- for a class member, by declaring its shared_ptr<PJRT_Api> *before* the
-// handle, so that the handle is destroyed first.
-//
-// The deleter runs in destructors and during stack unwinding, so it must not
-// throw: an error from the destroy call is dropped rather than raised.
-//
-// To own another object type, specialize PjrtDestroy for it.
+// Owning handles for PJRT C API objects: a PJRTHandle<T> is a std::unique_ptr
+// whose deleter calls T's PJRT_*_Destroy. The deleter holds a raw PJRT_Api*, so
+// the owner must keep the API alive at least as long as the handle -- for a
+// class member, by declaring its shared_ptr<PJRT_Api> before the handle. The
+// deleter must not throw (it runs during unwinding), so a destroy error is
+// dropped. To own another object type, specialize PJRTDestroy for it.
 
 #pragma once
 
@@ -28,10 +17,10 @@ namespace rpjrt {
 // How to free a T: `destroy(api, p)` calls T's PJRT_*_Destroy and returns its
 // error, which the caller owns.
 template <typename T>
-struct PjrtDestroy;
+struct PJRTDestroy;
 
 template <>
-struct PjrtDestroy<PJRT_LoadedExecutable> {
+struct PJRTDestroy<PJRT_LoadedExecutable> {
   static PJRT_Error *destroy(const PJRT_Api *api, PJRT_LoadedExecutable *p) {
     PJRT_LoadedExecutable_Destroy_Args args{};
     args.struct_size = sizeof(PJRT_LoadedExecutable_Destroy_Args);
@@ -41,7 +30,7 @@ struct PjrtDestroy<PJRT_LoadedExecutable> {
 };
 
 template <>
-struct PjrtDestroy<PJRT_Executable> {
+struct PJRTDestroy<PJRT_Executable> {
   static PJRT_Error *destroy(const PJRT_Api *api, PJRT_Executable *p) {
     PJRT_Executable_Destroy_Args args{};
     args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
@@ -50,13 +39,15 @@ struct PjrtDestroy<PJRT_Executable> {
   }
 };
 
+// A default-constructed deleter has no API to call through, so a handle must
+// get its pointer from make_pjrt_handle() or by move, never by reset().
 template <typename T>
-class PjrtDeleter {
+class PJRTDeleter {
  public:
-  PjrtDeleter() = default;
-  explicit PjrtDeleter(const PJRT_Api *api) : api_(api) {}
+  PJRTDeleter() = default;
+  explicit PJRTDeleter(const PJRT_Api *api) : api_(api) {}
   void operator()(T *p) const noexcept {
-    destroy_error(api_, PjrtDestroy<T>::destroy(api_, p));
+    destroy_error(api_, PJRTDestroy<T>::destroy(api_, p));
   }
 
  private:
@@ -64,12 +55,12 @@ class PjrtDeleter {
 };
 
 template <typename T>
-using PjrtHandle = std::unique_ptr<T, PjrtDeleter<T>>;
+using PJRTHandle = std::unique_ptr<T, PJRTDeleter<T>>;
 
 // Take ownership of `p`, freed through `api`.
 template <typename T>
-PjrtHandle<T> own(const PJRT_Api *api, T *p) {
-  return PjrtHandle<T>(p, PjrtDeleter<T>(api));
+PJRTHandle<T> make_pjrt_handle(const PJRT_Api *api, T *p) {
+  return PJRTHandle<T>(p, PJRTDeleter<T>(api));
 }
 
 }  // namespace rpjrt

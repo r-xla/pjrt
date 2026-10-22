@@ -80,8 +80,8 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
 
   check_err(this->api.get(), this->api->PJRT_Client_Compile_(&args));
   return std::make_unique<PJRTLoadedExecutable>(
-      own(this->api.get(), args.executable), this->api, program.code,
-      program.format(), this->is_cpu());
+      make_pjrt_handle(this->api.get(), args.executable), this->api,
+      program.code, program.format(), this->is_cpu());
 }
 
 AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
@@ -170,12 +170,13 @@ PJRTExecuteOptions::PJRTExecuteOptions(
       launch_id(launch_id) {}
 
 PJRTLoadedExecutable::PJRTLoadedExecutable(
-    PjrtHandle<PJRT_LoadedExecutable> executable, std::shared_ptr<PJRT_Api> api,
-    const std::string &program_code, PJRTProgramFormat program_format,
-    bool is_cpu)
-    : api(std::move(api)), executable(std::move(executable)), is_cpu_(is_cpu) {
-  // If either load throws, the destructor does not run, but `executable` -- a
-  // constructed member -- is still destroyed, which frees it.
+    PJRTHandle<PJRT_LoadedExecutable> executable_handle,
+    std::shared_ptr<PJRT_Api> client_api, const std::string &program_code,
+    PJRTProgramFormat program_format, bool is_cpu)
+    : api(std::move(client_api)),
+      executable(std::move(executable_handle)),
+      is_cpu_(is_cpu) {
+  // A throw below skips the destructor but still destroys `executable`.
   load_input_output_aliases_(program_code, program_format);
   load_num_outputs_();
 }
@@ -191,8 +192,8 @@ void PJRTLoadedExecutable::load_num_outputs_() {
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args));
   // The executable handle is a new object that this call must free.
-  PjrtHandle<PJRT_Executable> exec =
-      own(this->api.get(), get_exec_args.executable);
+  PJRTHandle<PJRT_Executable> exec =
+      make_pjrt_handle(this->api.get(), get_exec_args.executable);
 
   PJRT_Executable_NumOutputs_Args num_outputs_args{};
   num_outputs_args.struct_size = sizeof(PJRT_Executable_NumOutputs_Args);
