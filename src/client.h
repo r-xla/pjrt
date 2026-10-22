@@ -4,6 +4,7 @@
 
 #include "buffer.h"
 #include "event.h"
+#include "pjrt_handle.h"
 #include "program.h"
 #include "proto/xla/pjrt/proto/compile_options.pb.h"
 
@@ -63,9 +64,10 @@ class PJRTExecuteOptions {
 
 class PJRTLoadedExecutable {
  public:
-  PJRT_LoadedExecutable *executable;
+  // Declared before `executable`, whose deleter uses it (see pjrt_handle.h).
   std::shared_ptr<PJRT_Api> api;
-  PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
+  PjrtHandle<PJRT_LoadedExecutable> executable;
+  PJRTLoadedExecutable(PjrtHandle<PJRT_LoadedExecutable> executable,
                        std::shared_ptr<PJRT_Api> api,
                        const std::string &program_code,
                        PJRTProgramFormat program_format, bool is_cpu);
@@ -79,7 +81,6 @@ class PJRTLoadedExecutable {
   // Number of outputs the program produces. Static per executable, cached at
   // construction.
   size_t num_outputs() const { return num_outputs_; }
-  ~PJRTLoadedExecutable();
 
  private:
   // True if compiled for the CPU platform. Used to skip the stderr capture in

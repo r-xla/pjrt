@@ -5,6 +5,7 @@
 #include <cctype>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "buffer.h"
 #include "utils.h"
@@ -78,9 +79,9 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   args.compile_options_size = opts.size();
 
   check_err(this->api.get(), this->api->PJRT_Client_Compile_(&args));
-  return std::make_unique<PJRTLoadedExecutable>(args.executable, this->api,
-                                                program.code, program.format(),
-                                                this->is_cpu());
+  return std::make_unique<PJRTLoadedExecutable>(
+      own(this->api.get(), args.executable), this->api, program.code,
+      program.format(), this->is_cpu());
 }
 
 AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
@@ -168,12 +169,13 @@ PJRTExecuteOptions::PJRTExecuteOptions(
     : non_donatable_input_indices(non_donatable_indices),
       launch_id(launch_id) {}
 
-PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                                           std::shared_ptr<PJRT_Api> api,
-                                           const std::string &program_code,
-                                           PJRTProgramFormat program_format,
-                                           bool is_cpu)
-    : executable(executable), api(api), is_cpu_(is_cpu) {
+PJRTLoadedExecutable::PJRTLoadedExecutable(
+    PjrtHandle<PJRT_LoadedExecutable> executable, std::shared_ptr<PJRT_Api> api,
+    const std::string &program_code, PJRTProgramFormat program_format,
+    bool is_cpu)
+    : api(std::move(api)), executable(std::move(executable)), is_cpu_(is_cpu) {
+  // If either load throws, the destructor does not run, but `executable` -- a
+  // constructed member -- is still destroyed, which frees it.
   load_input_output_aliases_(program_code, program_format);
   load_num_outputs_();
 }
@@ -185,22 +187,19 @@ PJRTLoadedExecutable::PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
 void PJRTLoadedExecutable::load_num_outputs_() {
   PJRT_LoadedExecutable_GetExecutable_Args get_exec_args{};
   get_exec_args.struct_size = sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
-  get_exec_args.loaded_executable = this->executable;
+  get_exec_args.loaded_executable = this->executable.get();
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_GetExecutable_(&get_exec_args));
+  // The executable handle is a new object that this call must free.
+  PjrtHandle<PJRT_Executable> exec =
+      own(this->api.get(), get_exec_args.executable);
 
   PJRT_Executable_NumOutputs_Args num_outputs_args{};
   num_outputs_args.struct_size = sizeof(PJRT_Executable_NumOutputs_Args);
-  num_outputs_args.executable = get_exec_args.executable;
+  num_outputs_args.executable = exec.get();
   check_err(this->api.get(),
             this->api->PJRT_Executable_NumOutputs_(&num_outputs_args));
   this->num_outputs_ = num_outputs_args.num_outputs;
-
-  PJRT_Executable_Destroy_Args destroy_exec_args{};
-  destroy_exec_args.struct_size = sizeof(PJRT_Executable_Destroy_Args);
-  destroy_exec_args.executable = get_exec_args.executable;
-  check_err(this->api.get(),
-            this->api->PJRT_Executable_Destroy_(&destroy_exec_args));
 }
 
 namespace {
@@ -309,17 +308,10 @@ void PJRTLoadedExecutable::load_input_output_aliases_(
   }
 }
 
-PJRTLoadedExecutable::~PJRTLoadedExecutable() {
-  PJRT_LoadedExecutable_Destroy_Args args{};
-  args.struct_size = sizeof(PJRT_LoadedExecutable_Destroy_Args);
-  args.executable = this->executable;
-  check_err(this->api.get(), this->api->PJRT_LoadedExecutable_Destroy_(&args));
-}
-
 std::vector<PJRT_Device *> PJRTLoadedExecutable::addressable_devices() {
   PJRT_LoadedExecutable_AddressableDevices_Args args{};
   args.struct_size = sizeof(PJRT_LoadedExecutable_AddressableDevices_Args);
-  args.executable = this->executable;
+  args.executable = this->executable.get();
   check_err(this->api.get(),
             this->api->PJRT_LoadedExecutable_AddressableDevices_(&args));
   return std::vector(args.addressable_devices,
@@ -340,7 +332,7 @@ AsyncExecuteResult PJRTLoadedExecutable::execute_async(
 
   PJRT_LoadedExecutable_Execute_Args exec_args{};
   exec_args.struct_size = PJRT_LoadedExecutable_Execute_Args_STRUCT_SIZE;
-  exec_args.executable = this->executable;
+  exec_args.executable = this->executable.get();
   exec_args.options = &exec_options;
 
   // This is the actual parameters
