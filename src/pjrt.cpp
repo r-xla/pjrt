@@ -972,7 +972,7 @@ bool impl_test_buffer_aliases_keepalive(SEXP x) {
   auto api = buf->get_api();
   PJRT_Buffer_UnsafePointer_Args args{};
   args.struct_size = PJRT_Buffer_UnsafePointer_Args_STRUCT_SIZE;
-  args.buffer = buf->buffer;
+  args.buffer = buf->buffer.get();
   check_err(api.get(), api->PJRT_Buffer_UnsafePointer_(&args));
   const std::uintptr_t p = args.buffer_pointer;
   const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(keepalive));
@@ -1081,9 +1081,10 @@ Rcpp::List impl_loaded_executable_execute(
   }
 
   // For each input->output alias declared in the program, migrate the RAWSXP
-  // keepalive from the donated input XPtr to the aliased output XPtr, and null
-  // the donated input's PJRT_Buffer* so its finalizer is a no-op (PJRT already
-  // invalidated the handle during Execute).
+  // keepalive from the donated input XPtr to the aliased output XPtr, and
+  // destroy the donated input's PJRT_Buffer. Execute only emptied it -- it is
+  // deleted, but the object itself is ours to free -- and a null handle makes
+  // later uses of the input raise a clean "donated buffer" error.
   //
   // We only migrate when PJRT *actually* donated (confirmed via is_deleted),
   // because tf.aliasing_output lowers to a may-alias: PJRT may copy instead of
@@ -1110,7 +1111,7 @@ Rcpp::List impl_loaded_executable_execute(
     SEXP keepalive = rpjrt::buffer_keepalive(in_xptr_sexp);
     rpjrt::set_buffer_keepalive(out_xptr_sexp, keepalive);
     rpjrt::set_buffer_keepalive(in_xptr_sexp, R_NilValue);
-    in_buf->buffer = nullptr;
+    in_buf->buffer.reset();
 
     // With in-place donation the still-pending execution WRITES the output
     // into `keepalive`'s memory. Its only root is now the output XPtr, which

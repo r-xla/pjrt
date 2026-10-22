@@ -7,6 +7,7 @@
 
 #include "device.h"
 #include "event.h"
+#include "pjrt_handle.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
@@ -45,9 +46,13 @@ class PJRTBufferMemoryLayout {
 };
 
 class PJRTBuffer {
+  // Declared before `buffer`, whose deleter uses it (see pjrt_handle.h).
+  std::shared_ptr<PJRT_Api> api;
+
  public:
-  PJRTBuffer(PJRT_Buffer* buffer, std::shared_ptr<PJRT_Api> api);
-  PJRT_Buffer* buffer;
+  PJRTBuffer(PJRTHandle<PJRT_Buffer> buffer, std::shared_ptr<PJRT_Api> api);
+  // Null once the buffer was donated to an Execute.
+  PJRTHandle<PJRT_Buffer> buffer;
   ~PJRTBuffer();
   const std::vector<int64_t>& dimensions();
   std::unique_ptr<PJRTMemory> memory();
@@ -88,7 +93,6 @@ class PJRTBuffer {
   PJRT_Device* device_ptr();
 
  private:
-  std::shared_ptr<PJRT_Api> api;
   bool meta_cached_ = false;
   PJRT_Buffer_Type cached_type_;
   std::vector<int64_t> cached_dims_;

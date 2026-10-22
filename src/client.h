@@ -4,6 +4,7 @@
 
 #include "buffer.h"
 #include "event.h"
+#include "pjrt_handle.h"
 #include "program.h"
 #include "proto/xla/pjrt/proto/compile_options.pb.h"
 
@@ -63,10 +64,11 @@ class PJRTExecuteOptions {
 
 class PJRTLoadedExecutable {
  public:
-  PJRT_LoadedExecutable *executable;
+  // Declared before `executable`, whose deleter uses it (see pjrt_handle.h).
   std::shared_ptr<PJRT_Api> api;
-  PJRTLoadedExecutable(PJRT_LoadedExecutable *executable,
-                       std::shared_ptr<PJRT_Api> api,
+  PJRTHandle<PJRT_LoadedExecutable> executable;
+  PJRTLoadedExecutable(PJRTHandle<PJRT_LoadedExecutable> executable_handle,
+                       std::shared_ptr<PJRT_Api> client_api,
                        const std::string &program_code,
                        PJRTProgramFormat program_format, bool is_cpu);
   AsyncExecuteResult execute_async(
@@ -79,7 +81,6 @@ class PJRTLoadedExecutable {
   // Number of outputs the program produces. Static per executable, cached at
   // construction.
   size_t num_outputs() const { return num_outputs_; }
-  ~PJRTLoadedExecutable();
 
  private:
   // True if compiled for the CPU platform. Used to skip the stderr capture in
@@ -97,10 +98,10 @@ class PJRTLoadedExecutable {
 
 class PJRTClient {
  public:
-  PJRT_Client *client;
+  // Declared before `client`, whose deleter uses it (see pjrt_handle.h).
   std::shared_ptr<PJRT_Api> api;
-  PJRTClient(PJRT_Client *client, std::shared_ptr<PJRT_Api> api);
-  ~PJRTClient();
+  PJRTHandle<PJRT_Client> client;
+  PJRTClient(PJRTHandle<PJRT_Client> client, std::shared_ptr<PJRT_Api> api);
   std::vector<PJRT_Device *> devices();
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options,
