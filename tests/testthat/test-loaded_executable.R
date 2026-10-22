@@ -429,6 +429,28 @@ module @double_inplace {
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
   })
 
+  it("stays correct over a chain of donations whose inputs are freed", {
+    # Every donated input is destroyed as soon as Execute returns, while the
+    # executions it fed may still be queued; collecting the inputs' R objects
+    # along the way must not disturb the chain. Runs on any platform.
+    mlir <- '
+module @add_one_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %one = stablehlo.constant dense<1.0> : tensor<4xf32>
+    %out = stablehlo.add %arg0, %one : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"))
+    x <- pjrt_buffer(c(0, 10, 20, 30), dtype = "f32")
+    for (i in seq_len(200L)) {
+      x <- pjrt_execute(exec, x)
+      if (i %% 50L == 0L) gc()
+    }
+    expect_equal(as.numeric(as_array(x)), c(200, 210, 220, 230))
+  })
+
   it("raises a clean R-level error on operations on a donated input", {
     skip_if(!is_cpu())
     mlir <- '
