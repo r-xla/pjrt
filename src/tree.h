@@ -56,7 +56,7 @@ inline bool is_bare_list(SEXP x) {
 // The deepest list nesting flatten_rec accepts. The tree functions recurse once
 // per level, so an unbounded depth would overflow the C stack and kill the R
 // session; past this limit flatten_rec raises an R error instead.
-inline constexpr int kMaxTreeDepth = 10000;
+inline constexpr int kMaxTreeDepth = 1000;
 
 // Append the preorder encoding of `x` to `t`, collecting leaves in order.
 // `depth` is the list nesting of `x` within the value being flattened.
