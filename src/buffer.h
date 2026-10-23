@@ -57,17 +57,14 @@ class PJRTBuffer {
   const std::vector<int64_t>& dimensions();
   std::unique_ptr<PJRTMemory> memory();
   std::unique_ptr<PJRTBufferMemoryLayout> memory_layout();
-  // The buffer's dense layout as a minor-to-major permutation of logical
-  // dimensions (minor_to_major[0] = fastest-varying dim). Row-major is
-  // [n-1, ..., 0]; column-major is [0, ..., n-1]. Used to interpret the bytes
-  // from buffer_to_host_async, which arrive in the device layout.
-  std::vector<int64_t> minor_to_major();
   PJRT_Buffer_Type element_type();
   std::unique_ptr<PJRTDevice> device();
   std::shared_ptr<PJRT_Api> get_api() const { return api; }
-  // Returns event - caller must keep host_buffer alive until event completes
+  // Copies the buffer into host_buffer in row-major or column-major order,
+  // whatever the device layout. Returns event - caller must keep host_buffer
+  // alive until event completes
   std::unique_ptr<PJRTEvent> buffer_to_host_async(
-      std::span<uint8_t>& host_buffer);
+      std::span<uint8_t>& host_buffer, bool row_major);
 
   // Non-blocking check if the buffer's data is ready (uses
   // PJRT_Buffer_ReadyEvent)

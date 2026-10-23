@@ -114,7 +114,7 @@ static std::vector<CopyT> buffer_to_host_copy(rpjrt::PJRTBuffer *buf,
   std::vector<CopyT> temp_vec(static_cast<size_t>(numel));
   std::span<uint8_t> host_buffer(reinterpret_cast<uint8_t *>(temp_vec.data()),
                                  static_cast<size_t>(numel * sizeof(CopyT)));
-  auto event = buf->buffer_to_host_async(host_buffer);
+  auto event = buf->buffer_to_host_async(host_buffer, true);
   if (event) {
     event->await();
     event->check_error();

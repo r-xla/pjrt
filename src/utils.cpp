@@ -240,18 +240,6 @@ size_t sizeof_pjrt_buffer_type(PJRT_Buffer_Type type) {
   }
 }
 
-bool format_is_irrelevant(const std::vector<int64_t> &dims) {
-  // there is at most one non-1 dimension
-
-  int64_t non_1_dim = 0;
-  for (int64_t dim : dims) {
-    if (dim != 1) {
-      non_1_dim++;
-    }
-  }
-  return non_1_dim <= 1;
-}
-
 std::optional<std::vector<int64_t>> get_byte_strides(
     const std::vector<int64_t> &dims, bool row_major, size_t sizeof_type) {
   std::optional<std::vector<int64_t>> byte_strides_opt;
