@@ -119,20 +119,18 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
       return leaves[li++];
     case RTree::ListNode: {
       const int n = tree.n_children[node];
-      SEXP out = PROTECT(Rf_allocVector(VECSXP, n));
+      Rcpp::List out(n);
       for (int k = 0; k < n; ++k) {
-        SET_VECTOR_ELT(out, k, unflatten_rec(tree, leaves, pos, li));
+        out[k] = unflatten_rec(tree, leaves, pos, li);
       }
       if (tree.is_named(node)) {
         const std::int32_t off = tree.name_off[node];
-        SEXP nms = PROTECT(Rf_allocVector(STRSXP, n));
+        Rcpp::CharacterVector nms(n);
         for (int k = 0; k < n; ++k) {
           SET_STRING_ELT(nms, k, Rf_mkChar(tree.names[off + k].c_str()));
         }
-        Rf_setAttrib(out, R_NamesSymbol, nms);
-        UNPROTECT(1);
+        out.names() = nms;
       }
-      UNPROTECT(1);
       return out;
     }
   }

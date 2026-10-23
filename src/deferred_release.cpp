@@ -8,13 +8,17 @@
 
 namespace rpjrt {
 
-// Thread-safe queue for R objects pending release
+// Thread-safe queue of preserve() tokens pending release
 static std::mutex g_release_mutex;
 static std::vector<SEXP> g_pending_releases;
 
-void queue_release(SEXP obj) {
+SEXP preserve(SEXP obj) { return Rcpp::Rcpp_precious_preserve(obj); }
+
+void release(SEXP token) { Rcpp::Rcpp_precious_remove(token); }
+
+void queue_release(SEXP token) {
   std::lock_guard<std::mutex> lock(g_release_mutex);
-  g_pending_releases.push_back(obj);
+  g_pending_releases.push_back(token);
 }
 
 void process_pending_releases() {
@@ -25,10 +29,8 @@ void process_pending_releases() {
     to_release.swap(g_pending_releases);
   }
 
-  // Now release all objects on the main R thread (no lock held)
-  for (SEXP obj : to_release) {
-    R_ReleaseObject(obj);
-  }
+  // Now release all tokens on the main R thread (no lock held)
+  for (SEXP token : to_release) release(token);
 }
 
 std::size_t pending_release_count() {
