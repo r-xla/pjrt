@@ -40,6 +40,8 @@
   it in column-major order directly (#50).
 * Bugfix: printing a buffer, and copying it to another client, respect a
   non-row-major device layout.
+* `as_array()` reads `f64`, `i32`, `i64` and `ui64` buffers straight into the
+  result vector instead of through a host-side copy.
 
 # pjrt 0.6.0
 
