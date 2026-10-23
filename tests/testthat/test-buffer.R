@@ -1555,6 +1555,9 @@ module {
   expect_equal(as_array(out), m, tolerance = 1e-6)
   # as_raw goes through the same device→host path, so it must agree too.
   expect_equal(as_raw(out, row_major = FALSE), as_raw(pjrt_buffer(m, dtype = "f32"), row_major = FALSE))
+  expect_equal(as_raw(out, row_major = TRUE), as_raw(pjrt_buffer(m, dtype = "f32"), row_major = TRUE))
+  expect_equal(await(as_array(out, await = FALSE)), m, tolerance = 1e-6)
+  expect_identical(capture.output(print(out)), capture.output(print(pjrt_buffer(m, dtype = "f32"))))
 })
 
 describe("CPU buffer memory management", {

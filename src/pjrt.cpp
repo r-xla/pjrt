@@ -684,90 +684,12 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 
   Rcpp::RawVector raw_data(total_bytes);
 
-  // The bytes from PJRT arrive in the device layout. When that layout already
-  // matches what the caller wants — row-major requested and device is
-  // row-major, or the layout is irrelevant (e.g. 1-D) — we can copy straight
-  // into the output with no temporary or reorder.
-  const auto minor_to_major = buffer->minor_to_major();
-  const bool device_row_major = is_row_major(minor_to_major);
-  if (format_is_irrelevant(dimensions) || (row_major && device_row_major)) {
-    std::span<uint8_t> host_buffer(
-        reinterpret_cast<uint8_t *>(raw_data.begin()), total_bytes);
-    auto event = buffer->buffer_to_host_async(host_buffer);
-    if (event) {
-      event->await();
-      event->check_error();
-    }
-    return raw_data;
-  }
-
-  // Otherwise read the device-layout bytes into a temporary, normalize them to
-  // logical row-major, then emit the requested order (row-major as-is, or
-  // column-major via a transpose).
-  auto handle_transpose = [&](auto type_tag) {
-    using T = decltype(type_tag);
-    std::vector<T> device_vec(numel);
-    std::span<uint8_t> host_buffer(
-        reinterpret_cast<uint8_t *>(device_vec.data()), total_bytes);
-    auto event = buffer->buffer_to_host_async(host_buffer);
-    if (event) {
-      event->await();
-      event->check_error();
-    }
-    std::vector<T> row_major_vec(numel);
-    device_to_row_major<T>(device_vec.data(), row_major_vec.data(), dimensions,
-                           minor_to_major);
-    if (row_major) {
-      std::copy(row_major_vec.begin(), row_major_vec.end(),
-                reinterpret_cast<T *>(raw_data.begin()));
-    } else {
-      row_to_col_order<T, T>(
-          row_major_vec, reinterpret_cast<T *>(raw_data.begin()), dimensions);
-    }
-  };
-
-  switch (element_type) {
-    case PJRT_Buffer_Type_F16:
-      handle_transpose(half_float::half{});
-      break;
-    case PJRT_Buffer_Type_BF16:
-      handle_transpose(rpjrt::bfloat16{});
-      break;
-    case PJRT_Buffer_Type_F32:
-      handle_transpose(float{});
-      break;
-    case PJRT_Buffer_Type_F64:
-      handle_transpose(double{});
-      break;
-    case PJRT_Buffer_Type_S8:
-      handle_transpose(int8_t{});
-      break;
-    case PJRT_Buffer_Type_S16:
-      handle_transpose(int16_t{});
-      break;
-    case PJRT_Buffer_Type_S32:
-      handle_transpose(int32_t{});
-      break;
-    case PJRT_Buffer_Type_S64:
-      handle_transpose(int64_t{});
-      break;
-    case PJRT_Buffer_Type_U8:
-      handle_transpose(uint8_t{});
-      break;
-    case PJRT_Buffer_Type_U16:
-      handle_transpose(uint16_t{});
-      break;
-    case PJRT_Buffer_Type_U32:
-      handle_transpose(uint32_t{});
-      break;
-    case PJRT_Buffer_Type_U64:
-      handle_transpose(uint64_t{});
-      break;
-    case PJRT_Buffer_Type_PRED:
-      handle_transpose(uint8_t{});
-      break;
-    default:
-      Rcpp::stop("Unsupported buffer element type for conversion to host.");
+  std::span<uint8_t> host_buffer(reinterpret_cast<uint8_t *>(raw_data.begin()),
+                                 total_bytes);
+  auto event = buffer->buffer_to_host_async(host_buffer, row_major);
+  if (event) {
+    event->await();
+    event->check_error();
   }
   return raw_data;
 }
@@ -788,13 +710,12 @@ SEXP impl_buffer_copy_to_device(SEXP buffer_sexp,
 
     std::vector<uint8_t> host_bytes(total_bytes);
     std::span<uint8_t> host_span(host_bytes.data(), total_bytes);
-    auto event = buffer->buffer_to_host_async(host_span);
+    auto event = buffer->buffer_to_host_async(host_span, true);
     if (event) {
       event->await();
       event->check_error();
     }
 
-    // Row-major strides so the data lands in the same layout
     auto byte_strides =
         get_byte_strides(dims, true, sizeof_pjrt_buffer_type(dtype));
     auto result = dst_client->buffer_from_host_async(

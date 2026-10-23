@@ -18,6 +18,7 @@
 #include <R_ext/Altrep.h>
 #include <R_ext/Rdynload.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -34,14 +35,13 @@
 
 namespace {
 
-// A device-to-host transfer: the bytes PJRT copies the buffer into (in the
-// device layout), and the event that fires once it is done.
+// A device-to-host transfer: the bytes PJRT copies the buffer into (in
+// column-major order), and the event that fires once it is done.
 struct HostTransfer {
   std::vector<uint8_t> bytes;
   std::unique_ptr<rpjrt::PJRTEvent> event;  // null once awaited, or if empty
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
-  std::vector<int64_t> minor_to_major;
   std::string check;  // as_array()'s `check` level
 
   HostTransfer() = default;
@@ -63,12 +63,11 @@ std::unique_ptr<HostTransfer> start_transfer(SEXP buffer_sexp) {
   auto t = std::make_unique<HostTransfer>();
   t->type = buffer->element_type();
   t->dims = buffer->dimensions();
-  t->minor_to_major = buffer->minor_to_major();
   const auto numel = number_of_elements(t->dims);
   if (numel > 0) {
     t->bytes.resize(numel * sizeof_pjrt_buffer_type(t->type));
     std::span<uint8_t> host_buffer(t->bytes);
-    t->event = buffer->buffer_to_host_async(host_buffer);
+    t->event = buffer->buffer_to_host_async(host_buffer, false);
   }
   return t;
 }
@@ -95,13 +94,11 @@ SEXPTYPE r_type(PJRT_Buffer_Type type) {
   }
 }
 
-// Reorders the transfer's device-layout bytes into the column-major `out`,
-// casting each element to `out`'s type.
+// Casts each element of the transfer's column-major bytes to `out`'s type.
 template <typename T>
 void convert(const HostTransfer& t, SEXP out) {
   const T* src = reinterpret_cast<const T*>(t.bytes.data());
-  std::vector<T> row_major(XLENGTH(out));
-  device_to_row_major<T>(src, row_major.data(), t.dims, t.minor_to_major);
+  const R_xlen_t n = XLENGTH(out);
   switch (TYPEOF(out)) {
     case REALSXP:
       if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
@@ -109,17 +106,16 @@ void convert(const HostTransfer& t, SEXP out) {
         static_assert(sizeof(double) == sizeof(int64_t),
                       "bit64::integer64 layout requires sizeof(double) == "
                       "sizeof(int64_t)");
-        row_to_col_order<T, int64_t>(
-            row_major, reinterpret_cast<int64_t*>(REAL(out)), t.dims);
+        std::copy(src, src + n, reinterpret_cast<int64_t*>(REAL(out)));
       } else {
-        row_to_col_order<T, double>(row_major, REAL(out), t.dims);
+        std::copy(src, src + n, REAL(out));
       }
       break;
     case INTSXP:
-      row_to_col_order<T, int>(row_major, INTEGER(out), t.dims);
+      std::copy(src, src + n, INTEGER(out));
       break;
     default:
-      row_to_col_order<T, int>(row_major, LOGICAL(out), t.dims);
+      std::copy(src, src + n, LOGICAL(out));
   }
 }
 

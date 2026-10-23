@@ -34,6 +34,10 @@
   program with input/output aliasing, no longer leaks the executable.
 * Bugfix: a buffer donated to an execution is freed instead of leaking its
   PJRT handle.
+* Reading a buffer back to R no longer transposes it on the host: PJRT copies
+  it in column-major order directly (#50).
+* Bugfix: printing a buffer, and copying it to another client, respect a
+  non-row-major device layout.
 
 # pjrt 0.6.0
 
