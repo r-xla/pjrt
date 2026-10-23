@@ -1,4 +1,4 @@
-.PHONY: format format-cpp format-r
+.PHONY: format format-cpp format-r diagrams
 
 format: format-cpp format-r
 
@@ -11,3 +11,7 @@ format-r:
 	@echo "Formatting R sources with air"
 	@find R tests/testthat -maxdepth 1 -name '*.R' ! -name 'RcppExports.R' -print0 \
 	  | xargs -0 sh -c 'set -- "$$@"; [ "$$#" -gt 0 ] && air format "$$@"' _
+
+# The tikz diagrams of the articles; needs latex and dvisvgm.
+diagrams:
+	@vignettes/articles/figures/cuda-kernels/render.sh

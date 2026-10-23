@@ -1,0 +1,34 @@
+\documentclass[tikz,dvisvgm,border=0pt]{standalone}
+\input{preamble}
+\begin{document}
+\begin{tikzpicture}
+  \node[hostbox, minimum height=1.3cm] (src) at (0, 0)
+    {CUDA C++ source\\[2pt]{\footnotesize\ttfamily \_\_global\_\_ void axpy(...)}};
+  \node[accbox, minimum height=1.3cm] (nvrtc) at (4.0, 0) {NVRTC\\[1pt]{\footnotesize runtime compiler}};
+
+  \node[devbox, minimum width=4.6cm] (ptx) at (8.6, 1.0)
+    {\textbf{PTX} \texttt{compute\_XY}\\[1pt]{\footnotesize virtual instruction set (text):}\\[-1pt]{\footnotesize runs on X.Y and every later GPU}};
+  \node[devbox, minimum width=4.6cm] (cubin) at (8.6, -1.0)
+    {\textbf{cubin} \texttt{sm\_XY}\\[1pt]{\footnotesize machine code for one generation:}\\[-1pt]{\footnotesize runs on X.Y up to X.9}};
+  \node[region=muted, fit=(ptx)(cubin), inner sep=6pt] (fat) {};
+  \node[note, anchor=south] at (fat.north) {a \textbf{fatbin} bundles several of these};
+
+  \node[box, minimum height=1.3cm] (load) at (13.4, 0)
+    {\texttt{cuModuleLoadData()}\\[1pt]{\footnotesize the driver compiles PTX}\\[-1pt]{\footnotesize to machine code first}};
+
+  \node[devbox, minimum height=1.1cm] (module) at (13.4, -3.4) {module\\[1pt]{\footnotesize loaded into a context}};
+  \node[devbox, minimum height=1.1cm] (fn) at (7.4, -3.4) {function\\[1pt]{\footnotesize\ttfamily axpy}};
+  \node[accbox, minimum height=1.1cm] (launch) at (2.6, -3.4)
+    {\texttt{cuLaunchKernel()}\\[1pt]{\footnotesize grid, block, parameters, stream}};
+
+  \draw[flow] (src) -- (nvrtc);
+  \draw[flow] (nvrtc.east) -- ++(0.55, 0) |- (ptx.west);
+  \draw[flow] (nvrtc.east) -- ++(0.55, 0) |- (cubin.west);
+  \draw[flow] (ptx.east) -- ++(0.55, 0) |- (load.west);
+  \draw[flow] (cubin.east) -- ++(0.55, 0) |- (load.west);
+  \draw[flow] (load) -- (module);
+  \draw[flow] (module) -- node[above, note] {\texttt{cuModuleGetFunction()}} (fn);
+  \draw[flow] (fn) -- (launch);
+
+\end{tikzpicture}
+\end{document}

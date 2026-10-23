@@ -1,0 +1,31 @@
+% Shared preamble of the diagrams in vignettes/articles/cuda-kernels.Rmd.
+% Render them with `make diagrams` from the package root.
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit, backgrounds, calc, shapes.geometric, decorations.pathreplacing}
+
+\definecolor{host}{HTML}{3B6EA8}
+\definecolor{device}{HTML}{2E8B57}
+\definecolor{accent}{HTML}{C0571B}
+\definecolor{muted}{HTML}{6B6B6B}
+
+% A white card behind every figure, so that it reads in pkgdown's dark mode.
+\tikzset{
+  every picture/.append style={
+    show background rectangle,
+    background rectangle/.style={fill=white, rounded corners=6pt},
+    inner frame sep=8pt,
+    font=\sffamily\small,
+    >={Stealth[length=2.2mm]},
+  },
+  box/.style={draw, rounded corners=3pt, thick, align=center, inner sep=5pt, fill=white},
+  hostbox/.style={box, draw=host, fill=host!8},
+  devbox/.style={box, draw=device, fill=device!8},
+  accbox/.style={box, draw=accent, fill=accent!8},
+  region/.style={draw=#1, rounded corners=6pt, thick, dashed, inner sep=8pt},
+  heading/.style={font=\sffamily\bfseries\small, text=#1},
+  note/.style={font=\sffamily\footnotesize, text=muted, align=center},
+  flow/.style={->, thick},
+  code/.style={font=\ttfamily\footnotesize},
+}
