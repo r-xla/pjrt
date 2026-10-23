@@ -2,7 +2,7 @@
 % Please edit documentation in R/tree.R
 \name{tree_repr}
 \alias{tree_repr}
-\title{Canonical Tree Representation}
+\title{Tree Representation}
 \usage{
 tree_repr(tree)
 }
@@ -14,8 +14,14 @@ A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 \code{character(1)}
 }
 \description{
-A canonical structural string for a tree: \code{"*"} for a leaf, \code{"NULL"} for an
-empty node, and \code{"list(...)"} for list nodes.
+A structural string for a tree: \code{"*"} for a leaf, \code{"NULL"} for an empty
+node, \code{"list(...)"} for list nodes, and for an object of a class registered
+with \code{\link[=register_tree_node]{register_tree_node()}} whatever its \code{repr} makes of it (\code{"<cls>(...)"}
+once the class is no longer registered). A named list is tagged
+\code{"list<named>(...)"}, so that a list whose names are all empty is told apart
+from an unnamed one. The string is canonical -- trees that are not
+\code{\link[=tree_equal]{tree_equal()}} print differently -- as far as the \code{repr}s of their classes
+are.
 }
 \examples{
 tree_repr(build_tree(list(a = 1, b = list(2, NULL))))

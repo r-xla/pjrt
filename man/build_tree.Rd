@@ -8,7 +8,8 @@ build_tree(x)
 }
 \arguments{
 \item{x}{(any)\cr
-Object whose structure to capture. Bare lists are recursed into;
+Object whose structure to capture. Bare lists and objects of a class
+registered with \code{\link[=register_tree_node]{register_tree_node()}} are recursed into;
 everything else is a leaf.}
 }
 \value{

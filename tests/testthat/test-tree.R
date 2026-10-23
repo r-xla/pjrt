@@ -164,7 +164,7 @@ test_that("tree_root_kind and tree_child_kinds", {
     tree_child_kinds(build_tree(list(1, list(2), NULL))),
     c("leaf", "list", "null")
   )
-  expect_error(tree_child_kinds(build_tree(1)), "list node")
+  expect_error(tree_child_kinds(build_tree(1)), "list or object node")
 })
 
 test_that("tree_child_names and tree_child_sizes", {
@@ -333,8 +333,8 @@ describe("build_tree", {
   })
 
   it("raises an R error for a value nested past the depth limit", {
-    expect_error(build_tree(nest(1001L)), "nested more than 1000 lists deep")
-    expect_error(flatten(nest(100000L)), "nested more than 1000 lists deep")
+    expect_error(build_tree(nest(1001L)), "nested more than 1000 levels deep")
+    expect_error(flatten(nest(100000L)), "nested more than 1000 levels deep")
   })
 })
 
@@ -480,4 +480,225 @@ test_that("property: random nested structures round-trip", {
       expect_identical(tree_leaf_mask(tree, marked), ref_mask)
     }
   }
+})
+
+describe("print.RTree", {
+  it("prints the structure of a tree", {
+    expect_snapshot({
+      build_tree(1)
+      build_tree(NULL)
+      build_tree(list())
+      build_tree(structure(list(), names = character(0L)))
+      build_tree(list(1, NULL, list(2, 3)))
+      build_tree(list(a = 1, b = list(c = 2, d = NULL)))
+      build_tree(list(a = 1, 2))
+      tree_concat(list(build_tree(list(1, 2)), build_tree(3)), names = c("value", "grad"))
+    })
+  })
+})
+
+describe("register_tree_node", {
+  point <- function(x, y, unit = "cm") structure(list(x = x, y = y, unit = unit), class = "point")
+  local_point <- function(envir = parent.frame()) {
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
+      unflatten = function(children, unit) point(children$x, children$y, unit),
+      repr = function(children, unit) {
+        sprintf("point[%s](%s)", unit %||% "", paste(names(children), "=", children, collapse = ", "))
+      }
+    )
+    withr::defer(unregister_tree_node("point"), envir = envir)
+  }
+
+  it("makes an object a node whose children are flattened", {
+    local_point()
+    x <- list(a = point(1, list(2, 3)), b = 4)
+    expect_equal(flatten(x), list(1, 2, 3, 4))
+    tree <- build_tree(x)
+    expect_identical(tree_size(tree), 4L)
+    expect_equal(unflatten(tree, list(10, 20, 30, 40)), list(a = point(10, list(20, 30)), b = 40))
+  })
+
+  it("hands the aux data back to unflatten", {
+    local_point()
+    tree <- build_tree(list(point(1, 2, "in"), point(3, 4, "mm")))
+    expect_equal(unflatten(tree, list(10, 20, 30, 40)), list(point(10, 20, "in"), point(30, 40, "mm")))
+  })
+
+  it("pairs each object with its own aux data when objects nest", {
+    local_point()
+    x <- point(point(1, 2, "in"), point(3, 4, "mm"), "km")
+    tree <- build_tree(x)
+    expect_identical(tree_size(tree), 4L)
+    expect_equal(unflatten(tree, flatten(x)), x)
+    expect_equal(unflatten(tree_concat(list(tree, build_tree(5))), c(flatten(x), 5)), list(x, 5))
+  })
+
+  it("keeps the class and the aux data in the structure", {
+    local_point()
+    expect_false(tree_equal(build_tree(point(1, 2)), build_tree(list(x = 1, y = 2))))
+    expect_false(identical(tree_hash(build_tree(point(1, 2))), tree_hash(build_tree(list(x = 1, y = 2)))))
+    expect_true(tree_equal(build_tree(point(1, 2)), build_tree(point(3, 4))))
+    expect_identical(tree_hash(build_tree(point(1, 2))), tree_hash(build_tree(point(3, 4))))
+    expect_false(tree_equal(build_tree(point(1, 2, "cm")), build_tree(point(1, 2, "in"))))
+    expect_false(identical(tree_hash(build_tree(point(1, 2, "cm"))), tree_hash(build_tree(point(1, 2, "in")))))
+    expect_identical(tree_path(build_tree(list(p = point(1, 2))), 2L), "p$y")
+    expect_identical(tree_child_kinds(build_tree(list(point(1, 2), 3))), c("object", "leaf"))
+  })
+
+  it("renders an object node with its class's repr", {
+    local_point()
+    expect_identical(format(build_tree(list(p = point(1, 2)))), "list<named>(p = point[cm](x = *, y = *))")
+    expect_identical(format(build_tree(point(1, list(2, NULL), NULL))), "point[](x = *, y = list(*, NULL))")
+    diff <- tree_diff(build_tree(list(p = point(1, 2, "cm"))), build_tree(list(p = point(1, 2, "in"))))
+    expect_identical(diff$prefix, "p")
+    expect_identical(c(diff$a, diff$b), c("point[cm](x = *, y = *)", "point[in](x = *, y = *)"))
+  })
+
+  it("prints an object node as its class's repr renders it", {
+    local_point()
+    expect_snapshot({
+      build_tree(point(1, 2))
+      build_tree(list(a = point(1, list(2, NULL)), b = 3))
+      build_tree(point(point(1, 2, "in"), point(3, 4, "mm"), "km"))
+      build_tree(point(1, 2, NULL))
+      tree_diff(build_tree(list(p = point(1, 2, "cm"))), build_tree(list(p = point(1, 2, "in"))))
+    })
+  })
+
+  it("prints an object node generically once its class is unregistered", {
+    local_point()
+    tree <- build_tree(point(1, 2))
+    unregister_tree_node("point")
+    expect_snapshot(tree)
+  })
+
+  it("hands repr the children's strings, named as the children are, and the aux data", {
+    seen <- list()
+    register_tree_node(
+      "pair",
+      flatten = function(p) list(unclass(p), "aux"),
+      unflatten = function(children, aux) children,
+      repr = function(children, aux) {
+        seen[[length(seen) + 1L]] <<- list(children = children, aux = aux)
+        "pair"
+      }
+    )
+    withr::defer(unregister_tree_node("pair"))
+    expect_identical(format(build_tree(structure(list(1, list(2, NULL)), class = "pair"))), "pair")
+    format(build_tree(structure(list(1, 2), names = c("", ""), class = "pair")))
+    format(build_tree(structure(list(a = 1), class = "pair")))
+    expect_identical(seen[[1L]], list(children = c("*", "list(*, NULL)"), aux = "aux"))
+    expect_identical(seen[[2L]]$children, stats::setNames(c("*", "*"), c("", "")))
+    expect_identical(seen[[3L]]$children, c(a = "*"))
+  })
+
+  it("serves the top-level child functions at an object root", {
+    local_point()
+    tree <- build_tree(point(1, list(2, 3)))
+    expect_identical(tree_root_kind(tree), "object")
+    expect_identical(tree_child_names(tree), c("x", "y"))
+    expect_identical(tree_child_kinds(tree), c("leaf", "list"))
+    expect_identical(tree_child_sizes(tree), c(1L, 2L))
+    expect_identical(tree_leaf_mask(tree, "y"), c(FALSE, TRUE, TRUE))
+    expect_identical(format(tree_filter_by_names(tree, "y")), "list<named>(y = list(*, *))")
+  })
+
+  it("leaves an object a leaf once its class is unregistered", {
+    local_point()
+    unregister_tree_node("point")
+    p <- point(1, 2)
+    expect_equal(flatten(list(p)), list(p))
+  })
+
+  it("keys an environment aux by identity, however its bindings change", {
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x), p$env),
+      unflatten = function(children, env) point(children$x, 0, env),
+      repr = function(children, env) "point"
+    )
+    withr::defer(unregister_tree_node("point"))
+    env <- new.env()
+    before <- build_tree(point(1, 2, env))
+    env$x <- 1
+    after <- build_tree(point(1, 2, env))
+    expect_true(tree_equal(before, after))
+    expect_identical(tree_hash(before), tree_hash(after))
+  })
+
+  it("keeps each object's aux data when filtering by names", {
+    local_point()
+    x <- list(a = point(1, 2, "in"), b = point(3, point(4, 5, "mm")), c = point(6, 7, "km"))
+    sub <- tree_filter_by_names(build_tree(x), c("a", "c"))
+    expect_equal(unflatten(sub, list(10, 20, 60, 70)), list(a = point(10, 20, "in"), c = point(60, 70, "km")))
+    sub <- tree_filter_by_names(build_tree(x), "b")
+    expect_equal(unflatten(sub, list(30, 40, 50)), list(b = point(30, point(40, 50, "mm"))))
+  })
+
+  it("survives a flatten or a repr that changes the registry", {
+    register_tree_node(
+      "point",
+      flatten = function(p) {
+        unregister_tree_node("point")
+        list(list(x = p$x), NULL)
+      },
+      unflatten = function(children, aux) children,
+      repr = toString
+    )
+    withr::defer(unregister_tree_node("point"))
+    expect_identical(tree_size(build_tree(point(1, 2))), 1L)
+    # a child's repr that registers enough classes to rehash the registry
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x), p$unit),
+      unflatten = function(children, unit) point(children$x, 0, unit),
+      repr = function(children, unit) {
+        if (unit == "inner") {
+          for (i in seq_len(100L)) {
+            register_tree_node(paste0("rehash", i), identity, identity, identity)
+          }
+        }
+        sprintf("point[%s](%s)", unit, paste(children, collapse = ", "))
+      }
+    )
+    withr::defer(
+      for (i in seq_len(100L)) {
+        unregister_tree_node(paste0("rehash", i))
+      }
+    )
+    expect_identical(format(build_tree(point(point(1, 2, "inner"), 3, "outer"))), "point[outer](point[inner](*))")
+  })
+
+  it("errors when unflattening an object whose class is no longer registered", {
+    local_point()
+    tree <- build_tree(point(1, 2))
+    unregister_tree_node("point")
+    expect_error(unflatten(tree, list(1, 2)), "no longer registered")
+  })
+
+  it("requires flatten to return list(children, aux)", {
+    register_tree_node("point", flatten = function(p) unclass(p), unflatten = identity, repr = toString)
+    withr::defer(unregister_tree_node("point"))
+    expect_snapshot(flatten(point(1, 2)), error = TRUE)
+    register_tree_node("point", flatten = function(p) list(1, NULL), unflatten = identity, repr = toString)
+    expect_snapshot(flatten(point(1, 2)), error = TRUE)
+  })
+
+  it("requires repr to return a string", {
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
+      unflatten = identity,
+      repr = function(children, unit) NA_character_
+    )
+    withr::defer(unregister_tree_node("point"))
+    expect_snapshot(format(build_tree(point(1, 2))), error = TRUE)
+  })
+
+  it("validates its arguments", {
+    expect_snapshot(register_tree_node("point", identity, identity), error = TRUE)
+    expect_snapshot(register_tree_node(c("a", "b"), identity, identity, identity), error = TRUE)
+  })
 })

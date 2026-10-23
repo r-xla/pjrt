@@ -45,4 +45,32 @@ std::uint64_t hash_double(std::uint64_t h, double x);
 // closure, environment) folds nothing and leaves `h` untouched.
 std::uint64_t hash_atomic(std::uint64_t h, SEXP v);
 
+// Fold any R value into `h` as far as r_identical() allows: its type, and for a
+// vector its length and atomic contents (hash_atomic()). A non-vector folds its
+// type alone: an environment's length is its number of bindings, which changes
+// while it stays the same object (and takes a walk over them to count).
+inline std::uint64_t hash_value(std::uint64_t h, SEXP v) {
+  h = hash_combine(h, static_cast<std::uint64_t>(TYPEOF(v)));
+  if (!Rf_isVector(v)) return h;
+  h = hash_combine(h, static_cast<std::uint64_t>(Rf_xlength(v)));
+  return hash_atomic(h, v);
+}
+
+// identical(), tightened for use as a cache key -- the equality the folds
+// above must agree with, used for static leaves and a tree's aux data alike.
+//
+// IDENT_USE_CLOENV compares closure environments (R's default); without it two
+// distinct closures with the same body would wrongly merge.
+//
+// IDENT_NUM_AS_BITS compares doubles and complex bitwise rather than with `==`.
+// R's default merges +0.0 with -0.0, and bit64 stores NA_integer64_ as the
+// int64 minimum -- whose double reinterpretation is -0.0 -- so under `==` a
+// static NA_integer64_ and a static 0 are "identical" and would share a cache
+// entry, silently running each other's executable. Comparing bits splits them.
+// The cost is only that +0.0 and -0.0 now compile separate (identical) entries:
+// a finer key can waste a compile, never return the wrong program.
+inline bool r_identical(SEXP a, SEXP b) {
+  return R_compute_identical(a, b, IDENT_USE_CLOENV | IDENT_NUM_AS_BITS);
+}
+
 }  // namespace rpjrt

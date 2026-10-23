@@ -17,8 +17,10 @@ Object to flatten.}
 Recursively flattens a nested list into a single flat list containing only
 the leaf values, preserving left-to-right order.
 
-A bare (class-less) list is recursed into; \code{NULL} contributes no leaves;
-everything else (a classed object, an atomic, a function, ...) is a leaf.
+A bare (class-less) list is recursed into; \code{NULL} contributes no leaves; an
+object of a class registered with \code{\link[=register_tree_node]{register_tree_node()}} is recursed into
+through the children its \code{flatten} returns; everything else (a classed
+object, an atomic, a function, ...) is a leaf.
 
 Use \code{\link[=build_tree]{build_tree()}} to capture the nesting structure so it can be restored
 with \code{\link[=unflatten]{unflatten()}}.

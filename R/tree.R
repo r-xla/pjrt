@@ -3,8 +3,10 @@
 #' Recursively flattens a nested list into a single flat list containing only
 #' the leaf values, preserving left-to-right order.
 #'
-#' A bare (class-less) list is recursed into; `NULL` contributes no leaves;
-#' everything else (a classed object, an atomic, a function, ...) is a leaf.
+#' A bare (class-less) list is recursed into; `NULL` contributes no leaves; an
+#' object of a class registered with [register_tree_node()] is recursed into
+#' through the children its `flatten` returns; everything else (a classed
+#' object, an atomic, a function, ...) is a leaf.
 #'
 #' Use [build_tree()] to capture the nesting structure so it can be restored
 #' with [unflatten()].
@@ -22,6 +24,76 @@ flatten <- function(x) {
   impl_tree_build_flatten(x)$leaves
 }
 
+#' @title Register a Class as a Tree Node
+#' @description
+#' Makes the objects of a class nodes of a tree rather than leaves: [flatten()]
+#' and [build_tree()] recurse into the children `flatten` returns,
+#' [unflatten()] rebuilds an object of the class from them with `unflatten`,
+#' and [tree_repr()] (and so the tree's printer) renders the node with `repr`.
+#' This is JAX's `register_pytree_node()`, plus the printer.
+#'
+#' Besides its children, `flatten` returns the object's aux data: whatever else
+#' `unflatten` needs to rebuild it, such as a setting that is not an array.
+#' The class and the aux data are part of the tree's structure, compared with
+#' [identical()], so two trees that differ in either are not equal and the
+#' dispatcher compiles them separately. Keep the aux data small and put the
+#' arrays among the children.
+#'
+#' An object is a node of the first of its classes that is registered.
+#' Registering a class again replaces its functions.
+#' @param class (`character(1)`)\cr
+#'   The class.
+#' @param flatten (`function`)\cr
+#'   Takes an object of the class and returns `list(children, aux)`: its
+#'   children, a bare `list` whose names the tree keeps, and its aux data, any
+#'   value (`NULL` if there is none).
+#' @param unflatten (`function`)\cr
+#'   Takes the children, a `list` named as `flatten` names them, and the aux
+#'   data, and returns an object of the class.
+#' @param repr (`function`)\cr
+#'   Takes the children's [tree_repr()] strings, a `character` vector named as
+#'   `flatten` names the children, and the aux data, and returns the node's
+#'   string, a `character(1)`, which [tree_repr()] shows as it is. Render
+#'   nodes that differ in their aux data or their children's names
+#'   differently, so that trees that are not equal print differently.
+#' @return `NULL`, invisibly.
+#' @seealso [flatten()], [build_tree()]
+#' @examples
+#' point <- function(x, y, unit) {
+#'   structure(list(x = x, y = y, unit = unit), class = "point")
+#' }
+#' register_tree_node(
+#'   "point",
+#'   flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
+#'   unflatten = function(children, unit) point(children$x, children$y, unit),
+#'   repr = function(children, unit) {
+#'     sprintf("point[%s](%s)", unit, paste(children, collapse = ", "))
+#'   }
+#' )
+#' flatten(list(point(1, 2, "cm"), 3))
+#' tree <- build_tree(list(point(1, 2, "cm"), 3))
+#' tree
+#' unflatten(tree, list(10, 20, 30))
+#' build_tree(point(1, 2, "cm")) == build_tree(point(1, 2, "in"))
+#' unregister_tree_node("point")
+#' @export
+register_tree_node <- function(class, flatten, unflatten, repr) {
+  checkmate::assert_string(class)
+  checkmate::assert_function(flatten)
+  checkmate::assert_function(unflatten)
+  checkmate::assert_function(repr)
+  impl_register_tree_node(class, flatten, unflatten, repr)
+  invisible(NULL)
+}
+
+#' @rdname register_tree_node
+#' @export
+unregister_tree_node <- function(class) {
+  checkmate::assert_string(class)
+  impl_unregister_tree_node(class)
+  invisible(NULL)
+}
+
 #' @title Build Tree
 #' @description
 #' Captures the nesting structure of an object as an opaque `RTree`.
@@ -37,7 +109,8 @@ flatten <- function(x) {
 #' \href{https://docs.jax.dev/en/latest/pytrees.html}{JAX's pytree}, which is
 #' where the idea comes from.
 #' @param x (any)\cr
-#'   Object whose structure to capture. Bare lists are recursed into;
+#'   Object whose structure to capture. Bare lists and objects of a class
+#'   registered with [register_tree_node()] are recursed into;
 #'   everything else is a leaf.
 #' @return A `RTree`.
 #' @seealso [flatten()], [unflatten()], [tree_size()]
@@ -85,7 +158,8 @@ tree_size <- impl_tree_size
 #' @title Compare Tree Structures
 #' @description
 #' Structural equality of two trees: identical node kinds, child structure,
-#' leaf positions, and names.
+#' leaf positions, names, and the classes and aux data of object nodes (see
+#' [register_tree_node()]).
 #'
 #' `a == b` (and `a != b`) is shorthand for this, except that comparing a tree
 #' with a non-tree is `FALSE` instead of an error.
@@ -118,9 +192,11 @@ tree_equal <- impl_tree_equal
 #' @title Structural Tree Hash
 #' @description
 #' A hash of a tree's structure -- node kinds, child structure, leaf positions,
-#' and names -- consistent with [tree_equal()]: trees that are [tree_equal()]
-#' hash to the same value. Intended as a cache key for tree-structured
-#' dispatch.
+#' names, and the class and aux data of each object of a class registered with
+#' [register_tree_node()] -- consistent with [tree_equal()]: trees that are
+#' [tree_equal()] hash to the same value. Intended as a cache key for
+#' tree-structured dispatch within a session: a class folds in by its address,
+#' so the hash of a tree with registered objects differs between sessions.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`, the structural hash.
@@ -134,7 +210,8 @@ tree_hash <- impl_tree_hash
 #' @title Tree Root Node Kind
 #' @description
 #' The kind of a tree's root node: `"leaf"` for a single leaf, `"list"` for a
-#' list node, or `"null"` for the empty (`NULL`) node.
+#' list node, `"object"` for an object of a class registered with
+#' [register_tree_node()], or `"null"` for the empty (`NULL`) node.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`
@@ -147,12 +224,12 @@ tree_root_kind <- impl_tree_kind
 
 #' @title Top-Level Child Names
 #' @description
-#' The names of a list tree's top-level children (with `""` for unnamed
-#' slots), or `NULL` if the root is not a list node or carries no names.
+#' The names of a list or object tree's top-level children (with `""` for
+#' unnamed slots), or `NULL` if the root has no children or carries no names.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return A `character` vector of child names, or `NULL` when the root is not
-#'   a list node or is an *unnamed* list. An empty but named list
+#'   a list or object node or is *unnamed*. An empty but named list
 #'   (`structure(list(), names = character(0))`) returns `character(0)`, not
 #'   `NULL`: the tree preserves the named/unnamed distinction (see
 #'   [tree_equal()]).
@@ -164,10 +241,10 @@ tree_child_names <- impl_tree_child_names
 
 #' @title Top-Level Child Kinds
 #' @description
-#' The node kind (`"leaf"`, `"list"`, or `"null"`) of each top-level child of
-#' a list tree.
+#' The node kind (`"leaf"`, `"list"`, `"object"`, or `"null"`; see
+#' [tree_root_kind()]) of each top-level child of a list or object tree.
 #' @param tree (`RTree`)\cr
-#'   A tree whose root is a list node.
+#'   A tree whose root is a list or object node.
 #' @return A `character` vector, one element per top-level child.
 #' @examples
 #' tree_child_kinds(build_tree(list(1, list(2), NULL)))
@@ -176,9 +253,9 @@ tree_child_kinds <- impl_tree_child_kinds
 
 #' @title Top-Level Child Sizes
 #' @description
-#' The number of leaves under each top-level child of a list tree.
+#' The number of leaves under each top-level child of a list or object tree.
 #' @param tree (`RTree`)\cr
-#'   A tree whose root is a list node.
+#'   A tree whose root is a list or object node.
 #' @return An `integer` vector, one element per top-level child.
 #' @examples
 #' tree_child_sizes(build_tree(list(a = 1, b = list(2, 3), c = NULL)))
@@ -207,9 +284,11 @@ tree_path <- function(tree, i) {
 #' @description
 #' Keeps only the top-level children whose names match `names` (in tree
 #' order), reindexing the remaining leaves so they map to contiguous positions
-#' in a flat list.
+#' in a flat list. The kept children are put under a list root, also when the
+#' root of `tree` is an object node.
 #' @param tree (`RTree`)\cr
-#'   A named list tree as returned by [build_tree()].
+#'   A tree whose root is a named list or object node, as returned by
+#'   [build_tree()].
 #' @param names (`character()`)\cr
 #'   Names of children to keep.
 #' @return A `RTree` containing only the selected children.
@@ -251,7 +330,7 @@ tree_concat <- function(children, names = NULL) {
 #' leaf sitting under a top-level child whose name is in `groups`. An empty
 #' `groups` yields an all-`FALSE` mask.
 #' @param tree (`RTree`)\cr
-#'   A tree whose root is a list node.
+#'   A tree whose root is a list or object node.
 #' @param groups (`character()`)\cr
 #'   Top-level child names to mark.
 #' @return A `logical` vector of length `tree_size(tree)`.
@@ -263,10 +342,16 @@ tree_leaf_mask <- function(tree, groups) {
   impl_tree_mask_from_names(tree, as.character(groups))
 }
 
-#' @title Canonical Tree Representation
+#' @title Tree Representation
 #' @description
-#' A canonical structural string for a tree: `"*"` for a leaf, `"NULL"` for an
-#' empty node, and `"list(...)"` for list nodes.
+#' A structural string for a tree: `"*"` for a leaf, `"NULL"` for an empty
+#' node, `"list(...)"` for list nodes, and for an object of a class registered
+#' with [register_tree_node()] whatever its `repr` makes of it (`"<cls>(...)"`
+#' once the class is no longer registered). A named list is tagged
+#' `"list<named>(...)"`, so that a list whose names are all empty is told apart
+#' from an unnamed one. The string is canonical -- trees that are not
+#' [tree_equal()] print differently -- as far as the `repr`s of their classes
+#' are.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`

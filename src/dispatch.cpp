@@ -148,8 +148,13 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   // static bit on the leaves each static-named argument contributed (this
   // overlay is not part of the shared Rtree API).
   std::vector<SEXP> leaves;
-  RTree in_tree;
-  flatten_rec(args, leaves, in_tree);
+  // Flattened straight into the key: copying an RTree copies one aux object per
+  // registered tree node.
+  CacheKey key;
+  const RTree& in_tree = key.in_tree;
+  // the children of registered tree node objects, which `leaves` points into
+  std::vector<Rcpp::RObject> keep;
+  flatten_rec(args, leaves, key.in_tree, keep);
   const std::vector<char> is_static = static_leaf_mask(in_tree, statics);
 
   // 2. Validate and classify leaves into key leaves + per-leaf execute
@@ -158,8 +163,6 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
   // compile callback is only ever asked to compile, never to validate.
   const bool move = d.move_inputs();
   const char* call_backend = d.backend().c_str();
-  CacheKey key;
-  key.in_tree = in_tree;
   // Reserved to the exact leaf count and never grown past it, which is what
   // keeps the `&key.leaves.back().aval` pointers in exec_inputs valid: no
   // reallocation can happen while the two are built side by side.
@@ -233,7 +236,8 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
         }
       }
       key.leaves.push_back(std::move(kl));
-      // `$data` is a field of a leaf of `args`, which roots it for the call.
+      // `$data` is a field of a leaf, which `args` roots for the call -- or,
+      // for a leaf a registered class's `flatten` returned, `keep`.
       exec_inputs.push_back({SEXP(al->data), &key.leaves.back().aval});
       continue;
     }

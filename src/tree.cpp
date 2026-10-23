@@ -16,15 +16,33 @@
 #include <unordered_set>
 #include <vector>
 
+#include "deferred_release.h"
 #include "hash.h"
 
 namespace rpjrt {
 
+std::unordered_map<SEXP, TreeNodeType>& tree_node_types() {
+  static std::unordered_map<SEXP, TreeNodeType> types;
+  return types;
+}
+
+SEXP tree_node_key(const std::string& cls, bool preserve) {
+  SEXP key = Rf_mkCharCE(cls.c_str(), CE_UTF8);
+  if (preserve) {
+    // Each key once: what is preserved is never released.
+    static std::unordered_set<SEXP> preserved;
+    if (preserved.insert(key).second) rpjrt::preserve(key);
+  }
+  return key;
+}
+
 // Structural hash of an RTree, consistent with tree_eq (declared in tree.h):
-// hashes exactly the fields tree_eq compares -- kinds, child counts, name
-// offsets, and child names -- as flat linear scans. The node count seeds the
-// hash and the name count precedes the names, so that the flat stream of
-// values cannot be regrouped into a different tree.
+// hashes the fields tree_eq compares -- kinds, child counts, name offsets,
+// child names, object classes and aux data -- as flat linear scans. The node
+// count seeds the hash and the name count precedes the names, so that the flat
+// stream of values cannot be regrouped into a different tree. A class folds
+// as its key's address, which names it alone (see RTree::Object), and an aux
+// value by hash_value(), which never splits what r_identical() joins.
 std::uint64_t tree_hash(const RTree& tree) {
   std::uint64_t h = tree.kind.size();
   for (std::uint8_t k : tree.kind) h = hash_combine(h, k);
@@ -33,6 +51,10 @@ std::uint64_t tree_hash(const RTree& tree) {
   h = hash_combine(h, tree.names.size());
   for (const std::string& s : tree.names) {
     h = hash_combine(h, std::hash<std::string>{}(s));
+  }
+  for (const RTree::Object& o : tree.objects) {
+    h = hash_combine(h, reinterpret_cast<std::uintptr_t>(o.cls));
+    h = hash_value(h, o.aux);
   }
   return h;
 }
@@ -52,20 +74,27 @@ static const char* kind_string(std::uint8_t k) {
       return "leaf";
     case RTree::ListNode:
       return "list";
+    case RTree::ObjectNode:
+      return "object";
     default:
       return "null";
   }
 }
 
 // Append the subtree rooted at node `c` of `src` onto `dst`, rebasing each
-// copied node's name offset into `dst.names` (subtree sizes and child counts
-// are position-independent and copy verbatim).
-static void append_subtree(RTree& dst, const RTree& src, std::size_t c) {
+// copied node's name offset into `dst.names` and appending its objects, from
+// `src.objects[o]` on, to `dst.objects` (subtree sizes and child counts are
+// position-independent and copy verbatim). Returns the index of the first
+// object of `src` past the subtree.
+static std::size_t append_subtree(RTree& dst, const RTree& src, std::size_t c,
+                                  std::size_t o) {
   const std::size_t span = static_cast<std::size_t>(src.subtree_nodes[c]);
   for (std::size_t q = c; q < c + span; ++q) {
     dst.kind.push_back(src.kind[q]);
     dst.n_children.push_back(src.n_children[q]);
     dst.subtree_nodes.push_back(src.subtree_nodes[q]);
+    if (src.kind[q] == RTree::ObjectNode)
+      dst.objects.push_back(src.objects[o++]);
     if (src.is_named(q)) {
       dst.name_off.push_back(static_cast<std::int32_t>(dst.names.size()));
       const std::int32_t off = src.name_off[q];
@@ -76,14 +105,39 @@ static void append_subtree(RTree& dst, const RTree& src, std::size_t c) {
       dst.name_off.push_back(-1);
     }
   }
+  return o;
 }
 
-// The canonical structural string: "*" for a leaf, "NULL" for a null tree,
-// "list(a = *, list(*, NULL))" for lists. A named list is tagged
-// "list<named>(...)" so the named/unnamed distinction stays visible even when
-// the names are empty or the list has no children (individual "" names are
-// otherwise printed positionally). `p` advances past the rendered subtree.
-static void repr_rec(const RTree& t, std::size_t& p, std::string& out) {
+// Append `open`, then the children of `node` -- each rendered by
+// `child(k)`, which appends to `out`, and prefixed with its name when it has a
+// non-empty one -- separated by commas, then ")".
+template <typename Child>
+static void repr_children(const RTree& t, std::size_t node, const char* open,
+                          std::string& out, Child child) {
+  const bool named = t.is_named(node);
+  const std::int32_t off = named ? t.name_off[node] : 0;
+  out += open;
+  for (int k = 0; k < t.n_children[node]; ++k) {
+    if (k > 0) out += ", ";
+    if (named && !t.names[off + k].empty()) {
+      out += t.names[off + k];
+      out += " = ";
+    }
+    child(k);
+  }
+  out += ")";
+}
+
+// The structural string: "*" for a leaf, "NULL" for a null tree,
+// "list(a = *, list(*, NULL))" for lists, and for an object of a registered
+// class whatever its `repr` makes of its aux data and its children's strings
+// ("<cls>(a = *)" once the class is no longer registered). A named list is
+// tagged "list<named>(...)" so the named/unnamed distinction stays visible even
+// when the names are empty or the list has no children (individual "" names
+// are otherwise printed positionally). `p` advances past the rendered subtree,
+// `o` past its objects.
+static void repr_rec(const RTree& t, std::size_t& p, std::size_t& o,
+                     std::string& out) {
   const std::size_t node = p++;
   switch (t.kind[node]) {
     case RTree::LeafNode:
@@ -92,20 +146,46 @@ static void repr_rec(const RTree& t, std::size_t& p, std::string& out) {
     case RTree::NullNode:
       out += "NULL";
       return;
-    case RTree::ListNode: {
+    case RTree::ListNode:
+    case RTree::ObjectNode: {
       const int n = t.n_children[node];
       const bool named = t.is_named(node);
       const std::int32_t off = named ? t.name_off[node] : 0;
-      out += named ? "list<named>(" : "list(";
-      for (int k = 0; k < n; ++k) {
-        if (k > 0) out += ", ";
-        if (named && !t.names[off + k].empty()) {
-          out += t.names[off + k];
-          out += " = ";
+      if (t.kind[node] == RTree::ObjectNode) {
+        const RTree::Object& obj = t.objects[o++];
+        // The children's strings, named as the children are. Rendered before
+        // the class is looked up: their `repr`s are R code, which may change
+        // the registry.
+        Rcpp::CharacterVector children(n);
+        for (int k = 0; k < n; ++k) {
+          std::string child;
+          repr_rec(t, p, o, child);
+          children[k] = child;
         }
-        repr_rec(t, p, out);
+        if (named) {
+          children.attr("names") = std::vector<std::string>(
+              t.names.begin() + off, t.names.begin() + off + n);
+        }
+        auto it = tree_node_types().find(obj.cls);
+        if (it == tree_node_types().end()) {
+          const std::string open = "<" + std::string(CHAR(obj.cls)) + ">(";
+          repr_children(t, node, open.c_str(), out,
+                        [&](int k) { out += children[k]; });
+          return;
+        }
+        Rcpp::Function repr(it->second.repr);
+        Rcpp::RObject res = repr(children, obj.aux);
+        if (TYPEOF(res) != STRSXP || XLENGTH(res) != 1 ||
+            STRING_ELT(res, 0) == NA_STRING) {
+          Rcpp::stop(
+              "the `repr` registered for class \"%s\" must return a string",
+              CHAR(obj.cls));
+        }
+        out += CHAR(STRING_ELT(res, 0));
+        return;
       }
-      out += ")";
+      repr_children(t, node, named ? "list<named>(" : "list(", out,
+                    [&](int) { repr_rec(t, p, o, out); });
       return;
     }
   }
@@ -113,7 +193,8 @@ static void repr_rec(const RTree& t, std::size_t& p, std::string& out) {
 
 static std::string subtree_repr(const RTree& t, std::size_t p) {
   std::string out;
-  repr_rec(t, p, out);
+  std::size_t o = count_objects(t, 0, p);
+  repr_rec(t, p, o, out);
   return out;
 }
 
@@ -156,7 +237,8 @@ static bool tree_path_rec(const RTree& t, std::size_t& p, int target, int& next,
       return true;
     case RTree::NullNode:
       return false;
-    case RTree::ListNode: {
+    case RTree::ListNode:
+    case RTree::ObjectNode: {
       const int n = t.n_children[node];
       for (int k = 0; k < n; ++k) {
         const std::string child_prefix =
@@ -171,11 +253,11 @@ static bool tree_path_rec(const RTree& t, std::size_t& p, int target, int& next,
 
 // Walk two trees in parallel; report the first structural divergence as the
 // path prefix plus the node indices of the two diverging subtrees. `pa`/`pb`
-// advance in lockstep.
+// advance in lockstep, and so does `o`, the index of the next object in both.
 static bool tree_diff_rec(const RTree& A, std::size_t& pa, const RTree& B,
-                          std::size_t& pb, const std::string& prefix,
-                          std::string& out_prefix, std::size_t& out_a,
-                          std::size_t& out_b) {
+                          std::size_t& pb, std::size_t& o,
+                          const std::string& prefix, std::string& out_prefix,
+                          std::size_t& out_a, std::size_t& out_b) {
   const std::size_t na = pa++;
   const std::size_t nb = pb++;
   auto diverge = [&]() {
@@ -185,7 +267,13 @@ static bool tree_diff_rec(const RTree& A, std::size_t& pa, const RTree& B,
     return true;
   };
   if (A.kind[na] != B.kind[nb]) return diverge();
-  if (A.kind[na] != RTree::ListNode) return false;
+  if (A.kind[na] == RTree::ObjectNode) {
+    const RTree::Object& a = A.objects[o];
+    const RTree::Object& b = B.objects[o];
+    ++o;
+    if (a.cls != b.cls || !r_identical(a.aux, b.aux)) return diverge();
+  }
+  if (!A.has_children(na)) return false;
 
   const int an = A.n_children[na];
   const int bn = B.n_children[nb];
@@ -201,7 +289,8 @@ static bool tree_diff_rec(const RTree& A, std::size_t& pa, const RTree& B,
   if (an != bn || !names_equal) return diverge();
   for (int k = 0; k < an; ++k) {
     const std::string child_prefix = prefix + path_suffix(A, na, k, prefix);
-    if (tree_diff_rec(A, pa, B, pb, child_prefix, out_prefix, out_a, out_b)) {
+    if (tree_diff_rec(A, pa, B, pb, o, child_prefix, out_prefix, out_a,
+                      out_b)) {
       return true;
     }
   }
@@ -220,9 +309,9 @@ static const RTree& as_tree(SEXP handle) {
   return *ptr;
 }
 
-static void require_list(const RTree& t, const char* what) {
-  if (t.kind.empty() || t.kind[0] != RTree::ListNode) {
-    Rcpp::stop("%s requires a tree whose root is a list node", what);
+static void require_node(const RTree& t, const char* what) {
+  if (t.kind.empty() || !t.has_children(0)) {
+    Rcpp::stop("%s requires a tree whose root is a list or object node", what);
   }
 }
 
@@ -233,7 +322,8 @@ SEXP impl_tree_build(SEXP x) {
   using namespace rpjrt;
   auto tree = std::make_unique<RTree>();
   std::vector<SEXP> leaves;
-  flatten_rec(x, leaves, *tree);
+  std::vector<Rcpp::RObject> keep;
+  flatten_rec(x, leaves, *tree, keep);
   return tree_xptr(tree.release());
 }
 
@@ -246,7 +336,8 @@ Rcpp::List impl_tree_build_flatten(SEXP x) {
   using namespace rpjrt;
   auto tree = std::make_unique<RTree>();
   std::vector<SEXP> leaves;
-  flatten_rec(x, leaves, *tree);
+  std::vector<Rcpp::RObject> keep;
+  flatten_rec(x, leaves, *tree, keep);
   Rcpp::List out(leaves.size());
   for (std::size_t k = 0; k < leaves.size(); ++k) out[k] = leaves[k];
   return Rcpp::List::create(Rcpp::Named("tree") = tree_xptr(tree.release()),
@@ -265,7 +356,8 @@ SEXP impl_tree_unflatten(SEXP tree, Rcpp::List x) {
   std::vector<SEXP> leaves(x.begin(), x.end());
   std::size_t p = 0;
   std::size_t li = 0;
-  return unflatten_rec(t, leaves, p, li);
+  std::size_t oi = 0;
+  return unflatten_rec(t, leaves, p, li, oi);
 }
 
 // [[Rcpp::export]]
@@ -295,7 +387,7 @@ std::string impl_tree_kind(SEXP tree) {
 SEXP impl_tree_child_names(SEXP tree) {
   using namespace rpjrt;
   const RTree& t = as_tree(tree);
-  if (t.kind[0] != RTree::ListNode || !t.is_named(0)) return R_NilValue;
+  if (!t.has_children(0) || !t.is_named(0)) return R_NilValue;
   const int n = t.n_children[0];
   Rcpp::CharacterVector out(n);
   const std::int32_t off = t.name_off[0];
@@ -307,7 +399,7 @@ SEXP impl_tree_child_names(SEXP tree) {
 Rcpp::CharacterVector impl_tree_child_kinds(SEXP tree) {
   using namespace rpjrt;
   const RTree& t = as_tree(tree);
-  require_list(t, "child_kinds()");
+  require_node(t, "child_kinds()");
   const std::vector<std::size_t> kids = child_nodes(t, 0);
   Rcpp::CharacterVector out(kids.size());
   for (std::size_t k = 0; k < kids.size(); ++k) {
@@ -320,7 +412,7 @@ Rcpp::CharacterVector impl_tree_child_kinds(SEXP tree) {
 Rcpp::IntegerVector impl_tree_child_sizes(SEXP tree) {
   using namespace rpjrt;
   const RTree& t = as_tree(tree);
-  require_list(t, "child_sizes()");
+  require_node(t, "child_sizes()");
   const std::vector<std::size_t> kids = child_nodes(t, 0);
   Rcpp::IntegerVector out(kids.size());
   for (std::size_t k = 0; k < kids.size(); ++k) {
@@ -352,7 +444,7 @@ std::string impl_tree_path(SEXP tree, int i) {
 SEXP impl_tree_filter_by_names(SEXP tree, Rcpp::CharacterVector names) {
   using namespace rpjrt;
   const RTree& t = as_tree(tree);
-  require_list(t, "filter_by_names()");
+  require_node(t, "filter_by_names()");
   if (!t.is_named(0)) Rcpp::stop("filter_by_names(): tree must have names");
   std::unordered_set<std::string> keep(names.size());
   for (R_xlen_t k = 0; k < names.size(); ++k) {
@@ -361,14 +453,18 @@ SEXP impl_tree_filter_by_names(SEXP tree, Rcpp::CharacterVector names) {
   const std::vector<std::size_t> kids = child_nodes(t, 0);
 
   auto out = std::make_unique<RTree>();
-  std::vector<std::size_t> kept;
+  // Each kept child with the index of its first object, counted along so the
+  // whole filter stays one pass over the tree.
+  std::vector<std::pair<std::size_t, std::size_t>> kept;
   std::vector<std::string> kept_names;
+  std::size_t o = t.kind[0] == RTree::ObjectNode ? 1 : 0;
   for (std::size_t k = 0; k < kids.size(); ++k) {
     const std::string nm = t.names[t.name_off[0] + k];
     if (keep.count(nm) > 0) {
-      kept.push_back(kids[k]);
+      kept.emplace_back(kids[k], o);
       kept_names.push_back(nm);
     }
+    o += count_objects(t, kids[k], kids[k] + t.subtree_nodes[kids[k]]);
   }
   // Emit the new named root, then its kept children's subtrees. Root names go
   // first (offset 0); append_subtree rebases each child's name offsets after.
@@ -377,7 +473,7 @@ SEXP impl_tree_filter_by_names(SEXP tree, Rcpp::CharacterVector names) {
   out->subtree_nodes.push_back(0);  // backpatched below
   out->name_off.push_back(0);
   for (const std::string& nm : kept_names) out->names.push_back(nm);
-  for (std::size_t c : kept) append_subtree(*out, t, c);
+  for (const auto& [c, first] : kept) append_subtree(*out, t, c, first);
   out->subtree_nodes[0] = static_cast<std::int32_t>(out->kind.size());
   return tree_xptr(out.release());
 }
@@ -411,7 +507,7 @@ SEXP impl_tree_concat(Rcpp::List children, SEXP names) {
     out->name_off.push_back(-1);
   }
   for (R_xlen_t k = 0; k < children.size(); ++k) {
-    append_subtree(*out, as_tree(children[k]), 0);  // whole child tree
+    append_subtree(*out, as_tree(children[k]), 0, 0);  // whole child tree
   }
   out->subtree_nodes[0] = static_cast<std::int32_t>(out->kind.size());
   return tree_xptr(out.release());
@@ -422,7 +518,7 @@ Rcpp::LogicalVector impl_tree_mask_from_names(SEXP tree,
                                               Rcpp::CharacterVector names) {
   using namespace rpjrt;
   const RTree& t = as_tree(tree);
-  require_list(t, "mask_from_names()");
+  require_node(t, "mask_from_names()");
   std::unordered_set<std::string> marked(names.size());
   for (R_xlen_t k = 0; k < names.size(); ++k) {
     marked.insert(std::string(names[k]));
@@ -450,11 +546,25 @@ SEXP impl_tree_diff(SEXP a, SEXP b) {
   const RTree& A = as_tree(a);
   const RTree& B = as_tree(b);
   std::string prefix;
-  std::size_t pa = 0, pb = 0, sub_a = 0, sub_b = 0;
-  if (!tree_diff_rec(A, pa, B, pb, "", prefix, sub_a, sub_b)) {
+  std::size_t pa = 0, pb = 0, o = 0, sub_a = 0, sub_b = 0;
+  if (!tree_diff_rec(A, pa, B, pb, o, "", prefix, sub_a, sub_b)) {
     return R_NilValue;
   }
   return Rcpp::List::create(Rcpp::Named("prefix") = prefix,
                             Rcpp::Named("a") = subtree_repr(A, sub_a),
                             Rcpp::Named("b") = subtree_repr(B, sub_b));
+}
+
+// [[Rcpp::export]]
+void impl_register_tree_node(std::string cls, SEXP flatten, SEXP unflatten,
+                             SEXP repr) {
+  using namespace rpjrt;
+  tree_node_types()[tree_node_key(cls, true)] = {
+      Rcpp::RObject(flatten), Rcpp::RObject(unflatten), Rcpp::RObject(repr)};
+}
+
+// [[Rcpp::export]]
+void impl_unregister_tree_node(std::string cls) {
+  using namespace rpjrt;
+  tree_node_types().erase(tree_node_key(cls));
 }

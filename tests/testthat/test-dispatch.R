@@ -210,6 +210,13 @@ test_that("static args that identical() joins share one cache entry", {
   expect_true(same_key(1.5, 1.5))
   expect_true(same_key(NaN, NaN))
   expect_true(same_key(1:3, c(1L, 2L, 3L))) # ALTREP compact seq vs materialized
+  # one environment, which gains a binding between the two calls (`b` is forced
+  # only by the second dispatch)
+  env <- new.env()
+  expect_true(same_key(env, {
+    env$x <- 1
+    env
+  }))
 })
 
 test_that("static numbers are keyed bitwise: +0 and -0 are distinct", {
@@ -1803,6 +1810,26 @@ test_that("`input_dtypes` may not declare a dtype for an array input", {
 })
 
 describe("dispatch", {
+  # A registered class whose aux data is `unit`; `env$fail` makes its unflatten
+  # error.
+  env <- new.env()
+  env$fail <- FALSE
+  box <- function(v, unit) structure(list(v = v, unit = unit), class = "box")
+  local_box <- function(envir = parent.frame()) {
+    register_tree_node(
+      "box",
+      flatten = function(b) list(list(v = b$v), b$unit),
+      unflatten = function(children, unit) {
+        if (env$fail) {
+          stop("cannot rebuild the box")
+        }
+        box(children$v, unit)
+      },
+      repr = function(children, unit) unit
+    )
+    withr::defer(unregister_tree_node("box"), envir = envir)
+  }
+
   it("hands on_success the call's arguments", {
     skip_if_not(plugins_downloaded())
     state <- new.env()
@@ -1813,6 +1840,57 @@ describe("dispatch", {
     x <- parr(pjrt_buffer(c(10, 10), dtype = "f32"))
     dispatch(d, list(x = x))
     expect_identical(state$args, list(x = x))
+  })
+
+  it("keys the cache on the aux data of an object argument", {
+    local_box()
+    d <- new_dispatcher(
+      10L,
+      function(info) list(r_fun = function(flat) flat[[1L]]),
+      character(0),
+      "closure",
+      "quickr",
+      FALSE,
+      test_quickr_device
+    )
+    x <- qarr(c(1, 2))
+    invisible(dispatch(d, list(b = box(x, "cm"))))
+    invisible(dispatch(d, list(b = box(x, "cm"))))
+    expect_identical(dispatcher_size(d), 1L)
+    invisible(dispatch(d, list(b = box(x, "in"))))
+    expect_identical(dispatcher_size(d), 2L)
+  })
+
+  it("rebuilds an object result, and runs on_success only once it has", {
+    skip_if_not(plugins_downloaded())
+    local_box()
+    n_success <- 0L
+    d <- dispatcher(
+      10L,
+      function(info) {
+        pjrt_entry(
+          id_exec(),
+          out_tree = build_tree(box(0, "cm")),
+          on_success = function(outputs, args) {
+            n_success <<- n_success + 1L
+          }
+        )
+      },
+      default_device = test_pjrt_device
+    )
+    x <- parr(pjrt_buffer(c(1, 2), dtype = "f32"))
+    res <- dispatch(d, list(x = x))
+    expect_s3_class(res, "box")
+    expect_identical(res$unit, "cm")
+    expect_equal(out(res$v), c(1, 2))
+    expect_identical(n_success, 1L)
+
+    env$fail <- TRUE
+    withr::defer({
+      env$fail <- FALSE
+    })
+    expect_error(dispatch(d, list(x = x)), "cannot rebuild the box")
+    expect_identical(n_success, 1L)
   })
 
   it("compiles a new entry when the context names a new implicit input type", {

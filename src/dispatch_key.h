@@ -205,22 +205,6 @@ inline bool aval_eq(const Aval &a, const Aval &b) {
   return a.kind == b.kind && a.dtype == b.dtype && a.shape == b.shape;
 }
 
-// identical(), tightened for use as a cache key.
-//
-// IDENT_USE_CLOENV compares closure environments (R's default); without it two
-// distinct closures with the same body would wrongly merge.
-//
-// IDENT_NUM_AS_BITS compares doubles and complex bitwise rather than with `==`.
-// R's default merges +0.0 with -0.0, and bit64 stores NA_integer64_ as the
-// int64 minimum -- whose double reinterpretation is -0.0 -- so under `==` a
-// static NA_integer64_ and a static 0 are "identical" and would share a cache
-// entry, silently running each other's executable. Comparing bits splits them.
-// The cost is only that +0.0 and -0.0 now compile separate (identical) entries:
-// a finer key can waste a compile, never return the wrong program.
-inline bool r_identical(SEXP a, SEXP b) {
-  return R_compute_identical(a, b, IDENT_USE_CLOENV | IDENT_NUM_AS_BITS);
-}
-
 // A device token: the address of a *canonical* device object. Never
 // dereferenced, only compared and folded, so one `const void*` identifies a
 // device of any backend -- the key needs no identical(), no variant type, and
@@ -341,17 +325,14 @@ struct CacheKeyHash {
       //
       // Atomics fold their contents (hash_atomic), closures their formals and
       // body (hash_closure). A static of any other type -- a list, an
-      // environment -- folds nothing and is separated only by its type and
-      // length here, and by r_identical() in CacheKeyEq. That is conservative,
+      // environment -- folds nothing and is separated only by its type (and a
+      // list's length) here, and by r_identical() in CacheKeyEq: an
+      // environment's length, its number of bindings, changes while it stays
+      // the same object (see hash_value()). That is conservative,
       // never wrong: a coarser hash costs a bucket collision, never a wrong
       // cache hit.
-      h = hash_combine(h, static_cast<std::uint64_t>(TYPEOF(leaf.value)));
-      h = hash_combine(h, static_cast<std::uint64_t>(Rf_xlength(leaf.value)));
-      if (TYPEOF(leaf.value) == CLOSXP) {
-        h = hash_closure(h, leaf.value);
-      } else {
-        h = hash_atomic(h, leaf.value);
-      }
+      h = hash_value(h, leaf.value);
+      if (TYPEOF(leaf.value) == CLOSXP) h = hash_closure(h, leaf.value);
     }
     return static_cast<std::size_t>(h);
   }

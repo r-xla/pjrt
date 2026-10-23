@@ -752,6 +752,11 @@ class PjrtEngine : public Engine {
       SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[i]);
       wrapped[i] = w;
     }
+    // Rebuilt before `on_success` runs: that can run a registered class's
+    // `unflatten`, which may fail, and a call that fails must not have
+    // committed `on_success`'s side effects.
+    std::size_t p = 0, li = 0, oi = 0;
+    Rcpp::RObject result = unflatten_rec(*pe->out_tree, wrapped, p, li, oi);
     // Only a run that got this far succeeded. The implicit outputs, which
     // follow the out_tree's, go to `on_success`.
     if (pe->on_success != R_NilValue) {
@@ -764,8 +769,7 @@ class PjrtEngine : public Engine {
       Rcpp::Function on_success(pe->on_success);
       on_success(implicit, args);
     }
-    std::size_t p = 0, li = 0;
-    return unflatten_rec(*pe->out_tree, wrapped, p, li);
+    return result;
   }
 
  private:
