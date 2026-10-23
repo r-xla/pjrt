@@ -89,6 +89,17 @@ else
   PKG_CFLAGS="$PKG_CFLAGS -DTESTTHAT_DISABLED"
 fi
 
+# LAPACK and BLAS: R's own everywhere but Windows, where R's bundled LAPACK has
+# no single-precision (s*) routines. There we link the static reference LAPACK
+# and BLAS that Rtools ships, which end up inside pjrt's DLL, so installing a
+# binary package needs nothing extra.
+if [ "$(${R_HOME}/bin/Rscript -e 'cat(.Platform$OS.type)')" = "windows" ]; then
+  PKG_LAPACK_LIBS="-llapack -lblas"
+else
+  PKG_LAPACK_LIBS='$(LAPACK_LIBS) $(BLAS_LIBS)'
+fi
+echo "Using LAPACK libs: $PKG_LAPACK_LIBS"
+
 # Look for 'protoc' compiler matching the library we found
 PROTOC=""
 if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
@@ -124,7 +135,8 @@ CPP_SRC=$(echo $(find *.cpp -print))
 CRC_SRC=$(echo $(find . -type f -name "*.c" -print))
 
 sed -e "s|@pbsrc@|$PB_SRC|" -e "s|@cppsrc@|$CPP_SRC|" -e "s|@csrc@|$CRC_SRC|" \
-    -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" -e "s|CXX11|${CXX_STD}|" \
+    -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" -e "s|@lapack@|$PKG_LAPACK_LIBS|" \
+    -e "s|CXX11|${CXX_STD}|" \
     Makevars.in > Makevars
 
 exit 0;

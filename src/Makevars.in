@@ -4,7 +4,7 @@ CXX_STD=CXX20
 # -Wdeprecated-literal-operator, so it is compiled out.
 PKG_CPPFLAGS=@cflags@ -Iproto -I$(R_PACKAGE_DIR)/include -I../inst/include -DHALF_ENABLE_CPP11_USER_LITERALS=0
 PKG_CXXFLAGS=$(C_VISIBILITY)
-PKG_LIBS=@libs@ $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
+PKG_LIBS=@libs@ @lapack@ $(FLIBS)
 
 CPP_SOURCES=@cppsrc@
 CC_SOURCES=@pbsrc@
