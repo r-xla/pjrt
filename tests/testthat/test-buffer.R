@@ -1676,6 +1676,7 @@ describe("PJRTBuffer serialization", {
       pjrt_buffer(array(1:24, 2:4), dtype = "i64"),
       pjrt_buffer(c(TRUE, FALSE, TRUE)),
       pjrt_buffer(matrix(c(1.5, -2, 3, 0.25), 2L), dtype = "bf16"),
+      pjrt_buffer(matrix(c(0.5, -2.5, 65504, 2^-24), 2L), dtype = "f16"),
       pjrt_scalar(3L, dtype = "ui8"),
       pjrt_empty(dtype = "f64", shape = c(0L, 3L))
     )
