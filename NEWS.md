@@ -48,6 +48,11 @@
   non-row-major device layout.
 * `as_array()` reads `f64`, `i32`, `i64` and `ui64` buffers straight into the
   result vector instead of through a host-side copy.
+* The CPU plugin is now our own build of openxla/xla@aa1e72c from
+  r-xla/pjrt-builds on every OS, instead of the zml/pjrt-artifacts 18.0.0
+  build on Linux and macOS. A loop that stacks per-step outputs no longer takes
+  quadratic time in the number of steps (openxla/xla#47636), and `log1p()` is
+  accurate for inputs in (-0.414, -0.293) (openxla/xla#46765).
 
 # pjrt 0.6.0
 
