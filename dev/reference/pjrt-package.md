@@ -119,3 +119,6 @@ Other contributors:
 - The OpenXLA Authors (Authors of the PJRT C API and XLA FFI headers in
   inst/include and the XLA protobuf definitions in inst/proto
   (Apache-2.0); see inst/COPYRIGHTS) \[copyright holder\]
+
+- Christian Rau (Author of the half-precision library half.hpp bundled
+  in src/half (MIT); see inst/COPYRIGHTS) \[copyright holder\]

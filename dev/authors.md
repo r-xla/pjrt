@@ -20,6 +20,10 @@
   XLA protobuf definitions in inst/proto (Apache-2.0); see
   inst/COPYRIGHTS
 
+- **Christian Rau**. Copyright holder.  
+  Author of the half-precision library half.hpp bundled in src/half
+  (MIT); see inst/COPYRIGHTS
+
 ## Citation
 
 Source:
