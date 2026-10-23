@@ -6,6 +6,12 @@ Handlers are C/C++ functions defined using the XLA FFI API (see
 `xla/ffi/api/ffi.h` shipped in pjrt's `inst/include/`). They are passed
 to this function as external pointers.
 
+A handler declared with `XLA_FFI_DEFINE_HANDLER_SYMBOL()` is an ordinary
+`extern "C"` symbol, so it can be handed over without writing any glue:
+compile the file with `R CMD SHLIB` (or ship it in a package's `src/`),
+then pass
+[`base::getNativeSymbolInfo()`](https://rdrr.io/r/base/getNativeSymbolInfo.html)`(...)$address`.
+
 Registration is deferred: if the PJRT plugin for a given platform is not
 yet loaded, the handler is queued and registered automatically when
 [`pjrt_plugin()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_plugin.md)
@@ -28,7 +34,10 @@ pjrt_register_custom_call(target_name, handler, .package = NULL)
 
   A named list of external pointers (`externalptr`) to
   `XLA_FFI_Handler`s, keyed by PJRT platform name (e.g.,
-  `list(host = ptr)` or `list(host = cpu_ptr, cuda = cuda_ptr)`).
+  `list(host = ptr)` or `list(host = cpu_ptr, cuda = cuda_ptr)`). Native
+  symbols obtained from
+  [`base::getNativeSymbolInfo()`](https://rdrr.io/r/base/getNativeSymbolInfo.html)
+  are external pointers too and are accepted as-is.
 
 - .package:
 

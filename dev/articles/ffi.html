@@ -254,6 +254,43 @@ pure-ordering ops, <code>RemainingArgs</code> /
 For the full list see <code>xla/ffi/api/ffi.h</code>.</p>
 </div>
 <div class="section level4">
+<h4 id="handing-the-handler-to-r">Handing the handler to R<a class="anchor" aria-label="anchor" href="#handing-the-handler-to-r"></a>
+</h4>
+<p><code>XLA_FFI_DEFINE_HANDLER</code> defines <code>eigh_handler</code>
+as a static function pointer, which is what {pjrt} does internally:
+<code>src/ffi.cpp</code> wraps it with <code>R_MakeExternalPtr()</code>
+behind an <code>[[Rcpp::export]]</code>ed getter.</p>
+<p>Outside the package there is a shorter route.
+<code>XLA_FFI_DEFINE_HANDLER_SYMBOL</code> takes the same arguments but
+emits an <code>extern "C"</code> symbol instead, which R’s dynamic
+loader can find on its own – so the handler needs no companion getter,
+and the file needs no Rcpp:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>XLA_FFI_DEFINE_HANDLER_SYMBOL<span class="op">(</span>EighHandler<span class="op">,</span> do_eigh<span class="op">,</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>                              Ffi<span class="op">::</span>Bind<span class="op">()</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                                  <span class="op">.</span>Arg<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>                                  <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>                                  <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;());</span></span></code></pre></div>
+<p>Compile it against pjrt’s headers and register the symbol
+directly:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv</a></span><span class="op">(</span></span>
+<span>  PKG_CPPFLAGS <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"-I"</span>, <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"include"</span>, package <span class="op">=</span> <span class="st">"pjrt"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  PKG_CXXFLAGS <span class="op">=</span> <span class="st">"-std=c++20"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system2.html" class="external-link">system2</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Rhome.html" class="external-link">R.home</a></span><span class="op">(</span><span class="st">"bin"</span><span class="op">)</span>, <span class="st">"R"</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CMD"</span>, <span class="st">"SHLIB"</span>, <span class="st">"eigh.cpp"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">dll</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/dynload.html" class="external-link">dyn.load</a></span><span class="op">(</span><span class="st">"eigh.so"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/pjrt_register_custom_call.html">pjrt_register_custom_call</a></span><span class="op">(</span></span>
+<span>  <span class="st">"eigh"</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>cpu <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getNativeSymbolInfo.html" class="external-link">getNativeSymbolInfo</a></span><span class="op">(</span><span class="st">"EighHandler"</span>, PACKAGE <span class="op">=</span> <span class="va">dll</span><span class="op">)</span><span class="op">$</span><span class="va">address</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>In a package, put the file in <code>src/</code>, add
+<code>pjrt</code> to <code>LinkingTo:</code> and <code>C++20</code> to
+<code>SystemRequirements:</code>, and look the symbol up with
+<code>getNativeSymbolInfo("EighHandler", PACKAGE = "yourpkg")</code>
+from <code>.onLoad()</code>.</p>
+</div>
+<div class="section level4">
 <h4 id="calling-into-blas-lapack">Calling into BLAS / LAPACK<a class="anchor" aria-label="anchor" href="#calling-into-blas-lapack"></a>
 </h4>
 <p>{pjrt}’s build links against LAPACK and BLAS, so a CPU handler can
@@ -395,19 +432,19 @@ statuses uniformly.</p>
 <p>A CUDA handler has the same shape as the CPU one, but two extra
 context parameters get bound at the front. From
 <code>src/eigh_cuda.cpp</code>:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="at">static</span> Error eigh_cuda_impl<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>stream<span class="op">,</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>                            ScratchAllocator <span class="op">&amp;</span>scratch<span class="op">,</span></span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                            AnyBuffer input<span class="op">,</span></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>                            Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> v_out<span class="op">,</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>                            Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> w_out<span class="op">);</span></span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>XLA_FFI_DEFINE_HANDLER<span class="op">(</span>eigh_handler_cuda<span class="op">,</span> do_eigh_cuda<span class="op">,</span></span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>                       Ffi<span class="op">::</span>Bind<span class="op">()</span></span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>                           <span class="op">.</span>Ctx<span class="op">&lt;</span>PlatformStream<span class="op">&lt;</span><span class="dt">void</span> <span class="op">*&gt;&gt;()</span></span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>                           <span class="op">.</span>Ctx<span class="op">&lt;</span>ScratchAllocator<span class="op">&gt;()</span></span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>                           <span class="op">.</span>Arg<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
-<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
-<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;());</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="at">static</span> Error eigh_cuda_impl<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>stream<span class="op">,</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>                            ScratchAllocator <span class="op">&amp;</span>scratch<span class="op">,</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>                            AnyBuffer input<span class="op">,</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>                            Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> v_out<span class="op">,</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>                            Result<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;</span> w_out<span class="op">);</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>XLA_FFI_DEFINE_HANDLER<span class="op">(</span>eigh_handler_cuda<span class="op">,</span> do_eigh_cuda<span class="op">,</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>                       Ffi<span class="op">::</span>Bind<span class="op">()</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>                           <span class="op">.</span>Ctx<span class="op">&lt;</span>PlatformStream<span class="op">&lt;</span><span class="dt">void</span> <span class="op">*&gt;&gt;()</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>                           <span class="op">.</span>Ctx<span class="op">&lt;</span>ScratchAllocator<span class="op">&gt;()</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>                           <span class="op">.</span>Arg<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;()</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>                           <span class="op">.</span>Ret<span class="op">&lt;</span>AnyBuffer<span class="op">&gt;());</span></span></code></pre></div>
 <p>The differences from CPU:</p>
 <ul>
 <li>

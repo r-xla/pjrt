@@ -60,7 +60,10 @@
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
-<ul><li>A <code><a href="../reference/dispatcher.html">dispatcher()</a></code> compile callback can declare <code>implicit_inputs</code> and <code>implicit_outputs</code>, values the program takes and returns beyond the call’s arguments and result, and an <code>on_success</code> function that receives the implicit outputs and the call’s arguments after every successful run. An implicit input’s <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code> returns the buffer to pass on.</li>
+<ul><li>A <code><a href="../reference/dispatcher.html">dispatcher()</a></code>’s <code>compile</code> callback can return <code>uses_default_device = FALSE</code> to have an entry that fixes its own device served under any default device, instead of recompiled when it changes.</li>
+<li>
+<code><a href="../reference/pjrt_register_custom_call.html">pjrt_register_custom_call()</a></code> accepts the <code>NativeSymbol</code> objects returned by <code><a href="https://rdrr.io/r/base/getNativeSymbolInfo.html" class="external-link">getNativeSymbolInfo()</a></code>, so a handler needs no C glue to pass its address.</li>
+<li>A <code><a href="../reference/dispatcher.html">dispatcher()</a></code> compile callback can declare <code>implicit_inputs</code> and <code>implicit_outputs</code>, values the program takes and returns beyond the call’s arguments and result, and an <code>on_success</code> function that receives the implicit outputs and the call’s arguments after every successful run. An implicit input’s <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code> returns the buffer to pass on.</li>
 <li>
 <code>PJRTBuffer</code>s can now be serialized, e.g. with <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>; they load onto the default device.</li>
 <li>
@@ -70,9 +73,13 @@
 <li>Bugfix: the <code>lu</code> custom call factorises a singular matrix instead of failing with <code>getrf failed with info = &lt;k&gt;</code>.</li>
 <li>New built-in <code>potrf</code> custom call: a batched Cholesky factorisation through LAPACK on the host and cuSOLVER on CUDA, reporting each matrix’s <code>info</code> instead of failing on one that is not positive definite.</li>
 <li>New custom call <code>print_tensor_ordered</code>: <code>print_tensor</code> that takes and returns a <code>!stablehlo.token</code>, so that a chain of prints runs in order.</li>
-<li>Bugfix: <code><a href="../reference/build_tree.html">build_tree()</a></code>, <code><a href="../reference/flatten.html">flatten()</a></code> and <code><a href="../reference/dispatch.html">dispatch()</a></code> raise an error for a value nested more than 10000 lists deep instead of crashing R.</li>
+<li>Bugfix: <code><a href="../reference/build_tree.html">build_tree()</a></code>, <code><a href="../reference/flatten.html">flatten()</a></code> and <code><a href="../reference/dispatch.html">dispatch()</a></code> raise an error for a value nested more than 1000 lists deep instead of crashing R.</li>
 <li>Bugfix: a compile that fails after XLA compiled the program, such as an HLO program with input/output aliasing, no longer leaks the executable.</li>
 <li>Bugfix: a buffer donated to an execution is freed instead of leaking its PJRT handle.</li>
+<li>Reading a buffer back to R no longer transposes it on the host: PJRT copies it in column-major order directly (<a href="https://github.com/r-xla/pjrt/issues/50" class="external-link">#50</a>).</li>
+<li>Bugfix: printing a buffer, and copying it to another client, respect a non-row-major device layout.</li>
+<li>
+<code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> reads <code>f64</code>, <code>i32</code>, <code>i64</code> and <code>ui64</code> buffers straight into the result vector instead of through a host-side copy.</li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -89,7 +96,7 @@
 <code><a href="../reference/pjrt_buffer.html">pjrt_buffer()</a></code> and <code><a href="../reference/pjrt_buffer.html">pjrt_scalar()</a></code> no longer take a <code>check</code> argument; what happens to an <code>NA</code> is fixed by the dtype.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="fetures-0-6-0">Fetures<a class="anchor" aria-label="anchor" href="#fetures-0-6-0"></a></h3>
+<h3 id="features-0-6-0">Features<a class="anchor" aria-label="anchor" href="#features-0-6-0"></a></h3>
 <ul><li>New <code><a href="../reference/platform_support.html">platform_support()</a></code> lists which backends are available on which operating system and architecture.</li>
 <li>
 <code><a href="../reference/dispatcher.html">dispatcher()</a></code> gained a <code>context</code> resolver: a function called on every dispatch whose <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> result is part of the cache key and reaches the compile callback as <code>info$context</code>. anvl uses it to key compiled programs on the backend’s default dtypes.</li>
@@ -115,7 +122,7 @@
 </ul></div>
 <div class="section level3">
 <h3 id="other-0-6-0">Other<a class="anchor" aria-label="anchor" href="#other-0-6-0"></a></h3>
-<ul><li>pjrt no longer Suggests anvl and stablehlo for it’s tests and the integration tests are moved to {anvl}.</li>
+<ul><li>pjrt no longer Suggests anvl and stablehlo for its tests and the integration tests are moved to {anvl}.</li>
 </ul></div>
 </div>
     <div class="section level2">

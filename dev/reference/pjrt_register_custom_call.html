@@ -9,12 +9,20 @@
 Handlers are C/C++ functions defined using the XLA FFI API
 (see xla/ffi/api/ffi.h shipped in pjrt's inst/include/).
 They are passed to this function as external pointers.
+A handler declared with XLA_FFI_DEFINE_HANDLER_SYMBOL() is an ordinary
+extern &quot;C&quot; symbol, so it can be handed over without writing any glue:
+compile the file with R CMD SHLIB (or ship it in a package's src/),
+then pass base::getNativeSymbolInfo()(...)$address.
 Registration is deferred: if the PJRT plugin for a given platform
 is not yet loaded, the handler is queued and registered automatically
 when pjrt_plugin() loads it."><meta property="og:description" content="Register an XLA FFI handler for use with stablehlo.custom_call.
 Handlers are C/C++ functions defined using the XLA FFI API
 (see xla/ffi/api/ffi.h shipped in pjrt's inst/include/).
 They are passed to this function as external pointers.
+A handler declared with XLA_FFI_DEFINE_HANDLER_SYMBOL() is an ordinary
+extern &quot;C&quot; symbol, so it can be handed over without writing any glue:
+compile the file with R CMD SHLIB (or ship it in a package's src/),
+then pass base::getNativeSymbolInfo()(...)$address.
 Registration is deferred: if the PJRT plugin for a given platform
 is not yet loaded, the handler is queued and registered automatically
 when pjrt_plugin() loads it."><meta name="robots" content="noindex"></head><body>
@@ -67,6 +75,10 @@ when pjrt_plugin() loads it."><meta name="robots" content="noindex"></head><body
 <p>Handlers are C/C++ functions defined using the XLA FFI API
 (see <code>xla/ffi/api/ffi.h</code> shipped in pjrt's <code>inst/include/</code>).
 They are passed to this function as external pointers.</p>
+<p>A handler declared with <code>XLA_FFI_DEFINE_HANDLER_SYMBOL()</code> is an ordinary
+<code>extern "C"</code> symbol, so it can be handed over without writing any glue:
+compile the file with <code>R CMD SHLIB</code> (or ship it in a package's <code>src/</code>),
+then pass <code><a href="https://rdrr.io/r/base/getNativeSymbolInfo.html" class="external-link">base::getNativeSymbolInfo()</a></code><code>(...)$address</code>.</p>
 <p>Registration is deferred: if the PJRT plugin for a given platform
 is not yet loaded, the handler is queued and registered automatically
 when <code><a href="pjrt_plugin.html">pjrt_plugin()</a></code> loads it.</p>
@@ -89,7 +101,9 @@ The target name used in <code>stablehlo.custom_call @target_name(...)</code>.</p
 <dt id="arg-handler">handler<a class="anchor" aria-label="anchor" href="#arg-handler"></a></dt>
 <dd><p>A named list of external pointers (<code>externalptr</code>) to
 <code>XLA_FFI_Handler</code>s, keyed by PJRT platform name
-(e.g., <code>list(host = ptr)</code> or <code>list(host = cpu_ptr, cuda = cuda_ptr)</code>).</p></dd>
+(e.g., <code>list(host = ptr)</code> or <code>list(host = cpu_ptr, cuda = cuda_ptr)</code>).
+Native symbols obtained from <code><a href="https://rdrr.io/r/base/getNativeSymbolInfo.html" class="external-link">base::getNativeSymbolInfo()</a></code> are
+external pointers too and are accepted as-is.</p></dd>
 
 
 <dt id="arg--package">.package<a class="anchor" aria-label="anchor" href="#arg--package"></a></dt>

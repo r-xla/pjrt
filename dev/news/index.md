@@ -15,6 +15,15 @@
 ### New features
 
 - A
+  [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)’s
+  `compile` callback can return `uses_default_device = FALSE` to have an
+  entry that fixes its own device served under any default device,
+  instead of recompiled when it changes.
+- [`pjrt_register_custom_call()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_register_custom_call.md)
+  accepts the `NativeSymbol` objects returned by
+  [`getNativeSymbolInfo()`](https://rdrr.io/r/base/getNativeSymbolInfo.html),
+  so a handler needs no C glue to pass its address.
+- A
   [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)
   compile callback can declare `implicit_inputs` and `implicit_outputs`,
   values the program takes and returns beyond the call’s arguments and
@@ -40,13 +49,21 @@
   [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md)
   and
   [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)
-  raise an error for a value nested more than 10000 lists deep instead
-  of crashing R.
+  raise an error for a value nested more than 1000 lists deep instead of
+  crashing R.
 - Bugfix: a compile that fails after XLA compiled the program, such as
   an HLO program with input/output aliasing, no longer leaks the
   executable.
 - Bugfix: a buffer donated to an execution is freed instead of leaking
   its PJRT handle.
+- Reading a buffer back to R no longer transposes it on the host: PJRT
+  copies it in column-major order directly
+  ([\#50](https://github.com/r-xla/pjrt/issues/50)).
+- Bugfix: printing a buffer, and copying it to another client, respect a
+  non-row-major device layout.
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  reads `f64`, `i32`, `i64` and `ui64` buffers straight into the result
+  vector instead of through a host-side copy.
 
 ## pjrt 0.6.0
 
@@ -69,7 +86,7 @@
   no longer take a `check` argument; what happens to an `NA` is fixed by
   the dtype.
 
-### Fetures
+### Features
 
 - New
   [`platform_support()`](https://r-xla.github.io/pjrt/dev/reference/platform_support.md)
@@ -117,7 +134,7 @@
 
 ### Other
 
-- pjrt no longer Suggests anvl and stablehlo for it’s tests and the
+- pjrt no longer Suggests anvl and stablehlo for its tests and the
   integration tests are moved to {anvl}.
 
 ## pjrt 0.5.0

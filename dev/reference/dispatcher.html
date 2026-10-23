@@ -157,7 +157,12 @@ outputs may not be computed yet.</p></li>
 leaves, the implicit inputs, the phantoms. Its outputs are the leaves of
 <code>out_tree</code> followed by the implicit outputs; a count that disagrees with
 the executable's is an error on its first run.</p>
-<p>Either kind of result may additionally carry:</p><ul><li><p><code>input_dtypes</code>: a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> with one entry per dynamic leaf, in
+<p>Either kind of result may additionally carry:</p><ul><li><p><code>uses_default_device</code>: <code>FALSE</code> declares that the entry does not depend
+on <code>info$default_device</code> – its program fixes its own device, e.g. that
+of an array it closes over – so it is served whatever the default
+device is, rather than recompiled when the default changes. Default
+<code>TRUE</code>. Only read when <code>info$default_device</code> is not <code>NULL</code>.</p></li>
+<li><p><code>input_dtypes</code>: a <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> with one entry per dynamic leaf, in
 order, naming the dtype that input is supplied at. <code>NA</code> leaves an input
 alone, and is the only valid entry for an array input: an array is
 supplied as it is, so declaring a dtype for one is an error rather than a
@@ -228,7 +233,8 @@ place its own inputs</strong> – it receives only their <code>$data</code>, not
 Called with no arguments to get the backend's <em>current</em> default device,
 whenever a call has no array input to read a device from. Its result is
 part of the cache key, so an entry compiled under one default device is
-never served after the default changes. Required unless
+never served after the default changes, unless <code>compile</code> declared the
+entry independent of it (<code>uses_default_device = FALSE</code>). Required unless
 <code>move_inputs = TRUE</code>, which fixes the device per entry.</p>
 <p>With <code>backend = "pjrt"</code> it must return a <code><a href="pjrt_device.html">pjrt_device</a></code>, and devices are
 compared by the PJRT device they wrap. For any other backend, devices are
