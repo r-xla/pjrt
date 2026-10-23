@@ -14,6 +14,11 @@
 
 * `register_tree_node()` makes the objects of a class nodes of a tree, with aux
   data and a printer, which `flatten()` and the dispatcher recurse into.
+* A `dispatcher()`'s `compile` callback can return
+  `uses_default_device = FALSE` to have an entry that fixes its own device
+  served under any default device, instead of recompiled when it changes.
+* `pjrt_register_custom_call()` accepts the `NativeSymbol` objects returned by
+  `getNativeSymbolInfo()`, so a handler needs no C glue to pass its address.
 * A `dispatcher()` compile callback can declare `implicit_inputs` and
   `implicit_outputs`, values the program takes and returns beyond the call's
   arguments and result, and an `on_success` function that receives the implicit
@@ -31,11 +36,17 @@
 * New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
   a `!stablehlo.token`, so that a chain of prints runs in order.
 * Bugfix: `build_tree()`, `flatten()` and `dispatch()` raise an error for a
-  value nested more than 10000 lists deep instead of crashing R.
+  value nested more than 1000 lists deep instead of crashing R.
 * Bugfix: a compile that fails after XLA compiled the program, such as an HLO
   program with input/output aliasing, no longer leaks the executable.
 * Bugfix: a buffer donated to an execution is freed instead of leaking its
   PJRT handle.
+* Reading a buffer back to R no longer transposes it on the host: PJRT copies
+  it in column-major order directly (#50).
+* Bugfix: printing a buffer, and copying it to another client, respect a
+  non-row-major device layout.
+* `as_array()` reads `f64`, `i32`, `i64` and `ui64` buffers straight into the
+  result vector instead of through a host-side copy.
 
 # pjrt 0.6.0
 
@@ -54,7 +65,7 @@
 * `pjrt_buffer()` and `pjrt_scalar()` no longer take a `check` argument; what
   happens to an `NA` is fixed by the dtype.
 
-## Fetures
+## Features
 
 * New `platform_support()` lists which backends are available on which
   operating system and architecture.
@@ -94,7 +105,7 @@
 
 ## Other
 
-* pjrt no longer Suggests anvl and stablehlo for it's tests
+* pjrt no longer Suggests anvl and stablehlo for its tests
   and the integration tests are moved to {anvl}.
 
 # pjrt 0.5.0

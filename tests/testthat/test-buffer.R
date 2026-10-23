@@ -1425,12 +1425,35 @@ describe("as_array(await = FALSE)", {
   })
 
   it("can be collected before it is read", {
-    expect_no_error({
-      for (i in 1:5) {
-        as_array(pjrt_buffer(as.double(seq_len(1e5)), dtype = "f32"), await = FALSE)
-      }
-      gc()
-    })
+    # f32 is converted from a staging copy; f64 and i64 are written by PJRT into
+    # the result vector itself, which must outlive the transfer regardless.
+    for (dtype in c("f32", "f64", "i64")) {
+      expect_no_error({
+        for (i in 1:5) {
+          as_array(pjrt_buffer(as.double(seq_len(1e5)), dtype = dtype), await = FALSE)
+        }
+        gc()
+      })
+    }
+  })
+
+  it("returns the dtypes R stores natively bit for bit, in column-major order", {
+    m <- matrix(c(1.5, -2, 3e300, 4, 5, 6), 2L, 3L)
+    k <- matrix(c(1L, -2L, .Machine$integer.max, 4L, 5L, 6L), 2L, 3L)
+    expect_identical(as_array(pjrt_buffer(m, dtype = "f64")), m)
+    expect_identical(as_array(pjrt_buffer(m, dtype = "f64"), await = FALSE)[,], m)
+    expect_identical(as_array(pjrt_buffer(k, dtype = "i32")), k)
+    expect_identical(as_array(pjrt_buffer(k, dtype = "i32"), await = FALSE)[,], k)
+    i64 <- as_array(pjrt_buffer(k, dtype = "i64"))
+    expect_identical(as.integer(i64), as.vector(k))
+    expect_identical(dim(i64), dim(k))
+    expect_identical(as.integer(as_array(pjrt_buffer(k, dtype = "i64"), await = FALSE)), as.vector(k))
+    # ui64 above 2^63 arrives as the int64 with the same bits
+    client <- pjrt_client("cpu")
+    bytes <- as.raw(c(0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
+    buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui64")
+    expect_identical(as.character(as_array(buf, check = FALSE)), "-9223372036854775807")
+    expect_identical(as.character(as_array(buf, check = FALSE, await = FALSE)), "-9223372036854775807")
   })
 })
 
@@ -1555,6 +1578,9 @@ module {
   expect_equal(as_array(out), m, tolerance = 1e-6)
   # as_raw goes through the same device→host path, so it must agree too.
   expect_equal(as_raw(out, row_major = FALSE), as_raw(pjrt_buffer(m, dtype = "f32"), row_major = FALSE))
+  expect_equal(as_raw(out, row_major = TRUE), as_raw(pjrt_buffer(m, dtype = "f32"), row_major = TRUE))
+  expect_equal(await(as_array(out, await = FALSE)), m, tolerance = 1e-6)
+  expect_identical(capture.output(print(out)), capture.output(print(pjrt_buffer(m, dtype = "f32"))))
 })
 
 describe("CPU buffer memory management", {

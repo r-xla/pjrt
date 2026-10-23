@@ -17,6 +17,22 @@ test_that("pjrt_register_custom_call accepts named list", {
   expect_named(entry$handler, c("host", "cuda"))
 })
 
+test_that("pjrt_register_custom_call accepts a NativeSymbol", {
+  withr::defer({
+    the[["custom_calls"]][["test_native_symbol"]] <- NULL
+  })
+  # `getNativeSymbolInfo(...)$address` is an external pointer carrying a
+  # class attribute, so `inherits(., "externalptr")` is FALSE for it even
+  # though it is exactly the pointer the FFI wants.
+  ptr <- get_print_handler()
+  class(ptr) <- "NativeSymbol"
+  expect_false(inherits(ptr, "externalptr"))
+  expect_no_error(
+    pjrt_register_custom_call("test_native_symbol", list(cpu = ptr))
+  )
+  expect_named(the[["custom_calls"]][["test_native_symbol"]]$handler, "host")
+})
+
 test_that("pjrt_register_custom_call maps cpu to host", {
   withr::defer({
     the[["custom_calls"]][["test_cpu_map"]] <- NULL

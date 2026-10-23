@@ -1055,6 +1055,66 @@ test_that("a call with no array input keys on the resolved default device", {
   expect_equal(impl_dispatcher_size(d), 2L)
 })
 
+describe("uses_default_device", {
+  # A dispatcher whose callback declares (or not) that its entry does not use the
+  # default device, counting its compiles and resolver calls.
+  pinned_dispatcher <- function(uses_default_device) {
+    env <- new.env()
+    env$n_miss <- 0L
+    env$n_resolve <- 0L
+    env$current <- "cpu"
+    env$d <- new_dispatcher(
+      10L,
+      function(info) {
+        env$n_miss <- env$n_miss + 1L
+        res <- list(r_fun = function(flat) "gpu")
+        res$uses_default_device <- uses_default_device
+        res
+      },
+      character(0),
+      "closure",
+      "quickr",
+      FALSE,
+      function() {
+        env$n_resolve <- env$n_resolve + 1L
+        test_device(env$current)
+      }
+    )
+    env
+  }
+
+  it("serves an entry that does not use the default under any default", {
+    p <- pinned_dispatcher(FALSE)
+    expect_identical(impl_dispatch_run(p$d, list(x = 1)), "gpu")
+    p$current <- "tpu"
+    expect_identical(impl_dispatch_run(p$d, list(x = 1)), "gpu")
+    expect_equal(p$n_miss, 1L)
+    expect_equal(impl_dispatcher_size(p$d), 1L)
+    # A hit on such an entry needs no default device at all.
+    expect_equal(p$n_resolve, 1L)
+  })
+
+  it("keeps keying on the default when the entry uses it", {
+    p <- pinned_dispatcher(TRUE)
+    invisible(impl_dispatch_run(p$d, list(x = 1)))
+    p$current <- "tpu"
+    invisible(impl_dispatch_run(p$d, list(x = 1)))
+    expect_equal(p$n_miss, 2L)
+  })
+
+  it("is ignored when an array names the device", {
+    p <- pinned_dispatcher(FALSE)
+    invisible(impl_dispatch_run(p$d, list(x = qarr(c(1, 2), device = test_device("cpu")))))
+    invisible(impl_dispatch_run(p$d, list(x = qarr(c(1, 2), device = test_device("gpu")))))
+    expect_equal(p$n_miss, 2L)
+  })
+
+  it("must be a flag", {
+    p <- pinned_dispatcher(NA)
+    expect_error(impl_dispatch_run(p$d, list(x = 1)), "`uses_default_device` must be TRUE or FALSE")
+  })
+})
+
 test_that("the context resolver is part of the key and reaches the callback", {
   # The compiled program depends on what `context` returns (anvl: the default
   # dtypes), so it is resolved on every call -- also one with array inputs --

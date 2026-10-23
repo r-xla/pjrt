@@ -5,6 +5,8 @@
 // It carries its dim and class attributes from the start and reads as an
 // ordinary R array; the first access to its data waits for the transfer and
 // converts the bytes into a plain R vector, which the host array then wraps.
+// For a dtype whose elements are already R's own (f64, i32, i64, ui64), PJRT
+// writes straight into that vector and there is nothing to convert.
 // That first access goes through pjrt's R function host_array_materialize(),
 // which checks the values as as_array() does before the host array takes them.
 //
@@ -18,6 +20,7 @@
 #include <R_ext/Altrep.h>
 #include <R_ext/Rdynload.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -34,21 +37,26 @@
 
 namespace {
 
-// A device-to-host transfer: the bytes PJRT copies the buffer into (in the
-// device layout), and the event that fires once it is done.
+// A device-to-host transfer: where PJRT copies the buffer to (in column-major
+// order), and the event that fires once it is done. That is `values`, the
+// result vector itself, for a dtype R stores bit for bit (see is_r_native()),
+// and `bytes`, to be converted, for any other.
 struct HostTransfer {
   std::vector<uint8_t> bytes;
+  // Rooted for the transfer's lifetime, not merely referenced: PJRT writes
+  // into it until the event fires, even if nothing else refers to it.
+  Rcpp::RObject values;
   std::unique_ptr<rpjrt::PJRTEvent> event;  // null once awaited, or if empty
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
-  std::vector<int64_t> minor_to_major;
   std::string check;  // as_array()'s `check` level
 
   HostTransfer() = default;
   HostTransfer(const HostTransfer&) = delete;
   HostTransfer& operator=(const HostTransfer&) = delete;
 
-  // PJRT writes into `bytes` until the event fires, so they must outlive it.
+  // PJRT writes into `bytes` or `values` until the event fires, so they must
+  // outlive it. The body runs before the members are destroyed.
   ~HostTransfer() {
     if (event == nullptr) return;
     try {
@@ -57,21 +65,6 @@ struct HostTransfer {
     }
   }
 };
-
-std::unique_ptr<HostTransfer> start_transfer(SEXP buffer_sexp) {
-  auto buffer = rpjrt::as_buffer(buffer_sexp);
-  auto t = std::make_unique<HostTransfer>();
-  t->type = buffer->element_type();
-  t->dims = buffer->dimensions();
-  t->minor_to_major = buffer->minor_to_major();
-  const auto numel = number_of_elements(t->dims);
-  if (numel > 0) {
-    t->bytes.resize(numel * sizeof_pjrt_buffer_type(t->type));
-    std::span<uint8_t> host_buffer(t->bytes);
-    t->event = buffer->buffer_to_host_async(host_buffer);
-  }
-  return t;
-}
 
 // 64-bit integers, and ui32 (which has no headroom in R's signed int32), are
 // returned as bit64::integer64: a double vector carrying the int64 bit pattern.
@@ -95,13 +88,52 @@ SEXPTYPE r_type(PJRT_Buffer_Type type) {
   }
 }
 
-// Reorders the transfer's device-layout bytes into the column-major `out`,
-// casting each element to `out`'s type.
+// Whether the dtype's elements are exactly what R stores for it, so that PJRT
+// can write the result vector itself: f64 and i32 as they are, and i64 and
+// ui64 as the int64 bit patterns of a bit64::integer64.
+bool is_r_native(PJRT_Buffer_Type type) {
+  return type == PJRT_Buffer_Type_F64 || type == PJRT_Buffer_Type_S32 ||
+         type == PJRT_Buffer_Type_S64 || type == PJRT_Buffer_Type_U64;
+}
+
+void* vector_dataptr(SEXP x) {
+  switch (TYPEOF(x)) {
+    case REALSXP:
+      return REAL(x);
+    case INTSXP:
+      return INTEGER(x);
+    default:
+      return LOGICAL(x);
+  }
+}
+
+std::unique_ptr<HostTransfer> start_transfer(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
+  auto t = std::make_unique<HostTransfer>();
+  t->type = buffer->element_type();
+  t->dims = buffer->dimensions();
+  const auto numel = number_of_elements(t->dims);
+  if (numel > 0) {
+    const size_t nbytes = numel * sizeof_pjrt_buffer_type(t->type);
+    uint8_t* dst;
+    if (is_r_native(t->type)) {
+      t->values = Rf_allocVector(r_type(t->type), numel);
+      dst = static_cast<uint8_t*>(vector_dataptr(t->values));
+    } else {
+      t->bytes.resize(nbytes);
+      dst = t->bytes.data();
+    }
+    std::span<uint8_t> host_buffer(dst, nbytes);
+    t->event = buffer->buffer_to_host_async(host_buffer, false);
+  }
+  return t;
+}
+
+// Casts each element of the transfer's column-major bytes to `out`'s type.
 template <typename T>
 void convert(const HostTransfer& t, SEXP out) {
   const T* src = reinterpret_cast<const T*>(t.bytes.data());
-  std::vector<T> row_major(XLENGTH(out));
-  device_to_row_major<T>(src, row_major.data(), t.dims, t.minor_to_major);
+  const R_xlen_t n = XLENGTH(out);
   switch (TYPEOF(out)) {
     case REALSXP:
       if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
@@ -109,28 +141,28 @@ void convert(const HostTransfer& t, SEXP out) {
         static_assert(sizeof(double) == sizeof(int64_t),
                       "bit64::integer64 layout requires sizeof(double) == "
                       "sizeof(int64_t)");
-        row_to_col_order<T, int64_t>(
-            row_major, reinterpret_cast<int64_t*>(REAL(out)), t.dims);
+        std::copy(src, src + n, reinterpret_cast<int64_t*>(REAL(out)));
       } else {
-        row_to_col_order<T, double>(row_major, REAL(out), t.dims);
+        std::copy(src, src + n, REAL(out));
       }
       break;
     case INTSXP:
-      row_to_col_order<T, int>(row_major, INTEGER(out), t.dims);
+      std::copy(src, src + n, INTEGER(out));
       break;
     default:
-      row_to_col_order<T, int>(row_major, LOGICAL(out), t.dims);
+      std::copy(src, src + n, LOGICAL(out));
   }
 }
 
-// Waits for the transfer and converts its bytes into a plain R vector, without
-// attributes.
+// Waits for the transfer and returns its values as a plain R vector, without
+// attributes: the vector PJRT wrote, or one converted from its bytes.
 SEXP to_vector(HostTransfer& t) {
   if (t.event != nullptr) {
     t.event->await();
     t.event->check_error();
     t.event.reset();
   }
+  if (!t.values.isNULL()) return t.values;
   Rcpp::Shield<SEXP> out(
       Rf_allocVector(r_type(t.type), number_of_elements(t.dims)));
   if (XLENGTH(out) == 0) return out;
@@ -210,17 +242,6 @@ bool is_materialized(SEXP x) { return R_altrep_data2(x) != R_NilValue; }
 
 HostTransfer& transfer(SEXP x) {
   return *static_cast<HostTransfer*>(R_ExternalPtrAddr(R_altrep_data1(x)));
-}
-
-void* vector_dataptr(SEXP x) {
-  switch (TYPEOF(x)) {
-    case REALSXP:
-      return REAL(x);
-    case INTSXP:
-      return INTEGER(x);
-    default:
-      return LOGICAL(x);
-  }
 }
 
 R_xlen_t host_array_length(SEXP x) {

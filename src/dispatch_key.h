@@ -286,54 +286,7 @@ struct CacheKey {
   // the compiled program depends on beyond its inputs -- anvl's default dtypes,
   // say. Empty when the dispatcher was created without a resolver.
   std::vector<std::string> context;
-  // cache_key_hash() of the fields above, set once they are final.
-  std::uint64_t hash = 0;
 };
-
-// The hash of a CacheKey. Computed once, when the key is built
-// (CacheKey::hash), rather than inside the cache's hash functor: folding a
-// static can allocate, which must not happen from within unordered_map's
-// internals.
-inline std::uint64_t cache_key_hash(const CacheKey &k) {
-  std::uint64_t h = tree_hash(k.in_tree);
-  h = hash_combine(h, reinterpret_cast<std::uintptr_t>(k.device));
-  // Length folded first so the variable-length context section is delimited
-  // from the leaf count that follows it. Each element folds as one round of
-  // its own hash, so unlike a byte-concatenated stream there is no ambiguity
-  // between ("ab") and ("a", "b") to defend against.
-  h = hash_combine(h, k.context.size());
-  for (const std::string &s : k.context) {
-    h = hash_combine(h, std::hash<std::string>{}(s));
-  }
-  h = hash_combine(h, k.leaves.size());
-  for (const KeyLeaf &leaf : k.leaves) {
-    // Folded before the per-leaf material, so a value-keyed leaf's hash
-    // stream can never coincide with an Aval-keyed one's: the domain
-    // separator. The Aval's own kind is folded by aval_hash(), so an array
-    // and an rdata leaf of the same dtype and shape land in different
-    // buckets, as CacheKeyEq requires.
-    h = hash_combine(h, leaf.is_static ? 1u : 0u);
-    if (!leaf.is_static) {
-      h = hash_combine(h, aval_hash(leaf.aval));
-      continue;
-    }
-    // Exact equality is r_identical(); folding a leaf's contents keeps that
-    // call off the common path, where two static values (a TRUE and a FALSE,
-    // say) would otherwise share type, length, and therefore bucket.
-    //
-    // Atomics fold their contents (hash_atomic), closures their formals and
-    // body (hash_closure). A static of any other type -- a list, an
-    // environment -- folds nothing and is separated only by its type (and a
-    // list's length) here, and by r_identical() in CacheKeyEq: an
-    // environment's length, its number of bindings, changes while it stays
-    // the same object (see hash_value()). That is conservative,
-    // never wrong: a coarser hash costs a bucket collision, never a wrong
-    // cache hit.
-    h = hash_value(h, leaf.value);
-    if (TYPEOF(leaf.value) == CLOSXP) h = hash_closure(h, leaf.value);
-  }
-  return h;
-}
 
 // CacheKeyHash and CacheKeyEq are functors rather than plain functions because
 // unordered_map -- and LRUCache, which forwards them -- take the Hash and Eq as
@@ -341,15 +294,52 @@ inline std::uint64_t cache_key_hash(const CacheKey &k) {
 // default-construct them and inline each call.
 struct CacheKeyHash {
   // unordered_map's Hash concept requires std::size_t, so the 64-bit
-  // hash is narrowed on return (a no-op on the 64-bit platforms we build for).
-  std::size_t operator()(const CacheKey &k) const noexcept {
-    return static_cast<std::size_t>(k.hash);
+  // accumulator is narrowed on return (a no-op on the 64-bit platforms we build
+  // for).
+  std::size_t operator()(const CacheKey &k) const {
+    std::uint64_t h = tree_hash(k.in_tree);
+    h = hash_combine(h, reinterpret_cast<std::uintptr_t>(k.device));
+    // Length folded first so the variable-length context section is delimited
+    // from the leaf count that follows it. Each element folds as one round of
+    // its own hash, so unlike a byte-concatenated stream there is no ambiguity
+    // between ("ab") and ("a", "b") to defend against.
+    h = hash_combine(h, k.context.size());
+    for (const std::string &s : k.context) {
+      h = hash_combine(h, std::hash<std::string>{}(s));
+    }
+    h = hash_combine(h, k.leaves.size());
+    for (const KeyLeaf &leaf : k.leaves) {
+      // Folded before the per-leaf material, so a value-keyed leaf's hash
+      // stream can never coincide with an Aval-keyed one's: the domain
+      // separator. The Aval's own kind is folded by aval_hash(), so an array
+      // and an rdata leaf of the same dtype and shape land in different
+      // buckets, as CacheKeyEq requires.
+      h = hash_combine(h, leaf.is_static ? 1u : 0u);
+      if (!leaf.is_static) {
+        h = hash_combine(h, aval_hash(leaf.aval));
+        continue;
+      }
+      // Exact equality is r_identical(); folding a leaf's contents keeps that
+      // call off the common path, where two static values (a TRUE and a FALSE,
+      // say) would otherwise share type, length, and therefore bucket.
+      //
+      // Atomics fold their contents (hash_atomic), closures their formals and
+      // body (hash_closure). A static of any other type -- a list, an
+      // environment -- folds nothing and is separated only by its type (and a
+      // list's length) here, and by r_identical() in CacheKeyEq: an
+      // environment's length, its number of bindings, changes while it stays
+      // the same object (see hash_value()). That is conservative,
+      // never wrong: a coarser hash costs a bucket collision, never a wrong
+      // cache hit.
+      h = hash_value(h, leaf.value);
+      if (TYPEOF(leaf.value) == CLOSXP) h = hash_closure(h, leaf.value);
+    }
+    return static_cast<std::size_t>(h);
   }
 };
 
 struct CacheKeyEq {
   bool operator()(const CacheKey &a, const CacheKey &b) const {
-    if (a.hash != b.hash) return false;
     if (!tree_eq(a.in_tree, b.in_tree)) return false;
     if (a.device != b.device) return false;
     if (a.context != b.context) return false;

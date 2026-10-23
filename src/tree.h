@@ -132,7 +132,7 @@ inline std::size_t count_objects(const RTree& tree, std::size_t begin,
 // tree functions recurse once per level, so an unbounded depth would overflow
 // the C stack and kill the R session; past this limit flatten_rec raises an R
 // error instead.
-inline constexpr int kMaxTreeDepth = 10000;
+inline constexpr int kMaxTreeDepth = 1000;
 
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
                         std::vector<Rcpp::RObject>& keep, int depth = 0);

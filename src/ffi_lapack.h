@@ -63,9 +63,6 @@ void dsyevd_(const char *jobz, const char *uplo, const int *n, double *a,
 // minor of order info is not positive definite (the factorisation stopped).
 void dpotrf_(const char *uplo, const int *n, double *a, const int *lda,
              int *info);
-// On windows we use R's bundeld LAPACK for now, which only has double precision
-// support
-#ifndef _WIN32
 void sgeqrf_(const int *m, const int *n, float *a, const int *lda, float *tau,
              float *work, const int *lwork, int *info);
 void sorgqr_(const int *m, const int *n, const int *k, float *a, const int *lda,
@@ -81,7 +78,6 @@ void ssyevd_(const char *jobz, const char *uplo, const int *n, float *a,
              int *iwork, const int *liwork, int *info);
 void spotrf_(const char *uplo, const int *n, float *a, const int *lda,
              int *info);
-#endif
 }
 
 namespace rpjrt {
@@ -93,7 +89,7 @@ inline xla::ffi::Error lapack_check_info(int info, const char *routine) {
 }
 
 // Per-precision dispatch trait. ::S is the storage type that the LAPACK
-// routines actually see; on Windows this is always double.
+// routines actually see.
 template <typename T>
 struct Lapack;
 
@@ -130,7 +126,6 @@ struct Lapack<double> {
   }
 };
 
-#ifndef _WIN32
 template <>
 struct Lapack<float> {
   using S = float;
@@ -163,48 +158,12 @@ struct Lapack<float> {
     spotrf_(uplo, n, a, lda, info);
   }
 };
-#else
-// Windows: promote f32 -> f64 -> f32 around the LAPACK call.
-template <>
-struct Lapack<float> {
-  using S = double;
-  static void geqrf(const int *m, const int *n, S *a, const int *lda, S *tau,
-                    S *work, const int *lwork, int *info) {
-    dgeqrf_(m, n, a, lda, tau, work, lwork, info);
-  }
-  static void orgqr(const int *m, const int *n, const int *k, S *a,
-                    const int *lda, const S *tau, S *work, const int *lwork,
-                    int *info) {
-    dorgqr_(m, n, k, a, lda, tau, work, lwork, info);
-  }
-  static void getrf(const int *m, const int *n, S *a, const int *lda, int *ipiv,
-                    int *info) {
-    dgetrf_(m, n, a, lda, ipiv, info);
-  }
-  static void gesdd(const char *jobz, const int *m, const int *n, S *a,
-                    const int *lda, S *s, S *u, const int *ldu, S *vt,
-                    const int *ldvt, S *work, const int *lwork, int *iwork,
-                    int *info) {
-    dgesdd_(jobz, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, iwork, info);
-  }
-  static void syevd(const char *jobz, const char *uplo, const int *n, S *a,
-                    const int *lda, S *w, S *work, const int *lwork, int *iwork,
-                    const int *liwork, int *info) {
-    dsyevd_(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info);
-  }
-  static void potrf(const char *uplo, const int *n, S *a, const int *lda,
-                    int *info) {
-    dpotrf_(uplo, n, a, lda, info);
-  }
-};
-#endif
 
 // ----------------------------------------------------------------------------
 // Precision-promotion helpers
 //
-// LAPACK kernels work in `S = Lapack<T>::S`, which equals `T` except on
-// Windows where T = float promotes to S = double (R's bundled LAPACK has
-// no s* routines). When S == T LAPACK writes directly into the FFI buffers
+// LAPACK kernels work in `S = Lapack<T>::S`. When S == T LAPACK writes directly
+// into the FFI buffers
 // (no heap allocation); when S != T we stage through a `std::vector<S>`
 // and cast at the boundary. These helpers factor out the
 // `if constexpr (std::is_same_v<S, T>)` branch so each call site is one line.

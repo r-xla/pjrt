@@ -24,7 +24,6 @@ Makefile
 ^vignettes/articles/
 ^\.claude$
 ^\.clang-format-ignore$
-^CLAUDE\.md$
 ^AGENTS\.md$
 ^jarl.toml$
 ^todos\.md$

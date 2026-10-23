@@ -126,6 +126,11 @@
 #'   the executable's is an error on its first run.
 #'
 #'   Either kind of result may additionally carry:
+#'   * `uses_default_device`: `FALSE` declares that the entry does not depend
+#'     on `info$default_device` -- its program fixes its own device, e.g. that
+#'     of an array it closes over -- so it is served whatever the default
+#'     device is, rather than recompiled when the default changes. Default
+#'     `TRUE`. Only read when `info$default_device` is not `NULL`.
 #'   * `input_dtypes`: a `character()` with one entry per dynamic leaf, in
 #'     order, naming the dtype that input is supplied at. `NA` leaves an input
 #'     alone, and is the only valid entry for an array input: an array is
@@ -193,7 +198,8 @@
 #'   Called with no arguments to get the backend's *current* default device,
 #'   whenever a call has no array input to read a device from. Its result is
 #'   part of the cache key, so an entry compiled under one default device is
-#'   never served after the default changes. Required unless
+#'   never served after the default changes, unless `compile` declared the
+#'   entry independent of it (`uses_default_device = FALSE`). Required unless
 #'   `move_inputs = TRUE`, which fixes the device per entry.
 #'
 #'   With `backend = "pjrt"` it must return a [`pjrt_device`], and devices are
