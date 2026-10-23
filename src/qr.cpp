@@ -55,7 +55,7 @@ static Error geqrf_impl(AnyBuffer input, Result<AnyBuffer> packed_out,
   Lapack<T>::geqrf(&m, &n, a, &m, tau, &work_size, &lwork, &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "geqrf workspace query"));
 
-  lwork = static_cast<int>(work_size);
+  PJRT_RETURN_IF_ERROR(workspace_to_int(work_size, "geqrf", lwork));
   std::vector<S> work(lwork);
   Lapack<T>::geqrf(&m, &n, a, &m, tau, work.data(), &lwork, &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "geqrf"));
@@ -109,7 +109,7 @@ static Error orgqr_impl(AnyBuffer packed, AnyBuffer tau_in,
   Lapack<T>::orgqr(&m, &k, &k, a, &m, tau, &work_size, &lwork, &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "orgqr workspace query"));
 
-  lwork = static_cast<int>(work_size);
+  PJRT_RETURN_IF_ERROR(workspace_to_int(work_size, "orgqr", lwork));
   std::vector<S> work(lwork);
   Lapack<T>::orgqr(&m, &k, &k, a, &m, tau, work.data(), &lwork, &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "orgqr"));

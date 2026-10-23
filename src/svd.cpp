@@ -65,7 +65,7 @@ static Error svd_impl(AnyBuffer input, Result<AnyBuffer> u_out,
                    &lwork, iwork.data(), &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "gesdd workspace query"));
 
-  lwork = static_cast<int>(work_size);
+  PJRT_RETURN_IF_ERROR(workspace_to_int(work_size, "gesdd", lwork));
   std::vector<S> work(lwork);
   Lapack<T>::gesdd(&jobz, &m, &n, a, &m, sv, u, &ldu, vt, &ldvt, work.data(),
                    &lwork, iwork.data(), &info);
