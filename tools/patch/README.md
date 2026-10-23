@@ -26,5 +26,5 @@ XLA_SRC=<path-to-openxla/xla> Rscript tools/regen-patch.R inst/include/xla/ffi/a
 
 `XLA_SRC` must point at the XLA checkout the files were copied from, at the
 commit recorded for the current `plugin_version()`. See the `upgrade-pjrt` skill
-(`.claude/skills/upgrade-pjrt.md`) for what each patch fixes and for the full
+(`.claude/skills/upgrade-pjrt/SKILL.md`) for what each patch fixes and for the full
 upgrade procedure.
