@@ -113,8 +113,10 @@
 #'     result but are handed to `on_success`, which is then required.
 #'   * `on_success` (optional): a function called with the list of the implicit
 #'     outputs, wrapped like the other outputs, and the call's argument list
-#'     `args`, after every run of the entry that was launched without an error,
-#'     before the call returns, e.g. to advance what an implicit input's `get()`
+#'     `args`, after every run of the entry that was launched without an error
+#'     and whose result was rebuilt from the `out_tree` (which runs the
+#'     `unflatten` of a class registered with [register_tree_node()]), before
+#'     the call returns, e.g. to advance what an implicit input's `get()`
 #'     reads, or an object among the arguments. Execution is asynchronous: the
 #'     outputs may not be computed yet.
 #'

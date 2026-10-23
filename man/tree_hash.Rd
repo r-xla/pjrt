@@ -15,9 +15,11 @@ A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \description{
 A hash of a tree's structure -- node kinds, child structure, leaf positions,
-and names -- consistent with \code{\link[=tree_equal]{tree_equal()}}: trees that are \code{\link[=tree_equal]{tree_equal()}}
-hash to the same value. Intended as a cache key for tree-structured
-dispatch.
+names, and the class and aux data of each object of a class registered with
+\code{\link[=register_tree_node]{register_tree_node()}} -- consistent with \code{\link[=tree_equal]{tree_equal()}}: trees that are
+\code{\link[=tree_equal]{tree_equal()}} hash to the same value. Intended as a cache key for
+tree-structured dispatch within a session: a class folds in by its address,
+so the hash of a tree with registered objects differs between sessions.
 }
 \examples{
 tree_hash(build_tree(list(a = 1))) == tree_hash(build_tree(list(a = 2)))

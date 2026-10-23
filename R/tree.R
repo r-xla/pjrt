@@ -75,7 +75,6 @@ flatten <- function(x) {
 #' tree
 #' unflatten(tree, list(10, 20, 30))
 #' build_tree(point(1, 2, "cm")) == build_tree(point(1, 2, "in"))
-#' unregister_tree_node("point")
 #' @export
 register_tree_node <- function(class, flatten, unflatten, repr) {
   checkmate::assert_string(class)
@@ -86,8 +85,9 @@ register_tree_node <- function(class, flatten, unflatten, repr) {
   invisible(NULL)
 }
 
-#' @rdname register_tree_node
-#' @export
+# Remove `class` from the tree node registry. Internal: the dispatcher's cache
+# still holds entries whose trees contain the class, and running one of them
+# fails only after the program has executed.
 unregister_tree_node <- function(class) {
   checkmate::assert_string(class)
   impl_unregister_tree_node(class)
@@ -192,9 +192,11 @@ tree_equal <- impl_tree_equal
 #' @title Structural Tree Hash
 #' @description
 #' A hash of a tree's structure -- node kinds, child structure, leaf positions,
-#' and names -- consistent with [tree_equal()]: trees that are [tree_equal()]
-#' hash to the same value. Intended as a cache key for tree-structured
-#' dispatch.
+#' names, and the class and aux data of each object of a class registered with
+#' [register_tree_node()] -- consistent with [tree_equal()]: trees that are
+#' [tree_equal()] hash to the same value. Intended as a cache key for
+#' tree-structured dispatch within a session: a class folds in by its address,
+#' so the hash of a tree with registered objects differs between sessions.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`, the structural hash.

@@ -81,8 +81,10 @@ outputs, after them, e.g. an error code. They are not part of the call's
 result but are handed to \code{on_success}, which is then required.
 \item \code{on_success} (optional): a function called with the list of the implicit
 outputs, wrapped like the other outputs, and the call's argument list
-\code{args}, after every run of the entry that was launched without an error,
-before the call returns, e.g. to advance what an implicit input's \code{get()}
+\code{args}, after every run of the entry that was launched without an error
+and whose result was rebuilt from the \code{out_tree} (which runs the
+\code{unflatten} of a class registered with \code{\link[=register_tree_node]{register_tree_node()}}), before
+the call returns, e.g. to advance what an implicit input's \code{get()}
 reads, or an object among the arguments. Execution is asynchronous: the
 outputs may not be computed yet.
 }
