@@ -2,19 +2,13 @@
 compare_proxy.PJRTBuffer <- function(x, path) { # nolint
   list(
     object = list(
-      x = as_array(x),
+      x = as_array(x, check = FALSE),
       dim = shape(x),
       dtype = as.character(elt_type(x)),
       attr = attributes(x)
     ),
     path = path
   )
-}
-
-
-# fmt: skip
-compare_proxy.PJRTArrayPromise <- function(x, path) { # nolint
-  list(object = value(x), path = path)
 }
 
 # shamelessly copied from: https://github.com/tidyverse/readr/blob/e529cb2775f1b52a0dfa30dabc9f8e0014aa77e6/R/zzz.R

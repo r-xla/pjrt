@@ -1,13 +1,20 @@
 #include <Rcpp.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <limits>
+#include <type_traits>
 
+#include "bfloat16.h"
 #include "buffer.h"
 #include "buffer_printer.h"
+#include "buffer_sexp.h"
 #include "client.h"
 #include "deferred_release.h"
+#include "half/half.hpp"
 #include "pjrt_impl.h"
 #include "pjrt_types.h"
 #include "plugin.h"
@@ -116,16 +123,215 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_loaded_executable_device(
   return xptr;
 }
 
+// The R-facing name of an element type ("i32", "ui8", ...), for messages.
+static std::string dtype_name(PJRT_Buffer_Type type) {
+  return rpjrt::PJRTElementType(type).as_string();
+}
+
+// Locates the offending element in an error message. `len` is the length of
+// the buffer being filled, which recycle_data() has already expanded, so a
+// scalar argument given a shape still gets an index.
+static std::string element_suffix(int i, int len) {
+  return len > 1 ? " (element " + std::to_string(i + 1) + ")" : "";
+}
+
+// Spells a double for an error message the way R does, so that an infinity
+// reads "Inf" rather than C's "inf". Only reached on the error path.
+static std::string format_r_double(double v) {
+  if (!R_FINITE(v)) return v > 0 ? "Inf" : "-Inf";
+  char buf[64];
+  std::snprintf(buf, sizeof(buf), "%.15g", v);
+  return buf;
+}
+
+// Whether an R integer is representable in the integral type `T`. Folds to a
+// constant where T is at least as wide and as signed as R's int.
+template <typename T>
+constexpr bool r_int_fits(int v) {
+  if constexpr (std::is_signed_v<T>) {
+    return static_cast<int64_t>(v) >=
+               static_cast<int64_t>(std::numeric_limits<T>::lowest()) &&
+           static_cast<int64_t>(v) <=
+               static_cast<int64_t>(std::numeric_limits<T>::max());
+  } else {
+    return v >= 0 && static_cast<uint64_t>(v) <=
+                         static_cast<uint64_t>(std::numeric_limits<T>::max());
+  }
+}
+
+// Reject any element of `data` that the integral element type `T` cannot hold,
+// before a byte of the buffer is allocated. Every value that survives then
+// converts with a plain static_cast, which is defined only once the value is
+// known to be in range: casting a NaN or out-of-range double is undefined
+// behaviour, and what it yields in practice differs between x86 (INT_MIN) and
+// ARM (saturation). Rejecting rather than clamping is what torch and JAX both
+// do at this same host-to-device boundary.
+//
+// A fractional double is not rejected -- it truncates toward zero, as
+// as.integer() does. The range is therefore tested on the truncated value, so
+// 255.7 still fits "ui8".
+template <typename T>
+void validate_integral_input(SEXP data, int len, PJRT_Buffer_Type type) {
+  if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
+    if (TYPEOF(data) == REALSXP) {
+      // Here we check whether an R double fits within the requested integral
+      // type T Problems can be:
+      // 1. It's NA/NaN
+      // 2. It's too large / small
+      // The bounds are compared in double space. lowest() is a power of two,
+      // and max() + 1 is spelled max() / 2 + 1 doubled -- also a power of two
+      // -- so both convert to double exactly and the half-open test is the
+      // correct one (max() itself is generally not representable as a double).
+
+      // to check whether it's too large, we need to compute the maximum value
+      // that fits into T in double space
+      // the maximum value of i32 is 2^63 - 1, so we do
+      constexpr double kLo =
+          static_cast<double>(std::numeric_limits<T>::lowest());
+
+      // for i64, max int is 2^63 - 1 and we want to get that faithfully in
+      // double. 2^62 can be perfectly represented in double, so we do (2^63 +
+      // 1) / 2 + 1  --> 2^62 (in i64)
+      // this value we can then convert to double (1.0 * 2^62) and then multiply
+      // by 2 to get 2^63. This is exclusive, any truncated R double must be
+      // smaller than it
+      constexpr double kHiExclusive =
+          2.0 * static_cast<double>(std::numeric_limits<T>::max() / 2 + 1);
+      const double *x = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        if (ISNAN(x[i])) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+        const double t = std::trunc(x[i]);
+        if (!(t >= kLo && t < kHiExclusive)) {
+          Rcpp::stop(
+              "Value %s cannot be converted to \"%s\" without overflow%s.",
+              format_r_double(x[i]), dtype_name(type), element_suffix(i, len));
+        }
+      }
+    } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, a value R reserves, so no integer vector holds
+      // it legitimately and rejecting it is never a false positive. It has to
+      // be rejected explicitly for i64, which is wide enough to take it and
+      // would otherwise widen it to the ordinary value -2147483648 that
+      // as_array() reports but cannot tell apart from real data -- and a
+      // missing value should not depend on whether the caller wrote NA_real_
+      // or NA_integer_. An i32 buffer is the deliberate exception and never
+      // gets here: an INTSXP uploads to i32 zero-copy, carrying NA_integer_
+      // through as R's own NA for as_array() to report.
+      const int *x = INTEGER_RO(data);
+      for (int i = 0; i < len; ++i) {
+        if (x[i] == NA_INTEGER) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+        if (!r_int_fits<T>(x[i])) {
+          Rcpp::stop(
+              "Value %d cannot be converted to \"%s\" without overflow%s.",
+              x[i], dtype_name(type), element_suffix(i, len));
+        }
+      }
+    } else if (TYPEOF(data) == LGLSXP) {
+      // "bool" is the only element type an LGLSXP reaches intact -- every
+      // other one converts through as.integer() first, where NA_LOGICAL
+      // becomes the NA_integer_ the branch above rejects. Without this,
+      // convert_r_data_to_typed()'s `src[i] ? 1 : 0` would read NA_LOGICAL's
+      // INT_MIN as truthy and store a missing value as TRUE. bool has no
+      // missing value to land on, so it is rejected like any other dtype
+      // that cannot hold one.
+      const int *x = LOGICAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        if (x[i] == NA_LOGICAL) {
+          Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                     dtype_name(type), element_suffix(i, len));
+        }
+      }
+    }
+  }
+}
+
+// Convert a double to the integral element type T, truncating toward zero like
+// as.integer() but without R's 32-bit intermediate -- an i64 buffer must be
+// able to hold 2^40. Defined only for a value validate_integral_input() has
+// already accepted: casting a NaN or out-of-range double is undefined
+// behaviour.
+template <typename T>
+T r_double_to_integral(double v) {
+  return static_cast<T>(std::trunc(v));
+}
+
+// F16 buffers are packed binary16 on both sides of the PJRT boundary; the
+// reinterpret_casts between raw bytes and half rely on the type being exactly
+// two bytes with no extra state.
+static_assert(sizeof(half_float::half) == 2,
+              "half_float::half must be exactly 2 bytes");
+
 // Copy R data into a pre-allocated typed destination buffer, performing
 // type conversion as needed. T is the PJRT-side element type.
+//
+// The source is only read, so it is accessed through the *_RO accessors: the
+// writable INTEGER()/REAL()/LOGICAL() force copy-on-write materialization of
+// ALTREP vectors (e.g. shared-memory mappings), doubling the host cost of the
+// upload, whereas the read-only forms hand back the mapping in place.
 template <typename T>
 void convert_r_data_to_typed(SEXP data, T *dst, int len) {
-  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+  if constexpr (std::is_same_v<T, half_float::half>) {
+    // half_cast<> rounds the double directly to binary16, to nearest with ties
+    // to even. The implicit half(float) constructor must not be used with R
+    // doubles: rounding double -> float -> half double-rounds (65519.999 lands
+    // on the float 65520, which then ties up to Inf, where the correctly
+    // rounded result is 65504).
     if (TYPEOF(data) == REALSXP) {
-      std::copy(REAL(data), REAL(data) + len, dst);
-    } else if (TYPEOF(data) == INTSXP) {
+      const double *src = REAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = static_cast<T>(INTEGER(data)[i]);
+        dst[i] = half_float::half_cast<half_float::half>(src[i]);
+      }
+    } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, an ordinary value once widened, so it is
+      // translated to NaN rather than cast, as the f32 path below does.
+      const int *src = INTEGER_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = half_float::half_cast<half_float::half>(
+            src[i] == NA_INTEGER ? R_NaReal : static_cast<double>(src[i]));
+      }
+    } else {
+      Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
+    }
+  } else if constexpr (std::is_same_v<T, rpjrt::bfloat16>) {
+    // from_double() rounds the R double straight to bf16, to nearest with ties
+    // to even. Going through float first would double-round: a double just
+    // below a bf16 midpoint can round up to a float sitting exactly on it,
+    // which then ties away to the wrong neighbour.
+    if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = rpjrt::bfloat16::from_double(src[i]);
+      }
+    } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, an ordinary value once widened, so it is
+      // translated to NaN rather than cast, as the f32 path below does.
+      const int *src = INTEGER_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = rpjrt::bfloat16::from_double(
+            src[i] == NA_INTEGER ? R_NaReal : static_cast<double>(src[i]));
+      }
+    } else {
+      Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
+    }
+  } else if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+    if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
+      std::copy(src, src + len, dst);
+    } else if (TYPEOF(data) == INTSXP) {
+      // NA_integer_ is INT_MIN, an ordinary value once widened, so it has to be
+      // translated rather than cast -- as.double(NA_integer_) is NA_real_, and
+      // a float dtype has a missing value to land on. f64 keeps R's NA payload;
+      // f32 is too narrow for it and gets a plain NaN.
+      const int *src = INTEGER_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = src[i] == NA_INTEGER ? static_cast<T>(R_NaReal)
+                                      : static_cast<T>(src[i]);
       }
     } else {
       Rcpp::stop("Cannot convert R type %d to floating point", TYPEOF(data));
@@ -137,16 +343,32 @@ void convert_r_data_to_typed(SEXP data, T *dst, int len) {
                        std::is_same_v<T, uint16_t> ||
                        std::is_same_v<T, uint32_t> ||
                        std::is_same_v<T, uint64_t>) {
-    std::copy(INTEGER(data), INTEGER(data) + len, dst);
+    if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = r_double_to_integral<T>(src[i]);
+      }
+    } else {
+      const int *src = INTEGER_RO(data);
+      std::copy(src, src + len, dst);
+    }
   } else if constexpr (std::is_same_v<T, bool>) {
-    std::copy(LOGICAL(data), LOGICAL(data) + len, dst);
+    const int *src = LOGICAL_RO(data);
+    std::copy(src, src + len, dst);
   } else if constexpr (std::is_same_v<T, uint8_t>) {
     if (TYPEOF(data) == LGLSXP) {
+      const int *src = LOGICAL_RO(data);
       for (int i = 0; i < len; ++i) {
-        dst[i] = LOGICAL(data)[i] ? 1 : 0;
+        dst[i] = src[i] ? 1 : 0;
       }
     } else if (TYPEOF(data) == INTSXP) {
-      std::copy(INTEGER(data), INTEGER(data) + len, dst);
+      const int *src = INTEGER_RO(data);
+      std::copy(src, src + len, dst);
+    } else if (TYPEOF(data) == REALSXP) {
+      const double *src = REAL_RO(data);
+      for (int i = 0; i < len; ++i) {
+        dst[i] = r_double_to_integral<uint8_t>(src[i]);
+      }
     } else {
       Rcpp::stop("Unsupported R type: %d", TYPEOF(data));
     }
@@ -167,9 +389,10 @@ std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
 // Build a CPU buffer backed by a fresh RAWSXP. `fill` receives a pointer to
 // `total_bytes` of writable storage and must populate it with the buffer's
 // host bytes (a conversion, a memcpy, or nothing for uninitialized contents).
-// PJRT then aliases those bytes via kMutableZeroCopy and the RAWSXP is parked
-// in the buffer XPtr's protected slot, so R's GC both keeps it alive exactly as
-// long as the PJRTBuffer XPtr is reachable AND accounts for its memory. Every
+// PJRT then aliases those bytes via kMutableZeroCopy and the RAWSXP becomes
+// the buffer's keepalive (see buffer_sexp.h), so R's GC both keeps it alive
+// exactly as long as the PJRTBuffer XPtr is reachable AND accounts for its
+// memory. Every
 // CPU buffer-creation path funnels through here, so no CPU buffer's host
 // storage is ever invisible to R's GC.
 //
@@ -189,13 +412,12 @@ std::unique_ptr<std::vector<T>> copy_r_data_to_vec(SEXP data) {
 constexpr size_t kCpuBufferAlign = 64;
 
 template <typename Fill>
-Rcpp::XPtr<rpjrt::PJRTBuffer> make_cpu_buffer(
-    Rcpp::XPtr<rpjrt::PJRTClient> &client, size_t total_bytes,
-    const std::vector<int64_t> &dims,
-    const std::optional<std::vector<int64_t>> &byte_strides,
-    PJRT_Buffer_Type dtype, PJRT_Device *device, Fill fill) {
-  // PROTECT across buffer_from_host_async: PJRT allocation may trigger R's GC.
-  // Once the XPtr holds raw_sexp in its prot slot it stays reachable.
+SEXP make_cpu_buffer(Rcpp::XPtr<rpjrt::PJRTClient> &client, size_t total_bytes,
+                     const std::vector<int64_t> &dims,
+                     const std::optional<std::vector<int64_t>> &byte_strides,
+                     PJRT_Buffer_Type dtype, PJRT_Device *device, Fill fill) {
+  // Shielded across buffer_from_host_async: PJRT allocation may trigger R's
+  // GC. Once the XPtr holds raw_sexp as its keepalive it stays reachable.
   //
   // R only guarantees ~16-byte alignment for vector data, and cannot be asked
   // for more, so the alignment is produced inside the allocation: allocate
@@ -206,8 +428,8 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> make_cpu_buffer(
   // (`fill`, PJRT's alias) uses only that interior pointer; the RAWSXP as a
   // whole is the GC-owned keepalive and its leading slack bytes are never
   // touched.
-  SEXP raw_sexp =
-      PROTECT(Rf_allocVector(RAWSXP, total_bytes + kCpuBufferAlign - 1));
+  Rcpp::Shield<SEXP> raw_sexp(
+      Rf_allocVector(RAWSXP, total_bytes + kCpuBufferAlign - 1));
   const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(raw_sexp));
   void *data = reinterpret_cast<void *>(
       (base + kCpuBufferAlign - 1) &
@@ -216,20 +438,17 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> make_cpu_buffer(
   auto result =
       client->buffer_from_host_async(data, dims, byte_strides, dtype, device,
                                      PJRT_HostBufferSemantics_kMutableZeroCopy);
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true,
-                                            R_NilValue, raw_sexp);
-  buffer_xptr.attr("class") = "PJRTBuffer";
-  UNPROTECT(1);
-  return buffer_xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer), raw_sexp);
 }
 
 // Async buffer creation - handles data lifetime internally via on_ready
 // callback
 template <typename T>
-Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-    const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
-    bool row_major = false, PJRT_Device *device = nullptr) {
+SEXP create_buffer_from_array_async(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                    SEXP data, const std::vector<int64_t> &dims,
+                                    PJRT_Buffer_Type dtype,
+                                    bool row_major = false,
+                                    PJRT_Device *device = nullptr) {
   int len = Rf_length(data);
   if (len == 0) {
     if (!std::any_of(dims.begin(), dims.end(),
@@ -237,6 +456,9 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
       Rcpp::stop("Data must be a non-empty vector.");
     }
   }
+
+  // Before any allocation, so a rejected upload never allocates the buffer.
+  validate_integral_input<T>(data, len, dtype);
 
   auto byte_strides_opt = get_byte_strides(dims, row_major, sizeof(T));
 
@@ -260,9 +482,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
     result.event->on_ready([raw_ptr](PJRT_Error *error) { delete raw_ptr; });
   }
 
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  buffer_xptr.attr("class") = "PJRTBuffer";
-  return buffer_xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
 // Buffer creation for types whose R in-memory layout already matches the dtype
@@ -276,8 +496,12 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async(
 //
 // On non-CPU it is genuinely zero-copy: R's data is handed straight to PJRT and
 // the R object is kept alive only until the transfer completes.
-Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, void *data_ptr,
+//
+// `data_ptr` comes from a read-only accessor (see convert_r_data_to_typed), so
+// an ALTREP `data` is not materialized. Both consumers only read the bytes: the
+// CPU path memcpys, and the async path uses kImmutableUntilTransferCompletes.
+SEXP create_buffer_from_array_async_no_convert(
+    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data, const void *data_ptr,
     const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
     size_t element_size, bool row_major = false,
     PJRT_Device *device = nullptr) {
@@ -300,58 +524,69 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_array_async_no_convert(
                            });
   }
 
-  // Non-CPU: hand R's data straight to PJRT (zero-copy).
-  auto result = client->buffer_from_host_async(data_ptr, dims, byte_strides_opt,
-                                               dtype, device);
+  // Non-CPU: hand R's data straight to PJRT (zero-copy). const_cast because
+  // buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result = client->buffer_from_host_async(
+      const_cast<void *>(data_ptr), dims, byte_strides_opt, dtype, device);
 
   if (result.event) {
-    R_PreserveObject(data);
+    SEXP token = rpjrt::preserve(data);
     result.event->on_ready(
-        [data](PJRT_Error *error) { rpjrt::queue_release(data); });
+        [token](PJRT_Error *error) { rpjrt::queue_release(token); });
   }
 
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  buffer_xptr.attr("class") = "PJRTBuffer";
-  return buffer_xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
-Rcpp::XPtr<rpjrt::PJRTBuffer> create_buffer_from_raw(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
-    const std::vector<int64_t> &dims, PJRT_Buffer_Type dtype,
-    bool row_major = false, PJRT_Device *device = nullptr) {
+SEXP create_buffer_from_raw(Rcpp::XPtr<rpjrt::PJRTClient> client, SEXP data,
+                            const std::vector<int64_t> &dims,
+                            PJRT_Buffer_Type dtype, bool row_major = false,
+                            PJRT_Device *device = nullptr) {
   auto byte_strides_opt =
       get_byte_strides(dims, row_major, sizeof_pjrt_buffer_type(dtype));
 
   if (client->is_cpu()) {
     // Copy the raw bytes into a fresh RAWSXP; don't alias the caller's vector.
+    // DATAPTR_RO: the source is only read, and a writable DATAPTR would force
+    // copy-on-write materialization of ALTREP raw vectors (e.g. shared-memory
+    // mappings), doubling the host cost of the upload. Unlike INTEGER_RO() and
+    // REAL_RO(), RAW_RO() is not a substitute: as of R 4.6 it forces ALTREP
+    // payloads like RAW() does.
     size_t total_bytes = static_cast<size_t>(Rf_length(data));
     return make_cpu_buffer(client, total_bytes, dims, byte_strides_opt, dtype,
                            device, [&](void *dst) {
                              if (total_bytes > 0)
-                               std::memcpy(dst, RAW(data), total_bytes);
+                               std::memcpy(dst, DATAPTR_RO(data), total_bytes);
                            });
   }
 
-  auto result = client->buffer_from_host_async(RAW(data), dims,
-                                               byte_strides_opt, dtype, device);
+  // kImmutableUntilTransferCompletes only reads the host bytes; const_cast
+  // because buffer_from_host_async takes void* to match the PJRT C API entry.
+  auto result =
+      client->buffer_from_host_async(const_cast<void *>(DATAPTR_RO(data)), dims,
+                                     byte_strides_opt, dtype, device);
 
   if (result.event) {
-    R_PreserveObject(data);
+    SEXP token = rpjrt::preserve(data);
     result.event->on_ready(
-        [data](PJRT_Error *error) { rpjrt::queue_release(data); });
+        [token](PJRT_Error *error) { rpjrt::queue_release(token); });
   }
 
-  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffer.release());
-  xptr.attr("class") = "PJRTBuffer";
-  return xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype,
-    bool row_major = false) {
-  if (dtype == "f32") {
+SEXP impl_client_buffer_from_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                 Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                 SEXP data, std::vector<int64_t> dims,
+                                 std::string dtype, bool row_major = false) {
+  if (dtype == "f16") {
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F16,
+                                  row_major, device->device);
+  } else if (dtype == "bf16") {
+    return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_BF16,
+                                  row_major, device->device);
+  } else if (dtype == "f32") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_F32,
                                   row_major, device->device);
   } else if (dtype == "f64") {
@@ -381,7 +616,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
   } else if (dtype == "ui64") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_U64,
                                   row_major, device->device);
-  } else if (dtype == "pred") {
+  } else if (dtype == "bool") {
     return create_buffer_from_raw(client, data, dims, PJRT_Buffer_Type_PRED,
                                   row_major, device->device);
   } else {
@@ -390,13 +625,14 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_raw(
 }
 
 // Allocate a buffer with unspecified contents. On CPU, backs the buffer with
-// a RAWSXP stashed in the XPtr's protected slot so that R's GC keeps the host
+// a RAWSXP kept as the buffer's keepalive so that R's GC keeps the host
 // bytes alive for the buffer's lifetime and counts the memory. On other
 // platforms, allocates a host vector, transfers, and releases it when the
 // transfer completes.
-Rcpp::XPtr<rpjrt::PJRTBuffer> client_buffer_empty(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    std::vector<int64_t> dims, PJRT_Buffer_Type pjrt_dtype) {
+SEXP client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                         Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                         std::vector<int64_t> dims,
+                         PJRT_Buffer_Type pjrt_dtype) {
   const size_t element_size = sizeof_pjrt_buffer_type(pjrt_dtype);
   const int64_t numel = number_of_elements(dims);
   const size_t total_bytes = static_cast<size_t>(numel) * element_size;
@@ -420,93 +656,21 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> client_buffer_empty(
     auto *raw_ptr = data_vec.release();
     result.event->on_ready([raw_ptr](PJRT_Error *error) { delete raw_ptr; });
   }
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buffer_xptr(result.buffer.release(), true);
-  buffer_xptr.attr("class") = "PJRTBuffer";
-  return buffer_xptr;
+  return rpjrt::wrap_buffer(std::move(result.buffer));
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_empty(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                              Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                              std::vector<int64_t> dims, std::string dtype) {
   return client_buffer_empty(client, device, std::move(dims),
                              string_to_pjrt_buffer_type(dtype));
 }
 
-// Core conversion: raw bytes (row-major) -> R array (column-major) with type
-// casting. Used by both sync and async buffer-to-host paths.
-template <typename T>
-SEXP raw_to_array_impl(const uint8_t *raw_data,
-                       const std::vector<int64_t> &dimensions, int r_type,
-                       const std::vector<int64_t> &minor_to_major) {
-  const auto numel = number_of_elements(dimensions);
-
-  if (numel == 0) {
-    SEXP out = PROTECT(Rf_allocVector(r_type, 0));
-    if (dimensions.size() > 0) {
-      Rcpp::IntegerVector dims(dimensions.begin(), dimensions.end());
-      Rf_setAttrib(out, R_DimSymbol, dims);
-    }
-    UNPROTECT(1);
-    return out;
-  }
-
-  // Reinterpret the device-layout bytes and reorder them to logical row-major
-  // (a no-op copy when the device layout is already row-major).
-  const T *typed_data = reinterpret_cast<const T *>(raw_data);
-  std::vector<T> temp_vec(numel);
-  device_to_row_major<T>(typed_data, temp_vec.data(), dimensions,
-                         minor_to_major);
-
-  SEXP out = PROTECT(Rf_allocVector(r_type, numel));
-  void *out_data;
-
-  if (r_type == REALSXP) {
-    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
-                  std::is_same_v<T, uint32_t>) {
-      // Integer dtype that can't fit in R's signed int32 -> "pseudo-double":
-      // REALSXP slots carry the int64 bit pattern (the storage layout used by
-      // bit64::integer64). The R caller attaches the integer64 class. Widening
-      // uint32_t to int64_t is value-preserving (u32 max < 2^53).
-      static_assert(sizeof(double) == sizeof(int64_t),
-                    "bit64::integer64 layout requires sizeof(double) == "
-                    "sizeof(int64_t)");
-      int64_t *out_data_i64 = reinterpret_cast<int64_t *>(REAL(out));
-      row_to_col_order<T, int64_t>(temp_vec, out_data_i64, dimensions);
-    } else {
-      out_data = REAL(out);
-      row_to_col_order<T, double>(temp_vec, static_cast<double *>(out_data),
-                                  dimensions);
-    }
-  } else if (r_type == INTSXP) {
-    out_data = INTEGER(out);
-    row_to_col_order<T, int>(temp_vec, static_cast<int *>(out_data),
-                             dimensions);
-  } else if (r_type == LGLSXP) {
-    out_data = LOGICAL(out);
-    row_to_col_order<T, int>(temp_vec, static_cast<int *>(out_data),
-                             dimensions);
-  } else {
-    UNPROTECT(1);
-    Rcpp::stop("Unsupported R type: %d", r_type);
-  }
-
-  if (dimensions.size() > 0) {
-    SEXP dim_attr = PROTECT(Rf_allocVector(INTSXP, dimensions.size()));
-    int *dim_data = INTEGER(dim_attr);
-    std::copy(dimensions.begin(), dimensions.end(), dim_data);
-    Rf_setAttrib(out, R_DimSymbol, dim_attr);
-    UNPROTECT(1);
-  }
-
-  UNPROTECT(1);
-  return out;
-}
-
 // [[Rcpp::export()]]
 Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
-                                   Rcpp::XPtr<rpjrt::PJRTBuffer> buffer,
-                                   bool row_major = false) {
+                                   SEXP buffer_sexp, bool row_major = false) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   const auto dimensions = buffer->dimensions();
   const auto element_type = buffer->element_type();
 
@@ -563,6 +727,12 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
   };
 
   switch (element_type) {
+    case PJRT_Buffer_Type_F16:
+      handle_transpose(half_float::half{});
+      break;
+    case PJRT_Buffer_Type_BF16:
+      handle_transpose(rpjrt::bfloat16{});
+      break;
     case PJRT_Buffer_Type_F32:
       handle_transpose(float{});
       break;
@@ -603,9 +773,11 @@ Rcpp::RawVector impl_buffer_to_raw(Rcpp::XPtr<rpjrt::PJRTClient> client,
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    Rcpp::XPtr<rpjrt::PJRTClient> dst_client, bool cross_client) {
+SEXP impl_buffer_copy_to_device(SEXP buffer_sexp,
+                                Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                Rcpp::XPtr<rpjrt::PJRTClient> dst_client,
+                                bool cross_client) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   std::unique_ptr<rpjrt::PJRTBuffer> new_buf;
   if (cross_client) {
     // Host roundtrip: device -> host bytes -> new buffer on target client
@@ -635,9 +807,7 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_buffer_copy_to_device(
   } else {
     new_buf = buffer->copy_to_device(*device);
   }
-  Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(new_buf.release(), true);
-  xptr.attr("class") = "PJRTBuffer";
-  return xptr;
+  return rpjrt::wrap_buffer(std::move(new_buf));
 }
 
 // [[Rcpp::export()]]
@@ -659,8 +829,8 @@ Rcpp::List impl_client_devices(Rcpp::XPtr<rpjrt::PJRTClient> client) {
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto element_type =
       std::make_unique<rpjrt::PJRTElementType>(buffer->element_type());
   Rcpp::XPtr<rpjrt::PJRTElementType> xptr(element_type.release(), true);
@@ -669,8 +839,8 @@ Rcpp::XPtr<rpjrt::PJRTElementType> impl_buffer_elt_type(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto device = buffer->device();
   Rcpp::XPtr<rpjrt::PJRTDevice> xptr(device.release(), true);
   xptr.attr("class") = "PJRTDevice";
@@ -678,8 +848,8 @@ Rcpp::XPtr<rpjrt::PJRTDevice> impl_buffer_device(
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::XPtr<rpjrt::PJRTMemory> impl_buffer_memory(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto memory = buffer->memory();
   Rcpp::XPtr<rpjrt::PJRTMemory> xptr(memory.release(), true);
   xptr.attr("class") = "PJRTMemory";
@@ -713,8 +883,8 @@ std::string impl_dtype_as_string(
 }
 
 // [[Rcpp::export()]]
-Rcpp::IntegerVector impl_buffer_dimensions(
-    Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+Rcpp::IntegerVector impl_buffer_dimensions(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto dims = buffer->dimensions();
   Rcpp::IntegerVector result(dims.size());
   for (size_t i = 0; i < dims.size(); ++i) {
@@ -769,15 +939,17 @@ std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
 }
 
 // [[Rcpp::export()]]
-void impl_buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
-                       int max_width, int max_rows_slice) {
+void impl_buffer_print(SEXP buffer_sexp, int max_rows, int max_width,
+                       int max_rows_slice) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   buffer_print(buffer, max_rows, max_width, max_rows_slice);
 }
 
 // Async status functions for buffers and host data
 
 // [[Rcpp::export()]]
-bool impl_buffer_is_ready(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+bool impl_buffer_is_ready(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   bool ready = buffer->is_ready();
   if (ready) {
     rpjrt::process_pending_releases();
@@ -786,19 +958,10 @@ bool impl_buffer_is_ready(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
 }
 
 // [[Rcpp::export()]]
-void impl_buffer_await(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
+void impl_buffer_await(SEXP buffer_sexp) {
+  auto buffer = rpjrt::as_buffer(buffer_sexp);
   buffer->await();
   rpjrt::process_pending_releases();
-}
-
-// [[Rcpp::export()]]
-bool impl_host_data_is_ready(Rcpp::XPtr<rpjrt::PJRTHostData> data) {
-  return data->is_ready();
-}
-
-// [[Rcpp::export()]]
-void impl_host_data_await(Rcpp::XPtr<rpjrt::PJRTHostData> data) {
-  data->await();
 }
 
 // Process any pending R object releases that were queued by PJRT callbacks.
@@ -816,120 +979,36 @@ std::size_t impl_pending_release_count() {
 // exercise the drain on CPU, where no path populates the queue naturally.
 // [[Rcpp::export()]]
 void impl_test_enqueue_release(SEXP x) {
-  R_PreserveObject(x);
-  rpjrt::queue_release(x);
+  rpjrt::queue_release(rpjrt::preserve(x));
 }
 
-// Test-only: whether the buffer's device memory lives inside the RAWSXP held
-// in its XPtr's protected slot -- i.e. whether the buffer genuinely aliases
+// Test-only: read a buffer's keepalive. Used to assert the keepalive invariant
+// — which RAWSXP a CPU buffer's XPtr pins.
+// [[Rcpp::export()]]
+SEXP impl_test_buffer_keepalive(SEXP x) {
+  return rpjrt::buffer_keepalive(rpjrt::buffer_xptr(x));
+}
+
+// Test-only: whether the buffer's device memory lives inside its keepalive
+// RAWSXP -- i.e. whether the buffer genuinely aliases
 // R-owned host bytes. TRUE for a zero-copy CPU buffer and for an aliased
 // output written in place into a donated input's storage; FALSE when PJRT
 // copied (pool-backed storage) or when no keepalive is attached.
 // [[Rcpp::export()]]
-bool impl_test_buffer_aliases_prot(SEXP x) {
-  SEXP prot = R_ExternalPtrProtected(x);
-  if (TYPEOF(prot) != RAWSXP) return false;
-  Rcpp::XPtr<rpjrt::PJRTBuffer> buf(x);
+bool impl_test_buffer_aliases_keepalive(SEXP x) {
+  SEXP keepalive = rpjrt::buffer_keepalive(rpjrt::buffer_xptr(x));
+  if (TYPEOF(keepalive) != RAWSXP) return false;
+  auto buf = rpjrt::as_buffer(x);
   if (buf->buffer == nullptr) return false;
   auto api = buf->get_api();
   PJRT_Buffer_UnsafePointer_Args args{};
   args.struct_size = PJRT_Buffer_UnsafePointer_Args_STRUCT_SIZE;
-  args.buffer = buf->buffer;
+  args.buffer = buf->buffer.get();
   check_err(api.get(), api->PJRT_Buffer_UnsafePointer_(&args));
   const std::uintptr_t p = args.buffer_pointer;
-  const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(prot));
-  return p >= base && p < base + static_cast<std::uintptr_t>(XLENGTH(prot));
-}
-
-// [[Rcpp::export()]]
-SEXP impl_raw_to_array(Rcpp::XPtr<rpjrt::PJRTHostData> host_data,
-                       const std::string &dtype, Rcpp::IntegerVector dims,
-                       Rcpp::IntegerVector minor_to_major) {
-  std::vector<int64_t> dimensions(dims.begin(), dims.end());
-  std::vector<int64_t> m2m(minor_to_major.begin(), minor_to_major.end());
-
-  // Handle null/empty data
-  const uint8_t *raw_data = nullptr;
-  if (host_data.get() != nullptr && !host_data->data().empty()) {
-    raw_data = host_data->data().data();
-  }
-
-  if (dtype == "f32") {
-    return raw_to_array_impl<float>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "f64") {
-    return raw_to_array_impl<double>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "i8") {
-    return raw_to_array_impl<int8_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "i16") {
-    return raw_to_array_impl<int16_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "i32") {
-    return raw_to_array_impl<int32_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "i64") {
-    return raw_to_array_impl<int64_t>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "ui8") {
-    return raw_to_array_impl<uint8_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "ui16") {
-    return raw_to_array_impl<uint16_t>(raw_data, dimensions, INTSXP, m2m);
-  } else if (dtype == "ui32") {
-    // u32 -> integer64 storage: signed int32 has no headroom for ui32 values
-    // >= 2^31; widen to integer64 (53 bits of headroom) so the R caller gets
-    // the full unsigned magnitude. R-side classes the result as integer64.
-    return raw_to_array_impl<uint32_t>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "ui64") {
-    return raw_to_array_impl<uint64_t>(raw_data, dimensions, REALSXP, m2m);
-  } else if (dtype == "pred") {
-    return raw_to_array_impl<uint8_t>(raw_data, dimensions, LGLSXP, m2m);
-  } else {
-    Rcpp::stop("Unsupported dtype: %s", dtype.c_str());
-  }
-}
-
-// [[Rcpp::export()]]
-Rcpp::List impl_buffer_to_host_async(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer) {
-  const auto dimensions = buffer->dimensions();
-  const auto element_type = buffer->element_type();
-  const auto numel = number_of_elements(dimensions);
-
-  // Get element type as string
-  rpjrt::PJRTElementType elt_type(element_type);
-  std::string dtype = elt_type.as_string();
-
-  Rcpp::IntegerVector dims(dimensions.begin(), dimensions.end());
-
-  // The bytes arrive in the device layout; carry it through so value() can
-  // reorder them to a column-major R array.
-  const auto m2m_vec = buffer->minor_to_major();
-  Rcpp::IntegerVector minor_to_major(m2m_vec.begin(), m2m_vec.end());
-
-  // Handle empty buffers
-  if (numel == 0) {
-    auto empty_vec = std::make_unique<std::vector<uint8_t>>();
-    auto empty_data =
-        std::make_unique<rpjrt::PJRTHostData>(std::move(empty_vec), nullptr);
-    Rcpp::XPtr<rpjrt::PJRTHostData> data_xptr(empty_data.release(), true);
-    return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
-                              Rcpp::Named("dtype") = dtype,
-                              Rcpp::Named("dims") = dims,
-                              Rcpp::Named("minor_to_major") = minor_to_major);
-  }
-
-  const size_t total_bytes = numel * sizeof_pjrt_buffer_type(element_type);
-
-  auto data_vec = std::make_unique<std::vector<uint8_t>>(total_bytes);
-  std::span<uint8_t> host_buffer(data_vec->data(), total_bytes);
-
-  // Start async copy (data will be in row-major order)
-  auto event = buffer->buffer_to_host_async(host_buffer);
-
-  // Wrap data + event in PJRTHostData (owns both)
-  auto host_data = std::make_unique<rpjrt::PJRTHostData>(std::move(data_vec),
-                                                         std::move(event));
-  Rcpp::XPtr<rpjrt::PJRTHostData> data_xptr(host_data.release(), true);
-
-  return Rcpp::List::create(Rcpp::Named("data") = data_xptr,
-                            Rcpp::Named("dtype") = dtype,
-                            Rcpp::Named("dims") = dims,
-                            Rcpp::Named("minor_to_major") = minor_to_major);
+  const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(RAW(keepalive));
+  return p >= base &&
+         p < base + static_cast<std::uintptr_t>(XLENGTH(keepalive));
 }
 
 static std::string device_to_string(PJRT_Device *device, PJRT_Api *api) {
@@ -970,8 +1049,7 @@ Rcpp::List impl_loaded_executable_execute(
 
   std::vector<rpjrt::PJRTBuffer *> inputs(input.size());
   for (auto i = 0; i < input.size(); i++) {
-    auto elt = input[i];
-    auto buffer = Rcpp::as<Rcpp::XPtr<rpjrt::PJRTBuffer>>(elt);
+    auto buffer = rpjrt::as_buffer(input[i]);
     inputs[i] = buffer.get();
 
     PJRT_Device *buf_device = buffer->device_ptr();
@@ -995,50 +1073,49 @@ Rcpp::List impl_loaded_executable_execute(
   // Everything that must stay alive for the duration of the async Execute:
   // seeded here with the input buffer XPtrs, and extended after Execute with
   // the migrated donation keepalives that back the aliased *outputs* (see the
-  // alias loop below). A CPU buffer's bytes live in a RAWSXP parked in the
-  // XPtr's prot slot, which PJRT only aliases (zero-copy); the Execute reads
+  // alias loop below). A CPU buffer's bytes live in its keepalive RAWSXP,
+  // which PJRT only aliases (zero-copy); the Execute reads
   // input bytes and writes donated-output bytes on a background thread, but
   // nothing else keeps a *dropped* buffer alive until the computation finishes
   // with it. Pinning the XPtr keeps the buffer -- and transitively its RAWSXP
   // -- reachable, so an un-awaited Execute can't touch freed memory. Device
-  // inputs (CUDA/Metal) are PJRT-owned and carry a NilValue prot slot, so they
+  // inputs (CUDA) are PJRT-owned and carry no keepalive, so they
   // are skipped: PJRT already defers their device-memory free until pending
   // ops complete.
   std::vector<SEXP> keepalives;
   for (auto i = 0; i < input.size(); ++i) {
-    SEXP xptr = VECTOR_ELT(input, i);
-    if (R_ExternalPtrProtected(xptr) != R_NilValue) {
+    SEXP xptr = rpjrt::buffer_xptr(VECTOR_ELT(input, i));
+    if (rpjrt::buffer_keepalive(xptr) != R_NilValue) {
       keepalives.push_back(xptr);
     }
   }
 
   // Pin the inputs BEFORE launching the async Execute, so the keepalive is
   // already in place when PJRT's background threads begin reading the aliased
-  // host bytes. R_PreserveObject runs here on the main thread; the matching
+  // host bytes. The pin is taken here on the main thread; the matching
   // release is deferred to the completion event below. If Execute itself
   // throws, unpin first so the objects don't leak.
-  for (SEXP k : keepalives) R_PreserveObject(k);
+  for (SEXP &k : keepalives) k = rpjrt::preserve(k);
 
   rpjrt::AsyncExecuteResult result;
   try {
     result = executable->execute_async(inputs, *execution_options);
   } catch (...) {
-    for (SEXP k : keepalives) R_ReleaseObject(k);
+    for (SEXP k : keepalives) rpjrt::release(k);
     throw;
   }
 
   // Wrap buffers (each already has its completion event set)
   Rcpp::List buffers(result.buffers.size());
   for (size_t i = 0; i < result.buffers.size(); ++i) {
-    Rcpp::XPtr<rpjrt::PJRTBuffer> xptr(result.buffers[i].release(), true);
-    xptr.attr("class") = "PJRTBuffer";
-    buffers[i] = xptr;
+    buffers[i] = rpjrt::wrap_buffer(std::move(result.buffers[i]));
   }
 
   // For each input->output alias declared in the program, migrate the RAWSXP
-  // keepalive from the donated input XPtr to the aliased output XPtr, and null
-  // the donated input's PJRT_Buffer* so its finalizer is a no-op (PJRT already
-  // invalidated the handle during Execute).
+  // keepalive from the donated input XPtr to the aliased output XPtr, and
+  // destroy the donated input's PJRT_Buffer. Execute only emptied it -- it is
+  // deleted, but the object itself is ours to free -- and a null handle makes
+  // later uses of the input raise a clean "donated buffer" error.
   //
   // We only migrate when PJRT *actually* donated (confirmed via is_deleted),
   // because tf.aliasing_output lowers to a may-alias: PJRT may copy instead of
@@ -1054,16 +1131,18 @@ Rcpp::List impl_loaded_executable_execute(
             static_cast<size_t>(buffers.size())) {
       continue;
     }
-    SEXP in_xptr_sexp = VECTOR_ELT(input, alias.input_index);
+    SEXP in_xptr_sexp =
+        rpjrt::buffer_xptr(VECTOR_ELT(input, alias.input_index));
     auto *in_buf =
         static_cast<rpjrt::PJRTBuffer *>(R_ExternalPtrAddr(in_xptr_sexp));
     if (!in_buf->is_deleted()) continue;
 
-    SEXP out_xptr_sexp = VECTOR_ELT(buffers, alias.output_index);
-    SEXP keepalive = R_ExternalPtrProtected(in_xptr_sexp);
-    R_SetExternalPtrProtected(out_xptr_sexp, keepalive);
-    R_SetExternalPtrProtected(in_xptr_sexp, R_NilValue);
-    in_buf->buffer = nullptr;
+    SEXP out_xptr_sexp =
+        rpjrt::buffer_xptr(VECTOR_ELT(buffers, alias.output_index));
+    SEXP keepalive = rpjrt::buffer_keepalive(in_xptr_sexp);
+    rpjrt::set_buffer_keepalive(out_xptr_sexp, keepalive);
+    rpjrt::set_buffer_keepalive(in_xptr_sexp, R_NilValue);
+    in_buf->buffer.reset();
 
     // With in-place donation the still-pending execution WRITES the output
     // into `keepalive`'s memory. Its only root is now the output XPtr, which
@@ -1074,8 +1153,7 @@ Rcpp::List impl_loaded_executable_execute(
     // migrated keepalive itself until the completion event, alongside the
     // input keepalives.
     if (keepalive != R_NilValue) {
-      R_PreserveObject(keepalive);
-      keepalives.push_back(keepalive);
+      keepalives.push_back(rpjrt::preserve(keepalive));
     }
   }
 
@@ -1085,7 +1163,7 @@ Rcpp::List impl_loaded_executable_execute(
   // zero-copy buffer could be collected -- freeing its backing RAWSXP -- while
   // the async Execute still reads or writes it (use-after-free). The completion
   // event fires on a PJRT thread and only enqueues the release; the actual
-  // R_ReleaseObject runs later on the main thread via the deferred-release
+  // release runs later on the main thread via the deferred-release
   // queue. The PJRTEvent wrapper is destroyed when `result` goes out of scope,
   // but the registered callback still fires (see PJRTEvent::on_ready).
   if (!keepalives.empty()) {
@@ -1104,10 +1182,19 @@ Rcpp::List impl_loaded_executable_execute(
   return buffers;
 }
 
+// Declared ahead of impl_client_buffer_from_integer(): the two entry points
+// cross-dispatch, each delegating the dtypes that are the other's natural
+// target, so that every R source type reaches every element type.
+SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype);
+
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype) {
   if (dtype == "i8") {
     return create_buffer_from_array_async<int8_t>(
         client, data, dims, PJRT_Buffer_Type_S8, false, device->device);
@@ -1115,12 +1202,18 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
     return create_buffer_from_array_async<int16_t>(
         client, data, dims, PJRT_Buffer_Type_S16, false, device->device);
   } else if (dtype == "i32") {
-    // Zero-copy optimization: use R's integer data directly (R int = 32-bit)
-    static_assert(sizeof(int) == sizeof(int32_t),
-                  "R int must be 32-bit for zero-copy");
-    return create_buffer_from_array_async_no_convert(
-        client, data, INTEGER(data), dims, PJRT_Buffer_Type_S32,
-        sizeof(int32_t), false, device->device);
+    if (TYPEOF(data) == INTSXP) {
+      // Zero-copy optimization: use R's integer data directly (R int = 32-bit)
+      static_assert(sizeof(int) == sizeof(int32_t),
+                    "R int must be 32-bit for zero-copy");
+      return create_buffer_from_array_async_no_convert(
+          client, data, INTEGER_RO(data), dims, PJRT_Buffer_Type_S32,
+          sizeof(int32_t), false, device->device);
+    }
+    // Doubles reach this from impl_client_buffer_from_double() and need the
+    // per-element conversion; only an INTSXP is byte-compatible with S32.
+    return create_buffer_from_array_async<int32_t>(
+        client, data, dims, PJRT_Buffer_Type_S32, false, device->device);
   } else if (dtype == "i64") {
     return create_buffer_from_array_async<int64_t>(
         client, data, dims, PJRT_Buffer_Type_S64, false, device->device);
@@ -1136,12 +1229,24 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
   } else if (dtype == "ui64") {
     return create_buffer_from_array_async<uint64_t>(
         client, data, dims, PJRT_Buffer_Type_U64, false, device->device);
+  } else if (dtype == "f16") {
+    return create_buffer_from_array_async<half_float::half>(
+        client, data, dims, PJRT_Buffer_Type_F16, false, device->device);
+  } else if (dtype == "bf16") {
+    return create_buffer_from_array_async<rpjrt::bfloat16>(
+        client, data, dims, PJRT_Buffer_Type_BF16, false, device->device);
   } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
   } else if (dtype == "f64") {
     return create_buffer_from_array_async<double>(
         client, data, dims, PJRT_Buffer_Type_F64, false, device->device);
+  } else if (dtype == "bool") {
+    // as.logical() is the route an integer takes to bool, the same one
+    // impl_client_buffer_from_double() uses.
+    Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
+    return impl_client_buffer_from_logical(client, device, data_conv, dims,
+                                           dtype);
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
@@ -1152,9 +1257,10 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer(
 // The bit pattern is identical for signed/unsigned 64-bit ints, so the same
 // data can be uploaded as either S64 or U64.
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
+SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                       Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                       SEXP data, std::vector<int64_t> dims,
+                                       std::string dtype) {
   static_assert(sizeof(double) == sizeof(int64_t),
                 "bit64::integer64 zero-copy requires sizeof(double) == "
                 "sizeof(int64_t)");
@@ -1166,43 +1272,76 @@ Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_integer64(
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+
+  // bit64 spells NA_integer64_ as INT64_MIN. At "i64" that is R's own NA and
+  // the whole point of the zero-copy path: it travels through untouched and
+  // as_array() reports it on the way back, with the R caller warning about it
+  // on the way in. At "ui64" the same bits read as the ordinary value 2^63, so
+  // a missing value would arrive as real data; it is rejected here like any
+  // other dtype that cannot hold one. Nothing legitimate is turned away --
+  // bit64 cannot express 2^63 either, that bit pattern *is* its NA.
+  if (buffer_type == PJRT_Buffer_Type_U64) {
+    int len = Rf_length(data);
+    const int64_t *x = reinterpret_cast<const int64_t *>(REAL_RO(data));
+    for (int i = 0; i < len; ++i) {
+      if (x[i] == std::numeric_limits<int64_t>::min()) {
+        Rcpp::stop("Missing value (NA/NaN) cannot be converted to \"%s\"%s.",
+                   dtype_name(buffer_type), element_suffix(i, len));
+      }
+    }
+  }
+
   return create_buffer_from_array_async_no_convert(
-      client, data, REAL(data), dims, buffer_type, sizeof(int64_t), false,
+      client, data, REAL_RO(data), dims, buffer_type, sizeof(int64_t), false,
       device->device);
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_logical(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
-  if (dtype == "pred") {
+SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                     SEXP data, std::vector<int64_t> dims,
+                                     std::string dtype) {
+  if (dtype == "bool") {
     return create_buffer_from_array_async<uint8_t>(
         client, data, dims, PJRT_Buffer_Type_PRED, false, device->device);
-  } else {
-    Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
+  // Every other element type is a numeric one, reached through as.integer():
+  // FALSE/TRUE become 0/1 and NA becomes NA_integer_, which the integer entry
+  // point then treats like any other missing value. An unknown dtype string
+  // still falls through to its "Unsupported type" error.
+  Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
+  return impl_client_buffer_from_integer(client, device, data_conv, dims,
+                                         dtype);
 }
 
 // [[Rcpp::export()]]
-Rcpp::XPtr<rpjrt::PJRTBuffer> impl_client_buffer_from_double(
-    Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
-    SEXP data, std::vector<int64_t> dims, std::string dtype) {
-  if (dtype == "f32") {
+SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client,
+                                    Rcpp::XPtr<rpjrt::PJRTDevice> device,
+                                    SEXP data, std::vector<int64_t> dims,
+                                    std::string dtype) {
+  if (dtype == "f16") {
+    return create_buffer_from_array_async<half_float::half>(
+        client, data, dims, PJRT_Buffer_Type_F16, false, device->device);
+  } else if (dtype == "bf16") {
+    return create_buffer_from_array_async<rpjrt::bfloat16>(
+        client, data, dims, PJRT_Buffer_Type_BF16, false, device->device);
+  } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
         client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
   } else if (dtype == "f64") {
     // Zero-copy optimization: use R's double data directly (no type conversion
     // needed)
     return create_buffer_from_array_async_no_convert(
-        client, data, REAL(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
+        client, data, REAL_RO(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
         false, device->device);
-  } else if (dtype == "pred") {
+  } else if (dtype == "bool") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, device, data_conv, dims,
                                            dtype);
   } else {
-    Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
-    return impl_client_buffer_from_integer(client, device, data_conv, dims,
-                                           dtype);
+    // Every remaining dtype is an integer one, and the double data goes through
+    // as it is: coercing via as<IntegerVector>() first would clip anything
+    // outside the int32 range to NA, so 2^40 uploaded as -2147483648.
+    return impl_client_buffer_from_integer(client, device, data, dims, dtype);
   }
 }

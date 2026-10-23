@@ -44,11 +44,17 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
   setup_logging()
   # this allows for tests without as_array() conversion
   register_s3_method("waldo", "compare_proxy", "PJRTBuffer")
-  register_s3_method("waldo", "compare_proxy", "PJRTArrayPromise")
   # make safetensors work with pjrt
   pjrt_register_custom_call(
     "print_tensor",
     list(host = get_print_handler(), cuda = get_print_handler_cuda()),
+    .package = pkgname
+  )
+  # print_tensor that also takes and returns a token, so that a chain of them
+  # prints in order
+  pjrt_register_custom_call(
+    "print_tensor_ordered",
+    list(host = get_print_ordered_handler(), cuda = get_print_ordered_handler_cuda()),
     .package = pkgname
   )
 
@@ -79,6 +85,11 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
   pjrt_register_custom_call(
     "eigh",
     list(host = get_eigh_handler(), cuda = get_eigh_handler_cuda()),
+    .package = pkgname
+  )
+  pjrt_register_custom_call(
+    "potrf",
+    list(host = get_potrf_handler(), cuda = get_potrf_handler_cuda()),
     .package = pkgname
   )
 

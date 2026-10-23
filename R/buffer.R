@@ -18,8 +18,27 @@ is_buffer <- function(x) {
 #' To create an empty buffer (at least one dimension must be 0), use [`pjrt_empty`].
 #'
 #' **Important**:
-#' No checks are performed when creating the buffer, so you need to ensure that the data fits
-#' the selected element type (e.g., to prevent buffer overflow) and that no NA values are present.
+#' Uploading a numeric vector at an integer element type rejects any value that
+#' type cannot hold: one outside its range, or a missing value, is an error
+#' rather than a wrapped or clamped result. A fractional value is *not* an
+#' error -- it truncates toward zero, as [`as.integer()`] does -- and the range
+#' is checked on the truncated value, so `255.7` still fits `"ui8"`.
+#'
+#' A missing value is *not* rejected where R's own `NA` and the element type
+#' already share a bit pattern and the vector travels zero-copy: an
+#' `NA_integer_` at `"i32"` arrives as `INT_MIN`, and a `bit64::integer64`
+#' `NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and [`as_array()`] warns
+#' about them again on the way back, its `check` argument defaulting to
+#' `"warn"`. At every other integer element type, and at `"bool"`, a missing
+#' value is an error -- including an `integer64` `NA` at `"ui64"`, where those
+#' same bits are the ordinary value `2^63`.
+#'
+#' At a floating-point element type a missing value is neither rejected nor
+#' warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
+#' alike, as [`as.double()`] would give.
+#'
+#' No other checks are performed when creating the buffer -- a double too large
+#' for `"f32"`, for instance, still becomes `Inf`.
 #'
 #' @section Extractors:
 #' * [`platform()`] -> `character(1)`: for the platform name of the buffer (`"cpu"`, `"cuda"`, ...).
@@ -35,23 +54,54 @@ is_buffer <- function(x) {
 #' * [`safetensors::safe_save_file`] for writing to a safetensors file.
 #' * [`safetensors::safe_load_file`] for reading from a safetensors file.
 #'
+#' A buffer can also be serialized like any R object, e.g. with [`saveRDS()`]:
+#' its data is copied to the host, and unserializing it uploads the data to the
+#' default device (the first device of the `PJRT_PLATFORM` platform, `"cpu"`
+#' unless set) -- not to the device it was saved from. A buffer saved on a GPU
+#' therefore also loads on a machine without one; use [`copy_buffer()`] to move
+#' it afterwards.
+#' A buffer referenced several times in one serialized object is written once,
+#' and loads as one buffer.
+#' A loaded buffer is a NULL external pointer until its first use (e.g. by
+#' [`as_array()`], [`shape()`] or printing), which fills in its address.
+#' This requires serialization format version 3 (R's default); a buffer
+#' serialized under version 2 loads without its data.
+#'
 #' @section Scalars:
 #' When calling this function on a vector of length 1, the resulting shape is `1L`.
 #' To create a 0-dimensional buffer, use `pjrt_scalar` where the resulting shape is `integer()`.
 #'
 #' @param data (any)\cr
 #'  Data to convert to a `PJRTBuffer`.
-#' @param dtype (`NULL` | `character(1)` | [`DataType`][tengen::DataType])\cr
+#' @param dtype (`NULL` | `character(1)` | [`DataType`][xlamisc::DataType])\cr
 #'   The type of the buffer.
 #'   Currently supported types are:
-#'   - `"pred"`: predicate (i.e. a boolean)
-#'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` data).
+#'   - `"bool"`: boolean (`"pred"` and `"i1"` are accepted as aliases)
+#'   - `"{s,u}{8,16,32,64}"`: Signed and unsigned integer (for `integer` or
+#'     `double` data).
 #'   - `"f{32,64}"`: Floating point (for `double` or `integer` data).
+#'   - `"bf16"`: bfloat16 (for `double` or `integer` data). Values are rounded
+#'     to the nearest bfloat16 value, ties to even; the largest finite value is
+#'     about 3.3895e38, and magnitudes at or above the overflow midpoint
+#'     (about 3.3962e38) round to `Inf`. [`as_array()`] returns the exactly
+#'     representable values as `double`.
+#'   - `"f16"`: IEEE 754 binary16 (for `double` or `integer` data). Values are
+#'     rounded to the nearest binary16 value, ties to even; the largest finite
+#'     value is 65504, and magnitudes at or above the overflow midpoint 65520
+#'     round to `Inf`. [`as_array()`] returns the exactly representable values
+#'     as `double`.
 #'   The default (`NULL`) depends on the method:
-#'   - `logical` -> `"pred"`
+#'   - `logical` -> `"bool"`
 #'   - `integer` -> `"i32"`
 #'   - `double` -> `"f32"`
 #'   - `raw` -> must be supplied
+#'
+#'   A `double` at an integer dtype is truncated toward zero, like
+#'   [as.integer()] but without its 32-bit intermediate, so
+#'   `pjrt_buffer(2^40, dtype = "i64")` stores `1099511627776` rather than
+#'   overflowing. A value the dtype cannot hold is an error rather than a
+#'   wrapped or clamped result, and the range is tested after truncation, so
+#'   `255.7` still fits `"ui8"`.
 #' @param shape (`NULL` | `integer()`)\cr
 #'   The dimensions of the buffer.
 #'   The default (`NULL`) is to infer them from the data if possible.
@@ -61,14 +111,8 @@ is_buffer <- function(x) {
 #'   case the first device for that platform is used.
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
-#' @param check (`logical(1)`)\cr
-#'   If `TRUE`, scan `data` for `NA` values before transferring to the device and
-#'   raise an error if any are present. R's `NA` markers have no representation
-#'   at the XLA level (e.g. `NA_integer_` is just the bit pattern `-2147483648`,
-#'   and `NA` of `logical` type is silently coerced to `TRUE`), so missing values
-#'   are silently lost on transfer. Defaults to `FALSE` for performance; set to
-#'   `TRUE` to fail loudly instead of silently corrupting data.
-#'   Not applicable to `raw` input.
+#'   A value the target dtype cannot hold is rejected whatever this is set to,
+#'   so the flag only governs missing values.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   For `raw` types, this includes:
@@ -95,23 +139,49 @@ pjrt_buffer <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
-  check = FALSE,
   ...
 ) {
   UseMethod("pjrt_buffer")
 }
 
-check_input_na <- function(data, check) {
-  assert_flag(check)
-  if (check && anyNA(data)) {
-    n_na <- sum(is.na(data))
-    cli_abort(c(
-      "Input {.arg data} contains {n_na} {.val NA} value{?s}, which {?has/have} no representation at the XLA level.",
-      i = "Replace or drop missing values before transferring, or set {.code check = FALSE} to skip this check."
-    ))
+# NA_integer_ is INT_MIN, and an integer vector uploads to i32 zero-copy, so an
+# NA reaches the device as an ordinary -2147483648 and only looks like NA again
+# once it is back in R. Every other integer dtype rejects a missing value, so
+# this is the one case that would otherwise pass unremarked.
+warn_na_i32 <- function(data, dtype) {
+  if (identical(dtype, "i32") && anyNA(data)) {
+    warn_na_kept("-2147483648")
   }
   invisible(NULL)
 }
+
+# The same carve-out one width up: NA_integer64_ is INT64_MIN, and a
+# bit64::integer64 vector uploads to i64 zero-copy. Only an integer64 source
+# gets here -- an `integer` or a `double` at i64 is converted rather than
+# passed through, and its NA is rejected in C++ -- so the dtype test alone is
+# enough to tell the passthrough apart. `anyNA()` is safe on an integer64: it
+# falls back to bit64's `is.na()`, so it tests for INT64_MIN and not for a
+# double NaN, which some legitimate int64 values reinterpret to.
+warn_na_i64 <- function(data, dtype) {
+  if (identical(dtype, "i64") && anyNA(data)) {
+    warn_na_kept("-9223372036854775808")
+  }
+  invisible(NULL)
+}
+
+# `sentinel` is the value the NA lands on, as a string: -9223372036854775808
+# has no exact double to format from. The message does not say how many NAs
+# there are: the callers test with anyNA(), which stops at the first one, and
+# counting them would mean a second full pass over the input on what is
+# otherwise a zero-copy upload.
+warn_na_kept <- function(sentinel) {
+  cli::cli_warn(c(
+    "Input {.arg data} contains at least one {.val NA}, stored on the device as {.val {sentinel}}.",
+    i = "The value materializes as {.val NA} again in R, which {.code as_array()} reports on the way back.",
+    i = "Use {.fn suppressWarnings} to silence this."
+  ))
+}
+
 
 buffer_identity <- function(data, dtype = NULL, device = NULL, shape = NULL, ...) {
   buf <- data
@@ -144,7 +214,7 @@ pjrt_buffer.PJRTBuffer <- buffer_identity
 #' scalar <- pjrt_scalar(42, dtype = "f32")
 #' scalar
 #' @export
-pjrt_scalar <- function(data, dtype = NULL, device = NULL, check = FALSE, ...) {
+pjrt_scalar <- function(data, dtype = NULL, device = NULL, ...) {
   UseMethod("pjrt_scalar")
 }
 
@@ -211,8 +281,8 @@ as_dtype_string <- function(dtype) {
   if (inherits(dtype, "DataType")) {
     dtype <- as.character(dtype)
   }
-  if (dtype %in% c("i1", "bool")) {
-    dtype <- "pred"
+  if (dtype %in% c("i1", "pred")) {
+    dtype <- "bool"
   }
   dtype
 }
@@ -243,11 +313,10 @@ pjrt_buffer.logical <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
-  check = FALSE,
   ...
 ) {
-  check_input_na(data, check)
-  args <- convert_buffer_args(data, dtype, device, shape, "pred", ...)
+  args <- convert_buffer_args(data, dtype, device, shape, "bool", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -258,11 +327,10 @@ pjrt_buffer.integer <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
-  check = FALSE,
   ...
 ) {
-  check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -273,10 +341,8 @@ pjrt_buffer.numeric <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
-  check = FALSE,
   ...
 ) {
-  check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
@@ -296,6 +362,10 @@ pjrt_buffer.integer64 <- function(
       "{.cls integer64} input only supports {.val i64} or {.val ui64} dtype, got {.val {args$dtype}}."
     )
   }
+  # i64 is the passthrough; at ui64 the same bit pattern is the ordinary value
+  # 2^63, so a missing value is rejected there instead (in C++, with the
+  # message every other rejected NA gets).
+  warn_na_i64(args$data, args$dtype)
   impl_client_buffer_from_integer64(
     client = args$client,
     device = args$device,
@@ -343,14 +413,13 @@ pjrt_scalar.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
-  check = FALSE,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  check_input_na(data, check)
-  args <- convert_buffer_args(data, dtype, device, integer(), "pred", ...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "bool", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -360,14 +429,13 @@ pjrt_scalar.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
-  check = FALSE,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
+  warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -377,13 +445,11 @@ pjrt_scalar.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
-  check = FALSE,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  check_input_na(data, check)
   args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
@@ -437,12 +503,29 @@ elt_type <- function(x) {
 #' @description
 #' Transfer buffer data from device to host and return an R array.
 #'
+#' With `await = FALSE`, the transfer runs asynchronously: the array is returned
+#' immediately with its final type, `dim` and class, and reading its values
+#' blocks until the transfer has completed. Use [is_ready()] to check whether it
+#' has (non-blocking) and [await()] to block until it has. The values are then
+#' checked when they are first read, or by `await()`.
+#'
+#' `check = "err"` requires `await = TRUE`. With `await = FALSE` the check runs
+#' only once the values are first read, and that read can come from any code --
+#' `print()`, arithmetic, another package's C code. An error would then surface
+#' there, far from the `as_array()` call that caused it, and interrupt code that
+#' does not expect reading a vector to fail. A warning does neither, so
+#' `check = "warn"` and `check = FALSE` are allowed.
+#'
 #' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer to convert.
-#' @param check (`logical(1)`)\cr
-#'   If `TRUE`, sanity-check the materialized R vector against losing
-#'   information across the device-to-host boundary, and abort if any
-#'   problematic value is detected:
+#' @param check (`character(1)` | `FALSE`)\cr
+#'   How to report a materialized value that R's type cannot hold:
+#'   `"warn"` (the default) warns and returns it anyway, `"err"` aborts
+#'   (only with `await = TRUE`),
+#'   and `FALSE` skips the scan altogether. `TRUE` is not accepted — with
+#'   two levels of strictness it does not say which one is meant.
+#'
+#'   The cases scanned for are:
 #'   * **`i32` / `i64`**: any `NA` in the result. R's `NA_integer_` shares
 #'     the bit pattern `INT_MIN`; `bit64`'s `NA_integer64_` shares
 #'     `INT64_MIN`. A legitimate device value at those bit patterns is
@@ -452,73 +535,173 @@ elt_type <- function(x) {
 #'     to negative — exactly `2^63` becomes `NA_integer64_`, anything
 #'     above becomes a non-NA negative integer64.
 #'
+#'   Each case is a value the R type genuinely cannot hold, so the check
+#'   has no false positives: it fires exactly when the returned vector
+#'   would misrepresent the buffer.
+#'
 #'   No-op for float, boolean, and small/unsigned-32 integer dtypes —
-#'   `ui32` is now stored as `integer64` and has full headroom, so it
-#'   cannot produce a wrapped or NA value.
+#'   `ui32` is stored as `integer64` and has full headroom, so it cannot
+#'   produce a wrapped or NA value.
+#' @param await (`logical(1)`)\cr
+#'   Whether to wait for the transfer to the host (the default). If `FALSE`,
+#'   return immediately with an array whose values arrive asynchronously.
 #' @param ... Additional arguments (unused).
 #' @return An R `array` (or `vector` for shape `integer()`).
+#' @seealso [is_ready()], [await()], [pjrt_execute()]
+#' @examplesIf plugins_downloaded()
+#' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+#' as_array(buf)
+#'
+#' # Start the transfer, and only block when the values are read
+#' result <- as_array(buf, await = FALSE)
+#' is_ready(result)
+#' result
 #' @export
-as_array.PJRTBuffer <- function(x, check = FALSE, ...) {
-  result <- value(as_array_async(x))
-  assert_flag(check)
-  if (check) {
-    dt <- as.character(elt_type(x))
-    if (dt %in% c("i32", "i64") && anyNA(result)) {
+as_array.PJRTBuffer <- function(x, check = "warn", await = TRUE, ...) {
+  check <- check_level(check)
+  assert_flag(await)
+  if (!await) {
+    # The check runs on the array's first read, which can come from any code;
+    # erroring there would surface far from this call (see ?as_array.PJRTBuffer).
+    if (identical(check, "err")) {
       cli_abort(c(
-        "Materialized {.cls {dt}} buffer contains a value that R cannot distinguish from {.val NA}.",
-        i = "{.val i32} reserves the bit pattern {.val -2147483648} ({.code INT_MIN}); {.val i64} reserves {.val -9223372036854775808} ({.code INT64_MIN}).",
-        i = "Set {.code check = FALSE} to skip this check."
+        "{.code check = \"err\"} requires {.code await = TRUE}.",
+        i = "Use {.code check = \"warn\"} or {.code check = FALSE} with {.code await = FALSE}."
       ))
+    }
+    return(as_array_async(x, check))
+  }
+  result <- impl_buffer_to_host(x)
+  check_representable(result, as.character(elt_type(x)), check)
+  result
+}
+
+# Reports, at the level `check` asks for, a value in `result` -- materialized
+# from a buffer of dtype `dt` -- that R's type cannot hold. An error names
+# `call`.
+check_representable <- function(result, dt, check, call = rlang::caller_env()) {
+  if (!identical(check, "none")) {
+    if (dt %in% c("i32", "i64") && anyNA(result)) {
+      report_lossy(
+        check,
+        call,
+        c(
+          "Materialized {.cls {dt}} buffer contains a value that R cannot distinguish from {.val NA}.",
+          i = "{.val i32} reserves the bit pattern {.val -2147483648} ({.code INT_MIN}); {.val i64} reserves {.val -9223372036854775808} ({.code INT64_MIN})."
+        )
+      )
     } else if (identical(dt, "ui64") && (anyNA(result) || any(result < 0, na.rm = TRUE))) {
       # ui64 values >= 2^63 wrap when stored as signed int64 — exactly 2^63
       # becomes NA_integer64_ (INT64_MIN); 2^63 + k becomes a non-NA negative
       # int64. Either way, the unsigned magnitude was lost.
-      # (ui32 is now materialized as integer64 and has full headroom, so it
-      # cannot produce a negative value; no check needed.)
-      cli_abort(c(
-        "Materialized {.cls ui64} buffer contains a value `>= 2^63` that wrapped through R's signed {.cls integer64}.",
-        i = "Exactly {.code 2^63} becomes {.code NA_integer64_}; larger values become negative {.cls integer64}.",
-        i = "Set {.code check = FALSE} to skip this check."
-      ))
+      # (ui32 is materialized as integer64 and has full headroom, so it cannot
+      # produce a negative value; no check needed.)
+      report_lossy(
+        check,
+        call,
+        c(
+          "Materialized {.cls ui64} buffer contains a value `>= 2^63` that wrapped through R's signed {.cls integer64}.",
+          i = "Exactly {.code 2^63} becomes {.code NA_integer64_}; larger values become negative {.cls integer64}."
+        )
+      )
     }
   }
-  result
 }
 
-#' @title Convert buffer to R array asynchronously
-#' @description
-#' Start an asynchronous transfer of buffer data from device to host.
-#' Returns immediately with a `PJRTArrayPromise` object.
-#'
-#' Use `value()` to get the R array (blocks if not ready).
-#' Use `is_ready()` to check if transfer has completed (non-blocking).
-#'
-#' @param x A `PJRTBuffer` object.
-#' @param ... Additional arguments (unused).
-#' @return A `PJRTArrayPromise` object. Call `value()` to get the R array.
-#' @seealso [as_array()], [value()], [is_ready()], [pjrt_execute()], [await()]
-#' @examplesIf plugins_downloaded()
-#' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-#' result <- as_array_async(buf)
-#' is_ready(result)
-#' value(result)
-#' @export
-as_array_async <- function(x, ...) {
-  UseMethod("as_array_async")
+# `check` is "warn", "err" or FALSE, normalized to "warn" / "err" / "none".
+# TRUE is rejected rather than mapped: with two levels of strictness it does
+# not say which one is meant.
+check_level <- function(check) {
+  if (isFALSE(check)) {
+    return("none")
+  }
+  if (is.character(check) && length(check) == 1L && check %in% c("warn", "err")) {
+    return(check)
+  }
+  cli_abort(c(
+    "{.arg check} must be {.val warn}, {.val err} or {.code FALSE}, not {.val {check}}.",
+    i = "{.code TRUE} is not accepted; pick {.val warn} or {.val err}."
+  ))
 }
 
-#' @export
-as_array_async.PJRTBuffer <- function(x, ...) {
-  result <- impl_buffer_to_host_async(x)
-  pjrt_array_promise(result$data, result$dtype, result$dims, result$minor_to_major)
+# Report a value the R type cannot hold, at the level `check` asks for; an
+# error names `call`. The closing bullet names the way out of whichever level
+# was used. `.envir` is forwarded so that cli interpolates the caller's
+# variables and not this frame's -- an unbound `{dt}` would otherwise reach
+# `stats::dt()`.
+report_lossy <- function(check, call, message, .envir = parent.frame()) {
+  if (identical(check, "err")) {
+    cli_abort(
+      c(message, i = "Set {.code check = FALSE} to skip this check."),
+      call = call,
+      .envir = .envir
+    )
+  }
+  cli::cli_warn(
+    c(
+      message,
+      i = "Set {.code check = \"err\"} to make this an error, or {.code check = FALSE} to silence it."
+    ),
+    .envir = .envir
+  )
 }
 
+# Starts the transfer of `x` to the host and returns its host array: an R array
+# whose values materialize when first read, checked at level `check` ("warn" or
+# "none").
+as_array_async <- function(x, check) {
+  impl_buffer_to_host_async(x, check)
+}
+
+# Called by a host array (src/host_array.cpp) on the first read of its data,
+# and by await(): waits for its transfer, checks the values and makes the host
+# array wrap them. A no-op for any other object.
+host_array_materialize <- function(x) {
+  pending <- impl_host_array_pending(x)
+  if (!is.null(pending)) {
+    # No call: the warning surfaces from whatever first read the array.
+    check_representable(pending$values, pending$dtype, pending$check, call = NULL)
+    impl_host_array_set(x, pending$values)
+  }
+  invisible(x)
+}
 
 #' @export
 as_raw.PJRTBuffer <- function(x, row_major, ...) {
   assert_flag(row_major)
   client <- client_from_device(device(x))
   impl_buffer_to_raw(client, x, row_major = row_major)
+}
+
+# Called by the buffer's ALTREP carrier (src/buffer_sexp.cpp) to serialize a
+# buffer: its host bytes, plus what is needed to upload them again. The device
+# is left out, so a buffer loads on any machine. The bytes are row-major, the
+# device's own layout, so neither direction transposes them.
+buffer_serialized_state <- function(x) {
+  list(
+    data = as_raw(x, row_major = TRUE),
+    dtype = as.character(elt_type(x)),
+    shape = shape(x)
+  )
+}
+
+# Called by the buffer's ALTREP carrier to unserialize a buffer from the state
+# buffer_serialized_state() produced. It is uploaded to
+# `the[["unserialize_device"]]` -- a device, a device specification, or a
+# function returning one -- else to the default device. anvl sets that entry so
+# that buffers load onto its own default device.
+buffer_unserialize <- function(state) {
+  device <- the[["unserialize_device"]]
+  if (is.function(device)) {
+    device <- device()
+  }
+  pjrt_buffer(
+    state$data,
+    dtype = state$dtype,
+    shape = state$shape,
+    device = device,
+    row_major = TRUE
+  )
 }
 
 #' @title Copy Buffer to Device
@@ -622,6 +805,7 @@ print.PJRTDevice <- function(x, ...) {
 #'   The buffer.
 #' @param max_rows (`integer(1)`)\cr
 #'   The maximum number of rows to print, excluding header and footer.
+#'   Set to `-1` for no limit.
 #' @param max_width (`integer(1)`)\cr
 #'   The maximum width (in characters) of the printed buffer.
 #'   Set to negative values for no limit.
@@ -631,6 +815,7 @@ print.PJRTDevice <- function(x, ...) {
 #'   other rows might exceed the width.
 #' @param max_rows_slice (`integer(1)`)\cr
 #'   The maximum number of rows to print for each slice.
+#'   Set to `-1` for no limit.
 #' @param header (`logical(1)`)\cr
 #'   Whether to print the header.
 #' @param footer (`NULL` or `character(1)`)\cr
@@ -648,13 +833,13 @@ print.PJRTBuffer <- function(
   ...
 ) {
   assert_flag(header)
-  max_rows <- assert_int(max_rows, coerce = TRUE, lower = 1L)
+  max_rows <- assert_print_rows(max_rows)
   max_width <- assert_int(max_width, coerce = TRUE)
   if (max_width %in% c(0, 1L)) {
     # we disallow 1, because every data line starts with ' '
     cli_abort("Either provide a negative value for max_width or a value > 1")
   }
-  max_rows_slice <- assert_int(max_rows_slice, coerce = TRUE, lower = 1L)
+  max_rows_slice <- assert_print_rows(max_rows_slice)
 
   if (header) {
     cat(class(x)[[1L]], "\n")
@@ -678,6 +863,14 @@ print.PJRTBuffer <- function(
     cat(footer, "\n")
   }
   invisible(x)
+}
+
+assert_print_rows <- function(x, .var.name = vname(x)) {
+  x <- assert_int(x, coerce = TRUE, lower = -1L, .var.name = .var.name)
+  if (x == 0L) {
+    cli_abort("{.arg {(.var.name)}} must be -1 (no limit) or positive.")
+  }
+  x
 }
 
 #' @export

@@ -1,6 +1,6 @@
 // Implementation of the shared cuSOLVER infrastructure: dlopen-based loader
 // and a per-stream handle pool. All cuSOLVER-backed kernels (qr, lu, svd,
-// eigh) use these singletons so they share one set of loaded function
+// eigh, potrf) use these singletons so they share one set of loaded function
 // pointers and one handle pool. Device-memory allocation goes through XLA's
 // ffi::ScratchAllocator, not via this loader.
 #include "ffi_cuda.h"
@@ -31,10 +31,21 @@ CudaLibs &get_cuda_libs() {
   // torn struct.
   static std::once_flag once;
   std::call_once(once, [&] {
-    // Probe a couple of candidates: SDK installs ship the unversioned symlink,
-    // runtime-only installs (typical in containers) only ship the SONAME.
-    void *cusolver = dlopen("libcusolver.so", RTLD_LAZY);
-    if (!cusolver) cusolver = dlopen("libcusolver.so.11", RTLD_LAZY);
+    // Probe a few candidates: SDK installs ship the unversioned symlink,
+    // runtime-only installs (typical in containers, and what the cuda R
+    // package provides) only ship the SONAME. cuSOLVER's SONAME major is not
+    // the CUDA major -- it is .11 on CUDA 12 and .12 on CUDA 13 -- so both
+    // have to be tried, newest first.
+    static const char *kCusolverSonames[] = {
+        "libcusolver.so",
+        "libcusolver.so.12",
+        "libcusolver.so.11",
+    };
+    void *cusolver = nullptr;
+    for (const char *soname : kCusolverSonames) {
+      cusolver = dlopen(soname, RTLD_LAZY);
+      if (cusolver) break;
+    }
     if (!cusolver) return;
 
     void *cuda = dlopen("libcuda.so.1", RTLD_LAZY);
@@ -79,6 +90,13 @@ CudaLibs &get_cuda_libs() {
         cusolver, "cusolverDnDsyevd_bufferSize");
     g.s_syevd = load_sym<decltype(g.s_syevd)>(cusolver, "cusolverDnSsyevd");
     g.d_syevd = load_sym<decltype(g.d_syevd)>(cusolver, "cusolverDnDsyevd");
+
+    g.s_potrf_bs = load_sym<decltype(g.s_potrf_bs)>(
+        cusolver, "cusolverDnSpotrf_bufferSize");
+    g.d_potrf_bs = load_sym<decltype(g.d_potrf_bs)>(
+        cusolver, "cusolverDnDpotrf_bufferSize");
+    g.s_potrf = load_sym<decltype(g.s_potrf)>(cusolver, "cusolverDnSpotrf");
+    g.d_potrf = load_sym<decltype(g.d_potrf)>(cusolver, "cusolverDnDpotrf");
 
     g.memcpy_dtod =
         load_sym<decltype(g.memcpy_dtod)>(cuda, "cuMemcpyDtoDAsync_v2");

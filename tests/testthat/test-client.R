@@ -1,6 +1,4 @@
 test_that("compile program with one input", {
-  skip_if_metal("only works with MLIR programs")
-
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
@@ -21,6 +19,19 @@ test_that("compile program with one input", {
   r_res <- as_array(result)
 
   expect_equal(r_res, 9)
+})
+
+describe("pjrt_compile", {
+  it("rejects an HLO program that declares input/output aliasing", {
+    # test_hlo_alias.pb is test_hlo.pb with `input_output_alias` set (parameter
+    # 0 may alias the output), encoded with protoc from inst/proto. XLA compiles
+    # it; pjrt then rejects it, after the executable exists, and must free it.
+    # That the executable is freed is not observable from R: this only covers
+    # the error path.
+    path <- system.file("programs/test_hlo_alias.pb", package = "pjrt")
+    program <- pjrt_program(path = path, format = "hlo")
+    expect_error(pjrt_compile(program), "aliasing is not supported for HLO")
+  })
 })
 
 test_that("compile program with multiple inputs", {
@@ -62,9 +73,7 @@ test_that("can execute mlir program", {
   expect_true(inherits(executable, "PJRTLoadedExecutable"))
 
   client <- pjrt_client()
-  if (!is_metal()) {
-    check_client_device(client)
-  }
+  check_client_device(client)
 
   data <- 3.0
   scalar_buffer <- pjrt_scalar(data)
@@ -76,19 +85,18 @@ test_that("can execute mlir program", {
 })
 
 test_that("can use more than one client", {
-  skip_if(!is_metal() || !is_cuda())
-  is_metal() && skip_on_ci()
+  skip_if(!is_cuda())
 
-  device <- if (is_metal()) "metal" else "cuda"
+  device <- "cuda"
 
-  pjrt_buffer(1, pjrt_client(device))
+  pjrt_buffer(1, device = device)
 
   expect_permutation(c(device, "cpu"), names(the[["clients"]]))
   expect_permutation(c(device, "cpu"), names(the[["plugins"]]))
 
   # not they are loaded and global env 'the' is not changed
-  pjrt_buffer(1, pjrt_client("cpu"))
-  pjrt_buffer(1, pjrt_client(device))
+  pjrt_buffer(1, device = "cpu")
+  pjrt_buffer(1, device = device)
 
   expect_permutation(c(device, "cpu"), names(the[["clients"]]))
   expect_permutation(c(device, "cpu"), names(the[["plugins"]]))

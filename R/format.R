@@ -1,7 +1,7 @@
 #' @title Format Buffer Data
 #'
 #' @description
-#' Formats buffer data into a character vector of string representations of individual elements suitable for stableHLO.
+#' Formats buffer data into a character vector of string representations of individual elements suitable for StableHLO.
 #'
 #' @template param_buffer
 #'

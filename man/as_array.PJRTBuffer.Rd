@@ -4,16 +4,20 @@
 \alias{as_array.PJRTBuffer}
 \title{Convert a PJRTBuffer to an R Array}
 \usage{
-\method{as_array}{PJRTBuffer}(x, check = FALSE, ...)
+\method{as_array}{PJRTBuffer}(x, check = "warn", await = TRUE, ...)
 }
 \arguments{
 \item{x}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
 Buffer to convert.}
 
-\item{check}{(\code{logical(1)})\cr
-If \code{TRUE}, sanity-check the materialized R vector against losing
-information across the device-to-host boundary, and abort if any
-problematic value is detected:
+\item{check}{(\code{character(1)} | \code{FALSE})\cr
+How to report a materialized value that R's type cannot hold:
+\code{"warn"} (the default) warns and returns it anyway, \code{"err"} aborts
+(only with \code{await = TRUE}),
+and \code{FALSE} skips the scan altogether. \code{TRUE} is not accepted — with
+two levels of strictness it does not say which one is meant.
+
+The cases scanned for are:
 \itemize{
 \item \strong{\code{i32} / \code{i64}}: any \code{NA} in the result. R's \code{NA_integer_} shares
 the bit pattern \code{INT_MIN}; \code{bit64}'s \code{NA_integer64_} shares
@@ -25,9 +29,17 @@ to negative — exactly \code{2^63} becomes \code{NA_integer64_}, anything
 above becomes a non-NA negative integer64.
 }
 
+Each case is a value the R type genuinely cannot hold, so the check
+has no false positives: it fires exactly when the returned vector
+would misrepresent the buffer.
+
 No-op for float, boolean, and small/unsigned-32 integer dtypes —
-\code{ui32} is now stored as \code{integer64} and has full headroom, so it
-cannot produce a wrapped or NA value.}
+\code{ui32} is stored as \code{integer64} and has full headroom, so it cannot
+produce a wrapped or NA value.}
+
+\item{await}{(\code{logical(1)})\cr
+Whether to wait for the transfer to the host (the default). If \code{FALSE},
+return immediately with an array whose values arrive asynchronously.}
 
 \item{...}{Additional arguments (unused).}
 }
@@ -36,4 +48,31 @@ An R \code{array} (or \code{vector} for shape \code{integer()}).
 }
 \description{
 Transfer buffer data from device to host and return an R array.
+
+With \code{await = FALSE}, the transfer runs asynchronously: the array is returned
+immediately with its final type, \code{dim} and class, and reading its values
+blocks until the transfer has completed. Use \code{\link[=is_ready]{is_ready()}} to check whether it
+has (non-blocking) and \code{\link[=await]{await()}} to block until it has. The values are then
+checked when they are first read, or by \code{await()}.
+
+\code{check = "err"} requires \code{await = TRUE}. With \code{await = FALSE} the check runs
+only once the values are first read, and that read can come from any code --
+\code{print()}, arithmetic, another package's C code. An error would then surface
+there, far from the \code{as_array()} call that caused it, and interrupt code that
+does not expect reading a vector to fail. A warning does neither, so
+\code{check = "warn"} and \code{check = FALSE} are allowed.
+}
+\examples{
+\dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
+buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+as_array(buf)
+
+# Start the transfer, and only block when the values are read
+result <- as_array(buf, await = FALSE)
+is_ready(result)
+result
+\dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=is_ready]{is_ready()}}, \code{\link[=await]{await()}}, \code{\link[=pjrt_execute]{pjrt_execute()}}
 }

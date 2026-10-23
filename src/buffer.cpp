@@ -2,6 +2,8 @@
 
 #include <Rcpp.h>
 
+#include <utility>
+
 #include "deferred_release.h"
 #include "utils.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
@@ -21,7 +23,7 @@ std::string PJRTElementType::as_string() const {
     case PJRT_Buffer_Type_INVALID:
       return "INVALID";
     case PJRT_Buffer_Type_PRED:
-      return "pred";
+      return "bool";
     case PJRT_Buffer_Type_S8:
       return "i8";
     case PJRT_Buffer_Type_S16:
@@ -38,6 +40,10 @@ std::string PJRTElementType::as_string() const {
       return "ui32";
     case PJRT_Buffer_Type_U64:
       return "ui64";
+    case PJRT_Buffer_Type_F16:
+      return "f16";
+    case PJRT_Buffer_Type_BF16:
+      return "bf16";
     case PJRT_Buffer_Type_F32:
       return "f32";
     case PJRT_Buffer_Type_F64:
@@ -85,14 +91,15 @@ std::string PJRTMemory::to_string() {
 PJRTBufferMemoryLayout::PJRTBufferMemoryLayout(PJRT_Buffer_MemoryLayout layout)
     : layout(layout) {}
 
-PJRTBuffer::PJRTBuffer(PJRT_Buffer *buffer, std::shared_ptr<PJRT_Api> api)
-    : buffer(buffer), api(api) {}
+PJRTBuffer::PJRTBuffer(PJRTHandle<PJRT_Buffer> buffer,
+                       std::shared_ptr<PJRT_Api> api)
+    : api(std::move(api)), buffer(std::move(buffer)) {}
 
 PJRT_Buffer *PJRTBuffer::checked_buffer() const {
   if (this->buffer == nullptr) {
     Rcpp::stop("called on deleted or donated buffer");
   }
-  return this->buffer;
+  return this->buffer.get();
 }
 
 PJRTBuffer::~PJRTBuffer() {
@@ -100,16 +107,6 @@ PJRTBuffer::~PJRTBuffer() {
   // This ensures R objects preserved for zero-copy transfers get released
   // when buffers are garbage collected.
   process_pending_releases();
-
-  // A null `buffer` means this wrapper held a donated input whose PJRT
-  // handle was invalidated by Execute and explicitly nulled by the
-  // keepalive-transfer logic. There's nothing left to destroy.
-  if (this->buffer == nullptr) return;
-
-  PJRT_Buffer_Destroy_Args args{};
-  args.struct_size = sizeof(PJRT_Buffer_Destroy_Args);
-  args.buffer = this->buffer;
-  check_err(this->api.get(), this->api->PJRT_Buffer_Destroy_(&args));
 }
 
 const std::vector<int64_t> &PJRTBuffer::dimensions() {
@@ -151,7 +148,7 @@ std::vector<int64_t> PJRTBuffer::minor_to_major() {
 
   PJRT_Buffer_GetMemoryLayout_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_GetMemoryLayout_Args);
-  args.buffer = this->buffer;
+  args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_GetMemoryLayout_(&args));
 
   // Our readback can only faithfully reorder a dense, untiled layout expressed
@@ -160,14 +157,14 @@ std::vector<int64_t> PJRTBuffer::minor_to_major() {
   // de-tiling (which also changes the physical byte count via padding) for a
   // tiled one — so we error rather than silently returning wrong data.
   //
-  // In practice none of these occur on the platforms pjrt supports: CPU, CUDA,
-  // and Metal all hand back dense untiled layouts (tiling is a TPU feature).
-  // The checks therefore only fire if a future/exotic backend produces a
-  // layout we cannot honor, turning silent corruption into a clear error.
+  // In practice none of these occur on the platforms pjrt supports: CPU and
+  // CUDA both hand back dense untiled layouts (tiling is a TPU feature). The
+  // checks therefore only fire if a future/exotic backend produces a layout we
+  // cannot honor, turning silent corruption into a clear error.
   if (args.layout.type != PJRT_Buffer_MemoryLayout_Type_Tiled) {
     Rcpp::stop(
         "Unsupported strided buffer memory layout on readback; only dense "
-        "untiled layouts are supported (CPU/CUDA/Metal).");
+        "untiled layouts are supported (CPU/CUDA).");
   }
   if (args.layout.tiled.num_tiles > 0) {
     Rcpp::stop(
@@ -246,7 +243,8 @@ std::unique_ptr<PJRTEvent> PJRTBuffer::buffer_to_host_async(
   // Return the event - caller is responsible for waiting and keeping
   // host_buffer alive
   if (args.event != nullptr) {
-    return std::make_unique<PJRTEvent>(args.event, this->api);
+    return std::make_unique<PJRTEvent>(
+        make_pjrt_handle(this->api.get(), args.event), this->api);
   }
   return nullptr;
 }
@@ -256,7 +254,7 @@ PJRTEvent PJRTBuffer::ready_event() {
   args.struct_size = sizeof(PJRT_Buffer_ReadyEvent_Args);
   args.buffer = checked_buffer();
   check_err(this->api.get(), this->api->PJRT_Buffer_ReadyEvent_(&args));
-  return PJRTEvent(args.event, this->api);
+  return PJRTEvent(make_pjrt_handle(this->api.get(), args.event), this->api);
 }
 
 bool PJRTBuffer::is_ready() {
@@ -276,33 +274,17 @@ std::unique_ptr<PJRTBuffer> PJRTBuffer::copy_to_device(PJRTDevice &dst_device) {
   args.buffer = checked_buffer();
   args.dst_device = dst_device.device;
   check_err(this->api.get(), this->api->PJRT_Buffer_CopyToDevice_(&args));
-  return std::make_unique<PJRTBuffer>(args.dst_buffer, this->api);
+  return std::make_unique<PJRTBuffer>(
+      make_pjrt_handle(this->api.get(), args.dst_buffer), this->api);
 }
 
 bool PJRTBuffer::is_deleted() {
   if (this->buffer == nullptr) return true;
   PJRT_Buffer_IsDeleted_Args args{};
   args.struct_size = sizeof(PJRT_Buffer_IsDeleted_Args);
-  args.buffer = this->buffer;
+  args.buffer = this->buffer.get();
   check_err(this->api.get(), this->api->PJRT_Buffer_IsDeleted_(&args));
   return args.is_deleted;
-}
-
-// PJRTHostData implementation
-
-PJRTHostData::PJRTHostData(std::unique_ptr<std::vector<uint8_t>> data,
-                           std::unique_ptr<PJRTEvent> event)
-    : data_(std::move(data)), event_(std::move(event)) {}
-
-bool PJRTHostData::is_ready() const {
-  if (!event_) return true;
-  return event_->is_ready();
-}
-
-void PJRTHostData::await() {
-  if (!event_) return;
-  event_->await();
-  event_->check_error();
 }
 
 }  // namespace rpjrt

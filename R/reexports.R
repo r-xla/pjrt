@@ -1,14 +1,14 @@
 #' @export
-tengen::shape
+xlamisc::shape
 
 #' @export
-tengen::dtype
+xlamisc::dtype
 
 #' @export
-tengen::as_array
+xlamisc::as_array
 
 #' @export
-tengen::as_raw
+xlamisc::as_raw
 
 #' @export
-tengen::device
+xlamisc::device

@@ -16,10 +16,15 @@ Trees to compare, as returned by \code{\link[=build_tree]{build_tree()}}.}
 \description{
 Structural equality of two trees: identical node kinds, child structure,
 leaf positions, and names.
+
+\code{a == b} (and \code{a != b}) is shorthand for this, except that comparing a tree
+with a non-tree is \code{FALSE} instead of an error.
 }
 \examples{
 tree_equal(build_tree(list(a = 1)), build_tree(list(a = 2)))
 tree_equal(build_tree(list(a = 1)), build_tree(list(b = 1)))
+
+build_tree(list(a = 1)) == build_tree(list(a = 2))
 }
 \seealso{
 \code{\link[=tree_diff]{tree_diff()}} to locate the first divergence.

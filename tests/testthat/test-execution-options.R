@@ -10,8 +10,6 @@ test_that("execution options can be created and configured", {
 })
 
 test_that("execution with options works", {
-  skip_if_metal("only works with MLIR programs")
-
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
   executable <- pjrt_compile(program)
@@ -52,7 +50,6 @@ test_that("execution with options works", {
 })
 
 test_that("can donate input", {
-  skip_if_metal("-:10:28: error: expected ')' in inline location")
   program <- pjrt_program(
     path = system.file(
       "programs/jax-stablehlo-update-param.mlir",

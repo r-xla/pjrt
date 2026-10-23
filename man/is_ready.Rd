@@ -16,4 +16,8 @@ is_ready(x, ...)
 }
 \description{
 Non-blocking check to see if an async operation has completed.
+
+For a \code{\link[=pjrt_buffer]{PJRTBuffer}}, whether its computation or transfer has
+finished. For an array returned by \code{\link[=as_array.PJRTBuffer]{as_array(x, await = FALSE)}},
+whether its transfer to the host has finished. Any other R object is always ready.
 }

@@ -5,8 +5,8 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
-impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn) {
-    .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn)
+impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn) {
+    .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn)
 }
 
 impl_dispatcher_size <- function(dispatcher) {
@@ -33,6 +33,14 @@ get_print_handler <- function() {
     .Call(`_pjrt_get_print_handler`)
 }
 
+get_print_ordered_handler <- function() {
+    .Call(`_pjrt_get_print_ordered_handler`)
+}
+
+get_print_ordered_handler_cuda <- function() {
+    .Call(`_pjrt_get_print_ordered_handler_cuda`)
+}
+
 get_print_handler_cuda <- function() {
     .Call(`_pjrt_get_print_handler_cuda`)
 }
@@ -51,6 +59,26 @@ impl_gc_call_count <- function() {
 
 impl_call_r_gc <- function() {
     invisible(.Call(`_pjrt_impl_call_r_gc`))
+}
+
+impl_buffer_to_host <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_to_host`, buffer_sexp)
+}
+
+impl_buffer_to_host_async <- function(buffer_sexp, check) {
+    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp, check)
+}
+
+impl_host_array_pending <- function(x) {
+    .Call(`_pjrt_impl_host_array_pending`, x)
+}
+
+impl_host_array_set <- function(x, values) {
+    invisible(.Call(`_pjrt_impl_host_array_set`, x, values))
+}
+
+impl_host_array_is_ready <- function(x) {
+    .Call(`_pjrt_impl_host_array_is_ready`, x)
 }
 
 get_lu_handler <- function() {
@@ -101,12 +129,12 @@ impl_client_buffer_empty <- function(client, device, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_empty`, client, device, dims, dtype)
 }
 
-impl_buffer_to_raw <- function(client, buffer, row_major = FALSE) {
-    .Call(`_pjrt_impl_buffer_to_raw`, client, buffer, row_major)
+impl_buffer_to_raw <- function(client, buffer_sexp, row_major = FALSE) {
+    .Call(`_pjrt_impl_buffer_to_raw`, client, buffer_sexp, row_major)
 }
 
-impl_buffer_copy_to_device <- function(buffer, device, dst_client, cross_client) {
-    .Call(`_pjrt_impl_buffer_copy_to_device`, buffer, device, dst_client, cross_client)
+impl_buffer_copy_to_device <- function(buffer_sexp, device, dst_client, cross_client) {
+    .Call(`_pjrt_impl_buffer_copy_to_device`, buffer_sexp, device, dst_client, cross_client)
 }
 
 impl_client_platform <- function(client) {
@@ -117,16 +145,16 @@ impl_client_devices <- function(client) {
     .Call(`_pjrt_impl_client_devices`, client)
 }
 
-impl_buffer_elt_type <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_elt_type`, buffer)
+impl_buffer_elt_type <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_elt_type`, buffer_sexp)
 }
 
-impl_buffer_device <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_device`, buffer)
+impl_buffer_device <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_device`, buffer_sexp)
 }
 
-impl_buffer_memory <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_memory`, buffer)
+impl_buffer_memory <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_memory`, buffer_sexp)
 }
 
 impl_memory_debug_string <- function(memory) {
@@ -149,8 +177,8 @@ impl_dtype_as_string <- function(element_type) {
     .Call(`_pjrt_impl_dtype_as_string`, element_type)
 }
 
-impl_buffer_dimensions <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_dimensions`, buffer)
+impl_buffer_dimensions <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_dimensions`, buffer_sexp)
 }
 
 impl_execution_options_create <- function(non_donatable_input_indices, launch_id) {
@@ -169,24 +197,16 @@ impl_device_to_string <- function(device) {
     .Call(`_pjrt_impl_device_to_string`, device)
 }
 
-impl_buffer_print <- function(buffer, max_rows, max_width, max_rows_slice) {
-    invisible(.Call(`_pjrt_impl_buffer_print`, buffer, max_rows, max_width, max_rows_slice))
+impl_buffer_print <- function(buffer_sexp, max_rows, max_width, max_rows_slice) {
+    invisible(.Call(`_pjrt_impl_buffer_print`, buffer_sexp, max_rows, max_width, max_rows_slice))
 }
 
-impl_buffer_is_ready <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_is_ready`, buffer)
+impl_buffer_is_ready <- function(buffer_sexp) {
+    .Call(`_pjrt_impl_buffer_is_ready`, buffer_sexp)
 }
 
-impl_buffer_await <- function(buffer) {
-    invisible(.Call(`_pjrt_impl_buffer_await`, buffer))
-}
-
-impl_host_data_is_ready <- function(data) {
-    .Call(`_pjrt_impl_host_data_is_ready`, data)
-}
-
-impl_host_data_await <- function(data) {
-    invisible(.Call(`_pjrt_impl_host_data_await`, data))
+impl_buffer_await <- function(buffer_sexp) {
+    invisible(.Call(`_pjrt_impl_buffer_await`, buffer_sexp))
 }
 
 impl_process_pending_releases <- function() {
@@ -201,16 +221,12 @@ impl_test_enqueue_release <- function(x) {
     invisible(.Call(`_pjrt_impl_test_enqueue_release`, x))
 }
 
-impl_test_buffer_aliases_prot <- function(x) {
-    .Call(`_pjrt_impl_test_buffer_aliases_prot`, x)
+impl_test_buffer_keepalive <- function(x) {
+    .Call(`_pjrt_impl_test_buffer_keepalive`, x)
 }
 
-impl_raw_to_array <- function(host_data, dtype, dims, minor_to_major) {
-    .Call(`_pjrt_impl_raw_to_array`, host_data, dtype, dims, minor_to_major)
-}
-
-impl_buffer_to_host_async <- function(buffer) {
-    .Call(`_pjrt_impl_buffer_to_host_async`, buffer)
+impl_test_buffer_aliases_keepalive <- function(x) {
+    .Call(`_pjrt_impl_test_buffer_aliases_keepalive`, x)
 }
 
 impl_loaded_executable_aliases <- function(executable) {
@@ -235,6 +251,14 @@ impl_client_buffer_from_logical <- function(client, device, data, dims, dtype) {
 
 impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
+}
+
+get_potrf_handler <- function() {
+    .Call(`_pjrt_get_potrf_handler`)
+}
+
+get_potrf_handler_cuda <- function() {
+    .Call(`_pjrt_get_potrf_handler_cuda`)
 }
 
 get_geqrf_handler <- function() {
@@ -323,9 +347,5 @@ impl_tree_repr <- function(tree) {
 
 impl_tree_diff <- function(a, b) {
     .Call(`_pjrt_impl_tree_diff`, a, b)
-}
-
-impl_test_xptr_prot <- function(x) {
-    .Call(`_pjrt_impl_test_xptr_prot`, x)
 }
 

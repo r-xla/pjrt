@@ -33,10 +33,12 @@ class Dispatcher {
   Dispatcher(std::size_t capacity, SEXP compile_fn,
              std::unordered_set<std::string> static_names,
              std::unique_ptr<Engine> engine, std::string backend,
-             bool move_inputs, std::optional<Rcpp::Function> default_device_fn)
+             bool move_inputs, std::optional<Rcpp::Function> default_device_fn,
+             std::optional<Rcpp::Function> context_fn)
       : cache_(capacity),
         compile_fn_(compile_fn),
         default_device_fn_(std::move(default_device_fn)),
+        context_fn_(std::move(context_fn)),
         static_names_(std::move(static_names)),
         engine_(std::move(engine)),
         backend_(std::move(backend)),
@@ -52,6 +54,13 @@ class Dispatcher {
   // another. Nullopt when the dispatcher was given no resolver.
   const std::optional<Rcpp::Function>& default_device_fn() const {
     return default_device_fn_;
+  }
+
+  // The caller's per-call key material (?dispatcher's `context`): a character
+  // vector the compiled program depends on beyond its inputs. Resolved on every
+  // call, since any entry may depend on it. Nullopt when none was given.
+  const std::optional<Rcpp::Function>& context_fn() const {
+    return context_fn_;
   }
 
   LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq>& cache() {
@@ -77,6 +86,7 @@ class Dispatcher {
   LRUCache<CacheKey, CacheEntry, CacheKeyHash, CacheKeyEq> cache_;
   Rcpp::Function compile_fn_;
   std::optional<Rcpp::Function> default_device_fn_;
+  std::optional<Rcpp::Function> context_fn_;
   std::unordered_set<std::string> static_names_;
   std::unique_ptr<Engine> engine_;
   std::string backend_;

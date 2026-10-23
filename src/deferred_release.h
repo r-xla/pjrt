@@ -6,10 +6,18 @@
 
 namespace rpjrt {
 
-// Queue an R object for deferred release. This is thread-safe and can be
-// called from any thread (e.g., PJRT callback threads).
-// The actual R_ReleaseObject call will happen later on the main R thread.
-void queue_release(SEXP obj);
+// Pin `obj` against garbage collection until its release is processed, and
+// return the token to hand to queue_release(). Main R thread only. The pin
+// lives on Rcpp's precious list, whose removal is O(1).
+SEXP preserve(SEXP obj);
+
+// Unpin a token from preserve() right away. Main R thread only.
+void release(SEXP token);
+
+// Queue a token from preserve() for deferred release. This is thread-safe and
+// can be called from any thread (e.g., PJRT callback threads). The actual
+// release happens later on the main R thread.
+void queue_release(SEXP token);
 
 // Process any pending releases. This MUST be called from the main R thread.
 // It is safe to call this function even if there are no pending releases.

@@ -21,7 +21,7 @@ context("LRUCache") {
     c.set("b", 2);
     expect_true(*c.get("a") == 1);
     expect_true(*c.get("b") == 2);
-    expect_true(c.get("c") == nullptr);  // miss (xlamisc: default / NULL)
+    expect_true(c.get("c") == nullptr);  // miss
   }
 
   test_that("get() acts as membership: non-null for present, null for absent") {
@@ -50,8 +50,8 @@ context("LRUCache") {
     expect_true(c.size() == 1u);
   }
 
-  // xlamisc's "LRU order is maintained (MRU -> LRU)" sequence, verified by the
-  // eviction victim (we cannot read keys_mru_to_lru() here).
+  // The MRU -> LRU order is verified by the eviction victim (we cannot read
+  // keys_mru_to_lru() here).
   test_that("MRU->LRU order is maintained, so the LRU entry is evicted") {
     StrCache c(3);
     c.set("a", 1);

@@ -7,6 +7,7 @@
 
 #include "device.h"
 #include "event.h"
+#include "pjrt_handle.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
@@ -45,9 +46,13 @@ class PJRTBufferMemoryLayout {
 };
 
 class PJRTBuffer {
+  // Declared before `buffer`, whose deleter uses it (see pjrt_handle.h).
+  std::shared_ptr<PJRT_Api> api;
+
  public:
-  PJRTBuffer(PJRT_Buffer* buffer, std::shared_ptr<PJRT_Api> api);
-  PJRT_Buffer* buffer;
+  PJRTBuffer(PJRTHandle<PJRT_Buffer> buffer, std::shared_ptr<PJRT_Api> api);
+  // Null once the buffer was donated to an Execute.
+  PJRTHandle<PJRT_Buffer> buffer;
   ~PJRTBuffer();
   const std::vector<int64_t>& dimensions();
   std::unique_ptr<PJRTMemory> memory();
@@ -88,7 +93,6 @@ class PJRTBuffer {
   PJRT_Device* device_ptr();
 
  private:
-  std::shared_ptr<PJRT_Api> api;
   bool meta_cached_ = false;
   PJRT_Buffer_Type cached_type_;
   std::vector<int64_t> cached_dims_;
@@ -100,27 +104,6 @@ class PJRTBuffer {
   // that hands `this->buffer` to a PJRT C API call, so that operating on
   // a donated buffer surfaces a clean error rather than a crash.
   PJRT_Buffer* checked_buffer() const;
-};
-
-// Holds result of an async device-to-host transfer.
-// Owns the host data and the completion event.
-class PJRTHostData {
- public:
-  PJRTHostData(std::unique_ptr<std::vector<uint8_t>> data,
-               std::unique_ptr<PJRTEvent> event);
-
-  // Non-blocking check if the transfer is complete
-  bool is_ready() const;
-
-  // Block until the transfer is complete, then check for errors
-  void await();
-
-  // Access the raw data (only valid after await)
-  const std::vector<uint8_t>& data() const { return *data_; }
-
- private:
-  std::unique_ptr<std::vector<uint8_t>> data_;
-  std::unique_ptr<PJRTEvent> event_;
 };
 
 }  // namespace rpjrt

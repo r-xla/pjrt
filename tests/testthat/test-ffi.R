@@ -1,5 +1,3 @@
-skip_if_metal("FFI extension not available on metal")
-
 test_that("can load the ffi extension", {
   platform <- Sys.getenv("PJRT_PLATFORM", "cpu")
   plugin <- pjrt_plugin(platform)
@@ -70,6 +68,40 @@ func.func @main(
   expect_snapshot({
     invisible(pjrt_execute(program, buf_f32, buf_i32, buf_pred))
   })
+})
+
+test_that("the ordered print handler prints in the order of its token chain", {
+  # Each print takes the token the one before it returns, so the prints run in
+  # the order of the chain.
+  program <- pjrt_program(
+    r"(
+func.func @main(%x: tensor<2xf32>) -> tensor<2xf32> {
+  %t0 = stablehlo.after_all : !stablehlo.token
+  %t1 = stablehlo.custom_call @print_tensor_ordered(%x, %t0) {
+    call_target_name = "print_tensor_ordered",
+    backend_config = {print_header = "", print_footer = "1"},
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<2xf32>, !stablehlo.token) -> !stablehlo.token
+  %t2 = stablehlo.custom_call @print_tensor_ordered(%x, %t1) {
+    call_target_name = "print_tensor_ordered",
+    backend_config = {print_header = "", print_footer = "2"},
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<2xf32>, !stablehlo.token) -> !stablehlo.token
+  %t3 = stablehlo.custom_call @print_tensor_ordered(%x, %t2) {
+    call_target_name = "print_tensor_ordered",
+    backend_config = {print_header = "", print_footer = "3"},
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<2xf32>, !stablehlo.token) -> !stablehlo.token
+  "func.return" (%x) : (tensor<2xf32>) -> ()
+}
+)"
+  )
+  program <- pjrt_compile(program)
+  out <- capture.output(invisible(pjrt_execute(program, pjrt_buffer(c(1, 2), dtype = "f32"))))
+  expect_identical(grep("^[123]$", out, value = TRUE), c("1", "2", "3"))
 })
 
 test_that("print handler default footer prints bool not pred", {

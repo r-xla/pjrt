@@ -13,7 +13,6 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 })
 
 test_that("arguments must be unnamed", {
-  skip_if_metal("only supports MLIR programs")
   path <- system.file("programs/test_hlo.pb", package = "pjrt")
   program <- pjrt_program(path = path, format = "hlo")
   executable <- pjrt_compile(program)
@@ -72,7 +71,6 @@ test_that("print works", {
 })
 
 test_that("multiple inputs work correctly", {
-  skip_if_metal("-:20:28: error: expected ')' in inline location")
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
   %0 = "stablehlo.add"(%x, %y) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
@@ -90,6 +88,46 @@ func.func @main(%x: tensor<2x2xf32>, %y: tensor<2x2xf32>) -> tensor<2x2xf32> {
   expect_equal(as.vector(arr), as.vector(matrix(1:4, 2, 2) + matrix(5:8, 2, 2)), tolerance = 1e-6)
 })
 
+test_that("bf16 programs compile and execute", {
+  src <- r"(
+func.func @main(%x: tensor<4xbf16>, %y: tensor<4xbf16>) -> tensor<4xbf16> {
+  %0 = "stablehlo.add"(%x, %y) : (tensor<4xbf16>, tensor<4xbf16>) -> tensor<4xbf16>
+  "func.return"(%0): (tensor<4xbf16>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src))
+
+  x <- pjrt_buffer(c(1, 2.5, 0.333984375, 2^128 * (1 - 2^-8)), dtype = "bf16")
+  y <- pjrt_buffer(c(1, 0.5, 0.333984375, 2^128 * (1 - 2^-8)), dtype = "bf16")
+
+  result <- pjrt_execute(executable, x, y)
+
+  expect_equal(as.character(elt_type(result)), "bf16")
+  # 0.333984375 doubles exactly (an exponent shift), and the largest finite
+  # value overflows to Inf
+  expect_identical(as_array(result), array(c(2, 3, 0.66796875, Inf)))
+})
+
+test_that("f16 programs compile and execute", {
+  src <- r"(
+func.func @main(%x: tensor<4xf16>, %y: tensor<4xf16>) -> tensor<4xf16> {
+  %0 = "stablehlo.add"(%x, %y) : (tensor<4xf16>, tensor<4xf16>) -> tensor<4xf16>
+  "func.return"(%0): (tensor<4xf16>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src))
+
+  x <- pjrt_buffer(c(1, 2.5, 0.333251953125, 65504), dtype = "f16")
+  y <- pjrt_buffer(c(1, 0.5, 0.333251953125, 65504), dtype = "f16")
+
+  result <- pjrt_execute(executable, x, y)
+
+  expect_equal(as.character(elt_type(result)), "f16")
+  # 0.333251953125 doubles exactly (an exponent shift), and the max finite
+  # value overflows to Inf
+  expect_identical(as_array(result), array(c(2, 3, 0.66650390625, Inf)))
+})
+
 test_that("wrong shape input raises error", {
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
@@ -100,16 +138,15 @@ func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
 
   wrong_input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
 
-  # CPU says "size", Metal says "shape"
   expect_error(
     pjrt_execute(executable, wrong_input),
     "size|shape"
   )
 })
 
-# is_ready / await / value -------------------------------------------------
+# is_ready / await -------------------------------------------------
 
-test_that("is_ready works on buffers and array promises", {
+test_that("is_ready works on buffers and async arrays", {
   src <- r"(
 func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   "func.return"(%x): (tensor<3xf32>) -> ()
@@ -124,8 +161,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   expect_true(is.logical(ready))
   expect_length(ready, 1L)
 
-  arr_promise <- as_array_async(result)
-  ready <- is_ready(arr_promise)
+  ready <- is_ready(as_array(result, await = FALSE))
   expect_true(is.logical(ready))
   expect_length(ready, 1L)
 })
@@ -146,34 +182,13 @@ func.func @main(%x: tensor<1000x1000xf32>) -> tensor<1000x1000xf32> {
   expect_true(is_ready(buf))
 })
 
-test_that("value() materializes R array from promise", {
+test_that("as_array(await = FALSE) materializes the result of an execution", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute(executable)
-  arr <- value(as_array_async(result))
-  expect_equal(arr, 3)
-})
-
-test_that("value() caches result on repeated calls", {
-  src <- r"(
-func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
-  "func.return"(%x): (tensor<3xf32>) -> ()
-}
-)"
-  executable <- pjrt_compile(pjrt_program(src))
-
-  input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
-  result <- pjrt_execute(executable, input)
-  arr_promise <- as_array_async(result)
-
-  arr <- value(arr_promise)
-  expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
-
-  # Call value again - should return cached result
-  arr2 <- value(arr_promise)
-  expect_identical(arr, arr2)
+  expect_equal(as_array(result, await = FALSE), 3)
 })
 
 # Chaining ------------------------------------------------------------------
@@ -189,7 +204,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
-  arr <- value(as_array_async(result))
+  arr <- as_array(result, await = FALSE)
   expect_equal(as.vector(arr), c(2.0, 4.0, 6.0), tolerance = 1e-6)
 })
 
@@ -205,12 +220,11 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result1 <- pjrt_execute(exec1, input)
   result2 <- pjrt_execute(exec2, result1)
-  arr <- value(as_array_async(result2))
+  arr <- as_array(result2, await = FALSE)
   expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
 })
 
 test_that("execution with inputs chained to buffer-to-host", {
-  skip_if_metal("-:20:28: error: expected ')' in inline location")
   path <- system.file("programs/jax-stablehlo-subset-2d.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
@@ -221,7 +235,7 @@ test_that("execution with inputs chained to buffer-to-host", {
   i2_buf <- pjrt_scalar(1L, "i32")
 
   async_result <- pjrt_execute(executable, x_buf, i1_buf, i2_buf)
-  result <- value(as_array_async(async_result))
+  result <- as_array(async_result, await = FALSE)
   expect_equal(result, x[1, 2]) # 0-indexed: x[0+1, 1+1] = x[1, 2] = 3
 })
 
@@ -423,16 +437,38 @@ module @double_inplace {
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
     x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
-    x_prot <- impl_test_xptr_prot(x)
-    expect_true(is.raw(x_prot))
+    x_keepalive <- impl_test_buffer_keepalive(x)
+    expect_true(is.raw(x_keepalive))
 
     out <- pjrt_execute(exec, x)
 
-    # Output's prot slot now holds the input's RAWSXP; input's is cleared.
-    expect_identical(impl_test_xptr_prot(out), x_prot)
-    expect_null(impl_test_xptr_prot(x))
+    # Output's keepalive is now the input's RAWSXP; input's is cleared.
+    expect_identical(impl_test_buffer_keepalive(out), x_keepalive)
+    expect_null(impl_test_buffer_keepalive(x))
 
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
+  })
+
+  it("stays correct over a chain of donations whose inputs are freed", {
+    # Every donated input is destroyed as soon as Execute returns, while the
+    # executions it fed may still be queued; collecting the inputs' R objects
+    # along the way must not disturb the chain. Runs on any platform.
+    mlir <- '
+module @add_one_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %one = stablehlo.constant dense<1.0> : tensor<4xf32>
+    %out = stablehlo.add %arg0, %one : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"))
+    x <- pjrt_buffer(c(0, 10, 20, 30), dtype = "f32")
+    for (i in seq_len(200L)) {
+      x <- pjrt_execute(exec, x)
+      if (i %% 50L == 0L) gc()
+    }
+    expect_equal(as.numeric(as_array(x)), c(200, 210, 220, 230))
   })
 
   it("raises a clean R-level error on operations on a donated input", {
@@ -453,6 +489,24 @@ module @double_inplace {
     expect_error(as_array(x), "called on deleted or donated buffer")
   })
 
+  it("raises a clean R-level error when reading back a donated input with several axes", {
+    skip_if(!is_cpu())
+    mlir <- '
+module @double_inplace {
+  func.func @main(%arg0: tensor<2x2xf32> {tf.aliasing_output = 0 : i32}) -> tensor<2x2xf32> {
+    %two = stablehlo.constant dense<2.0> : tensor<2x2xf32>
+    %out = stablehlo.multiply %arg0, %two : tensor<2x2xf32>
+    return %out : tensor<2x2xf32>
+  }
+}
+'
+    prog <- pjrt_program(src = mlir, format = "mlir")
+    exec <- pjrt_compile(prog, device = "cpu")
+    x <- pjrt_buffer(matrix(c(1, 2, 3, 4), nrow = 2), dtype = "f32")
+    pjrt_execute(exec, x)
+    expect_error(as_array(x), "called on deleted or donated buffer")
+  })
+
   # tf.aliasing_output is a *may*-alias: PJRT donates the input only if it is
   # donatable at runtime, otherwise it copies and leaves the input valid.
   it("leaves the input untouched when a may-alias is not donated", {
@@ -469,13 +523,13 @@ module @double_inplace {
     prog <- pjrt_program(src = mlir, format = "mlir")
     exec <- pjrt_compile(prog, device = "cpu")
     x <- pjrt_buffer(c(10, 20, 30, 40), dtype = "f32")
-    x_prot <- impl_test_xptr_prot(x)
+    x_keepalive <- impl_test_buffer_keepalive(x)
 
     opts <- pjrt_execution_options(non_donatable_input_indices = 0L)
     out <- pjrt_execute(exec, x, execution_options = opts)
 
     # Input was copied, not donated: its keepalive stays put and input remains readable.
-    expect_identical(impl_test_xptr_prot(x), x_prot)
+    expect_identical(impl_test_buffer_keepalive(x), x_keepalive)
     expect_equal(as.numeric(as_array(x)), c(10, 20, 30, 40), tolerance = 1e-6)
 
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
@@ -520,15 +574,15 @@ module @two_donations {
     exec <- pjrt_compile(prog, device = "cpu")
     a <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
     b <- pjrt_buffer(c(4, 5, 6), dtype = "f32")
-    a_prot <- impl_test_xptr_prot(a)
-    b_prot <- impl_test_xptr_prot(b)
+    a_keepalive <- impl_test_buffer_keepalive(a)
+    b_keepalive <- impl_test_buffer_keepalive(b)
 
     outs <- pjrt_execute(exec, a, b, simplify = FALSE)
 
-    expect_identical(impl_test_xptr_prot(outs[[1]]), a_prot)
-    expect_identical(impl_test_xptr_prot(outs[[2]]), b_prot)
-    expect_null(impl_test_xptr_prot(a))
-    expect_null(impl_test_xptr_prot(b))
+    expect_identical(impl_test_buffer_keepalive(outs[[1]]), a_keepalive)
+    expect_identical(impl_test_buffer_keepalive(outs[[2]]), b_keepalive)
+    expect_null(impl_test_buffer_keepalive(a))
+    expect_null(impl_test_buffer_keepalive(b))
 
     expect_equal(as.numeric(as_array(outs[[1]])), c(2, 4, 6), tolerance = 1e-6)
     expect_equal(as.numeric(as_array(outs[[2]])), c(16, 25, 36), tolerance = 1e-6)
@@ -584,15 +638,15 @@ module @square_into_phantom {
     x <- pjrt_buffer(as.numeric(1:1024), dtype = "f32")
     # every CPU creation path must produce a genuinely zero-copy buffer: its
     # device memory lives inside the prot-slot RAWSXP (64-byte-aligned there)
-    expect_true(impl_test_buffer_aliases_prot(x))
+    expect_true(impl_test_buffer_aliases_keepalive(x))
     p <- pjrt_empty(dtype = "f32", shape = 1024L)
-    expect_true(impl_test_buffer_aliases_prot(p))
+    expect_true(impl_test_buffer_aliases_keepalive(p))
 
     out <- pjrt_execute(exec, x, p)
     await(out)
     # donation reused the phantom's storage: the output lives in the migrated
     # RAWSXP, and reading it back yields the computed values
-    expect_true(impl_test_buffer_aliases_prot(out))
+    expect_true(impl_test_buffer_aliases_keepalive(out))
     expect_equal(as.numeric(as_array(out)), (1:1024)^2, tolerance = 1e-6)
   })
 
@@ -617,11 +671,11 @@ module @square_into_phantom_2d {
     m <- matrix(as.numeric(1:128), nrow = 16L, ncol = 8L)
     x <- pjrt_buffer(m, dtype = "f32")
     p <- pjrt_empty(dtype = "f32", shape = c(16L, 8L))
-    expect_true(impl_test_buffer_aliases_prot(p))
+    expect_true(impl_test_buffer_aliases_keepalive(p))
 
     out <- pjrt_execute(exec, x, p)
     await(out)
-    expect_true(impl_test_buffer_aliases_prot(out))
+    expect_true(impl_test_buffer_aliases_keepalive(out))
     expect_equal(as_array(out), m^2, tolerance = 1e-6)
   })
 

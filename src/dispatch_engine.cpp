@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "buffer.h"
+#include "buffer_sexp.h"
 #include "client.h"
 #include "device.h"
 #include "pjrt_impl.h"
@@ -50,9 +51,6 @@ std::string field_string(SEXP v) {
              : std::string();
 }
 
-// Whether a logical field is TRUE (absent / NA counts as FALSE).
-bool field_true(SEXP v) { return v != R_NilValue && Rf_asLogical(v) == TRUE; }
-
 std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   const SEXPTYPE t = TYPEOF(leaf);
   if (Rf_isObject(leaf)) {
@@ -61,13 +59,13 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   RDataInfo info;
   switch (t) {
     case REALSXP:
-      info.dtype = AnvlDtype::kF32;
+      info.dtype = AnvlDtype::kDouble;
       break;
     case INTSXP:
-      info.dtype = AnvlDtype::kI32;
+      info.dtype = AnvlDtype::kInteger;
       break;
     case LGLSXP:
-      info.dtype = AnvlDtype::kBool;
+      info.dtype = AnvlDtype::kLogical;
       break;
     default:
       return std::nullopt;
@@ -139,6 +137,131 @@ std::string leaf_subject(const RTree& in_tree, std::size_t leaf_index) {
   return "input `" + tree_path(in_tree, static_cast<int>(leaf_index) + 1) + "`";
 }
 
+// ---- The compile callback's declared input dtypes --------------------------
+
+// The first bare R input of the call, or npos when it has none. An engine that
+// uploads bare R data needs every one of them declared.
+static std::size_t first_rdata_input(
+    const std::vector<ExecInput>& exec_inputs) {
+  for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
+    if (exec_inputs[k].aval->kind == AvalKind::kRData) return k;
+  }
+  return static_cast<std::size_t>(-1);
+}
+
+// Whether the pjrt engine can upload a bare R leaf of storage type `storage`
+// at `target`. Each storage type is uploaded through the buffer entry point
+// for its SEXPTYPE, and those do not all convert to every dtype: a double
+// reaches any of them, an integer any but bool, and a logical only bool --
+// PRED is uploaded from R's logicals alone.
+static bool upload_pair_supported(AnvlDtype storage, AnvlDtype target) {
+  switch (storage) {
+    case AnvlDtype::kDouble:
+      return true;
+    case AnvlDtype::kInteger:
+      return target != AnvlDtype::kBool;
+    case AnvlDtype::kLogical:
+      return target == AnvlDtype::kBool;
+    default:
+      return false;
+  }
+}
+
+void read_input_dtypes(const Rcpp::List& res,
+                       const std::vector<ExecInput>& exec_inputs,
+                       bool uploads_rdata, CacheEntry& e) {
+  const std::size_t n_inputs = exec_inputs.size();
+  SEXP v = res.containsElementNamed("input_dtypes") ? SEXP(res["input_dtypes"])
+                                                    : R_NilValue;
+  if (v == R_NilValue) {
+    const std::size_t k = first_rdata_input(exec_inputs);
+    if (uploads_rdata && k != static_cast<std::size_t>(-1)) {
+      Rcpp::stop(
+          "compile result: `input_dtypes` is required, because input %d is "
+          "bare "
+          "R data: it has no dtype of its own, so the program must name the "
+          "one "
+          "it is uploaded at",
+          static_cast<int>(k + 1));
+    }
+    return;
+  }
+  if (TYPEOF(v) != STRSXP) {
+    Rcpp::stop("compile result: `input_dtypes` must be a character vector");
+  }
+  const R_xlen_t n = XLENGTH(v);
+  if (static_cast<std::size_t>(n) != n_inputs) {
+    Rcpp::stop(
+        "compile result: `input_dtypes` has %d %s but the call supplies %d %s",
+        static_cast<int>(n), n == 1 ? "entry" : "entries",
+        static_cast<int>(n_inputs), n_inputs == 1 ? "input" : "inputs");
+  }
+  e.input_dtypes.assign(static_cast<std::size_t>(n), AnvlDtype::kInvalid);
+  for (R_xlen_t k = 0; k < n; ++k) {
+    SEXP el = STRING_ELT(v, k);
+    const bool is_rdata =
+        exec_inputs[static_cast<std::size_t>(k)].aval->kind == AvalKind::kRData;
+    if (el == NA_STRING) {
+      // NA is "leave this input alone", which a bare R input cannot be: it is
+      // not a value the engine can supply until the program says what dtype it
+      // is. Guessing a default here is what `input_dtypes` exists to prevent.
+      if (uploads_rdata && is_rdata) {
+        Rcpp::stop(
+            "compile result: `input_dtypes[[%d]]` is NA for a bare R input: it "
+            "has no dtype of its own, so the program must name the one it is "
+            "uploaded at",
+            static_cast<int>(k + 1));
+      }
+      continue;  // this input is passed through as it is
+    }
+    const AnvlDtype d = anvl_dtype_from_name(CHAR(el));
+    if (d == AnvlDtype::kInvalid) {
+      Rcpp::stop(
+          "compile result: `input_dtypes[[%d]]` is not a dtype anvl can "
+          "represent: \"%s\"",
+          static_cast<int>(k + 1), CHAR(el));
+    }
+    // An array input is supplied as it is -- the engine never uploads it, so
+    // there is no point at which a declared dtype could take effect. Silently
+    // ignoring it would let a callback believe it converted an input it did
+    // not, so the claim is rejected instead.
+    if (!is_rdata) {
+      Rcpp::stop(
+          "compile result: `input_dtypes[[%d]]` declares dtype \"%s\" for an "
+          "array input, which is supplied as it is; only a bare R input is "
+          "uploaded at a declared dtype, so this entry must be NA",
+          static_cast<int>(k + 1), CHAR(el));
+    }
+    // The same rule one level up. An engine that uploads nothing hands the
+    // bare R value to `r_fun` as it is, so there is no upload for a declared
+    // dtype to apply to either -- accepting the entry and ignoring it is the
+    // silent no-op the array case above refuses to be.
+    if (!uploads_rdata) {
+      Rcpp::stop(
+          "compile result: `input_dtypes[[%d]]` declares dtype \"%s\", but "
+          "this backend supplies every input to a compiled R closure and "
+          "uploads none of them, so no declared dtype can take effect; this "
+          "entry must be NA",
+          static_cast<int>(k + 1), CHAR(el));
+    }
+    // Not every R storage type uploads at every dtype. Settled here, on the
+    // compile path and against the `input_dtypes` entry the callback has to
+    // correct, rather than left to surface from the buffer layer mid-execution
+    // as a bare "Unsupported type: bool" naming neither input nor field.
+    const AnvlDtype storage =
+        exec_inputs[static_cast<std::size_t>(k)].aval->dtype;
+    if (!upload_pair_supported(storage, d)) {
+      Rcpp::stop(
+          "compile result: `input_dtypes[[%d]]` is \"%s\", which input %d "
+          "cannot be uploaded at: it is %s. An R double uploads at any dtype, "
+          "an R integer at any but \"bool\", and an R logical only at \"bool\"",
+          static_cast<int>(k + 1), CHAR(el), static_cast<int>(k + 1),
+          anvl_dtype_name(storage));
+    }
+    e.input_dtypes[static_cast<std::size_t>(k)] = d;
+  }
+}
+
 // ---- Engine: device canonicalization and the generic Aval read -------------
 
 SEXP Engine::canonical_device(SEXP device) {
@@ -158,8 +281,9 @@ SEXP Engine::canonical_device(SEXP device) {
 
 // Reject an Aval whose dtype could not be represented: every such leaf would
 // share one Aval, and two calls on different dtypes would then run each other's
-// program. Neither tengen nor pjrt's own dtype table can produce one, so this
-// is a guard, not a path.
+// program. An f16 or bf16 buffer reaches this for real, since pjrt stores both
+// but the dispatcher cannot key them, so this is a live path and not only a
+// guard.
 static void check_dtype_representable(const Aval& a, const RTree& in_tree,
                                       std::size_t leaf_index) {
   if (a.dtype == AnvlDtype::kInvalid) {
@@ -168,10 +292,10 @@ static void check_dtype_representable(const Aval& a, const RTree& in_tree,
   }
 }
 
-// Build an Aval from a backend extractor's outputs: a tengen DataType object,
-// an integer shape, and the ambiguous bit.
-static Aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
-                             const RTree& in_tree, std::size_t leaf_index) {
+// Build an Aval from a backend extractor's outputs: a xlamisc DataType object
+// and an integer shape.
+static Aval aval_from_xlamisc(SEXP dtype, SEXP shape, const RTree& in_tree,
+                              std::size_t leaf_index) {
   if (dtype == R_NilValue || TYPEOF(shape) != INTSXP) {
     Rcpp::stop(
         "invalid %s: the backend extractor must return an aval with a dtype "
@@ -179,8 +303,7 @@ static Aval aval_from_tengen(SEXP dtype, SEXP shape, bool ambiguous,
         leaf_subject(in_tree, leaf_index));
   }
   Aval a;
-  a.dtype = anvl_dtype_from_tengen(dtype);
-  a.ambiguous = ambiguous;
+  a.dtype = anvl_dtype_from_xlamisc(dtype);
   const R_xlen_t nd = XLENGTH(shape);
   a.shape.reserve(nd);
   for (R_xlen_t j = 0; j < nd; ++j) a.shape.push_back(INTEGER(shape)[j]);
@@ -220,7 +343,7 @@ class ClosureEngine : public Engine {
         extractor_(require_extractor(extractor)) {}
 
   // Read metadata through the backend's accessors: extractor(leaf) returns
-  // list(aval = list(dtype, shape, ambiguous), device, backend). `$data` is the
+  // list(aval = list(dtype, shape), device, backend). `$data` is the
   // one field read directly (contract-guaranteed). The Aval is built only for a
   // leaf of this dispatcher's backend; a foreign leaf carries its true tag back
   // for the core to reject, and its metadata is neither required nor validated.
@@ -242,9 +365,7 @@ class ClosureEngine : public Engine {
       Rcpp::List av = meta["aval"];
       SEXP dtype = av.containsElementNamed("dtype") ? av["dtype"] : R_NilValue;
       SEXP shape = av.containsElementNamed("shape") ? av["shape"] : R_NilValue;
-      const bool amb =
-          av.containsElementNamed("ambiguous") && field_true(av["ambiguous"]);
-      al.aval = aval_from_tengen(dtype, shape, amb, in_tree, leaf_index);
+      al.aval = aval_from_xlamisc(dtype, shape, in_tree, leaf_index);
     }
     return al;
   }
@@ -258,6 +379,14 @@ class ClosureEngine : public Engine {
           "compile callback must return a function `r_fun` "
           "(engine = \"closure\")");
     }
+    if (res.containsElementNamed("implicit_inputs") ||
+        res.containsElementNamed("implicit_outputs") ||
+        res.containsElementNamed("on_success")) {
+      Rcpp::stop(
+          "`implicit_inputs`, `implicit_outputs` and `on_success` are only "
+          "supported by the pjrt engine: `r_fun` reads its own inputs and runs "
+          "its own code");
+    }
     e.data = std::make_unique<ClosureEntry>(r_fun);
   }
 
@@ -265,9 +394,10 @@ class ClosureEngine : public Engine {
   // `r_fun` for, and `r_fun` is what places the inputs on it -- pjrt cannot,
   // since `$data` is the backend's own array type. So there is nothing to do
   // here either way: the inputs go to the closure exactly as they arrived.
-  SEXP run(const CacheEntry& e,
-           const std::vector<ExecInput>& exec_inputs) const override {
-    const auto* ce = static_cast<const ClosureEntry*>(e.data.get());
+  SEXP run(const CacheEntry& e, const std::vector<ExecInput>& exec_inputs,
+           SEXP /* args */) const override {
+    const auto hold = std::static_pointer_cast<const ClosureEntry>(e.data);
+    const ClosureEntry* ce = hold.get();
     Rcpp::List flat(exec_inputs.size());
     for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
       flat[k] = exec_inputs[k].value;
@@ -286,6 +416,15 @@ class ClosureEngine : public Engine {
 // One output-donation phantom buffer to allocate per call (CPU memory mgmt).
 struct PhantomSpec {
   PJRT_Buffer_Type dtype = PJRT_Buffer_Type_INVALID;
+  std::vector<int64_t> shape;
+};
+
+// One implicit input (?dispatcher's `implicit_inputs`): a value the program
+// takes after the call's own inputs that no argument supplies, read with
+// `get()` before every run.
+struct ImplicitInput {
+  Rcpp::RObject get;  // function(): the current value, a PJRTBuffer
+  PJRT_Buffer_Type buffer_type = PJRT_Buffer_Type_INVALID;
   std::vector<int64_t> shape;
 };
 
@@ -312,6 +451,10 @@ struct PjrtEntry : EntryData {
   Rcpp::List templates;                     // one template AnvlArray per output
   std::vector<Rcpp::RObject> const_arrays;  // buffers prepended to the inputs
   std::vector<PhantomSpec> phantom_specs;
+  std::vector<ImplicitInput> implicit_inputs;  // read before every run
+  Rcpp::List implicit_templates;  // one template AnvlArray per implicit output
+  // function(outputs, args) called after every run, or NULL
+  Rcpp::RObject on_success;
 };
 
 // The `$data` field's position in a wrap template (see PjrtEntry::templates).
@@ -324,13 +467,17 @@ class PjrtEngine : public Engine {
         opts_(impl_execution_options_create(std::vector<int64_t>(), 0)),
         move_inputs_(move_inputs) {}
 
+  // This engine uploads a bare R input itself, so the program must say at which
+  // dtype: there is no default it could fall back on that the program would
+  // agree with.
+  bool uploads_rdata() const override { return true; }
+
   // Reads the native way: dtype/shape/device all come off the PJRTBuffer in
   // `$data`, which caches them natively and so cannot drift from the array's
-  // own fields (this engine never consults them). `$ambiguous` is the only
-  // R-list field the Aval needs -- the buffer carries no such anvl type-system
-  // bit -- and `$backend` the only other, for the reject path. The buffer is
-  // interpreted only once the leaf's tag matches, so a foreign leaf carries its
-  // tag back for the core to reject rather than failing the buffer check here.
+  // own fields (this engine never consults them). `$backend` is the only
+  // R-list field it needs, for the reject path. The buffer is interpreted only
+  // once the leaf's tag matches, so a foreign leaf carries its tag back for
+  // the core to reject rather than failing the buffer check here.
   std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
                                       std::size_t leaf_index) override {
     if (!is_anvl_array(leaf)) return std::nullopt;
@@ -338,15 +485,14 @@ class PjrtEngine : public Engine {
     al.data = anvl_field(leaf, "data");
     al.backend = field_string(anvl_field(leaf, "backend"));
     if (al.backend == backend_) {
-      if (TYPEOF(al.data) != EXTPTRSXP || !Rf_inherits(al.data, "PJRTBuffer")) {
+      if (!is_buffer(al.data)) {
         Rcpp::stop(
             "invalid %s: an \"%s\" AnvlArray must hold a PJRTBuffer in $data",
             leaf_subject(in_tree, leaf_index), backend_.c_str());
       }
-      Rcpp::XPtr<PJRTBuffer> buf(al.data);
+      Rcpp::XPtr<PJRTBuffer> buf = as_buffer(al.data);
       al.aval.dtype = anvl_dtype_from_pjrt(buf->element_type());
       al.aval.shape = buf->dimensions();
-      al.aval.ambiguous = field_true(anvl_field(leaf, "ambiguous"));
       check_dtype_representable(al.aval, in_tree, leaf_index);
       // Device from the buffer, not $device: interned by PJRT_Device* (see
       // canonical_device) so the token still matches a literal-only call's
@@ -409,13 +555,13 @@ class PjrtEngine : public Engine {
     if (consts != R_NilValue && TYPEOF(consts) != VECSXP) {
       Rcpp::stop("`const_arrays` must be a list or NULL");
     }
-    // Each element is handed to execute as a PJRTBuffer; a wrong-typed
-    // external pointer there would be reinterpreted blindly and crash, so
-    // check now, like the other xptr fields.
+    // Each element is handed to execute as a PJRTBuffer; check now, like the
+    // other xptr fields, so a bad one is reported against `const_arrays`
+    // rather than on a later execute.
     if (consts != R_NilValue) {
       for (R_xlen_t i = 0; i < XLENGTH(consts); ++i) {
         SEXP c = VECTOR_ELT(consts, i);
-        if (TYPEOF(c) != EXTPTRSXP || !Rf_inherits(c, "PJRTBuffer")) {
+        if (!is_buffer(c)) {
           Rcpp::stop("`const_arrays[[%d]]` must be a PJRTBuffer",
                      static_cast<int>(i) + 1);
         }
@@ -424,7 +570,7 @@ class PjrtEngine : public Engine {
 
     // The phantom specs are parsed before the templates are built, so a
     // callback that declares a bad dtype is reported against `phantom_specs`
-    // (pjrt's own dtype table) rather than against `out_avals` (tengen's).
+    // (pjrt's own dtype table) rather than against `out_avals` (xlamisc's).
     std::vector<PhantomSpec> phantom_specs;
     if (res.containsElementNamed("phantom_specs")) {
       Rcpp::List specs = res["phantom_specs"];
@@ -432,23 +578,81 @@ class PjrtEngine : public Engine {
       for (R_xlen_t i = 0; i < specs.size(); ++i) {
         Rcpp::List spec = specs[i];
         PhantomSpec ps;
-        // Normalize the boolean aliases the R layer also accepts (tengen's
-        // canonical name is "bool"; pjrt's canonical name is "pred").
-        std::string dt = Rcpp::as<std::string>(spec["dtype"]);
-        if (dt == "bool" || dt == "i1") dt = "pred";
-        ps.dtype = string_to_pjrt_buffer_type(dt);
+        ps.dtype =
+            string_to_pjrt_buffer_type(Rcpp::as<std::string>(spec["dtype"]));
         ps.shape = Rcpp::as<std::vector<int64_t>>(spec["shape"]);
         phantom_specs.push_back(std::move(ps));
       }
     }
 
+    std::vector<ImplicitInput> implicit_inputs;
+    SEXP list = named("implicit_inputs");
+    if (list != R_NilValue) {
+      if (TYPEOF(list) != VECSXP) {
+        Rcpp::stop("`implicit_inputs` must be a list or NULL");
+      }
+      implicit_inputs.reserve(XLENGTH(list));
+      for (R_xlen_t i = 0; i < XLENGTH(list); ++i) {
+        const int k = static_cast<int>(i) + 1;
+        SEXP el = VECTOR_ELT(list, i);
+        if (TYPEOF(el) != VECSXP) {
+          Rcpp::stop(
+              "`implicit_inputs[[%d]]` must be a list(get, dtype, shape)", k);
+        }
+        Rcpp::List spec(el);
+        auto field = [&](const char* nm) -> SEXP {
+          return spec.containsElementNamed(nm) ? static_cast<SEXP>(spec[nm])
+                                               : R_NilValue;
+        };
+        SEXP get = field("get");
+        SEXP dtype = field("dtype");
+        if (!Rf_isFunction(get)) {
+          Rcpp::stop("`implicit_inputs[[%d]]$get` must be a function", k);
+        }
+        if (TYPEOF(dtype) != STRSXP || XLENGTH(dtype) != 1) {
+          Rcpp::stop("`implicit_inputs[[%d]]$dtype` must be a string", k);
+        }
+        ImplicitInput ii;
+        ii.get = get;
+        try {
+          ii.buffer_type =
+              string_to_pjrt_buffer_type(CHAR(STRING_ELT(dtype, 0)));
+        } catch (const std::exception& ex) {
+          Rcpp::stop("`implicit_inputs[[%d]]$dtype`: %s", k, ex.what());
+        }
+        ii.shape = implicit_input_shape(field("shape"), k);
+        implicit_inputs.push_back(std::move(ii));
+      }
+    }
+    SEXP implicit_outputs = named("implicit_outputs");
+    if (implicit_outputs != R_NilValue && TYPEOF(implicit_outputs) != VECSXP) {
+      Rcpp::stop("`implicit_outputs` must be a list or NULL");
+    }
+    SEXP on_success = named("on_success");
+    if (on_success != R_NilValue && !Rf_isFunction(on_success)) {
+      Rcpp::stop("`on_success` must be a function or NULL");
+    }
+    if (implicit_outputs != R_NilValue && XLENGTH(implicit_outputs) > 0 &&
+        on_success == R_NilValue) {
+      Rcpp::stop(
+          "`implicit_outputs` need an `on_success` that the outputs are handed "
+          "to");
+    }
+
     // The wrap templates, built from the callback's declared output avals --
     // the last thing that can throw.
-    Rcpp::List templates = build_templates(out_avals, device);
+    Rcpp::List templates = build_templates(out_avals, "out_avals");
+    Rcpp::List implicit_templates =
+        implicit_outputs == R_NilValue
+            ? Rcpp::List(0)
+            : build_templates(implicit_outputs, "implicit_outputs");
 
     auto data = std::make_unique<PjrtEntry>(exec, client, device, out_tree,
                                             std::move(templates));
     data->phantom_specs = std::move(phantom_specs);
+    data->implicit_inputs = std::move(implicit_inputs);
+    data->implicit_templates = std::move(implicit_templates);
+    data->on_success = on_success;
     if (consts != R_NilValue) {
       Rcpp::List cl(consts);
       data->const_arrays.reserve(cl.size());
@@ -459,53 +663,55 @@ class PjrtEngine : public Engine {
     e.data = std::move(data);
   }
 
-  SEXP run(const CacheEntry& e,
-           const std::vector<ExecInput>& exec_inputs) const override {
-    const auto* pe = static_cast<const PjrtEntry*>(e.data.get());
+  SEXP run(const CacheEntry& e, const std::vector<ExecInput>& exec_inputs,
+           SEXP args) const override {
+    // `e` may be evicted by an R callback during the run; `hold` keeps its
+    // data.
+    const auto hold = std::static_pointer_cast<const PjrtEntry>(e.data);
+    const PjrtEntry* pe = hold.get();
 
     // Assemble the executable's inputs: const_arrays ++ the call's inputs ++
-    // freshly allocated phantom donation buffers. A buffer input passes through
+    // the implicit inputs ++ freshly allocated phantom donation buffers. A
+    // buffer input passes through
     // -- or, under `move_inputs`, is copied to the entry's device when it lives
-    // elsewhere; a bare R literal/array is uploaded to the entry's device (same
-    // impls and dtype defaults as pjrt_scalar() / pjrt_buffer()). The GC-rooted
+    // elsewhere; a bare R literal/array is uploaded to the entry's device, at
+    // the dtype `input_dtypes` declared for it. The GC-rooted
     // `inputs` list is built first and each allocated buffer (copy, upload,
     // phantom) written straight into its slot: it is reachable only through
     // `inputs` (the R GC does not scan C++ locals across the next allocation).
     Rcpp::List inputs(pe->const_arrays.size() + exec_inputs.size() +
-                      pe->phantom_specs.size());
+                      pe->implicit_inputs.size() + pe->phantom_specs.size());
     R_xlen_t pos = 0;
     for (const Rcpp::RObject& c : pe->const_arrays) inputs[pos++] = c;
     for (const ExecInput& in : exec_inputs) {
-      if (!in.upload) {
-        if (move_inputs_) {
-          Rcpp::XPtr<PJRTBuffer> buf(in.value);
-          if (buf->device_ptr() != pe->device->device) {
-            // Same plugin <=> same client (clients are per-platform
-            // singletons), so a differing API pointer means a cross-client
-            // host-roundtrip copy -- mirrors pjrt::copy_buffer().
-            const bool cross = buf->get_api().get() != pe->client->api.get();
-            inputs[pos++] =
-                impl_buffer_copy_to_device(buf, pe->device, pe->client, cross);
-            continue;
-          }
-        }
-        inputs[pos++] = in.value;
+      if (in.aval->kind != AvalKind::kRData) {
+        inputs[pos++] =
+            move_inputs_ ? on_entry_device(*pe, in.value) : in.value;
         continue;
       }
+      // The dtype the program was compiled to take this input at. The
+      // callback declares it -- and must, since only the trace knows what the
+      // value is used for: an R double that meets an f64 array has to arrive as
+      // f64, not rounded through an f32 guess first.
+      const char* dt = anvl_dtype_name(in.dtype);
       switch (TYPEOF(in.value)) {
         case REALSXP:
           inputs[pos++] = impl_client_buffer_from_double(
-              pe->client, pe->device, in.value, in.aval->shape, "f32");
+              pe->client, pe->device, in.value, in.aval->shape, dt);
           break;
         case INTSXP:
           inputs[pos++] = impl_client_buffer_from_integer(
-              pe->client, pe->device, in.value, in.aval->shape, "i32");
+              pe->client, pe->device, in.value, in.aval->shape, dt);
           break;
         default:
           inputs[pos++] = impl_client_buffer_from_logical(
-              pe->client, pe->device, in.value, in.aval->shape, "pred");
+              pe->client, pe->device, in.value, in.aval->shape, dt);
           break;
       }
+    }
+    for (std::size_t k = 0; k < pe->implicit_inputs.size(); ++k) {
+      inputs[pos++] = read_implicit_input(*pe, pe->implicit_inputs[k],
+                                          static_cast<int>(k) + 1);
     }
     for (const PhantomSpec& ps : pe->phantom_specs) {
       inputs[pos++] =
@@ -518,11 +724,19 @@ class PjrtEngine : public Engine {
     // The declared output count against the real one -- the half of the
     // callback's out_avals claim that only the executable can settle. It keeps
     // a miscounted callback from silently wrapping the wrong buffers.
-    const R_xlen_t n_out = out_bufs.size();
-    if (n_out != pe->templates.size()) {
+    const R_xlen_t n_out = pe->templates.size();
+    const R_xlen_t n_implicit = pe->implicit_templates.size();
+    if (out_bufs.size() != n_out + n_implicit) {
+      if (n_implicit == 0) {
+        Rcpp::stop(
+            "out_tree has %d leaves but the executable returned %d outputs",
+            static_cast<int>(n_out), static_cast<int>(out_bufs.size()));
+      }
       Rcpp::stop(
-          "out_tree has %d leaves but the executable returned %d outputs",
-          static_cast<int>(pe->templates.size()), static_cast<int>(n_out));
+          "out_tree has %d leaves and the entry declares %d implicit outputs, "
+          "but the executable returned %d outputs",
+          static_cast<int>(n_out), static_cast<int>(n_implicit),
+          static_cast<int>(out_bufs.size()));
     }
 
     // Wrap each output: a shallow copy of its template with the buffer written
@@ -538,52 +752,113 @@ class PjrtEngine : public Engine {
       SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[i]);
       wrapped[i] = w;
     }
+    // Only a run that got this far succeeded. The implicit outputs, which
+    // follow the out_tree's, go to `on_success`.
+    if (pe->on_success != R_NilValue) {
+      Rcpp::List implicit(n_implicit);
+      for (R_xlen_t k = 0; k < n_implicit; ++k) {
+        SEXP w = Rf_shallow_duplicate(VECTOR_ELT(pe->implicit_templates, k));
+        SET_VECTOR_ELT(implicit, k, w);
+        SET_VECTOR_ELT(w, kTemplateDataSlot, out_bufs[n_out + k]);
+      }
+      Rcpp::Function on_success(pe->on_success);
+      on_success(implicit, args);
+    }
     std::size_t p = 0, li = 0;
     return unflatten_rec(*pe->out_tree, wrapped, p, li);
   }
 
  private:
+  // The shape `shape` of implicit input `k`: a vector of whole numbers that
+  // are not negative.
+  static std::vector<int64_t> implicit_input_shape(SEXP shape, int k) {
+    if (TYPEOF(shape) != INTSXP && TYPEOF(shape) != REALSXP) {
+      Rcpp::stop("`implicit_inputs[[%d]]$shape` must be an integer vector", k);
+    }
+    std::vector<int64_t> out;
+    for (double d : Rcpp::as<std::vector<double>>(shape)) {
+      if (ISNAN(d) || d < 0 ||
+          d != static_cast<double>(static_cast<int64_t>(d))) {
+        Rcpp::stop(
+            "`implicit_inputs[[%d]]$shape` must hold whole numbers that are "
+            "not "
+            "negative",
+            k);
+      }
+      out.push_back(static_cast<int64_t>(d));
+    }
+    return out;
+  }
+
+  // The PJRTBuffer `buffer` on the device of `pe`: itself, or a copy of it when
+  // it lives elsewhere.
+  static SEXP on_entry_device(const PjrtEntry& pe, SEXP buffer) {
+    Rcpp::XPtr<PJRTBuffer> buf = as_buffer(buffer);
+    if (buf->device_ptr() == pe.device->device) return buffer;
+    // Same plugin <=> same client (clients are per-platform singletons), so a
+    // differing API pointer means a cross-client host-roundtrip copy -- mirrors
+    // pjrt::copy_buffer().
+    const bool cross = buf->get_api().get() != pe.client->api.get();
+    return impl_buffer_copy_to_device(buffer, pe.device, pe.client, cross);
+  }
+
+  // The buffer implicit input `ii` (the `k`th) supplies to a run of `pe`: the
+  // PJRTBuffer its `get()` returns, of the input's dtype and shape, copied to
+  // the entry's device if it lives elsewhere.
+  SEXP read_implicit_input(const PjrtEntry& pe, const ImplicitInput& ii,
+                           int k) const {
+    Rcpp::Function get(ii.get);
+    Rcpp::RObject val = get();
+    if (!is_buffer(val)) {
+      Rcpp::stop("`get()` of implicit input %d must return a PJRTBuffer", k);
+    }
+    Rcpp::XPtr<PJRTBuffer> buf = as_buffer(val);
+    if (buf->element_type() != ii.buffer_type ||
+        buf->dimensions() != ii.shape) {
+      Rcpp::stop(
+          "the buffer `get()` of implicit input %d returns must have the "
+          "declared dtype (%s) and shape",
+          k, PJRTElementType(ii.buffer_type).as_string().c_str());
+    }
+    return on_entry_device(pe, val);
+  }
+
   // One template AnvlArray per output, built on the compile (cold) path from
   // the avals the callback declared: a named list (data = NULL, dtype, shape,
-  // device, ambiguous, backend) of class "AnvlArray" -- the wrapper layout an
-  // pjrt leaf carries, which PjrtEngine::read_array reads back as an input. The
-  // hot path only shallow-copies a template and drops the output buffer into
-  // its `$data` slot.
+  // backend) of class "AnvlArray" -- the wrapper layout an pjrt leaf
+  // carries, which PjrtEngine::read_array reads back as an input. The hot path
+  // only shallow-copies a template and drops the output buffer into its
+  // `$data` slot.
   //
-  // `out_avals[[i]]` is list(dtype = <string>, shape = <integer>, ambiguous =
-  // <logical(1)>, the last optional). See ?dispatcher.
-  Rcpp::List build_templates(SEXP out_avals, SEXP device) const {
+  // `out_avals[[i]]` is list(dtype = <string>, shape = <integer>). See
+  // ?dispatcher.
+  Rcpp::List build_templates(SEXP out_avals, const char* field) const {
     const R_xlen_t n_out = XLENGTH(out_avals);
-    Rcpp::Environment tengen = Rcpp::Environment::namespace_env("tengen");
-    Rcpp::Function as_dtype = tengen["as_dtype"];
+    Rcpp::Environment xlamisc = Rcpp::Environment::namespace_env("xlamisc");
+    Rcpp::Function as_dtype = xlamisc["as_dtype"];
     Rcpp::CharacterVector cls = Rcpp::CharacterVector::create("AnvlArray");
     Rcpp::CharacterVector backend = Rcpp::CharacterVector::create(backend_);
     Rcpp::List templates(n_out);
     for (R_xlen_t i = 0; i < n_out; ++i) {
       SEXP av = VECTOR_ELT(out_avals, i);
       if (TYPEOF(av) != VECSXP) {
-        Rcpp::stop("`out_avals[[%d]]` must be a list(dtype, shape)",
+        Rcpp::stop("`%s[[%d]]` must be a list(dtype, shape)", field,
                    static_cast<int>(i) + 1);
       }
       Rcpp::List aval(av);
       if (!aval.containsElementNamed("dtype") ||
           !aval.containsElementNamed("shape")) {
-        Rcpp::stop("`out_avals[[%d]]` must carry $dtype and $shape",
+        Rcpp::stop("`%s[[%d]]` must carry $dtype and $shape", field,
                    static_cast<int>(i) + 1);
       }
+      // The wrapper's $dtype is a xlamisc object, so the name goes to
+      // xlamisc::as_dtype(), which also takes the "pred" and "i1" aliases.
       std::string dt = Rcpp::as<std::string>(aval["dtype"]);
-      // The wrapper's $dtype is a tengen object, so the name goes to
-      // tengen::as_dtype(): canonicalize to AnvlDtype's "bool" (pjrt's own
-      // C-API spelling "pred" and the MLIR spelling "i1" are accepted aliases).
-      if (dt == "pred" || dt == "i1") dt = "bool";
       Rcpp::IntegerVector shape = Rcpp::as<Rcpp::IntegerVector>(aval["shape"]);
-      const bool amb = aval.containsElementNamed("ambiguous") &&
-                       Rf_asLogical(aval["ambiguous"]) == TRUE;
       Rcpp::List tmpl = Rcpp::List::create(
           Rcpp::Named("data") = R_NilValue,
           Rcpp::Named("dtype") = as_dtype(Rcpp::CharacterVector::create(dt)),
-          Rcpp::Named("shape") = shape, Rcpp::Named("device") = device,
-          Rcpp::Named("ambiguous") = amb, Rcpp::Named("backend") = backend);
+          Rcpp::Named("shape") = shape, Rcpp::Named("backend") = backend);
       tmpl.attr("class") = cls;
       templates[i] = tmpl;
     }

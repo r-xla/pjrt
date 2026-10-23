@@ -15,7 +15,7 @@ pjrt_tensor_from_raw <- function(raw, meta, device = NULL) {
 pjrt_dtype_to_safetensors <- function(pjrt_dtype) {
   switch(
     as.character(pjrt_dtype),
-    "pred" = "BOOL",
+    "bool" = "BOOL",
     "i8" = "I8",
     "i16" = "I16",
     "i32" = "I32",
@@ -24,6 +24,8 @@ pjrt_dtype_to_safetensors <- function(pjrt_dtype) {
     "ui16" = "U16",
     "ui32" = "U32",
     "ui64" = "U64",
+    "f16" = "F16",
+    "bf16" = "BF16",
     "f32" = "F32",
     "f64" = "F64",
     cli::cli_abort("Unsupported PJRT data type {.val {pjrt_dtype}}")
@@ -33,7 +35,7 @@ pjrt_dtype_to_safetensors <- function(pjrt_dtype) {
 safetensors_dtype_to_pjrt <- function(safetensors_dtype) {
   switch(
     safetensors_dtype,
-    "BOOL" = "pred",
+    "BOOL" = "bool",
     "I8" = "i8",
     "I16" = "i16",
     "I32" = "i32",
@@ -42,6 +44,8 @@ safetensors_dtype_to_pjrt <- function(safetensors_dtype) {
     "U16" = "ui16",
     "U32" = "ui32",
     "U64" = "ui64",
+    "F16" = "f16",
+    "BF16" = "bf16",
     "F32" = "f32",
     "F64" = "f64",
     cli::cli_abort(
@@ -53,7 +57,7 @@ safetensors_dtype_to_pjrt <- function(safetensors_dtype) {
 pjrt_dtype_size <- function(pjrt_dtype) {
   switch(
     pjrt_dtype,
-    "pred" = 1L,
+    "bool" = 1L,
     "i8" = 1L,
     "i16" = 2L,
     "i32" = 4L,
@@ -62,6 +66,8 @@ pjrt_dtype_size <- function(pjrt_dtype) {
     "ui16" = 2L,
     "ui32" = 4L,
     "ui64" = 8L,
+    "f16" = 2L,
+    "bf16" = 2L,
     "f32" = 4L,
     "f64" = 8L,
     cli::cli_abort("Unsupported PJRT data type {.val {pjrt_dtype}}")

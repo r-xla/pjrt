@@ -1,15 +1,100 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* The boolean data type is now named `"bool"` everywhere.
+* The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry a
+  `$device` field; read the device off `$data`.
+* `as_array_async()` is removed; use `as_array(x, await = FALSE)`, which
+  returns an R array whose values materialize when first read instead of a
+  `PJRTArrayPromise`. `value()` is removed, use the array directly or
+  `await()` it.
+
+## New features
+
+* `pjrt_register_custom_call()` accepts the `NativeSymbol` objects returned by
+  `getNativeSymbolInfo()`, so a handler needs no C glue to pass its address.
+* A `dispatcher()` compile callback can declare `implicit_inputs` and
+  `implicit_outputs`, values the program takes and returns beyond the call's
+  arguments and result, and an `on_success` function that receives the implicit
+  outputs and the call's arguments after every successful run. An implicit
+  input's `get()` returns the buffer to pass on.
+* `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
+  the default device.
+* `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.
+* `PJRTBuffer` supports the `"f16"` (IEEE 754 binary16) element type.
+* Bugfix: the `lu` custom call factorises a singular matrix instead of
+  failing with `getrf failed with info = <k>`.
+* New built-in `potrf` custom call: a batched Cholesky factorisation through
+  LAPACK on the host and cuSOLVER on CUDA, reporting each matrix's `info`
+  instead of failing on one that is not positive definite.
+* New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
+  a `!stablehlo.token`, so that a chain of prints runs in order.
+* Bugfix: `build_tree()`, `flatten()` and `dispatch()` raise an error for a
+  value nested more than 10000 lists deep instead of crashing R.
+* Bugfix: a compile that fails after XLA compiled the program, such as an HLO
+  program with input/output aliasing, no longer leaks the executable.
+* Bugfix: a buffer donated to an execution is freed instead of leaking its
+  PJRT handle.
+
+# pjrt 0.6.0
+
+## Breaking changes
+
+* The tensor generics and `DataType` now come from xlamisc, which absorbed
+  tengen; pjrt now depends on xlamisc instead of tengen.
+* Removed support for the Metal backend.
+* Updated the PJRT plugin version, which now requires CUDA 13.3.
+* Removed support for the ambiguity concept in the dispatcher and replaced
+  it with support for `rdata` objects.
+  This enables the improved precision semantics in anvl.
+* `as_array()`'s `check` argument is now `"warn"` (the default), `"err"` or
+  `FALSE`, and a value R's type cannot hold is reported instead of returned
+  silently. Write `check = "err"` where you wrote `check = TRUE`.
+* `pjrt_buffer()` and `pjrt_scalar()` no longer take a `check` argument; what
+  happens to an `NA` is fixed by the dtype.
+
 ## Features
 
-* `pjrt_register_custom_call()` now accepts the `NativeSymbol` objects
-  returned by `getNativeSymbolInfo()`, so a handler declared with
-  `XLA_FFI_DEFINE_HANDLER_SYMBOL()` can be compiled with `R CMD SHLIB` and
-  registered without writing any C glue to hand its address to R.
+* New `platform_support()` lists which backends are available on which
+  operating system and architecture.
+* `dispatcher()` gained a `context` resolver: a function called on every
+  dispatch whose `character()` result is part of the cache key and reaches the
+  compile callback as `info$context`. anvl uses it to key compiled programs on
+  the backend's default dtypes.
+* `RTree` objects can be compared with `==` and `!=`, which apply
+  `tree_equal()` structural comparison.
+* Added CUDA support for Linux ARM.
+* Added support for Intel Macs.
+* More (R type, PJRT data type) combinations are now supported during
+  buffer creation.
+
+## Performance
+
+* `pjrt_buffer()` reads its source vector through R's read-only accessors
+  (`DATAPTR_RO`, `INTEGER_RO`, `REAL_RO`, `LOGICAL_RO`) instead of the writable
+  `RAW()`, `INTEGER()`, `REAL()` and `LOGICAL()`. A writable pointer forces
+  copy-on-write materialization of ALTREP vectors (for example shared-memory
+  mappings), so every upload from such a source paid for a private duplicate of
+  the payload before the device copy. The source is now read in place on every
+  upload path.
+
+## Bug fixes
+
+* Uploading a `bit64::integer64` `NA` is no longer silent. At dtype `"i64"`
+  it warns, like an `NA_integer_` at `"i32"` does, since `INT64_MIN` travels
+  zero-copy and materializes as `NA` again. At dtype `"ui64"` it is now an
+  error: the same bits read unsigned are the ordinary value `2^63`.
+* Uploading an `NA` at dtype `"pred"` is now an error. It previously became
+  `TRUE`, silently.
+* `as_array()` on a donated buffer with two or more axes now errors instead
+  of crashing R.
+* Large float buffers now print correctly.
+* Improved input checks in buffer creation functions.
 
 ## Other
 
-* pjrt no longer Suggests anvl and stablehlo for it's tests
+* pjrt no longer Suggests anvl and stablehlo for its tests
   and the integration tests are moved to {anvl}.
 
 # pjrt 0.5.0
