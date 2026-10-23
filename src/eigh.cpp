@@ -59,7 +59,7 @@ static Error eigh_impl(AnyBuffer input, Result<AnyBuffer> v_out,
                    &liwork, &info);
   PJRT_RETURN_IF_ERROR(lapack_check_info(info, "syevd workspace query"));
 
-  lwork = static_cast<int>(work_size);
+  PJRT_RETURN_IF_ERROR(workspace_to_int(work_size, "syevd", lwork));
   liwork = iwork_size;
   std::vector<S> work(lwork);
   std::vector<int> iwork(liwork);

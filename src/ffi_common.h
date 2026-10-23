@@ -26,6 +26,21 @@ inline xla::ffi::Error dim_to_int(std::int64_t v, const char *name, int &out) {
   return xla::ffi::Error::Success();
 }
 
+// Validate the workspace size a LAPACK workspace query (lwork = -1) reports,
+// as a floating-point number, and convert it to the int lwork LAPACK takes.
+// A large matrix can need more than INT_MAX elements, which 32-bit LAPACK
+// cannot address.
+template <typename S>
+inline xla::ffi::Error workspace_to_int(S size, const char *op, int &out) {
+  const double v = static_cast<double>(size);
+  if (!(v >= 0) || v > std::numeric_limits<int>::max()) {
+    return xla::ffi::Error::InvalidArgument(std::string(op) +
+                                            " workspace size out of int range");
+  }
+  out = static_cast<int>(v);
+  return xla::ffi::Error::Success();
+}
+
 // Split the dimensions of a batch of square matrices, [..., n, n], into the
 // matrix size `n` and the number of matrices `batch` (the product of the
 // leading dimensions; 1 when there are none).
