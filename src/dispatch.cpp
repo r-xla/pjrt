@@ -281,8 +281,6 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     }
   }
 
-  key.hash = cache_key_hash(key);
-
   // 4. Probe the cache; compile via the R callback on a miss.
   CacheEntry* entry = d.cache().get(key);
   if (entry == nullptr) {
