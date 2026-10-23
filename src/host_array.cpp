@@ -29,6 +29,7 @@
 #include "buffer.h"
 #include "buffer_sexp.h"
 #include "event.h"
+#include "half/half.hpp"
 #include "utils.h"
 
 namespace {
@@ -134,6 +135,10 @@ SEXP to_vector(HostTransfer& t) {
       Rf_allocVector(r_type(t.type), number_of_elements(t.dims)));
   if (XLENGTH(out) == 0) return out;
   switch (t.type) {
+    case PJRT_Buffer_Type_F16:
+      // Every binary16 value is exactly representable as a double.
+      convert<half_float::half>(t, out);
+      break;
     case PJRT_Buffer_Type_BF16:
       // Widening bf16 -> double is exact.
       convert<rpjrt::bfloat16>(t, out);

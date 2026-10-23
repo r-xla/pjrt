@@ -85,6 +85,11 @@ is_buffer <- function(x) {
 #'     about 3.3895e38, and magnitudes at or above the overflow midpoint
 #'     (about 3.3962e38) round to `Inf`. [`as_array()`] returns the exactly
 #'     representable values as `double`.
+#'   - `"f16"`: IEEE 754 binary16 (for `double` or `integer` data). Values are
+#'     rounded to the nearest binary16 value, ties to even; the largest finite
+#'     value is 65504, and magnitudes at or above the overflow midpoint 65520
+#'     round to `Inf`. [`as_array()`] returns the exactly representable values
+#'     as `double`.
 #'   The default (`NULL`) depends on the method:
 #'   - `logical` -> `"bool"`
 #'   - `integer` -> `"i32"`

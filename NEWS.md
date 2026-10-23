@@ -20,6 +20,8 @@
 * `PJRTBuffer`s can now be serialized, e.g. with `saveRDS()`; they load onto
   the default device.
 * `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.
+* `PJRTBuffer` supports the `"f16"` (IEEE 754 binary16) element type, using
+  a bundled copy of Christian Rau's half.hpp (MIT, see `inst/COPYRIGHTS`).
 * Bugfix: the `lu` custom call factorises a singular matrix instead of
   failing with `getrf failed with info = <k>`.
 * New built-in `potrf` custom call: a batched Cholesky factorisation through
@@ -33,7 +35,6 @@
   program with input/output aliasing, no longer leaks the executable.
 * Bugfix: a buffer donated to an execution is freed instead of leaking its
   PJRT handle.
-
 
 # pjrt 0.6.0
 
