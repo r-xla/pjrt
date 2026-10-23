@@ -5,9 +5,10 @@
 * The boolean data type is now named `"bool"` everywhere.
 * The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry a
   `$device` field; read the device off `$data`.
-* `as_array_async()` now returns an R array whose values materialize when
-  first read, instead of a `PJRTArrayPromise`, and takes `as_array()`'s
-  `check`; `value()` is removed, use the array directly or `await()` it.
+* `as_array_async()` is removed; use `as_array(x, await = FALSE)`, which
+  returns an R array whose values materialize when first read instead of a
+  `PJRTArrayPromise`. `value()` is removed, use the array directly or
+  `await()` it.
 
 ## New features
 

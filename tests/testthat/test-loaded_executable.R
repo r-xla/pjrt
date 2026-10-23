@@ -141,7 +141,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   expect_true(is.logical(ready))
   expect_length(ready, 1L)
 
-  ready <- is_ready(as_array_async(result))
+  ready <- is_ready(as_array(result, await = FALSE))
   expect_true(is.logical(ready))
   expect_length(ready, 1L)
 })
@@ -162,13 +162,13 @@ func.func @main(%x: tensor<1000x1000xf32>) -> tensor<1000x1000xf32> {
   expect_true(is_ready(buf))
 })
 
-test_that("as_array_async() materializes the result of an execution", {
+test_that("as_array(await = FALSE) materializes the result of an execution", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute(executable)
-  expect_equal(as_array_async(result), 3)
+  expect_equal(as_array(result, await = FALSE), 3)
 })
 
 # Chaining ------------------------------------------------------------------
@@ -184,7 +184,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
-  arr <- as_array_async(result)
+  arr <- as_array(result, await = FALSE)
   expect_equal(as.vector(arr), c(2.0, 4.0, 6.0), tolerance = 1e-6)
 })
 
@@ -200,7 +200,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result1 <- pjrt_execute(exec1, input)
   result2 <- pjrt_execute(exec2, result1)
-  arr <- as_array_async(result2)
+  arr <- as_array(result2, await = FALSE)
   expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
 })
 
@@ -215,7 +215,7 @@ test_that("execution with inputs chained to buffer-to-host", {
   i2_buf <- pjrt_scalar(1L, "i32")
 
   async_result <- pjrt_execute(executable, x_buf, i1_buf, i2_buf)
-  result <- as_array_async(async_result)
+  result <- as_array(async_result, await = FALSE)
   expect_equal(result, x[1, 2]) # 0-indexed: x[0+1, 1+1] = x[1, 2] = 3
 })
 

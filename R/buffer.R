@@ -498,6 +498,13 @@ elt_type <- function(x) {
 #' @description
 #' Transfer buffer data from device to host and return an R array.
 #'
+#' With `await = FALSE`, the transfer runs asynchronously: the array is returned
+#' immediately with its final type, `dim` and class, and reading its values
+#' blocks until the transfer has completed. Use [is_ready()] to check whether it
+#' has (non-blocking) and [await()] to block until it has. The values are then
+#' checked when they are first read, or by `await()`; with `check = "err"`, an
+#' array holding a value R cannot represent errors on every read.
+#'
 #' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer to convert.
 #' @param check (`character(1)` | `FALSE`)\cr
@@ -523,11 +530,27 @@ elt_type <- function(x) {
 #'   No-op for float, boolean, and small/unsigned-32 integer dtypes —
 #'   `ui32` is stored as `integer64` and has full headroom, so it cannot
 #'   produce a wrapped or NA value.
+#' @param await (`logical(1)`)\cr
+#'   Whether to wait for the transfer to the host (the default). If `FALSE`,
+#'   return immediately with an array whose values arrive asynchronously.
 #' @param ... Additional arguments (unused).
 #' @return An R `array` (or `vector` for shape `integer()`).
+#' @seealso [is_ready()], [await()], [pjrt_execute()]
+#' @examplesIf plugins_downloaded()
+#' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+#' as_array(buf)
+#'
+#' # Start the transfer, and only block when the values are read
+#' result <- as_array(buf, await = FALSE)
+#' is_ready(result)
+#' result
 #' @export
-as_array.PJRTBuffer <- function(x, check = "warn", ...) {
+as_array.PJRTBuffer <- function(x, check = "warn", await = TRUE, ...) {
   check <- check_level(check)
+  assert_flag(await)
+  if (!await) {
+    return(as_array_async(x, check))
+  }
   result <- impl_buffer_to_host(x)
   check_representable(result, as.character(elt_type(x)), check)
   result
@@ -603,37 +626,11 @@ report_lossy <- function(check, call, message, .envir = parent.frame()) {
   )
 }
 
-#' @title Convert buffer to R array asynchronously
-#' @description
-#' Start an asynchronous transfer of buffer data from device to host.
-#'
-#' Returns immediately with an R array that stands for the transfer's result:
-#' it has its final type, `dim` and class already, and reading its values
-#' blocks until the transfer has completed.
-#' Use `is_ready()` to check if the transfer has completed (non-blocking), and
-#' `await()` to block until it has.
-#'
-#' The values are checked as [as_array()] checks them, once the transfer has
-#' completed: when they are first read, or by `await()`. With `check = "err"`,
-#' an array holding a value R cannot represent errors on every read.
-#'
-#' @param x A `PJRTBuffer` object.
-#' @inheritParams as_array.PJRTBuffer
-#' @return An R `array` (or `vector` for shape `integer()`).
-#' @seealso [as_array()], [is_ready()], [await()], [pjrt_execute()]
-#' @examplesIf plugins_downloaded()
-#' buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
-#' result <- as_array_async(buf)
-#' is_ready(result)
-#' result
-#' @export
-as_array_async <- function(x, ...) {
-  UseMethod("as_array_async")
-}
-
-#' @export
-as_array_async.PJRTBuffer <- function(x, check = "warn", ...) {
-  impl_buffer_to_host_async(x, check_level(check))
+# Starts the transfer of `x` to the host and returns its host array: an R array
+# whose values materialize when first read, checked at level `check` ("warn",
+# "err" or "none").
+as_array_async <- function(x, check) {
+  impl_buffer_to_host_async(x, check)
 }
 
 # Called by a host array (src/host_array.cpp) on the first read of its data,

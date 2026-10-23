@@ -4,7 +4,7 @@
 \alias{as_array.PJRTBuffer}
 \title{Convert a PJRTBuffer to an R Array}
 \usage{
-\method{as_array}{PJRTBuffer}(x, check = "warn", ...)
+\method{as_array}{PJRTBuffer}(x, check = "warn", await = TRUE, ...)
 }
 \arguments{
 \item{x}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
@@ -36,6 +36,10 @@ No-op for float, boolean, and small/unsigned-32 integer dtypes —
 \code{ui32} is stored as \code{integer64} and has full headroom, so it cannot
 produce a wrapped or NA value.}
 
+\item{await}{(\code{logical(1)})\cr
+Whether to wait for the transfer to the host (the default). If \code{FALSE},
+return immediately with an array whose values arrive asynchronously.}
+
 \item{...}{Additional arguments (unused).}
 }
 \value{
@@ -43,4 +47,25 @@ An R \code{array} (or \code{vector} for shape \code{integer()}).
 }
 \description{
 Transfer buffer data from device to host and return an R array.
+
+With \code{await = FALSE}, the transfer runs asynchronously: the array is returned
+immediately with its final type, \code{dim} and class, and reading its values
+blocks until the transfer has completed. Use \code{\link[=is_ready]{is_ready()}} to check whether it
+has (non-blocking) and \code{\link[=await]{await()}} to block until it has. The values are then
+checked when they are first read, or by \code{await()}; with \code{check = "err"}, an
+array holding a value R cannot represent errors on every read.
+}
+\examples{
+\dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
+buf <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")
+as_array(buf)
+
+# Start the transfer, and only block when the values are read
+result <- as_array(buf, await = FALSE)
+is_ready(result)
+result
+\dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=is_ready]{is_ready()}}, \code{\link[=await]{await()}}, \code{\link[=pjrt_execute]{pjrt_execute()}}
 }

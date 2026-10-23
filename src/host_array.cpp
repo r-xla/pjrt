@@ -1,12 +1,12 @@
 // Device-to-host transfers, materialized as R vectors.
 //
-// as_array_async() returns a *host array*: an ALTREP vector (double, integer
-// or logical) that stands for the result of a transfer still in flight. It
-// carries its dim and class attributes from the start and reads as an ordinary
-// R array; the first access to its data waits for the transfer and converts
-// the bytes into a plain R vector, which the host array then wraps. That
-// first access goes through pjrt's R function host_array_materialize(), which
-// checks the values as as_array() does before the host array takes them.
+// as_array(x, await = FALSE) returns a *host array*: an ALTREP vector (double,
+// integer or logical) that stands for the result of a transfer still in flight.
+// It carries its dim and class attributes from the start and reads as an
+// ordinary R array; the first access to its data waits for the transfer and
+// converts the bytes into a plain R vector, which the host array then wraps.
+// That first access goes through pjrt's R function host_array_materialize(),
+// which checks the values as as_array() does before the host array takes them.
 //
 // That first access may come from any code that reads the vector's data,
 // including C++ code. A failed transfer then raises an R error from inside it
@@ -41,7 +41,7 @@ struct HostTransfer {
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
   std::vector<int64_t> minor_to_major;
-  std::string check;  // as_array_async()'s `check` level
+  std::string check;  // as_array()'s `check` level
 
   HostTransfer() = default;
   HostTransfer(const HostTransfer&) = delete;
