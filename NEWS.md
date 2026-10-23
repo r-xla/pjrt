@@ -39,6 +39,9 @@
   program with input/output aliasing, no longer leaks the executable.
 * Bugfix: a buffer donated to an execution is freed instead of leaking its
   PJRT handle.
+* Bugfix: the `gesdd`, `syevd`, `geqrf` and `orgqr` custom calls raise an error
+  for a matrix whose LAPACK workspace exceeds the int range, instead of
+  passing LAPACK a garbage workspace size.
 * Reading a buffer back to R no longer transposes it on the host: PJRT copies
   it in column-major order directly (#50).
 * Bugfix: printing a buffer, and copying it to another client, respect a
