@@ -2,9 +2,12 @@
 % Please edit documentation in R/tree.R
 \name{register_tree_node}
 \alias{register_tree_node}
+\alias{unregister_tree_node}
 \title{Register a Class as a Tree Node}
 \usage{
 register_tree_node(class, flatten, unflatten, repr)
+
+unregister_tree_node(class)
 }
 \arguments{
 \item{class}{(\code{character(1)})\cr
@@ -63,6 +66,7 @@ tree <- build_tree(list(point(1, 2, "cm"), 3))
 tree
 unflatten(tree, list(10, 20, 30))
 build_tree(point(1, 2, "cm")) == build_tree(point(1, 2, "in"))
+unregister_tree_node("point")
 }
 \seealso{
 \code{\link[=flatten]{flatten()}}, \code{\link[=build_tree]{build_tree()}}

@@ -75,6 +75,7 @@ flatten <- function(x) {
 #' tree
 #' unflatten(tree, list(10, 20, 30))
 #' build_tree(point(1, 2, "cm")) == build_tree(point(1, 2, "in"))
+#' unregister_tree_node("point")
 #' @export
 register_tree_node <- function(class, flatten, unflatten, repr) {
   checkmate::assert_string(class)
@@ -85,9 +86,8 @@ register_tree_node <- function(class, flatten, unflatten, repr) {
   invisible(NULL)
 }
 
-# Remove `class` from the tree node registry. Internal: the dispatcher's cache
-# still holds entries whose trees contain the class, and running one of them
-# fails only after the program has executed.
+#' @rdname register_tree_node
+#' @export
 unregister_tree_node <- function(class) {
   checkmate::assert_string(class)
   impl_unregister_tree_node(class)
