@@ -502,14 +502,21 @@ elt_type <- function(x) {
 #' immediately with its final type, `dim` and class, and reading its values
 #' blocks until the transfer has completed. Use [is_ready()] to check whether it
 #' has (non-blocking) and [await()] to block until it has. The values are then
-#' checked when they are first read, or by `await()`; with `check = "err"`, an
-#' array holding a value R cannot represent errors on every read.
+#' checked when they are first read, or by `await()`.
+#'
+#' `check = "err"` requires `await = TRUE`. With `await = FALSE` the check runs
+#' only once the values are first read, and that read can come from any code --
+#' `print()`, arithmetic, another package's C code. An error would then surface
+#' there, far from the `as_array()` call that caused it, and interrupt code that
+#' does not expect reading a vector to fail. A warning does neither, so
+#' `check = "warn"` and `check = FALSE` are allowed.
 #'
 #' @param x ([`PJRTBuffer`][pjrt_buffer])\cr
 #'   Buffer to convert.
 #' @param check (`character(1)` | `FALSE`)\cr
 #'   How to report a materialized value that R's type cannot hold:
-#'   `"warn"` (the default) warns and returns it anyway, `"err"` aborts,
+#'   `"warn"` (the default) warns and returns it anyway, `"err"` aborts
+#'   (only with `await = TRUE`),
 #'   and `FALSE` skips the scan altogether. `TRUE` is not accepted — with
 #'   two levels of strictness it does not say which one is meant.
 #'
@@ -549,6 +556,14 @@ as_array.PJRTBuffer <- function(x, check = "warn", await = TRUE, ...) {
   check <- check_level(check)
   assert_flag(await)
   if (!await) {
+    # The check runs on the array's first read, which can come from any code;
+    # erroring there would surface far from this call (see ?as_array.PJRTBuffer).
+    if (identical(check, "err")) {
+      cli_abort(c(
+        "{.code check = \"err\"} requires {.code await = TRUE}.",
+        i = "Use {.code check = \"warn\"} or {.code check = FALSE} with {.code await = FALSE}."
+      ))
+    }
     return(as_array_async(x, check))
   }
   result <- impl_buffer_to_host(x)
@@ -627,8 +642,8 @@ report_lossy <- function(check, call, message, .envir = parent.frame()) {
 }
 
 # Starts the transfer of `x` to the host and returns its host array: an R array
-# whose values materialize when first read, checked at level `check` ("warn",
-# "err" or "none").
+# whose values materialize when first read, checked at level `check` ("warn" or
+# "none").
 as_array_async <- function(x, check) {
   impl_buffer_to_host_async(x, check)
 }
@@ -639,7 +654,7 @@ as_array_async <- function(x, check) {
 host_array_materialize <- function(x) {
   pending <- impl_host_array_pending(x)
   if (!is.null(pending)) {
-    # No call: the error surfaces from whatever first read the array.
+    # No call: the warning surfaces from whatever first read the array.
     check_representable(pending$values, pending$dtype, pending$check, call = NULL)
     impl_host_array_set(x, pending$values)
   }

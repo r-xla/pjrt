@@ -12,7 +12,8 @@ Buffer to convert.}
 
 \item{check}{(\code{character(1)} | \code{FALSE})\cr
 How to report a materialized value that R's type cannot hold:
-\code{"warn"} (the default) warns and returns it anyway, \code{"err"} aborts,
+\code{"warn"} (the default) warns and returns it anyway, \code{"err"} aborts
+(only with \code{await = TRUE}),
 and \code{FALSE} skips the scan altogether. \code{TRUE} is not accepted — with
 two levels of strictness it does not say which one is meant.
 
@@ -52,8 +53,14 @@ With \code{await = FALSE}, the transfer runs asynchronously: the array is return
 immediately with its final type, \code{dim} and class, and reading its values
 blocks until the transfer has completed. Use \code{\link[=is_ready]{is_ready()}} to check whether it
 has (non-blocking) and \code{\link[=await]{await()}} to block until it has. The values are then
-checked when they are first read, or by \code{await()}; with \code{check = "err"}, an
-array holding a value R cannot represent errors on every read.
+checked when they are first read, or by \code{await()}.
+
+\code{check = "err"} requires \code{await = TRUE}. With \code{await = FALSE} the check runs
+only once the values are first read, and that read can come from any code --
+\code{print()}, arithmetic, another package's C code. An error would then surface
+there, far from the \code{as_array()} call that caused it, and interrupt code that
+does not expect reading a vector to fail. A warning does neither, so
+\code{check = "warn"} and \code{check = FALSE} are allowed.
 }
 \examples{
 \dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}

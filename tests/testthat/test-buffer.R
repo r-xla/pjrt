@@ -1320,14 +1320,11 @@ describe("as_array(await = FALSE)", {
     expect_no_warning(result[1L])
   })
 
-  it("errors on every read with check = \"err\"", {
-    client <- pjrt_client("cpu")
-    bytes <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
-    buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui64")
-    result <- as_array(buf, check = "err", await = FALSE)
-    expect_error(result[1L], "wrapped through")
-    expect_error(await(result), "wrapped through")
-    expect_error(print(result), "wrapped through")
+  it("rejects check = \"err\"", {
+    buf <- pjrt_buffer(1, dtype = "f32")
+    expect_error(as_array(buf, check = "err", await = FALSE), "requires `await = TRUE`")
+    expect_no_error(as_array(buf, check = "warn", await = FALSE))
+    expect_no_error(as_array(buf, check = FALSE, await = FALSE))
   })
 
   it("validates check before starting the transfer", {
