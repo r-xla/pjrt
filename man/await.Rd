@@ -18,6 +18,6 @@ The awaited object (invisibly).
 Block until the async operation is complete and return the object.
 
 For a \code{\link[=pjrt_buffer]{PJRTBuffer}}, waits for its computation or transfer.
-For an array returned by \code{\link[=as_array_async]{as_array_async()}}, waits for its transfer to the
-host and materializes the array. Any other R object is returned as is.
+For an array returned by \code{\link[=as_array.PJRTBuffer]{as_array(x, await = FALSE)}},
+waits for its transfer to the host and materializes the array. Any other R object is returned as is.
 }

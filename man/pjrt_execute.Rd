@@ -49,7 +49,7 @@ PJRT handles the dependencies internally.
 
 Use \code{await()} to block until the result is ready.
 Use \code{is_ready()} to check if execution has completed (non-blocking).
-Use \code{as_array_async()} to chain async buffer-to-host transfer.
+Use \code{as_array(x, await = FALSE)} to chain an async buffer-to-host transfer.
 }
 \examples{
 \dontshow{if (plugins_downloaded()) withAutoprint(\{ # examplesIf}
@@ -73,5 +73,5 @@ pjrt_execute(exec, x, y)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[=await]{await()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array_async]{as_array_async()}}
+\code{\link[=await]{await()}}, \code{\link[=is_ready]{is_ready()}}, \code{\link[=as_array]{as_array()}}
 }
