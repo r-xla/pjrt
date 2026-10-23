@@ -75,8 +75,9 @@ in plugin.R):
 1.  `pjrt_client(platform)` checks the cache, otherwise loads the plugin
     and creates a client.
 2.  Plugin loading: checks `PJRT_PLUGIN_PATH_<PLATFORM>` env var, falls
-    back to downloading from zml/pjrt-artifacts into
-    `R_user_dir("pjrt", "cache")`.
+    back to downloading into `R_user_dir("pjrt", "cache")` – the CPU
+    plugin from r-xla/pjrt-builds, the CUDA plugin from
+    zml/pjrt-artifacts.
 3.  One client per platform — calling
     [`pjrt_client()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_client.md)
     again returns the cached instance.

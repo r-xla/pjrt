@@ -77,7 +77,7 @@ PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)</code><
 <p>Plugins and clients are singletons cached in a global environment (<code>the</code> in plugin.R):</p>
 <ol style="list-style-type: decimal"><li>
 <code>pjrt_client(platform)</code> checks the cache, otherwise loads the plugin and creates a client.</li>
-<li>Plugin loading: checks <code>PJRT_PLUGIN_PATH_&lt;PLATFORM&gt;</code> env var, falls back to downloading from zml/pjrt-artifacts into <code>R_user_dir("pjrt", "cache")</code>.</li>
+<li>Plugin loading: checks <code>PJRT_PLUGIN_PATH_&lt;PLATFORM&gt;</code> env var, falls back to downloading into <code>R_user_dir("pjrt", "cache")</code> – the CPU plugin from r-xla/pjrt-builds, the CUDA plugin from zml/pjrt-artifacts.</li>
 <li>One client per platform — calling <code><a href="reference/pjrt_client.html">pjrt_client()</a></code> again returns the cached instance.</li>
 </ol></div>
 <div class="section level3">

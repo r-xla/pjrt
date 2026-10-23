@@ -121,6 +121,8 @@ supported
   - [PJRT C API FFI
     Extension](https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api_ffi_extension.h).
   - Various protobuf files, see `./tools/copy-proto.R` for which ones.
-  - Plugin implementations for CPU and CUDA (we are using the builds
-    from [zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts/),
-    and our own [Windows build](https://github.com/r-xla/pjrt-builds)).
+  - Plugin implementations for CPU and CUDA (we are using our own CPU
+    builds from
+    [r-xla/pjrt-builds](https://github.com/r-xla/pjrt-builds) and the
+    CUDA builds from
+    [zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts/)).

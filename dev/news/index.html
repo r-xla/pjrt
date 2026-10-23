@@ -81,6 +81,7 @@
 <li>Bugfix: printing a buffer, and copying it to another client, respect a non-row-major device layout.</li>
 <li>
 <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> reads <code>f64</code>, <code>i32</code>, <code>i64</code> and <code>ui64</code> buffers straight into the result vector instead of through a host-side copy.</li>
+<li>Updated the XLA CPU plugin. This fixes loops that stack per-step outputs taking quadratic time and an inaccurate <code><a href="https://rdrr.io/r/base/Log.html" class="external-link">log1p()</a></code>.</li>
 </ul></div>
 </div>
     <div class="section level2">
