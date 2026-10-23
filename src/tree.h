@@ -116,11 +116,13 @@ inline const std::pair<const SEXP, TreeNodeType>* tree_node_class(SEXP x) {
   return nullptr;
 }
 
-// The number of ObjectNodes before node `pos`, i.e. the index into
-// `tree.objects` of the first object at or after it.
-inline std::size_t object_index(const RTree& tree, std::size_t pos) {
+// The number of ObjectNodes among nodes [begin, end). Objects are numbered in
+// preorder, so count_objects(tree, 0, pos) is the index into `tree.objects` of
+// the first object at or after node `pos`.
+inline std::size_t count_objects(const RTree& tree, std::size_t begin,
+                                 std::size_t end) {
   std::size_t n = 0;
-  for (std::size_t q = 0; q < pos; ++q) {
+  for (std::size_t q = begin; q < end; ++q) {
     if (tree.kind[q] == RTree::ObjectNode) ++n;
   }
   return n;

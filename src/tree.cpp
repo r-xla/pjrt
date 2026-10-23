@@ -108,14 +108,24 @@ static std::size_t append_subtree(RTree& dst, const RTree& src, std::size_t c,
   return o;
 }
 
-// The number of ObjectNodes in the subtree rooted at node `c`.
-static std::size_t subtree_objects(const RTree& t, std::size_t c) {
-  const std::size_t end = c + static_cast<std::size_t>(t.subtree_nodes[c]);
-  std::size_t n = 0;
-  for (std::size_t q = c; q < end; ++q) {
-    if (t.kind[q] == RTree::ObjectNode) ++n;
+// Append `open`, then the children of `node` -- each rendered by
+// `child(k)`, which appends to `out`, and prefixed with its name when it has a
+// non-empty one -- separated by commas, then ")".
+template <typename Child>
+static void repr_children(const RTree& t, std::size_t node, const char* open,
+                          std::string& out, Child child) {
+  const bool named = t.is_named(node);
+  const std::int32_t off = named ? t.name_off[node] : 0;
+  out += open;
+  for (int k = 0; k < t.n_children[node]; ++k) {
+    if (k > 0) out += ", ";
+    if (named && !t.names[off + k].empty()) {
+      out += t.names[off + k];
+      out += " = ";
+    }
+    child(k);
   }
-  return n;
+  out += ")";
 }
 
 // The structural string: "*" for a leaf, "NULL" for a null tree,
@@ -158,18 +168,9 @@ static void repr_rec(const RTree& t, std::size_t& p, std::size_t& o,
         }
         auto it = tree_node_types().find(obj.cls);
         if (it == tree_node_types().end()) {
-          out += "<";
-          out += CHAR(obj.cls);
-          out += ">(";
-          for (int k = 0; k < n; ++k) {
-            if (k > 0) out += ", ";
-            if (named && !t.names[off + k].empty()) {
-              out += t.names[off + k];
-              out += " = ";
-            }
-            out += children[k];
-          }
-          out += ")";
+          const std::string open = "<" + std::string(CHAR(obj.cls)) + ">(";
+          repr_children(t, node, open.c_str(), out,
+                        [&](int k) { out += children[k]; });
           return;
         }
         Rcpp::Function repr(it->second.repr);
@@ -183,16 +184,8 @@ static void repr_rec(const RTree& t, std::size_t& p, std::size_t& o,
         out += CHAR(STRING_ELT(res, 0));
         return;
       }
-      out += named ? "list<named>(" : "list(";
-      for (int k = 0; k < n; ++k) {
-        if (k > 0) out += ", ";
-        if (named && !t.names[off + k].empty()) {
-          out += t.names[off + k];
-          out += " = ";
-        }
-        repr_rec(t, p, o, out);
-      }
-      out += ")";
+      repr_children(t, node, named ? "list<named>(" : "list(", out,
+                    [&](int) { repr_rec(t, p, o, out); });
       return;
     }
   }
@@ -200,7 +193,7 @@ static void repr_rec(const RTree& t, std::size_t& p, std::size_t& o,
 
 static std::string subtree_repr(const RTree& t, std::size_t p) {
   std::string out;
-  std::size_t o = object_index(t, p);
+  std::size_t o = count_objects(t, 0, p);
   repr_rec(t, p, o, out);
   return out;
 }
@@ -471,7 +464,7 @@ SEXP impl_tree_filter_by_names(SEXP tree, Rcpp::CharacterVector names) {
       kept.emplace_back(kids[k], o);
       kept_names.push_back(nm);
     }
-    o += subtree_objects(t, kids[k]);
+    o += count_objects(t, kids[k], kids[k] + t.subtree_nodes[kids[k]]);
   }
   // Emit the new named root, then its kept children's subtrees. Root names go
   // first (offset 0); append_subtree rebases each child's name offsets after.
