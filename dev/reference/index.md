@@ -10,9 +10,6 @@
 - [`as_array(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/dev/reference/as_array.PJRTBuffer.md)
   : Convert a PJRTBuffer to an R Array
 
-- [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
-  : Convert buffer to R array asynchronously
-
 - [`as_pjrt_client()`](https://r-xla.github.io/pjrt/dev/reference/as_pjrt_client.md)
   : Convert to PJRT Client
 

@@ -13,7 +13,7 @@ Inputs can be PJRTBuffer objects, including buffers that are not yet ready.
 PJRT handles the dependencies internally.
 Use await() to block until the result is ready.
 Use is_ready() to check if execution has completed (non-blocking).
-Use as_array_async() to chain async buffer-to-host transfer."><meta property="og:description" content="Execute a PJRT program with the given inputs and execution options.
+Use as_array(x, await = FALSE) to chain an async buffer-to-host transfer."><meta property="og:description" content="Execute a PJRT program with the given inputs and execution options.
 Returns immediately with PJRTBuffer object(s) that may not be ready yet.
 Important:
 Arguments are passed by position and names are ignored.
@@ -21,7 +21,7 @@ Inputs can be PJRTBuffer objects, including buffers that are not yet ready.
 PJRT handles the dependencies internally.
 Use await() to block until the result is ready.
 Use is_ready() to check if execution has completed (non-blocking).
-Use as_array_async() to chain async buffer-to-host transfer."><meta name="robots" content="noindex"></head><body>
+Use as_array(x, await = FALSE) to chain an async buffer-to-host transfer."><meta name="robots" content="noindex"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -75,7 +75,7 @@ Arguments are passed by position and names are ignored.</p>
 PJRT handles the dependencies internally.</p>
 <p>Use <code><a href="await.html">await()</a></code> to block until the result is ready.
 Use <code><a href="is_ready.html">is_ready()</a></code> to check if execution has completed (non-blocking).
-Use <code><a href="as_array_async.html">as_array_async()</a></code> to chain async buffer-to-host transfer.</p>
+Use <code>as_array(x, await = FALSE)</code> to chain an async buffer-to-host transfer.</p>
     </div>
 
     <div class="section level2">
@@ -130,7 +130,7 @@ validation; the caller is then responsible for guaranteeing that
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="await.html">await()</a></code>, <code><a href="is_ready.html">is_ready()</a></code>, <code><a href="as_array_async.html">as_array_async()</a></code></p></div>
+    <div class="dont-index"><p><code><a href="await.html">await()</a></code>, <code><a href="is_ready.html">is_ready()</a></code>, <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code></p></div>
     </div>
 
     <div class="section level2">

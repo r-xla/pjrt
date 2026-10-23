@@ -96,7 +96,7 @@ PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)</code><
 <ul><li>
 <code><a href="reference/pjrt_execute.html">pjrt_execute()</a></code> returns <code>PJRTBuffer</code>s that may not be ready yet. PJRT tracks dependencies internally, so unready buffers can be passed directly as inputs to the next execution.</li>
 <li>
-<code><a href="reference/as_array_async.html">as_array_async()</a></code> returns a plain-looking R array that is an ALTREP <em>host array</em> (<code>src/host_array.cpp</code>): it has its final type, <code>dim</code> and class at once, and the first read of its data waits for the device-to-host transfer and materializes it.</li>
+<code>as_array_async()</code> returns a plain-looking R array that is an ALTREP <em>host array</em> (<code>src/host_array.cpp</code>): it has its final type, <code>dim</code> and class at once, and the first read of its data waits for the device-to-host transfer and materializes it.</li>
 <li>
 <code><a href="reference/is_ready.html">is_ready()</a></code> polls without blocking; <code><a href="reference/await.html">await()</a></code> blocks until complete (and materializes a host array). On any other R object, <code><a href="reference/is_ready.html">is_ready()</a></code> is <code>TRUE</code> and <code><a href="reference/await.html">await()</a></code> is a no-op.</li>
 </ul></div>

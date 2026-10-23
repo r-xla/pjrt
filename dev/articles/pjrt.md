@@ -207,25 +207,24 @@ host-side result (e.g. calling
 |----|----|----|
 | [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md) | `PJRTBuffer` | Host-to-device transfer |
 | [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md) | `PJRTBuffer` | Program execution |
-| [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md) | R `array` | Device-to-host transfer |
+| `as_array(x, await = FALSE)` | R `array` | Device-to-host transfer |
 
 `PJRTBuffer` is a transparent async type — it can be used directly in
 operations even if the underlying computation hasn’t completed yet. PJRT
 handles the dependencies internally.
 
-[`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
-returns an ordinary-looking R array whose data is still in transit from
-device to host. Its type, `dim` and class are there right away; the
-first time its values are read, R blocks until the transfer has
-completed. Both kinds of async values support the same two functions:
+`as_array(x, await = FALSE)` returns an ordinary-looking R array whose
+data is still in transit from device to host. Its type, `dim` and class
+are there right away; the first time its values are read, R blocks until
+the transfer has completed. Both kinds of async values support the same
+two functions:
 
 - `await(x)` — block until `x` is ready. For a `PJRTBuffer`, this is
   pure synchronization; no data leaves the device. Useful for timing or
   error checking, but **not required** before passing a buffer to
   [`pjrt_execute()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_execute.md).
-  For an array from
-  [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md),
-  it waits for the transfer.
+  For an array from `as_array(x, await = FALSE)`, it waits for the
+  transfer.
 - `is_ready(x)` — non-blocking readiness check.
 
 ### Chaining operations
@@ -264,7 +263,7 @@ exec2 <- pjrt_compile(pjrt_program(src2))
 # Full async pipeline: transfer -> execute -> transfer back
 buf <- pjrt_buffer(matrix(runif(1e6), 1000, 1000), dtype = "f32")
 result <- pjrt_execute(exec2, buf)
-async_output <- as_array_async(result)   # returns immediately
+async_output <- as_array(result, await = FALSE) # returns immediately
 
 # R can do other work here...
 
@@ -289,7 +288,7 @@ Blocking occurs when:
     [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
     on a buffer
 3.  Reading the values of an array returned by
-    [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
+    `as_array(x, await = FALSE)`
 4.  Printing a buffer (needs to read values to display them)
 
 Operations like

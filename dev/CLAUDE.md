@@ -103,11 +103,10 @@ Both execution and buffer transfers are asynchronous:
   returns `PJRTBuffer`s that may not be ready yet. PJRT tracks
   dependencies internally, so unready buffers can be passed directly as
   inputs to the next execution.
-- [`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
-  returns a plain-looking R array that is an ALTREP *host array*
-  (`src/host_array.cpp`): it has its final type, `dim` and class at
-  once, and the first read of its data waits for the device-to-host
-  transfer and materializes it.
+- `as_array_async()` returns a plain-looking R array that is an ALTREP
+  *host array* (`src/host_array.cpp`): it has its final type, `dim` and
+  class at once, and the first read of its data waits for the
+  device-to-host transfer and materializes it.
 - [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
   polls without blocking;
   [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md)

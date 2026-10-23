@@ -5,7 +5,29 @@
       fontURL: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/output/chtml/fonts/woff-v2"
     }
   };
-</script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Convert a PJRTBuffer to an R Array — as_array.PJRTBuffer"><meta name="description" content="Transfer buffer data from device to host and return an R array."><meta property="og:description" content="Transfer buffer data from device to host and return an R array."><meta name="robots" content="noindex"></head><body>
+</script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Convert a PJRTBuffer to an R Array — as_array.PJRTBuffer"><meta name="description" content="Transfer buffer data from device to host and return an R array.
+With await = FALSE, the transfer runs asynchronously: the array is returned
+immediately with its final type, dim and class, and reading its values
+blocks until the transfer has completed. Use is_ready() to check whether it
+has (non-blocking) and await() to block until it has. The values are then
+checked when they are first read, or by await().
+check = &quot;err&quot; requires await = TRUE. With await = FALSE the check runs
+only once the values are first read, and that read can come from any code –
+print(), arithmetic, another package's C code. An error would then surface
+there, far from the as_array() call that caused it, and interrupt code that
+does not expect reading a vector to fail. A warning does neither, so
+check = &quot;warn&quot; and check = FALSE are allowed."><meta property="og:description" content="Transfer buffer data from device to host and return an R array.
+With await = FALSE, the transfer runs asynchronously: the array is returned
+immediately with its final type, dim and class, and reading its values
+blocks until the transfer has completed. Use is_ready() to check whether it
+has (non-blocking) and await() to block until it has. The values are then
+checked when they are first read, or by await().
+check = &quot;err&quot; requires await = TRUE. With await = FALSE the check runs
+only once the values are first read, and that read can come from any code –
+print(), arithmetic, another package's C code. An error would then surface
+there, far from the as_array() call that caused it, and interrupt code that
+does not expect reading a vector to fail. A warning does neither, so
+check = &quot;warn&quot; and check = FALSE are allowed."><meta name="robots" content="noindex"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -52,12 +74,23 @@
 
     <div class="ref-description section level2">
     <p>Transfer buffer data from device to host and return an R array.</p>
+<p>With <code>await = FALSE</code>, the transfer runs asynchronously: the array is returned
+immediately with its final type, <code>dim</code> and class, and reading its values
+blocks until the transfer has completed. Use <code><a href="is_ready.html">is_ready()</a></code> to check whether it
+has (non-blocking) and <code><a href="await.html">await()</a></code> to block until it has. The values are then
+checked when they are first read, or by <code><a href="await.html">await()</a></code>.</p>
+<p><code>check = "err"</code> requires <code>await = TRUE</code>. With <code>await = FALSE</code> the check runs
+only once the values are first read, and that read can come from any code –
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>, arithmetic, another package's C code. An error would then surface
+there, far from the <code><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array()</a></code> call that caused it, and interrupt code that
+does not expect reading a vector to fail. A warning does neither, so
+<code>check = "warn"</code> and <code>check = FALSE</code> are allowed.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># S3 method for class 'PJRTBuffer'</span></span>
-<span><span class="fu"><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">x</span>, check <span class="op">=</span> <span class="st">"warn"</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">x</span>, check <span class="op">=</span> <span class="st">"warn"</span>, await <span class="op">=</span> <span class="cn">TRUE</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -72,7 +105,8 @@ Buffer to convert.</p></dd>
 <dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>
 <dd><p>(<code>character(1)</code> | <code>FALSE</code>)<br>
 How to report a materialized value that R's type cannot hold:
-<code>"warn"</code> (the default) warns and returns it anyway, <code>"err"</code> aborts,
+<code>"warn"</code> (the default) warns and returns it anyway, <code>"err"</code> aborts
+(only with <code>await = TRUE</code>),
 and <code>FALSE</code> skips the scan altogether. <code>TRUE</code> is not accepted — with
 two levels of strictness it does not say which one is meant.</p>
 <p>The cases scanned for are:</p><ul><li><p><strong><code>i32</code> / <code>i64</code></strong>: any <code>NA</code> in the result. R's <code>NA_integer_</code> shares
@@ -91,6 +125,12 @@ would misrepresent the buffer.</p>
 produce a wrapped or NA value.</p></dd>
 
 
+<dt id="arg-await">await<a class="anchor" aria-label="anchor" href="#arg-await"></a></dt>
+<dd><p>(<code>logical(1)</code>)<br>
+Whether to wait for the transfer to the host (the default). If <code>FALSE</code>,
+return immediately with an array whose values arrive asynchronously.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments (unused).</p></dd>
 
@@ -99,7 +139,29 @@ produce a wrapped or NA value.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An R <code>array</code> (or <code>vector</code> for shape <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer()</a></code>).</p>
     </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="is_ready.html">is_ready()</a></code>, <code><a href="await.html">await()</a></code>, <code><a href="pjrt_execute.html">pjrt_execute()</a></code></p></div>
+    </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">buf</span> <span class="op">&lt;-</span> <span class="fu"><a href="pjrt_buffer.html">pjrt_buffer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">2.0</span>, <span class="fl">3.0</span>, <span class="fl">4.0</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, dtype <span class="op">=</span> <span class="st">"f32"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">buf</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>      [,1] [,2]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,]    1    3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,]    2    4</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Start the transfer, and only block when the values are read</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-xla.github.io/xlamisc/reference/as_array.html" class="external-link">as_array</a></span><span class="op">(</span><span class="va">buf</span>, await <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="is_ready.html">is_ready</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
+<span class="r-in"><span><span class="va">result</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>      [,1] [,2]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,]    1    3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,]    2    4</span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

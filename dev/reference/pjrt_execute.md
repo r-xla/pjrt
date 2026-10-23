@@ -13,8 +13,7 @@ Use [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md) to
 block until the result is ready. Use
 [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md)
 to check if execution has completed (non-blocking). Use
-[`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
-to chain async buffer-to-host transfer.
+`as_array(x, await = FALSE)` to chain an async buffer-to-host transfer.
 
 ## Usage
 
@@ -72,7 +71,7 @@ pjrt_execute(
 
 [`await()`](https://r-xla.github.io/pjrt/dev/reference/await.md),
 [`is_ready()`](https://r-xla.github.io/pjrt/dev/reference/is_ready.md),
-[`as_array_async()`](https://r-xla.github.io/pjrt/dev/reference/as_array_async.md)
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
 
 ## Examples
 
