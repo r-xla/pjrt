@@ -276,9 +276,8 @@ considerable performance benefits, especially on GPU. Specifically:
 
 ### Features
 
-- Added `dtype` support for `PJRTBuffer`s via the
-  [`tengen::dtype`](https://r-xla.github.io/tengen/reference/dtype.html)
-  S3 generic. `"bool"` is now accepted as an alias for `"i1"`/`"pred"`.
+- Added `dtype` support for `PJRTBuffer`s via the `tengen::dtype` S3
+  generic. `"bool"` is now accepted as an alias for `"i1"`/`"pred"`.
 - Accept `DataType` objects in the `dtype` parameter of
   [`pjrt_buffer()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_buffer.md).
 - Support `device` argument in

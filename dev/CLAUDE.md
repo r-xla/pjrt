@@ -175,3 +175,16 @@ only when the object is **garbage collected**, not when its binding goes
 out of scope or is [`rm()`](https://rdrr.io/r/base/rm.html)-ed. A test
 that relies on a finalizer must call
 [`gc()`](https://rdrr.io/r/base/gc.html) explicitly to trigger it.
+
+In C++, root R objects with Rcpp rather than by hand:
+
+- Use Rcpp types (`Rcpp::List`, `Rcpp::CharacterVector`, …) or
+  `Rcpp::Shield<SEXP>` instead of `PROTECT`/`UNPROTECT`. They unwind
+  correctly when a C++ exception is thrown, where a skipped `UNPROTECT`
+  would not. The exception is ALTREP methods, which R calls from C and
+  which must not hold objects with destructors (see `call_pjrt()` in
+  `src/buffer_sexp.h`).
+- Keep an object alive beyond the current call with `rpjrt::preserve()`
+  and `rpjrt::release()`, or `rpjrt::queue_release()` from a PJRT
+  callback thread (`src/deferred_release.h`). These use Rcpp’s precious
+  list; don’t call `R_PreserveObject()`/`R_ReleaseObject()`.
