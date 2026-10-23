@@ -12,6 +12,9 @@
 
 ## New features
 
+* A `dispatcher()`'s `compile` callback can return
+  `uses_default_device = FALSE` to have an entry that fixes its own device
+  served under any default device, instead of recompiled when it changes.
 * `pjrt_register_custom_call()` accepts the `NativeSymbol` objects returned by
   `getNativeSymbolInfo()`, so a handler needs no C glue to pass its address.
 * A `dispatcher()` compile callback can declare `implicit_inputs` and
