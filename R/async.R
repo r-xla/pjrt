@@ -5,8 +5,8 @@
 #' Non-blocking check to see if an async operation has completed.
 #'
 #' For a [`PJRTBuffer`][pjrt_buffer], whether its computation or transfer has
-#' finished. For an array returned by [as_array_async()], whether its transfer
-#' to the host has finished. Any other R object is always ready.
+#' finished. For an array returned by [`as_array(x, await = FALSE)`][as_array.PJRTBuffer],
+#' whether its transfer to the host has finished. Any other R object is always ready.
 #'
 #' @param x An async value object.
 #' @param ... Additional arguments (unused).
@@ -21,8 +21,8 @@ is_ready <- function(x, ...) {
 #' Block until the async operation is complete and return the object.
 #'
 #' For a [`PJRTBuffer`][pjrt_buffer], waits for its computation or transfer.
-#' For an array returned by [as_array_async()], waits for its transfer to the
-#' host and materializes the array. Any other R object is returned as is.
+#' For an array returned by [`as_array(x, await = FALSE)`][as_array.PJRTBuffer],
+#' waits for its transfer to the host and materializes the array. Any other R object is returned as is.
 #'
 #' @param x An async value object.
 #' @param ... Additional arguments (unused).
@@ -40,8 +40,7 @@ await.PJRTBuffer <- function(x, ...) {
 
 #' @export
 await.default <- function(x, ...) {
-  impl_host_array_materialize(x)
-  invisible(x)
+  host_array_materialize(x)
 }
 
 #' @export

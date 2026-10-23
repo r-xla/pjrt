@@ -331,6 +331,24 @@ describe("build_tree", {
     expect_identical(Encoding(nms), "UTF-8")
     expect_identical(names(unflatten(b, list(1))), utf8)
   })
+
+  nest <- function(depth) {
+    x <- 1
+    for (i in seq_len(depth)) {
+      x <- list(x)
+    }
+    x
+  }
+
+  it("accepts a value nested up to the depth limit", {
+    x <- nest(10000L)
+    expect_identical(unflatten(build_tree(x), flatten(x)), x)
+  })
+
+  it("raises an R error for a value nested past the depth limit", {
+    expect_error(build_tree(nest(10001L)), "nested more than 10000 lists deep")
+    expect_error(flatten(nest(100000L)), "nested more than 10000 lists deep")
+  })
 })
 
 describe("map_tree", {

@@ -65,12 +65,16 @@ impl_buffer_to_host <- function(buffer_sexp) {
     .Call(`_pjrt_impl_buffer_to_host`, buffer_sexp)
 }
 
-impl_buffer_to_host_async <- function(buffer_sexp) {
-    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp)
+impl_buffer_to_host_async <- function(buffer_sexp, check) {
+    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp, check)
 }
 
-impl_host_array_materialize <- function(x) {
-    invisible(.Call(`_pjrt_impl_host_array_materialize`, x))
+impl_host_array_pending <- function(x) {
+    .Call(`_pjrt_impl_host_array_pending`, x)
+}
+
+impl_host_array_set <- function(x, values) {
+    invisible(.Call(`_pjrt_impl_host_array_set`, x, values))
 }
 
 impl_host_array_is_ready <- function(x) {

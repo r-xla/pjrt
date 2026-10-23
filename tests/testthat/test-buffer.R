@@ -1231,10 +1231,10 @@ test_that("raw buffer validates dtype and shape compatibility", {
     "Raw data has 2 bytes, but dtype.*f32.*requires 4 bytes"
   )
 })
-describe("as_array_async", {
+describe("as_array(await = FALSE)", {
   it("returns the buffer's values as an R array", {
     original <- matrix(c(1.0, 2.0, 3.0, 4.0), nrow = 2L)
-    result <- as_array_async(pjrt_buffer(original, dtype = "f32"))
+    result <- as_array(pjrt_buffer(original, dtype = "f32"), await = FALSE)
     expect_equal(result, original, tolerance = 1e-6)
   })
 
@@ -1251,19 +1251,19 @@ describe("as_array_async", {
     )
     for (case in cases) {
       buf <- pjrt_buffer(case[[1L]], dtype = case[[2L]], shape = case[[3L]])
-      expect_identical(as_array_async(buf), as_array(buf))
+      expect_identical(as_array(buf, await = FALSE), as_array(buf))
     }
   })
 
   it("carries dim and class before the transfer is awaited", {
-    result <- as_array_async(pjrt_buffer(1:6, dtype = "i64", shape = c(2L, 3L)))
+    result <- as_array(pjrt_buffer(1:6, dtype = "i64", shape = c(2L, 3L)), await = FALSE)
     expect_identical(dim(result), c(2L, 3L))
     expect_s3_class(result, "integer64")
     expect_identical(length(result), 6L)
   })
 
   it("is ready once awaited, and await() returns it invisibly", {
-    result <- as_array_async(pjrt_buffer(c(1.0, 2.0), dtype = "f32"))
+    result <- as_array(pjrt_buffer(c(1.0, 2.0), dtype = "f32"), await = FALSE)
     ready <- is_ready(result)
     expect_true(is.logical(ready))
     expect_length(ready, 1L)
@@ -1274,7 +1274,7 @@ describe("as_array_async", {
   })
 
   it("can be modified like any R vector", {
-    result <- as_array_async(pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f64"))
+    result <- as_array(pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f64"), await = FALSE)
     copy <- result
     copy[1L] <- 10
     expect_identical(as.vector(copy), c(10, 2, 3))
@@ -1282,48 +1282,69 @@ describe("as_array_async", {
   })
 
   it("serializes as a plain R array", {
-    result <- as_array_async(pjrt_buffer(1:4, dtype = "i32", shape = c(2L, 2L)))
+    result <- as_array(pjrt_buffer(1:4, dtype = "i32", shape = c(2L, 2L)), await = FALSE)
     expect_identical(unserialize(serialize(result, NULL)), matrix(1:4, 2L, 2L))
   })
 
-  it("keeps the transfer alive when collected before it is read", {
+  it("keeps its source buffer alive until it is materialized", {
+    buf <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f64")
+    state <- new.env()
+    state$collected <- FALSE
+    reg.finalizer(buf, function(e) {
+      state$collected <- TRUE
+    })
+    result <- as_array(buf, await = FALSE)
+    rm(buf)
+    gc()
+    expect_false(state$collected)
+    await(result)
+    gc()
+    expect_true(state$collected)
+    expect_identical(as.vector(result), c(1, 2, 3))
+  })
+
+  it("checks its values when they are first read", {
+    buf <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
+    result <- as_array(buf, await = FALSE)
+    expect_warning(result[1L], "distinguish from")
+    expect_no_warning(result[1L])
+    expect_true(is.na(result))
+    expect_no_warning(as.vector(as_array(buf, check = FALSE, await = FALSE)))
+  })
+
+  it("checks its values when awaited", {
+    buf <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
+    result <- as_array(buf, await = FALSE)
+    expect_warning(await(result), "distinguish from")
+    expect_true(is_ready(result))
+    expect_no_warning(result[1L])
+  })
+
+  it("rejects check = \"err\"", {
+    buf <- pjrt_buffer(1, dtype = "f32")
+    expect_error(as_array(buf, check = "err", await = FALSE), "requires `await = TRUE`")
+    expect_no_error(as_array(buf, check = "warn", await = FALSE))
+    expect_no_error(as_array(buf, check = FALSE, await = FALSE))
+  })
+
+  it("validates check before starting the transfer", {
+    expect_error(as_array(pjrt_buffer(1, dtype = "f32"), check = TRUE, await = FALSE), "must be")
+  })
+
+  it("requires `await` to be a flag", {
+    buf <- pjrt_buffer(1, dtype = "f32")
+    expect_error(as_array(buf, await = NA), "await")
+    expect_error(as_array(buf, await = "no"), "await")
+  })
+
+  it("can be collected before it is read", {
     expect_no_error({
       for (i in 1:5) {
-        as_array_async(pjrt_buffer(runif(1e5), dtype = "f32"))
+        as_array(pjrt_buffer(as.double(seq_len(1e5)), dtype = "f32"), await = FALSE)
       }
       gc()
     })
   })
-})
-
-describe("is_ready", {
-  it("is TRUE for objects that are not async values", {
-    expect_true(is_ready(1:3))
-    expect_true(is_ready(NULL))
-  })
-})
-
-describe("await", {
-  it("returns objects that are not async values unchanged", {
-    expect_identical(await(1:3), 1:3)
-  })
-})
-
-# is_ready / await for PJRTBuffer
-
-test_that("is_ready works for PJRTBuffer", {
-  x <- pjrt_buffer(c(1.0, 2.0), dtype = "f32")
-  ready <- is_ready(x)
-  expect_true(is.logical(ready))
-  expect_length(ready, 1L)
-})
-
-test_that("await works for PJRTBuffer", {
-  original <- c(1.0, 2.0, 3.0, 4.0)
-  x <- pjrt_buffer(original, shape = c(2, 2), dtype = "f32")
-  buf <- await(x)
-  expect_class(buf, "PJRTBuffer")
-  expect_equal(as.vector(as_array(buf)), original, tolerance = 1e-6)
 })
 
 test_that("pjrt_memory returns a PJRTMemory", {

@@ -65,8 +65,15 @@ inline SEXP tree_name_charsxp(const std::string& s) {
   return Rf_mkCharCE(s.c_str(), CE_UTF8);
 }
 
+// The deepest list nesting flatten_rec accepts. The tree functions recurse once
+// per level, so an unbounded depth would overflow the C stack and kill the R
+// session; past this limit flatten_rec raises an R error instead.
+inline constexpr int kMaxTreeDepth = 10000;
+
 // Append the preorder encoding of `x` to `t`, collecting leaves in order.
-inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
+// `depth` is the list nesting of `x` within the value being flattened.
+inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
+                        int depth = 0) {
   const std::size_t pos = tree.kind.size();
   if (x == R_NilValue) {
     tree.kind.push_back(RTree::NullNode);
@@ -76,6 +83,9 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
     return;
   }
   if (is_bare_list(x)) {
+    if (depth >= kMaxTreeDepth) {
+      Rcpp::stop("tree is nested more than %d lists deep", kMaxTreeDepth);
+    }
     const R_xlen_t n = XLENGTH(x);
     SEXP nms = Rf_getAttrib(x, R_NamesSymbol);
     const bool has_names = (nms != R_NilValue);
@@ -96,7 +106,7 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree) {
       tree.name_off.push_back(-1);
     }
     for (R_xlen_t k = 0; k < n; ++k) {
-      flatten_rec(VECTOR_ELT(x, k), leaves, tree);
+      flatten_rec(VECTOR_ELT(x, k), leaves, tree, depth + 1);
     }
     tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
     return;
@@ -121,20 +131,18 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
       return leaves[li++];
     case RTree::ListNode: {
       const int n = tree.n_children[node];
-      SEXP out = PROTECT(Rf_allocVector(VECSXP, n));
+      Rcpp::List out(n);
       for (int k = 0; k < n; ++k) {
-        SET_VECTOR_ELT(out, k, unflatten_rec(tree, leaves, pos, li));
+        out[k] = unflatten_rec(tree, leaves, pos, li);
       }
       if (tree.is_named(node)) {
         const std::int32_t off = tree.name_off[node];
-        SEXP nms = PROTECT(Rf_allocVector(STRSXP, n));
+        Rcpp::CharacterVector nms(n);
         for (int k = 0; k < n; ++k) {
           SET_STRING_ELT(nms, k, tree_name_charsxp(tree.names[off + k]));
         }
-        Rf_setAttrib(out, R_NamesSymbol, nms);
-        UNPROTECT(1);
+        out.names() = nms;
       }
-      UNPROTECT(1);
       return out;
     }
   }

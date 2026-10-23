@@ -96,7 +96,7 @@ void register_buffer_altrep(DllInfo* dll) {
   R_set_altvec_Dataptr_or_null_method(carrier_class, carrier_dataptr_or_null);
 
   buffer_class_attr = Rf_mkString("PJRTBuffer");
-  R_PreserveObject(buffer_class_attr);
+  Rcpp::Rcpp_precious_preserve(buffer_class_attr);
   MARK_NOT_MUTABLE(buffer_class_attr);
 }
 
