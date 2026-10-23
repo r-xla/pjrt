@@ -12,7 +12,9 @@ The target name used in \code{stablehlo.custom_call @target_name(...)}.}
 
 \item{handler}{A named list of external pointers (\code{externalptr}) to
 \code{XLA_FFI_Handler}s, keyed by PJRT platform name
-(e.g., \code{list(host = ptr)} or \code{list(host = cpu_ptr, cuda = cuda_ptr)}).}
+(e.g., \code{list(host = ptr)} or \code{list(host = cpu_ptr, cuda = cuda_ptr)}).
+Native symbols obtained from \code{\link[base:getNativeSymbolInfo]{base::getNativeSymbolInfo()}} are
+external pointers too and are accepted as-is.}
 
 \item{.package}{(\code{character(1)} or \code{NULL})\cr
 The package registering this handler. When provided, handlers are
@@ -27,6 +29,11 @@ Register an XLA FFI handler for use with \code{stablehlo.custom_call}.
 Handlers are C/C++ functions defined using the XLA FFI API
 (see \code{xla/ffi/api/ffi.h} shipped in pjrt's \verb{inst/include/}).
 They are passed to this function as external pointers.
+
+A handler declared with \code{XLA_FFI_DEFINE_HANDLER_SYMBOL()} is an ordinary
+\verb{extern "C"} symbol, so it can be handed over without writing any glue:
+compile the file with \verb{R CMD SHLIB} (or ship it in a package's \verb{src/}),
+then pass \code{\link[base:getNativeSymbolInfo]{base::getNativeSymbolInfo()}}\code{(...)$address}.
 
 Registration is deferred: if the PJRT plugin for a given platform
 is not yet loaded, the handler is queued and registered automatically
