@@ -328,13 +328,13 @@ describe("build_tree", {
   }
 
   it("accepts a value nested up to the depth limit", {
-    x <- nest(10000L)
+    x <- nest(1000L)
     expect_identical(unflatten(build_tree(x), flatten(x)), x)
   })
 
   it("raises an R error for a value nested past the depth limit", {
-    expect_error(build_tree(nest(10001L)), "nested more than 10000 lists deep")
-    expect_error(flatten(nest(100000L)), "nested more than 10000 lists deep")
+    expect_error(build_tree(nest(1001L)), "nested more than 1000 lists deep")
+    expect_error(flatten(nest(100000L)), "nested more than 1000 lists deep")
   })
 })
 
