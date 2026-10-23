@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "bfloat16.h"
+#include "half/half.hpp"
 
 using namespace Rcpp;
 
@@ -21,9 +22,11 @@ struct FloatFormat {
   int digits;  // significant decimal digits needed to round-trip
 };
 
-// digits = ceil(mantissa_bits * log10(2)) + 1: 4 for bf16 (8 bits), 9 for f32
-// (24), 17 for f64 (53). std::setprecision under std::scientific prints one
-// digit before the point and `n` after, so it is passed digits - 1.
+// digits = ceil(mantissa_bits * log10(2)) + 1: 4 for bf16 (8 bits), 5 for f16
+// (11), 9 for f32 (24), 17 for f64 (53). std::setprecision under
+// std::scientific prints one digit before the point and `n` after, so it is
+// passed digits - 1.
+constexpr FloatFormat kF16Format = {"0x7E00", "0x7C00", "0xFC00", 5};
 constexpr FloatFormat kBF16Format = {"0x7FC0", "0x7F80", "0xFF80", 4};
 constexpr FloatFormat kF32Format = {"0x7FC00000", "0x7F800000", "0xFF800000",
                                     9};
@@ -44,7 +47,11 @@ std::string format_float_value(double value, const FloatFormat &fmt) {
 
 std::string format_element(const unsigned char *ptr, std::string dtype) {
   std::ostringstream oss;
-  if (dtype == "bf16") {
+  if (dtype == "f16") {
+    half_float::half val;
+    std::memcpy(&val, ptr, 2);
+    return format_float_value(static_cast<double>(val), kF16Format);
+  } else if (dtype == "bf16") {
     uint16_t bits;
     std::memcpy(&bits, ptr, 2);
     return format_float_value(
@@ -99,7 +106,9 @@ std::string format_element(const unsigned char *ptr, std::string dtype) {
 int get_element_size(std::string dtype) {
   if (dtype == "f64" || dtype == "i64" || dtype == "ui64") return 8;
   if (dtype == "f32" || dtype == "i32" || dtype == "ui32") return 4;
-  if (dtype == "bf16" || dtype == "i16" || dtype == "ui16") return 2;
+  if (dtype == "f16" || dtype == "bf16" || dtype == "i16" || dtype == "ui16") {
+    return 2;
+  }
   return 1;
 }
 

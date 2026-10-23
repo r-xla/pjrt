@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 
+#include "pjrt_handle.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 
 namespace rpjrt {
@@ -11,14 +12,7 @@ namespace rpjrt {
 // This is internal infrastructure for the async API.
 class PJRTEvent {
  public:
-  PJRTEvent(PJRT_Event* event, std::shared_ptr<PJRT_Api> api);
-  ~PJRTEvent();
-
-  // Non-copyable but movable
-  PJRTEvent(const PJRTEvent&) = delete;
-  PJRTEvent& operator=(const PJRTEvent&) = delete;
-  PJRTEvent(PJRTEvent&& other) noexcept;
-  PJRTEvent& operator=(PJRTEvent&& other) noexcept;
+  PJRTEvent(PJRTHandle<PJRT_Event> event, std::shared_ptr<PJRT_Api> api);
 
   // Non-blocking check if the event has completed
   bool is_ready() const;
@@ -37,11 +31,12 @@ class PJRTEvent {
   void on_ready(std::function<void(PJRT_Error*)> callback);
 
   // Get the underlying PJRT_Event pointer (for internal use)
-  PJRT_Event* get() const { return event_; }
+  PJRT_Event* get() const { return event_.get(); }
 
  private:
-  PJRT_Event* event_;
+  // Declared before `event_`, whose deleter uses it (see pjrt_handle.h).
   std::shared_ptr<PJRT_Api> api_;
+  PJRTHandle<PJRT_Event> event_;
 };
 
 }  // namespace rpjrt

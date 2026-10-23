@@ -15,6 +15,7 @@
 
 #include "bfloat16.h"
 #include "buffer.h"
+#include "half/half.hpp"
 #include "utils.h"
 
 // For floats, formatting is defined globally per slice
@@ -445,6 +446,21 @@ std::vector<std::string> buffer_to_string_lines(
   };
 
   switch (element_type) {
+    case PJRT_Buffer_Type_F16: {
+      // Widened to float rather than formatted in place: f16 -> float is
+      // exact, and the float formatters render via double anyway.
+      const half_float::half *half_data =
+          static_cast<const half_float::half *>(data);
+      std::vector<float> widened(static_cast<size_t>(numel));
+      for (int64_t i = 0; i < numel; ++i) {
+        widened[i] = static_cast<float>(half_data[i]);
+      }
+      std::span<const float> temp_span(widened.data(),
+                                       static_cast<size_t>(numel));
+      print_with_formatter_fn(dimensions, max_width, max_rows_slice, rows_left,
+                              cont, temp_span);
+      break;
+    }
     case PJRT_Buffer_Type_BF16: {
       // Widened to float rather than formatted in place: bf16 -> float is
       // exact, and the float formatters render via double anyway.
@@ -514,6 +530,13 @@ void buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
   std::vector<std::string> cont;
 
   switch (element_type) {
+    case PJRT_Buffer_Type_F16: {
+      std::vector<half_float::half> temp_vec =
+          buffer_to_host_copy<half_float::half>(buffer.get(), numel);
+      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
+                                    max_rows, max_width, max_rows_slice);
+      break;
+    }
     case PJRT_Buffer_Type_BF16: {
       std::vector<rpjrt::bfloat16> temp_vec =
           buffer_to_host_copy<rpjrt::bfloat16>(buffer.get(), numel);

@@ -281,8 +281,9 @@ SEXP Engine::canonical_device(SEXP device) {
 
 // Reject an Aval whose dtype could not be represented: every such leaf would
 // share one Aval, and two calls on different dtypes would then run each other's
-// program. A bf16 buffer reaches this for real, since pjrt stores bf16 but the
-// dispatcher cannot key it, so this is a live path and not only a guard.
+// program. An f16 or bf16 buffer reaches this for real, since pjrt stores both
+// but the dispatcher cannot key them, so this is a live path and not only a
+// guard.
 static void check_dtype_representable(const Aval& a, const RTree& in_tree,
                                       std::size_t leaf_index) {
   if (a.dtype == AnvlDtype::kInvalid) {

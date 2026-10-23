@@ -1,10 +1,17 @@
 // Device-to-host transfers, materialized as R vectors.
 //
-// as_array_async() returns a *host array*: an ALTREP vector (double, integer
-// or logical) that stands for the result of a transfer still in flight. It
-// carries its dim and class attributes from the start and reads as an ordinary
-// R array; the first access to its data waits for the transfer and converts
-// the bytes into a plain R vector, which the host array then wraps.
+// as_array(x, await = FALSE) returns a *host array*: an ALTREP vector (double,
+// integer or logical) that stands for the result of a transfer still in flight.
+// It carries its dim and class attributes from the start and reads as an
+// ordinary R array; the first access to its data waits for the transfer and
+// converts the bytes into a plain R vector, which the host array then wraps.
+// That first access goes through pjrt's R function host_array_materialize(),
+// which checks the values as as_array() does before the host array takes them.
+//
+// That first access may come from any code that reads the vector's data,
+// including C++ code. A failed transfer then raises an R error from inside it
+// (see call_pjrt()), so C++ that reads arrays which may be host arrays should
+// await() them first.
 
 #include <Rcpp.h>
 // Rcpp.h first: the R headers below need its definition of SEXP.
@@ -14,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -21,6 +29,7 @@
 #include "buffer.h"
 #include "buffer_sexp.h"
 #include "event.h"
+#include "half/half.hpp"
 #include "utils.h"
 
 namespace {
@@ -33,6 +42,7 @@ struct HostTransfer {
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
   std::vector<int64_t> minor_to_major;
+  std::string check;  // as_array()'s `check` level
 
   HostTransfer() = default;
   HostTransfer(const HostTransfer&) = delete;
@@ -125,6 +135,10 @@ SEXP to_vector(HostTransfer& t) {
       Rf_allocVector(r_type(t.type), number_of_elements(t.dims)));
   if (XLENGTH(out) == 0) return out;
   switch (t.type) {
+    case PJRT_Buffer_Type_F16:
+      // Every binary16 value is exactly representable as a double.
+      convert<half_float::half>(t, out);
+      break;
     case PJRT_Buffer_Type_BF16:
       // Widening bf16 -> double is exact.
       convert<rpjrt::bfloat16>(t, out);
@@ -177,8 +191,11 @@ void set_array_attributes(SEXP x, const HostTransfer& t) {
 }
 
 // A host array's data1 is an external pointer to its HostTransfer, and its
-// data2 the materialized vector. Materializing sets data2 and drops data1,
-// freeing the transfer's bytes.
+// data2 the materialized vector. The external pointer protects the source
+// buffer, which PJRT may still be reading from: on CPU, a buffer made from R
+// data aliases memory that only the buffer object keeps alive. Materializing
+// sets data2 and drops data1, freeing the transfer's bytes and releasing the
+// buffer.
 R_altrep_class_t real_class;
 R_altrep_class_t integer_class;
 R_altrep_class_t logical_class;
@@ -213,7 +230,7 @@ R_xlen_t host_array_length(SEXP x) {
 
 void* host_array_dataptr(SEXP x, Rboolean) {
   if (!is_materialized(x)) {
-    rpjrt::call_pjrt("impl_host_array_materialize", x);
+    rpjrt::call_pjrt("host_array_materialize", x);
   }
   return vector_dataptr(R_altrep_data2(x));
 }
@@ -257,8 +274,9 @@ SEXP impl_buffer_to_host(SEXP buffer_sexp) {
 }
 
 // [[Rcpp::export()]]
-SEXP impl_buffer_to_host_async(SEXP buffer_sexp) {
+SEXP impl_buffer_to_host_async(SEXP buffer_sexp, std::string check) {
   auto t = start_transfer(buffer_sexp);
+  t->check = std::move(check);
   R_altrep_class_t cls;
   switch (r_type(t->type)) {
     case REALSXP:
@@ -271,17 +289,31 @@ SEXP impl_buffer_to_host_async(SEXP buffer_sexp) {
       cls = logical_class;
   }
   const HostTransfer& ref = *t;
-  Rcpp::XPtr<HostTransfer> xptr(t.release(), true);
+  Rcpp::XPtr<HostTransfer> xptr(t.release(), true, R_NilValue, buffer_sexp);
   Rcpp::Shield<SEXP> out(R_new_altrep(cls, xptr, R_NilValue));
   set_array_attributes(out, ref);
   return out;
 }
 
-// Materializes the host array `x`; a no-op for any other object.
+// For a host array `x` that is not materialized yet: waits for its transfer
+// and returns its values (as an R array), dtype and `check` level. NULL for
+// any other object.
 // [[Rcpp::export()]]
-void impl_host_array_materialize(SEXP x) {
-  if (!is_host_array(x) || is_materialized(x)) return;
-  R_set_altrep_data2(x, to_vector(transfer(x)));
+SEXP impl_host_array_pending(SEXP x) {
+  if (!is_host_array(x) || is_materialized(x)) return R_NilValue;
+  const HostTransfer& t = transfer(x);
+  Rcpp::Shield<SEXP> values(to_vector(transfer(x)));
+  set_array_attributes(values, t);
+  return Rcpp::List::create(
+      Rcpp::Named("values") = values,
+      Rcpp::Named("dtype") = rpjrt::PJRTElementType(t.type).as_string(),
+      Rcpp::Named("check") = t.check);
+}
+
+// Makes the host array `x` wrap `values`, from impl_host_array_pending(x).
+// [[Rcpp::export()]]
+void impl_host_array_set(SEXP x, SEXP values) {
+  R_set_altrep_data2(x, values);
   Rcpp::XPtr<HostTransfer>(R_altrep_data1(x)).release();
   R_set_altrep_data1(x, R_NilValue);
 }
