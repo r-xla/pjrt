@@ -21,13 +21,11 @@ using rpjrt::AnvlDtype;
 using rpjrt::Aval;
 using rpjrt::CacheKey;
 using rpjrt::CacheKeyEq;
+using rpjrt::CacheKeyHash;
 using rpjrt::KeyLeaf;
 using rpjrt::RTree;
 
-std::uint64_t hash_of(const CacheKey& k) { return rpjrt::cache_key_hash(k); }
-
-// The keys built here leave `hash` unset (0 on both sides), so CacheKeyEq is
-// exercised on the fields themselves rather than short-circuiting on the hash.
+std::size_t hash_of(const CacheKey& k) { return CacheKeyHash{}(k); }
 bool eq(const CacheKey& a, const CacheKey& b) { return CacheKeyEq{}(a, b); }
 
 // The tree impl_dispatch_run() builds for `n` unnamed top-level args: a root
@@ -235,13 +233,6 @@ context("CacheKey: device and tree") {
     // own key, not a wildcard.
     CacheKey none = key_of({array_leaf(f32)});
     expect_false(eq(a, none));
-  }
-
-  test_that("keys whose stored hashes differ never compare equal") {
-    CacheKey a = key_of({array_leaf(f32)});
-    CacheKey b = key_of({array_leaf(f32)});
-    b.hash = 1;
-    expect_false(eq(a, b));
   }
 
   test_that("the argument tree splits the key") {
