@@ -268,7 +268,7 @@ async_output <- as_array(result, await = FALSE) # returns immediately
 # R can do other work here...
 
 is_ready(async_output)
-#> [1] FALSE
+#> [1] TRUE
 
 # Reading the values blocks until the transfer is done
 async_output[1:2, 1:2]

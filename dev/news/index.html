@@ -76,6 +76,7 @@
 <li>Bugfix: <code><a href="../reference/build_tree.html">build_tree()</a></code>, <code><a href="../reference/flatten.html">flatten()</a></code> and <code><a href="../reference/dispatch.html">dispatch()</a></code> raise an error for a value nested more than 1000 lists deep instead of crashing R.</li>
 <li>Bugfix: a compile that fails after XLA compiled the program, such as an HLO program with input/output aliasing, no longer leaks the executable.</li>
 <li>Bugfix: a buffer donated to an execution is freed instead of leaking its PJRT handle.</li>
+<li>Bugfix: the <code>gesdd</code>, <code>syevd</code>, <code>geqrf</code> and <code>orgqr</code> custom calls raise an error for a matrix whose LAPACK workspace exceeds the int range, instead of passing LAPACK a garbage workspace size.</li>
 <li>Reading a buffer back to R no longer transposes it on the host: PJRT copies it in column-major order directly (<a href="https://github.com/r-xla/pjrt/issues/50" class="external-link">#50</a>).</li>
 <li>Bugfix: printing a buffer, and copying it to another client, respect a non-row-major device layout.</li>
 <li>
