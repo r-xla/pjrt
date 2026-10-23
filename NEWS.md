@@ -15,7 +15,8 @@
 * A `dispatcher()`'s `compile` callback can return
   `uses_default_device = FALSE` to have an entry that fixes its own device
   served under any default device, instead of recompiled when it changes.
-
+* `pjrt_register_custom_call()` accepts the `NativeSymbol` objects returned by
+  `getNativeSymbolInfo()`, so a handler needs no C glue to pass its address.
 * A `dispatcher()` compile callback can declare `implicit_inputs` and
   `implicit_outputs`, values the program takes and returns beyond the call's
   arguments and result, and an `on_success` function that receives the implicit
@@ -56,7 +57,7 @@
 * `pjrt_buffer()` and `pjrt_scalar()` no longer take a `check` argument; what
   happens to an `NA` is fixed by the dtype.
 
-## Fetures
+## Features
 
 * New `platform_support()` lists which backends are available on which
   operating system and architecture.
@@ -96,7 +97,7 @@
 
 ## Other
 
-* pjrt no longer Suggests anvl and stablehlo for it's tests
+* pjrt no longer Suggests anvl and stablehlo for its tests
   and the integration tests are moved to {anvl}.
 
 # pjrt 0.5.0
