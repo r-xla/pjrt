@@ -16,6 +16,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "deferred_release.h"
 #include "hash.h"
 
 namespace rpjrt {
@@ -30,7 +31,7 @@ SEXP tree_node_key(const std::string& cls, bool preserve) {
   if (preserve) {
     // Each key once: what is preserved is never released.
     static std::unordered_set<SEXP> preserved;
-    if (preserved.insert(key).second) R_PreserveObject(key);
+    if (preserved.insert(key).second) rpjrt::preserve(key);
   }
   return key;
 }

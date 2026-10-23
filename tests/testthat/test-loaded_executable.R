@@ -108,6 +108,26 @@ func.func @main(%x: tensor<4xbf16>, %y: tensor<4xbf16>) -> tensor<4xbf16> {
   expect_identical(as_array(result), array(c(2, 3, 0.66796875, Inf)))
 })
 
+test_that("f16 programs compile and execute", {
+  src <- r"(
+func.func @main(%x: tensor<4xf16>, %y: tensor<4xf16>) -> tensor<4xf16> {
+  %0 = "stablehlo.add"(%x, %y) : (tensor<4xf16>, tensor<4xf16>) -> tensor<4xf16>
+  "func.return"(%0): (tensor<4xf16>) -> ()
+}
+)"
+  executable <- pjrt_compile(pjrt_program(src))
+
+  x <- pjrt_buffer(c(1, 2.5, 0.333251953125, 65504), dtype = "f16")
+  y <- pjrt_buffer(c(1, 0.5, 0.333251953125, 65504), dtype = "f16")
+
+  result <- pjrt_execute(executable, x, y)
+
+  expect_equal(as.character(elt_type(result)), "f16")
+  # 0.333251953125 doubles exactly (an exponent shift), and the max finite
+  # value overflows to Inf
+  expect_identical(as_array(result), array(c(2, 3, 0.66650390625, Inf)))
+})
+
 test_that("wrong shape input raises error", {
   src <- r"(
 func.func @main(%x: tensor<2x2xf32>) -> tensor<2x2xf32> {
@@ -141,7 +161,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   expect_true(is.logical(ready))
   expect_length(ready, 1L)
 
-  ready <- is_ready(as_array_async(result))
+  ready <- is_ready(as_array(result, await = FALSE))
   expect_true(is.logical(ready))
   expect_length(ready, 1L)
 })
@@ -162,13 +182,13 @@ func.func @main(%x: tensor<1000x1000xf32>) -> tensor<1000x1000xf32> {
   expect_true(is_ready(buf))
 })
 
-test_that("as_array_async() materializes the result of an execution", {
+test_that("as_array(await = FALSE) materializes the result of an execution", {
   path <- system.file("programs/jax-stablehlo-no-arg.mlir", package = "pjrt")
   program <- pjrt_program(path = path, format = "mlir")
   executable <- pjrt_compile(program)
 
   result <- pjrt_execute(executable)
-  expect_equal(as_array_async(result), 3)
+  expect_equal(as_array(result, await = FALSE), 3)
 })
 
 # Chaining ------------------------------------------------------------------
@@ -184,7 +204,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
 
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result <- pjrt_execute(executable, input)
-  arr <- as_array_async(result)
+  arr <- as_array(result, await = FALSE)
   expect_equal(as.vector(arr), c(2.0, 4.0, 6.0), tolerance = 1e-6)
 })
 
@@ -200,7 +220,7 @@ func.func @main(%x: tensor<3xf32>) -> tensor<3xf32> {
   input <- pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f32")
   result1 <- pjrt_execute(exec1, input)
   result2 <- pjrt_execute(exec2, result1)
-  arr <- as_array_async(result2)
+  arr <- as_array(result2, await = FALSE)
   expect_equal(as.vector(arr), c(1.0, 2.0, 3.0), tolerance = 1e-6)
 })
 
@@ -215,7 +235,7 @@ test_that("execution with inputs chained to buffer-to-host", {
   i2_buf <- pjrt_scalar(1L, "i32")
 
   async_result <- pjrt_execute(executable, x_buf, i1_buf, i2_buf)
-  result <- as_array_async(async_result)
+  result <- as_array(async_result, await = FALSE)
   expect_equal(result, x[1, 2]) # 0-indexed: x[0+1, 1+1] = x[1, 2] = 3
 })
 
@@ -427,6 +447,28 @@ module @double_inplace {
     expect_null(impl_test_buffer_keepalive(x))
 
     expect_equal(as.numeric(as_array(out)), c(20, 40, 60, 80), tolerance = 1e-6)
+  })
+
+  it("stays correct over a chain of donations whose inputs are freed", {
+    # Every donated input is destroyed as soon as Execute returns, while the
+    # executions it fed may still be queued; collecting the inputs' R objects
+    # along the way must not disturb the chain. Runs on any platform.
+    mlir <- '
+module @add_one_inplace {
+  func.func @main(%arg0: tensor<4xf32> {tf.aliasing_output = 0 : i32}) -> tensor<4xf32> {
+    %one = stablehlo.constant dense<1.0> : tensor<4xf32>
+    %out = stablehlo.add %arg0, %one : tensor<4xf32>
+    return %out : tensor<4xf32>
+  }
+}
+'
+    exec <- pjrt_compile(pjrt_program(src = mlir, format = "mlir"))
+    x <- pjrt_buffer(c(0, 10, 20, 30), dtype = "f32")
+    for (i in seq_len(200L)) {
+      x <- pjrt_execute(exec, x)
+      if (i %% 50L == 0L) gc()
+    }
+    expect_equal(as.numeric(as_array(x)), c(200, 210, 220, 230))
   })
 
   it("raises a clean R-level error on operations on a donated input", {

@@ -1,12 +1,12 @@
 // Device-to-host transfers, materialized as R vectors.
 //
-// as_array_async() returns a *host array*: an ALTREP vector (double, integer
-// or logical) that stands for the result of a transfer still in flight. It
-// carries its dim and class attributes from the start and reads as an ordinary
-// R array; the first access to its data waits for the transfer and converts
-// the bytes into a plain R vector, which the host array then wraps. That
-// first access goes through pjrt's R function host_array_materialize(), which
-// checks the values as as_array() does before the host array takes them.
+// as_array(x, await = FALSE) returns a *host array*: an ALTREP vector (double,
+// integer or logical) that stands for the result of a transfer still in flight.
+// It carries its dim and class attributes from the start and reads as an
+// ordinary R array; the first access to its data waits for the transfer and
+// converts the bytes into a plain R vector, which the host array then wraps.
+// That first access goes through pjrt's R function host_array_materialize(),
+// which checks the values as as_array() does before the host array takes them.
 //
 // That first access may come from any code that reads the vector's data,
 // including C++ code. A failed transfer then raises an R error from inside it
@@ -29,6 +29,7 @@
 #include "buffer.h"
 #include "buffer_sexp.h"
 #include "event.h"
+#include "half/half.hpp"
 #include "utils.h"
 
 namespace {
@@ -41,7 +42,7 @@ struct HostTransfer {
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
   std::vector<int64_t> minor_to_major;
-  std::string check;  // as_array_async()'s `check` level
+  std::string check;  // as_array()'s `check` level
 
   HostTransfer() = default;
   HostTransfer(const HostTransfer&) = delete;
@@ -134,6 +135,10 @@ SEXP to_vector(HostTransfer& t) {
       Rf_allocVector(r_type(t.type), number_of_elements(t.dims)));
   if (XLENGTH(out) == 0) return out;
   switch (t.type) {
+    case PJRT_Buffer_Type_F16:
+      // Every binary16 value is exactly representable as a double.
+      convert<half_float::half>(t, out);
+      break;
     case PJRT_Buffer_Type_BF16:
       // Widening bf16 -> double is exact.
       convert<rpjrt::bfloat16>(t, out);

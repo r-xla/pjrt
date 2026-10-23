@@ -21,11 +21,13 @@ using rpjrt::AnvlDtype;
 using rpjrt::Aval;
 using rpjrt::CacheKey;
 using rpjrt::CacheKeyEq;
-using rpjrt::CacheKeyHash;
 using rpjrt::KeyLeaf;
 using rpjrt::RTree;
 
-std::size_t hash_of(const CacheKey& k) { return CacheKeyHash{}(k); }
+std::uint64_t hash_of(const CacheKey& k) { return rpjrt::cache_key_hash(k); }
+
+// The keys built here leave `hash` unset (0 on both sides), so CacheKeyEq is
+// exercised on the fields themselves rather than short-circuiting on the hash.
 bool eq(const CacheKey& a, const CacheKey& b) { return CacheKeyEq{}(a, b); }
 
 // The tree impl_dispatch_run() builds for `n` unnamed top-level args: a root
@@ -153,7 +155,10 @@ context("AnvlDtype") {
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_U64) == AnvlDtype::kU64);
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_PRED) ==
                 AnvlDtype::kBool);
-    // A type PJRT enumerates but anvl cannot represent.
+    // A type pjrt's buffer layer supports (f16 buffers exist for storage and
+    // IO) but the dispatcher cannot key until the promotion lattice covers
+    // it: it must map to kInvalid -- and be rejected -- rather than key
+    // approximately.
     expect_true(anvl_dtype_from_pjrt(PJRT_Buffer_Type_F16) ==
                 AnvlDtype::kInvalid);
     expect_true(std::string(anvl_dtype_name(AnvlDtype::kU8)) == "ui8");
@@ -230,6 +235,13 @@ context("CacheKey: device and tree") {
     // own key, not a wildcard.
     CacheKey none = key_of({array_leaf(f32)});
     expect_false(eq(a, none));
+  }
+
+  test_that("keys whose stored hashes differ never compare equal") {
+    CacheKey a = key_of({array_leaf(f32)});
+    CacheKey b = key_of({array_leaf(f32)});
+    b.hash = 1;
+    expect_false(eq(a, b));
   }
 
   test_that("the argument tree splits the key") {

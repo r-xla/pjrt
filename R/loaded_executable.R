@@ -11,7 +11,7 @@
 #'
 #' Use `await()` to block until the result is ready.
 #' Use `is_ready()` to check if execution has completed (non-blocking).
-#' Use `as_array_async()` to chain async buffer-to-host transfer.
+#' Use `as_array(x, await = FALSE)` to chain an async buffer-to-host transfer.
 #'
 #' @param executable (`PJRTLoadedExecutable`)\cr
 #' A PJRT program
@@ -30,7 +30,7 @@
 #'   validation; the caller is then responsible for guaranteeing that
 #'   `executable`, the inputs, and `execution_options` are valid.
 #' @return `PJRTBuffer` | `list` of `PJRTBuffer`s
-#' @seealso [await()], [is_ready()], [as_array_async()]
+#' @seealso [await()], [is_ready()], [as_array()]
 #' @examplesIf plugins_downloaded()
 #' # Create and compile a simple identity program
 #' src <- r"(

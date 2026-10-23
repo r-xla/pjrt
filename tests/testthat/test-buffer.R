@@ -300,6 +300,93 @@ test_that("dtype() on a bf16 buffer round-trips through xlamisc", {
   expect_identical(as_array(pjrt_buffer(1.5, dtype = xlamisc::as_dtype("bf16"))), array(1.5))
 })
 
+test_that("pjrt_buffer roundtrip works for f16 data", {
+  # exactly representable in binary16, so no tolerance is needed
+  test_pjrt_buffer(c(1.0, -1.0, 0.0, 0.5, 0.25), "f16")
+  test_pjrt_buffer(matrix(c(1.5, 2.5, -3.5, 4.75), nrow = 2), "f16")
+  test_pjrt_scalar(0.5, "f16")
+})
+
+test_that("f16 buffers materialize the exactly representable doubles", {
+  # binary16 targets computed independently: 1/3 -> 0x3555 = 0.333251953125,
+  # 0.1 -> 0x2E66 = 0.0999755859375, 65504 = largest finite value, 65520 is
+  # the overflow midpoint and rounds (ties to even) to Inf, 2^-24 = smallest
+  # subnormal
+  input <- c(1, 0.5, 1 / 3, 0.1, 65504, 65520, 2^-24, -2.5, 0)
+  expected <- c(
+    1,
+    0.5,
+    0.333251953125,
+    0.0999755859375,
+    65504,
+    Inf,
+    2^-24,
+    -2.5,
+    0
+  )
+  buf <- pjrt_buffer(input, dtype = "f16")
+  expect_equal(as.character(elt_type(buf)), "f16")
+  expect_identical(as_array(buf), array(expected))
+
+  # integer data is accepted like for the other float dtypes
+  buf_int <- pjrt_buffer(matrix(1:6, nrow = 2), dtype = "f16")
+  expect_equal(as.character(elt_type(buf_int)), "f16")
+  expect_identical(as_array(buf_int), matrix(as.double(1:6), nrow = 2))
+
+  s <- pjrt_scalar(3.14159, dtype = "f16")
+  expect_identical(shape(s), integer())
+  expect_identical(as_array(s), 3.140625)
+})
+
+test_that("doubles round to f16 to nearest, ties to even, not via float", {
+  # 65519.999: rounding the double directly to binary16 gives 65504, but
+  # rounding through float first lands exactly on 65520 (a float), which then
+  # ties up to Inf -- the classic double-rounding failure this test pins.
+  expect_identical(as_array(pjrt_buffer(65519.999, dtype = "f16")), array(65504))
+
+  # ties to even at the subnormal boundary: 2^-25 is midway between 0 and
+  # 2^-24 and rounds to the even neighbour 0; 1.5 * 2^-24 is midway between
+  # 2^-24 and 2^-23 and rounds to 2^-23.
+  buf <- pjrt_buffer(c(2^-25, 1.5 * 2^-24), dtype = "f16")
+  expect_identical(as_array(buf), array(c(0, 2^-23)))
+})
+
+test_that("f16 raw and empty buffers work", {
+  empty <- pjrt_empty(dtype = "f16", shape = c(0, 2))
+  expect_identical(shape(empty), c(0L, 2L))
+  expect_equal(as.character(elt_type(empty)), "f16")
+
+  # 0x3C00 = 1.0 and 0xB800 = -0.5, as little-endian byte pairs
+  raw_bytes <- as.raw(c(0x00, 0x3c, 0x00, 0xb8))
+  buf <- pjrt_buffer(raw_bytes, dtype = "f16", shape = 2L, row_major = TRUE)
+  expect_identical(as_array(buf), array(c(1, -0.5)))
+  expect_identical(as_raw(buf, row_major = TRUE), raw_bytes)
+
+  expect_error(
+    pjrt_buffer(as.raw(c(0, 0, 0)), dtype = "f16", shape = 2L, row_major = TRUE),
+    "requires 4 bytes"
+  )
+})
+
+test_that("a logical uploads at f16 like the other float dtypes", {
+  expect_equal(
+    as_array(pjrt_buffer(c(TRUE, FALSE), dtype = "f16")),
+    array(c(1, 0), 2L)
+  )
+  expect_identical(as_array(pjrt_buffer(NA, dtype = "f16")), array(NaN, 1L))
+  expect_identical(
+    as_array(pjrt_buffer(NA_integer_, dtype = "f16")),
+    array(NaN, 1L)
+  )
+})
+
+test_that("dtype() on an f16 buffer round-trips through xlamisc", {
+  buf <- pjrt_buffer(1.5, dtype = "f16")
+  expect_equal(as.character(elt_type(buf)), "f16")
+  expect_identical(dtype(buf), xlamisc::as_dtype("f16"))
+  expect_identical(as_array(pjrt_buffer(1.5, dtype = xlamisc::as_dtype("f16"))), array(1.5))
+})
+
 test_that("pjrt_buffer handles edge cases", {
   # Test empty vectors
   expect_error(pjrt_buffer(logical(0), shape = c(1, 4)), "but specified shape is")
@@ -1231,10 +1318,10 @@ test_that("raw buffer validates dtype and shape compatibility", {
     "Raw data has 2 bytes, but dtype.*f32.*requires 4 bytes"
   )
 })
-describe("as_array_async", {
+describe("as_array(await = FALSE)", {
   it("returns the buffer's values as an R array", {
     original <- matrix(c(1.0, 2.0, 3.0, 4.0), nrow = 2L)
-    result <- as_array_async(pjrt_buffer(original, dtype = "f32"))
+    result <- as_array(pjrt_buffer(original, dtype = "f32"), await = FALSE)
     expect_equal(result, original, tolerance = 1e-6)
   })
 
@@ -1251,19 +1338,19 @@ describe("as_array_async", {
     )
     for (case in cases) {
       buf <- pjrt_buffer(case[[1L]], dtype = case[[2L]], shape = case[[3L]])
-      expect_identical(as_array_async(buf), as_array(buf))
+      expect_identical(as_array(buf, await = FALSE), as_array(buf))
     }
   })
 
   it("carries dim and class before the transfer is awaited", {
-    result <- as_array_async(pjrt_buffer(1:6, dtype = "i64", shape = c(2L, 3L)))
+    result <- as_array(pjrt_buffer(1:6, dtype = "i64", shape = c(2L, 3L)), await = FALSE)
     expect_identical(dim(result), c(2L, 3L))
     expect_s3_class(result, "integer64")
     expect_identical(length(result), 6L)
   })
 
   it("is ready once awaited, and await() returns it invisibly", {
-    result <- as_array_async(pjrt_buffer(c(1.0, 2.0), dtype = "f32"))
+    result <- as_array(pjrt_buffer(c(1.0, 2.0), dtype = "f32"), await = FALSE)
     ready <- is_ready(result)
     expect_true(is.logical(ready))
     expect_length(ready, 1L)
@@ -1274,7 +1361,7 @@ describe("as_array_async", {
   })
 
   it("can be modified like any R vector", {
-    result <- as_array_async(pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f64"))
+    result <- as_array(pjrt_buffer(c(1.0, 2.0, 3.0), dtype = "f64"), await = FALSE)
     copy <- result
     copy[1L] <- 10
     expect_identical(as.vector(copy), c(10, 2, 3))
@@ -1282,7 +1369,7 @@ describe("as_array_async", {
   })
 
   it("serializes as a plain R array", {
-    result <- as_array_async(pjrt_buffer(1:4, dtype = "i32", shape = c(2L, 2L)))
+    result <- as_array(pjrt_buffer(1:4, dtype = "i32", shape = c(2L, 2L)), await = FALSE)
     expect_identical(unserialize(serialize(result, NULL)), matrix(1:4, 2L, 2L))
   })
 
@@ -1293,7 +1380,7 @@ describe("as_array_async", {
     reg.finalizer(buf, function(e) {
       state$collected <- TRUE
     })
-    result <- as_array_async(buf)
+    result <- as_array(buf, await = FALSE)
     rm(buf)
     gc()
     expect_false(state$collected)
@@ -1305,39 +1392,42 @@ describe("as_array_async", {
 
   it("checks its values when they are first read", {
     buf <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
-    result <- as_array_async(buf)
+    result <- as_array(buf, await = FALSE)
     expect_warning(result[1L], "distinguish from")
     expect_no_warning(result[1L])
     expect_true(is.na(result))
-    expect_no_warning(as.vector(as_array_async(buf, check = FALSE)))
+    expect_no_warning(as.vector(as_array(buf, check = FALSE, await = FALSE)))
   })
 
   it("checks its values when awaited", {
     buf <- suppressWarnings(pjrt_buffer(NA_integer_, dtype = "i32"))
-    result <- as_array_async(buf)
+    result <- as_array(buf, await = FALSE)
     expect_warning(await(result), "distinguish from")
     expect_true(is_ready(result))
     expect_no_warning(result[1L])
   })
 
-  it("errors on every read with check = \"err\"", {
-    client <- pjrt_client("cpu")
-    bytes <- as.raw(c(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80))
-    buf <- impl_client_buffer_from_raw(client, devices(client)[[1L]], bytes, 1L, "ui64")
-    result <- as_array_async(buf, check = "err")
-    expect_error(result[1L], "wrapped through")
-    expect_error(await(result), "wrapped through")
-    expect_error(print(result), "wrapped through")
+  it("rejects check = \"err\"", {
+    buf <- pjrt_buffer(1, dtype = "f32")
+    expect_error(as_array(buf, check = "err", await = FALSE), "requires `await = TRUE`")
+    expect_no_error(as_array(buf, check = "warn", await = FALSE))
+    expect_no_error(as_array(buf, check = FALSE, await = FALSE))
   })
 
   it("validates check before starting the transfer", {
-    expect_error(as_array_async(pjrt_buffer(1, dtype = "f32"), check = TRUE), "must be")
+    expect_error(as_array(pjrt_buffer(1, dtype = "f32"), check = TRUE, await = FALSE), "must be")
+  })
+
+  it("requires `await` to be a flag", {
+    buf <- pjrt_buffer(1, dtype = "f32")
+    expect_error(as_array(buf, await = NA), "await")
+    expect_error(as_array(buf, await = "no"), "await")
   })
 
   it("can be collected before it is read", {
     expect_no_error({
       for (i in 1:5) {
-        as_array_async(pjrt_buffer(as.double(seq_len(1e5)), dtype = "f32"))
+        as_array(pjrt_buffer(as.double(seq_len(1e5)), dtype = "f32"), await = FALSE)
       }
       gc()
     })
@@ -1586,6 +1676,7 @@ describe("PJRTBuffer serialization", {
       pjrt_buffer(array(1:24, 2:4), dtype = "i64"),
       pjrt_buffer(c(TRUE, FALSE, TRUE)),
       pjrt_buffer(matrix(c(1.5, -2, 3, 0.25), 2L), dtype = "bf16"),
+      pjrt_buffer(matrix(c(0.5, -2.5, 65504, 2^-24), 2L), dtype = "f16"),
       pjrt_scalar(3L, dtype = "ui8"),
       pjrt_empty(dtype = "f64", shape = c(0L, 3L))
     )

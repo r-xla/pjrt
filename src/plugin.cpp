@@ -54,7 +54,8 @@ std::unique_ptr<PJRTClient> PJRTPlugin::client_create(
   args.num_options = named_values.size();
 
   check_err(this->api.get(), this->api->PJRT_Client_Create_(&args));
-  return std::make_unique<PJRTClient>(args.client, this->api);
+  return std::make_unique<PJRTClient>(
+      make_pjrt_handle(this->api.get(), args.client), this->api);
 }
 
 std::vector<std::pair<std::string, SEXP>> PJRTPlugin::attributes() const {

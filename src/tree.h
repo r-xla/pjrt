@@ -126,14 +126,24 @@ inline std::size_t object_index(const RTree& tree, std::size_t pos) {
   return n;
 }
 
+// The deepest nesting of lists and registered objects flatten_rec accepts. The
+// tree functions recurse once per level, so an unbounded depth would overflow
+// the C stack and kill the R session; past this limit flatten_rec raises an R
+// error instead.
+inline constexpr int kMaxTreeDepth = 10000;
+
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
-                        std::vector<Rcpp::RObject>& keep);
+                        std::vector<Rcpp::RObject>& keep, int depth = 0);
 
 // Append a node with the children `x` (a list, possibly named) to `tree` and
-// recurse into them; `kind` says what node it is.
+// recurse into them; `kind` says what node it is, and `depth` its nesting
+// within the value being flattened.
 inline void flatten_children(SEXP x, RTree::Kind kind,
                              std::vector<SEXP>& leaves, RTree& tree,
-                             std::vector<Rcpp::RObject>& keep) {
+                             std::vector<Rcpp::RObject>& keep, int depth) {
+  if (depth >= kMaxTreeDepth) {
+    Rcpp::stop("tree is nested more than %d levels deep", kMaxTreeDepth);
+  }
   const std::size_t pos = tree.kind.size();
   const R_xlen_t n = XLENGTH(x);
   SEXP nms = Rf_getAttrib(x, R_NamesSymbol);
@@ -155,7 +165,7 @@ inline void flatten_children(SEXP x, RTree::Kind kind,
     tree.name_off.push_back(-1);
   }
   for (R_xlen_t k = 0; k < n; ++k) {
-    flatten_rec(VECTOR_ELT(x, k), leaves, tree, keep);
+    flatten_rec(VECTOR_ELT(x, k), leaves, tree, keep, depth + 1);
   }
   tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
 }
@@ -164,7 +174,7 @@ inline void flatten_children(SEXP x, RTree::Kind kind,
 // a registered class's `flatten` returns is kept alive in `keep`, as the leaves
 // may point into it.
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
-                        std::vector<Rcpp::RObject>& keep) {
+                        std::vector<Rcpp::RObject>& keep, int depth) {
   if (x == R_NilValue) {
     tree.kind.push_back(RTree::NullNode);
     tree.n_children.push_back(0);
@@ -173,7 +183,7 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
     return;
   }
   if (is_bare_list(x)) {
-    flatten_children(x, RTree::ListNode, leaves, tree, keep);
+    flatten_children(x, RTree::ListNode, leaves, tree, keep, depth);
     return;
   }
   if (const auto* type = tree_node_class(x)) {
@@ -191,7 +201,8 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
     }
     keep.push_back(res);
     tree.objects.push_back({cls, Rcpp::RObject(VECTOR_ELT(res, 1))});
-    flatten_children(VECTOR_ELT(res, 0), RTree::ObjectNode, leaves, tree, keep);
+    flatten_children(VECTOR_ELT(res, 0), RTree::ObjectNode, leaves, tree, keep,
+                     depth);
     return;
   }
   tree.kind.push_back(RTree::LeafNode);
@@ -218,31 +229,28 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
       const int n = tree.n_children[node];
       // Taken before the children's: objects are numbered in preorder.
       const std::size_t obj = tree.kind[node] == RTree::ObjectNode ? oi++ : 0;
-      SEXP out = PROTECT(Rf_allocVector(VECSXP, n));
+      Rcpp::List out(n);
       for (int k = 0; k < n; ++k) {
-        SET_VECTOR_ELT(out, k, unflatten_rec(tree, leaves, pos, li, oi));
+        out[k] = unflatten_rec(tree, leaves, pos, li, oi);
       }
       if (tree.is_named(node)) {
         const std::int32_t off = tree.name_off[node];
-        SEXP nms = PROTECT(Rf_allocVector(STRSXP, n));
+        Rcpp::CharacterVector nms(n);
         for (int k = 0; k < n; ++k) {
           SET_STRING_ELT(nms, k, Rf_mkChar(tree.names[off + k].c_str()));
         }
-        Rf_setAttrib(out, R_NamesSymbol, nms);
-        UNPROTECT(1);
+        out.names() = nms;
       }
       if (tree.kind[node] == RTree::ObjectNode) {
         const RTree::Object& o = tree.objects[obj];
         auto it = tree_node_types().find(o.cls);
         if (it == tree_node_types().end()) {
-          UNPROTECT(1);
           Rcpp::stop("the tree node class \"%s\" is no longer registered",
                      CHAR(o.cls));
         }
         Rcpp::Function unflatten(it->second.unflatten);
-        out = unflatten(out, o.aux);
+        return unflatten(out, o.aux);
       }
-      UNPROTECT(1);
       return out;
     }
   }

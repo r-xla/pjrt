@@ -1,2 +1,3 @@
 src/RcppExports.cpp
-src/proto/
+src/proto/**
+src/half/**
