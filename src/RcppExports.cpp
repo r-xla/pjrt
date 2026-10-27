@@ -1007,6 +1007,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_trsm_handler
+SEXP get_trsm_handler();
+RcppExport SEXP _pjrt_get_trsm_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_trsm_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP run_testthat_tests(SEXP);
 
@@ -1098,6 +1108,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_tree_mask_from_names", (DL_FUNC) &_pjrt_impl_tree_mask_from_names, 2},
     {"_pjrt_impl_tree_repr", (DL_FUNC) &_pjrt_impl_tree_repr, 1},
     {"_pjrt_impl_tree_diff", (DL_FUNC) &_pjrt_impl_tree_diff, 2},
+    {"_pjrt_get_trsm_handler", (DL_FUNC) &_pjrt_get_trsm_handler, 0},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };
