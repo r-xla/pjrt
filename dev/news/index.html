@@ -72,6 +72,7 @@
 <code>PJRTBuffer</code> supports the <code>"f16"</code> (IEEE 754 binary16) element type.</li>
 <li>Bugfix: the <code>lu</code> custom call factorises a singular matrix instead of failing with <code>getrf failed with info = &lt;k&gt;</code>.</li>
 <li>New built-in <code>potrf</code> custom call: a batched Cholesky factorisation through LAPACK on the host and cuSOLVER on CUDA, reporting each matrix’s <code>info</code> instead of failing on one that is not positive definite.</li>
+<li>New built-in <code>trsm</code> custom call: a batched triangular solve through BLAS on the host, standing in for <code>stablehlo.triangular_solve</code>, which XLA’s CPU backend expands into much slower HLO.</li>
 <li>New custom call <code>print_tensor_ordered</code>: <code>print_tensor</code> that takes and returns a <code>!stablehlo.token</code>, so that a chain of prints runs in order.</li>
 <li>Bugfix: <code><a href="../reference/build_tree.html">build_tree()</a></code>, <code><a href="../reference/flatten.html">flatten()</a></code> and <code><a href="../reference/dispatch.html">dispatch()</a></code> raise an error for a value nested more than 1000 lists deep instead of crashing R.</li>
 <li>Bugfix: a compile that fails after XLA compiled the program, such as an HLO program with input/output aliasing, no longer leaks the executable.</li>
