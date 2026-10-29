@@ -92,6 +92,13 @@ register_namespace_callback <- function(pkgname, namespace, callback) {
     list(host = get_potrf_handler(), cuda = get_potrf_handler_cuda()),
     .package = pkgname
   )
+  # Host only: on CUDA, XLA itself lowers `stablehlo.triangular_solve` to
+  # cuBLAS trsm.
+  pjrt_register_custom_call(
+    "trsm",
+    list(host = get_trsm_handler()),
+    .package = pkgname
+  )
 
   register_namespace_callback(pkgname, "safetensors", function(...) {
     frameworks <- utils::getFromNamespace(

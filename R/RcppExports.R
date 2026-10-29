@@ -349,3 +349,7 @@ impl_tree_diff <- function(a, b) {
     .Call(`_pjrt_impl_tree_diff`, a, b)
 }
 
+get_trsm_handler <- function() {
+    .Call(`_pjrt_get_trsm_handler`)
+}
+
