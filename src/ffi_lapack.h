@@ -18,6 +18,9 @@
 //     syevd -- SYmmetric EigenValue Decomposition via divide-and-conquer.
 //     potrf -- POsitive-definite TRiangular Factorisation: Cholesky,
 //              A = L L^T (uplo = 'L') or A = U^T U (uplo = 'U').
+//     trsm  -- TRiangular Solve with Multiple right-hand sides: op(A) X = B
+//              or X op(A) = B for a triangular A, in place on B. A BLAS
+//              (level 3) routine rather than a LAPACK one.
 //   The trailing underscore (`dgeqrf_`) is the Fortran ABI symbol mangling.
 //
 #pragma once
@@ -63,6 +66,14 @@ void dsyevd_(const char *jobz, const char *uplo, const int *n, double *a,
 // minor of order info is not positive definite (the factorisation stopped).
 void dpotrf_(const char *uplo, const int *n, double *a, const int *lda,
              int *info);
+
+// Triangular solve. side 'L' solves op(A) X = alpha B, 'R' X op(A) = alpha B,
+// where A is m x m or n x n and B is m x n; X overwrites B. Only the `uplo`
+// triangle of A is read, and with diag = 'U' not its diagonal either (taken
+// to be 1). transa 'N' / 'T' selects op(A) = A / A^T.
+void dtrsm_(const char *side, const char *uplo, const char *transa,
+            const char *diag, const int *m, const int *n, const double *alpha,
+            const double *a, const int *lda, double *b, const int *ldb);
 void sgeqrf_(const int *m, const int *n, float *a, const int *lda, float *tau,
              float *work, const int *lwork, int *info);
 void sorgqr_(const int *m, const int *n, const int *k, float *a, const int *lda,
@@ -78,6 +89,9 @@ void ssyevd_(const char *jobz, const char *uplo, const int *n, float *a,
              int *iwork, const int *liwork, int *info);
 void spotrf_(const char *uplo, const int *n, float *a, const int *lda,
              int *info);
+void strsm_(const char *side, const char *uplo, const char *transa,
+            const char *diag, const int *m, const int *n, const float *alpha,
+            const float *a, const int *lda, float *b, const int *ldb);
 }
 
 namespace rpjrt {
@@ -124,6 +138,11 @@ struct Lapack<double> {
                     int *info) {
     dpotrf_(uplo, n, a, lda, info);
   }
+  static void trsm(const char *side, const char *uplo, const char *transa,
+                   const char *diag, const int *m, const int *n, const S *alpha,
+                   const S *a, const int *lda, S *b, const int *ldb) {
+    dtrsm_(side, uplo, transa, diag, m, n, alpha, a, lda, b, ldb);
+  }
 };
 
 template <>
@@ -156,6 +175,11 @@ struct Lapack<float> {
   static void potrf(const char *uplo, const int *n, S *a, const int *lda,
                     int *info) {
     spotrf_(uplo, n, a, lda, info);
+  }
+  static void trsm(const char *side, const char *uplo, const char *transa,
+                   const char *diag, const int *m, const int *n, const S *alpha,
+                   const S *a, const int *lda, S *b, const int *ldb) {
+    strsm_(side, uplo, transa, diag, m, n, alpha, a, lda, b, ldb);
   }
 };
 

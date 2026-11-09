@@ -13,19 +13,23 @@ tools: Read, Edit, Glob, Grep, Bash, Write, AskUserQuestion
 
 The `pjrt` package vendors headers (`inst/include/`) and proto files
 (`inst/proto/`) from [openxla/xla](https://github.com/openxla/xla), and
-downloads pre-built PJRT plugin binaries from
-[zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts). An upgrade syncs
+downloads pre-built PJRT plugin binaries: the CUDA plugin from
+[zml/pjrt-artifacts](https://github.com/zml/pjrt-artifacts), the CPU plugin on
+every OS from our own builds in
+[r-xla/pjrt-builds](https://github.com/r-xla/pjrt-builds). An upgrade syncs
 the vendored files to a new XLA commit and bumps the artifact version.
 
 Both must move together: the vendored `pjrt_c_api.h` declares the ABI that the
 downloaded plugin implements.
 
-That includes **every** plugin, not just ZML's. ZML ships no Windows artifact,
-so `plugin_url()` serves Windows from `r-xla/pjrt-builds` at a hand-pinned XLA
-commit. A handler reports the FFI header version it was compiled against back to
-the runtime (`api.h`, `PopulateMetadata`), and a plugin will not accept a handler
-newer than itself -- so as soon as `XLA_FFI_API_MINOR` moves, an un-rebuilt
-plugin silently drops every custom call:
+That includes **every** plugin, not just ZML's. `plugin_url()` serves the CPU
+plugin from the `r-xla/pjrt-builds` release `pjrt-cpu-<commit>`, at a
+hand-pinned XLA commit. A handler reports the FFI header version it was compiled
+against back to the runtime (`api.h`, `PopulateMetadata`), and a plugin will not
+accept a handler newer than itself -- so as soon as `XLA_FFI_API_MINOR` moves,
+an un-rebuilt plugin silently drops every custom call. The other direction is
+fine: a CPU plugin built from a *newer* XLA commit than the headers works (it
+is how pjrt-cpu-aa1e72c shipped against headers from the ZML 18.0.0 commit):
 
 ```
 No FFI handler registered for print_tensor on a platform Host (canonical host)
@@ -34,8 +38,8 @@ No FFI handler registered for print_tensor on a platform Host (canonical host)
 Registration itself still reports success, and `test-custom-call.R` still passes
 (it only checks bookkeeping, never compiles a program that uses a custom call),
 so this surfaces as `test-ffi.R` and `test-linalg.R` failing wholesale. To
-reproduce the mismatch locally without Windows, point `PJRT_PLUGIN_PATH_CPU` at
-a plugin from the previous ZML release.
+reproduce the mismatch locally, point `PJRT_PLUGIN_URL_CPU` at a CPU plugin
+built from an older XLA commit, e.g. one from the previous ZML release.
 
 Rebuilding those plugins is **part of** the upgrade, not a follow-up -- see
 step 5.
@@ -121,11 +125,12 @@ the patch; if there is no difference it deletes the patch file. Afterwards,
 re-run the copy scripts from a clean tree and confirm they reproduce byte-identical
 files — that round-trip is the check that the patches are in sync.
 
-## 5. Update the plugin version, rebuild Windows, and update CUDA deps
+## 5. Update the plugin version, rebuild the CPU plugins, and update CUDA deps
 
 ### The ZML version
 
 - `R/plugin.R`: `plugin_version()` returns the ZML tag without the leading `v`.
+  Only the CUDA plugin is downloaded from ZML.
 - `R/plugin.R`: `the[["config"]]$cuda_r_package` / `$cuda_r_repos` must name a
   CUDA R package matching the artifact's `HERMETIC_CUDA_VERSION`. This is not
   optional slack: the plugin has a versioned `NEEDED` entry on
@@ -149,21 +154,19 @@ files — that round-trip is the check that the patches are in sync.
   Verify the declared signatures in `src/ffi_cuda.h` against the new
   `cusolverDn.h` — they are hand-written and nothing checks them at build time.
 
-### The Windows plugin
+### The CPU plugins
 
-ZML ships no Windows artifact, so this one is ours to rebuild at the same XLA
-commit. Skipping it is what makes Windows CI fail; there is no version of this
-upgrade where that failure is acceptable.
+The CPU plugins are ours to rebuild, at the new XLA commit (or a newer one, see
+the lockstep note above). Skipping it is what makes CI fail; there is no
+version of this upgrade where that failure is acceptable.
 
-1. Dispatch `r-xla/pjrt-builds` → *Build PJRT* with
-   `commit_hash=<the new XLA short hash>`. Expect roughly three hours — most of
-   it is one bazel build of XLA on a 4-core Windows runner.
-2. When it publishes `pjrt-<commit>-windows-x86_64.zip`, point the Windows URL
-   in `plugin_url()` at it.
-
-The workflow rebuilds all five configurations, not just Windows. Only the
-Windows asset is needed here, so cancel the run once that job finishes rather
-than paying for four unused builds.
+1. Dispatch `r-xla/pjrt-builds` → *Release PJRT CPU* with
+   `xla_commit=<the new XLA short hash>`. It builds linux-amd64, linux-arm64,
+   darwin-arm64, darwin-amd64 and windows-amd64 and publishes them as the
+   release `pjrt-cpu-<commit>`. A job that runs out of build time saves its
+   bazel cache; re-running the failed job continues from it.
+2. Change the release tag in the CPU URL in `plugin_url()` to
+   `pjrt-cpu-<commit>`.
 
 If the Windows job itself fails, the failure is in that workflow rather than in
 pjrt. Two things are worth knowing before debugging it: jaxlib builds XLA for
@@ -199,8 +202,8 @@ same R process (protobuf descriptor crash). Use separate `Rscript -e` calls.
 
 Update `NEWS.md` and re-render `README.md` from `README.Rmd`.
 
-**Every platform in CI is expected to pass, Windows included.** If Windows goes
-red, the usual cause is the one in the lockstep note above: its plugin is still
-pinned to the previous XLA commit, so `test-ffi.R` and `test-linalg.R` fail
+**Every platform in CI is expected to pass, Windows included.** If a CPU job goes
+red, the usual cause is the one in the lockstep note above: the CPU plugin is
+still pinned to the previous XLA commit, so `test-ffi.R` and `test-linalg.R` fail
 wholesale with `No FFI handler registered`. That is the rebuild in step 5, not
 something to wave through.

@@ -1030,6 +1030,16 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// get_trsm_handler
+SEXP get_trsm_handler();
+RcppExport SEXP _pjrt_get_trsm_handler() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(get_trsm_handler());
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP run_testthat_tests(SEXP);
 
@@ -1123,6 +1133,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_tree_diff", (DL_FUNC) &_pjrt_impl_tree_diff, 2},
     {"_pjrt_impl_register_tree_node", (DL_FUNC) &_pjrt_impl_register_tree_node, 4},
     {"_pjrt_impl_unregister_tree_node", (DL_FUNC) &_pjrt_impl_unregister_tree_node, 1},
+    {"_pjrt_get_trsm_handler", (DL_FUNC) &_pjrt_get_trsm_handler, 0},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };

@@ -357,3 +357,7 @@ impl_unregister_tree_node <- function(cls) {
     invisible(.Call(`_pjrt_impl_unregister_tree_node`, cls))
 }
 
+get_trsm_handler <- function() {
+    .Call(`_pjrt_get_trsm_handler`)
+}
+

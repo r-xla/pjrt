@@ -245,10 +245,6 @@ plugin_download <- function(cache_dir, platform = NULL) {
   plugin_hash <- rlang::hash(as.character(url))
   writeLines(plugin_hash, plugin_hash_path)
 
-  if (is.function(attr(url, "extract"))) {
-    return(attr(url, "extract")(tempfile, cache_dir))
-  }
-
   utils::untar(tempfile, exdir = cache_dir)
 }
 
@@ -260,10 +256,9 @@ plugin_url <- function(platform) {
 
   os <- plugin_os()
   arch <- plugin_arch()
-  zml_version <- plugin_version()
 
-  if (os == "windows") {
-    if (arch != "amd64") {
+  if (platform == "cpu") {
+    if (os == "windows" && arch != "amd64") {
       cli_abort(
         "Unsupported architecture for Windows: ",
         arch,
@@ -271,25 +266,18 @@ plugin_url <- function(platform) {
       )
     }
 
-    # ZML ships no Windows artifact, so Windows uses our own build from
-    # r-xla/pjrt-builds. It must be built from the same XLA commit the
-    # vendored headers come from: a handler reports its FFI header version
-    # back to the runtime, and a plugin older than the headers silently
-    # refuses every custom call. See the upgrade-pjrt skill.
-    url <- "https://github.com/r-xla/pjrt-builds/releases/download/pjrt/pjrt-6b73c4c-windows-x86_64.zip"
-    # windows files are zipped
-    attr(url, "extract") <- function(path, cache_dir) {
-      tmp <- tempfile()
-      dir.create(tmp)
-      utils::unzip(path, exdir = tmp)
-      plugin_path <- list.files(
-        tmp,
-        pattern = "*.dll",
-        full.names = TRUE
-      )
-      fs::file_move(plugin_path, cache_dir)
-    }
-    return(url)
+    # The CPU plugin is our own build from r-xla/pjrt-builds on every OS: ZML
+    # ships no Windows artifact, and its CPU plugins predate the XLA fix that
+    # makes a loop stacking per-step outputs linear instead of quadratic
+    # (openxla/xla#47636). It may be built from a newer XLA commit than the
+    # vendored headers, but not an older one: a handler reports its FFI header
+    # version back to the runtime, and a plugin older than the headers
+    # silently refuses every custom call. See the upgrade-pjrt skill.
+    return(sprintf(
+      "https://github.com/r-xla/pjrt-builds/releases/download/pjrt-cpu-aa1e72c/pjrt-cpu_%s-%s.tar.gz",
+      os,
+      arch
+    ))
   }
 
   if (platform == "cuda" && os != "linux") {
@@ -302,7 +290,7 @@ plugin_url <- function(platform) {
 
   sprintf(
     "https://github.com/zml/pjrt-artifacts/releases/download/v%s/pjrt-%s_%s-%s.tar.gz",
-    zml_version,
+    plugin_version(),
     platform,
     os,
     arch

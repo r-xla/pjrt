@@ -33,6 +33,9 @@
 * New built-in `potrf` custom call: a batched Cholesky factorisation through
   LAPACK on the host and cuSOLVER on CUDA, reporting each matrix's `info`
   instead of failing on one that is not positive definite.
+* New built-in `trsm` custom call: a batched triangular solve through BLAS on
+  the host, standing in for `stablehlo.triangular_solve`, which XLA's CPU
+  backend expands into much slower HLO.
 * New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
   a `!stablehlo.token`, so that a chain of prints runs in order.
 * Bugfix: `build_tree()`, `flatten()` and `dispatch()` raise an error for a
@@ -50,6 +53,8 @@
   non-row-major device layout.
 * `as_array()` reads `f64`, `i32`, `i64` and `ui64` buffers straight into the
   result vector instead of through a host-side copy.
+* Updated the XLA CPU plugin. This fixes loops that stack per-step outputs
+  taking quadratic time and an inaccurate `log1p()`.
 
 # pjrt 0.6.0
 

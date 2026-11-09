@@ -599,3 +599,179 @@ describe("potrf", {
     )
   })
 })
+
+# ---------------------------------------------------------------------------
+# trsm (triangular solve)
+# ---------------------------------------------------------------------------
+
+describe("trsm", {
+  skip_if(!is_cpu(), "trsm is a host-only custom call")
+
+  # Exercises the host-only `trsm` BLAS custom call: a triangular solve over a
+  # batch of row-major matrices [..., k, k] in f32 / f64, for every combination
+  # of side, triangle, transpose and unit diagonal.
+  #
+  # Correctness: x must match base R's solve() against the matrix trsm is
+  # documented to read -- the `lower` triangle of a, with a diagonal of ones
+  # when `unit_diagonal`. The entries trsm must not read hold garbage, so that
+  # reading them shows up as a wrong result.
+
+  # ---- Helpers ----
+
+  run_trsm <- function(
+    a,
+    b,
+    dtype,
+    left_side = TRUE,
+    lower = TRUE,
+    transpose_a = FALSE,
+    unit_diagonal = FALSE,
+    donate = FALSE
+  ) {
+    da <- dim(a)
+    db <- dim(b)
+    nd <- length(da)
+    b_spec <- list(dims = db, dtype = dtype)
+    if (donate) {
+      b_spec$aliases <- 1L
+    }
+    res <- run_linalg(
+      "trsm",
+      inputs = list(a, b),
+      in_specs = list(list(dims = da, dtype = dtype), b_spec),
+      out_specs = list(list(dims = db, dtype = dtype)),
+      attrs = list(
+        backend_config = sprintf(
+          "{left_side = %s, lower = %s, transpose_a = %s, unit_diagonal = %s}",
+          tolower(left_side),
+          tolower(lower),
+          tolower(transpose_a),
+          tolower(unit_diagonal)
+        )
+      ),
+      in_layouts = rep(row_major_layout(nd), 2L),
+      out_layouts = row_major_layout(nd)
+    )
+    res[[1L]]
+  }
+
+  trsm_config <- "{left_side = true, lower = true, transpose_a = false, unit_diagonal = false}"
+
+  # A k x k matrix whose `lower` triangle is well conditioned and whose other
+  # entries are garbage that trsm must not read.
+  random_triangular <- function(k, lower) {
+    a <- matrix(rnorm(k * k), k, k) / sqrt(k)
+    diag(a) <- 1 + abs(rnorm(k))
+    a[if (lower) upper.tri(a) else lower.tri(a)] <- 1e6
+    a
+  }
+
+  # The matrix trsm reads out of `a`.
+  read_triangle <- function(a, lower, unit_diagonal) {
+    a[if (lower) upper.tri(a) else lower.tri(a)] <- 0
+    if (unit_diagonal) {
+      diag(a) <- 1
+    }
+    a
+  }
+
+  reference_solve <- function(a, b, left_side, lower, transpose_a, unit_diagonal) {
+    op_a <- read_triangle(a, lower, unit_diagonal)
+    if (transpose_a) {
+      op_a <- t(op_a)
+    }
+    if (left_side) solve(op_a, b) else b %*% solve(op_a)
+  }
+
+  # ---- Tests ----
+
+  it("solves for every side, triangle, transpose and diagonal in f64 and f32", {
+    withr::local_seed(51L)
+    flags <- expand.grid(
+      left_side = c(TRUE, FALSE),
+      lower = c(TRUE, FALSE),
+      transpose_a = c(TRUE, FALSE),
+      unit_diagonal = c(TRUE, FALSE)
+    )
+    for (i in seq_len(nrow(flags))) {
+      f <- as.list(flags[i, ])
+      a <- random_triangular(4L, f$lower)
+      b <- if (f$left_side) matrix(rnorm(12L), 4L, 3L) else matrix(rnorm(12L), 3L, 4L)
+      expected <- do.call(reference_solve, c(list(a = a, b = b), f))
+      for (dtype in c("f64", "f32")) {
+        tol <- if (dtype == "f64") 1e-10 else 1e-4
+        x <- do.call(run_trsm, c(list(a = a, b = b, dtype = dtype), f))
+        expect_equal(x, expected, tolerance = tol, info = paste(dtype, paste(names(f), f, collapse = ", ")))
+      }
+    }
+  })
+
+  it("solves every matrix of a batch", {
+    withr::local_seed(52L)
+    k <- 5L
+    a <- array(0, c(2L, 3L, k, k))
+    b <- array(rnorm(2L * 3L * 2L * k), c(2L, 3L, 2L, k))
+    for (i in 1:2) {
+      for (j in 1:3) {
+        a[i, j, , ] <- random_triangular(k, lower = FALSE)
+      }
+    }
+    x <- run_trsm(a, b, "f64", left_side = FALSE, lower = FALSE)
+    expect_equal(dim(x), dim(b))
+    for (i in 1:2) {
+      for (j in 1:3) {
+        expected <- reference_solve(a[i, j, , ], b[i, j, , ], FALSE, FALSE, FALSE, FALSE)
+        expect_equal(x[i, j, , ], expected, tolerance = 1e-10)
+      }
+    }
+  })
+
+  it("works with b donated to the output", {
+    withr::local_seed(53L)
+    a <- random_triangular(5L, lower = TRUE)
+    b <- matrix(rnorm(10L), 5L, 2L)
+    x <- run_trsm(a, b, "f64", donate = TRUE)
+    expect_equal(x, reference_solve(a, b, TRUE, TRUE, FALSE, FALSE), tolerance = 1e-10)
+  })
+
+  it("does not overwrite the input buffers", {
+    withr::local_seed(54L)
+    expect_inputs_preserved(
+      "trsm",
+      inputs = list(random_triangular(4L, lower = TRUE), matrix(rnorm(8L), 4L, 2L)),
+      in_specs = list(list(dims = c(4L, 4L), dtype = "f64"), list(dims = c(4L, 2L), dtype = "f64")),
+      out_specs = list(list(dims = c(4L, 2L), dtype = "f64")),
+      attrs = list(backend_config = trsm_config),
+      in_layouts = rep(row_major_layout(2L), 2L),
+      out_layouts = row_major_layout(2L)
+    )
+  })
+
+  it("solves empty systems", {
+    expect_equal(dim(run_trsm(diag(3L), matrix(0, 3L, 0L), "f64")), c(3L, 0L))
+    expect_equal(dim(run_trsm(matrix(0, 0L, 0L), matrix(0, 0L, 2L), "f64")), c(0L, 2L))
+  })
+
+  it("rejects b that does not match a on the solved axis or the batch axes", {
+    expect_error(run_trsm(diag(3L), matrix(1, 3L, 2L), "f64", left_side = FALSE), "trsm requires b")
+    expect_error(run_trsm(array(1, c(2L, 3L, 3L)), array(1, c(3L, 3L, 2L)), "f64"), "trsm requires b")
+  })
+
+  it("rejects b or x of another dtype, and x of another shape", {
+    run <- function(b_spec, x_spec) {
+      run_linalg(
+        "trsm",
+        inputs = list(diag(3L), matrix(1, 3L, 2L)),
+        in_specs = list(list(dims = c(3L, 3L), dtype = "f64"), b_spec),
+        out_specs = list(x_spec),
+        attrs = list(backend_config = trsm_config),
+        in_layouts = rep(row_major_layout(2L), 2L),
+        out_layouts = row_major_layout(2L)
+      )
+    }
+    f64_3x2 <- list(dims = c(3L, 2L), dtype = "f64")
+    expect_error(run(list(dims = c(3L, 2L), dtype = "f32"), f64_3x2), "one dtype")
+    expect_error(run(f64_3x2, list(dims = c(3L, 2L), dtype = "f32")), "one dtype")
+    expect_error(run(f64_3x2, list(dims = c(3L, 1L), dtype = "f64")), "shape of b")
+  })
+})
