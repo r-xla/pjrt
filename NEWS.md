@@ -40,6 +40,8 @@
   a `!stablehlo.token`, so that a chain of prints runs in order.
 * Bugfix: `build_tree()`, `flatten()` and `dispatch()` raise an error for a
   value nested more than 1000 levels deep instead of crashing R.
+* Bugfix: `tree_concat()` rejects `names` that are not a character vector
+  instead of leaking memory.
 * Bugfix: a compile that fails after XLA compiled the program, such as an HLO
   program with input/output aliasing, no longer leaks the executable.
 * Bugfix: a buffer donated to an execution is freed instead of leaking its

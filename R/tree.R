@@ -39,8 +39,14 @@ flatten <- function(x) {
 #' dispatcher compiles them separately. Keep the aux data small and put the
 #' arrays among the children.
 #'
-#' An object is a node of the first of its classes that is registered.
-#' Registering a class again replaces its functions.
+#' An object is a node of the first of its classes that is registered. A
+#' registered class cannot be registered again: to change its functions,
+#' unregister it with `unregister_tree_node()` and register it anew. A tree
+#' keeps the registration it was built under: it unflattens and prints its
+#' objects with that registration's functions even after the class is
+#' unregistered, and it is not equal to a tree built under another
+#' registration of the class, so the dispatcher never serves an entry compiled
+#' under the old functions.
 #' @param class (`character(1)`)\cr
 #'   The class.
 #' @param flatten (`function`)\cr
@@ -195,8 +201,9 @@ tree_equal <- impl_tree_equal
 #' names, and the class and aux data of each object of a class registered with
 #' [register_tree_node()] -- consistent with [tree_equal()]: trees that are
 #' [tree_equal()] hash to the same value. Intended as a cache key for
-#' tree-structured dispatch within a session: a class folds in by its address,
-#' so the hash of a tree with registered objects differs between sessions.
+#' tree-structured dispatch within a session: a class folds in by the address
+#' of its registration, so the hash of a tree with registered objects differs
+#' between sessions.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`, the structural hash.
@@ -321,6 +328,7 @@ tree_filter_by_names <- function(tree, names) {
 #' @export
 tree_concat <- function(children, names = NULL) {
   checkmate::assert_list(children)
+  checkmate::assert_character(names, null.ok = TRUE)
   impl_tree_concat(children, names)
 }
 
@@ -346,12 +354,12 @@ tree_leaf_mask <- function(tree, groups) {
 #' @description
 #' A structural string for a tree: `"*"` for a leaf, `"NULL"` for an empty
 #' node, `"list(...)"` for list nodes, and for an object of a class registered
-#' with [register_tree_node()] whatever its `repr` makes of it (`"<cls>(...)"`
-#' once the class is no longer registered). A named list is tagged
-#' `"list<named>(...)"`, so that a list whose names are all empty is told apart
-#' from an unnamed one. The string is canonical -- trees that are not
-#' [tree_equal()] print differently -- as far as the `repr`s of their classes
-#' are.
+#' with [register_tree_node()] whatever its `repr` makes of it. A named list is
+#' tagged `"list<named>(...)"`, so that a list whose names are all empty is
+#' told apart from an unnamed one. The string is canonical -- trees that are
+#' not [tree_equal()] print differently -- as far as the `repr`s of their
+#' classes are, and except for trees built under two registrations of a class,
+#' which may print alike.
 #' @param tree (`RTree`)\cr
 #'   A tree as returned by [build_tree()].
 #' @return `character(1)`

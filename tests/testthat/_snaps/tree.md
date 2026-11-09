@@ -66,12 +66,13 @@
       [1] "point[in](x = *, y = *)"
       
 
-# register_tree_node / prints an object node generically once its class is unregistered
+# register_tree_node / refuses to register a class that is registered already
 
     Code
-      tree
-    Output
-      <point>(x = *, y = *)
+      register_tree_node("point", identity, identity, identity)
+    Condition
+      Error:
+      ! class "point" is registered already; unregister it with `unregister_tree_node()` first
 
 # register_tree_node / requires flatten to return list(children, aux)
 

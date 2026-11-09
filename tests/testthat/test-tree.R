@@ -230,6 +230,7 @@ test_that("tree_concat renumbers leaves contiguously across children", {
   expect_equal(unflatten(combined2, list("x", "y")), list("x", "y"))
 
   expect_error(tree_concat(list(build_tree(1)), names = c("a", "b")), "names")
+  expect_error(tree_concat(list(build_tree(1)), names = 1), "Must be of type 'character'")
 })
 
 test_that("tree_repr / format / print render R-idiomatic literals", {
@@ -567,13 +568,6 @@ describe("register_tree_node", {
     })
   })
 
-  it("prints an object node generically once its class is unregistered", {
-    local_point()
-    tree <- build_tree(point(1, 2))
-    unregister_tree_node("point")
-    expect_snapshot(tree)
-  })
-
   it("hands repr the children's strings, named as the children are, and the aux data", {
     seen <- list()
     register_tree_node(
@@ -671,17 +665,42 @@ describe("register_tree_node", {
     expect_identical(format(build_tree(point(point(1, 2, "inner"), 3, "outer"))), "point[outer](point[inner](*))")
   })
 
-  it("errors when unflattening an object whose class is no longer registered", {
+  it("refuses to register a class that is registered already", {
     local_point()
-    tree <- build_tree(point(1, 2))
+    expect_snapshot(register_tree_node("point", identity, identity, identity), error = TRUE)
+  })
+
+  it("unflattens and prints a tree with the registration it was built under", {
+    local_point()
+    tree <- build_tree(point(1, 2, "in"))
     unregister_tree_node("point")
-    expect_error(unflatten(tree, list(1, 2)), "no longer registered")
+    expect_equal(unflatten(tree, list(10, 20)), point(10, 20, "in"))
+    expect_identical(format(tree), "point[in](x = *, y = *)")
+    register_tree_node(
+      "point",
+      flatten = function(p) list(list(x = p$x, y = p$y), p$unit),
+      unflatten = function(children, unit) stop("not the registration the tree was built under"),
+      repr = function(children, unit) "not the registration the tree was built under"
+    )
+    expect_equal(unflatten(tree, list(10, 20)), point(10, 20, "in"))
+    expect_identical(format(tree), "point[in](x = *, y = *)")
+  })
+
+  it("tells apart trees built under two registrations of a class", {
+    local_point()
+    before <- build_tree(point(1, 2))
+    unregister_tree_node("point")
+    local_point()
+    after <- build_tree(point(1, 2))
+    expect_false(tree_equal(before, after))
+    expect_identical(tree_diff(before, after)$prefix, "")
   })
 
   it("requires flatten to return list(children, aux)", {
     register_tree_node("point", flatten = function(p) unclass(p), unflatten = identity, repr = toString)
     withr::defer(unregister_tree_node("point"))
     expect_snapshot(flatten(point(1, 2)), error = TRUE)
+    unregister_tree_node("point")
     register_tree_node("point", flatten = function(p) list(1, NULL), unflatten = identity, repr = toString)
     expect_snapshot(flatten(point(1, 2)), error = TRUE)
   })

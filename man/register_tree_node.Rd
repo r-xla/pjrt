@@ -46,8 +46,14 @@ The class and the aux data are part of the tree's structure, compared with
 dispatcher compiles them separately. Keep the aux data small and put the
 arrays among the children.
 
-An object is a node of the first of its classes that is registered.
-Registering a class again replaces its functions.
+An object is a node of the first of its classes that is registered. A
+registered class cannot be registered again: to change its functions,
+unregister it with \code{unregister_tree_node()} and register it anew. A tree
+keeps the registration it was built under: it unflattens and prints its
+objects with that registration's functions even after the class is
+unregistered, and it is not equal to a tree built under another
+registration of the class, so the dispatcher never serves an entry compiled
+under the old functions.
 }
 \examples{
 point <- function(x, y, unit) {

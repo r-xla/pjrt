@@ -1861,7 +1861,42 @@ describe("dispatch", {
     expect_identical(dispatcher_size(d), 2L)
   })
 
-  it("rebuilds an object result, and runs on_success only once it has", {
+  it("serves no entry compiled under an earlier registration of an argument's class", {
+    pair <- function(a, b) structure(list(a = a, b = b), class = "pair")
+    withr::defer(unregister_tree_node("pair"))
+    d <- new_dispatcher(
+      10L,
+      function(info) {
+        tree <- info$in_tree
+        list(r_fun = function(flat) unflatten(tree, flat)$p$a)
+      },
+      character(0),
+      "closure",
+      "quickr",
+      FALSE,
+      test_quickr_device
+    )
+    p <- pair(qarr(1), qarr(2))
+    register_tree_node(
+      "pair",
+      flatten = function(p) list(list(u = p$a, v = p$b), NULL),
+      unflatten = function(children, aux) pair(children$u, children$v),
+      repr = function(children, aux) "pair"
+    )
+    expect_identical(dispatch(d, list(p = p)), 1)
+    # the same structure, with the children the other way around
+    unregister_tree_node("pair")
+    register_tree_node(
+      "pair",
+      flatten = function(p) list(list(u = p$b, v = p$a), NULL),
+      unflatten = function(children, aux) pair(children$v, children$u),
+      repr = function(children, aux) "pair"
+    )
+    expect_identical(dispatch(d, list(p = p)), 1)
+    expect_identical(dispatcher_size(d), 2L)
+  })
+
+  it("rebuilds an object result after on_success has run", {
     skip_if_not(plugins_downloaded())
     local_box()
     n_success <- 0L
@@ -1889,8 +1924,9 @@ describe("dispatch", {
     withr::defer({
       env$fail <- FALSE
     })
+    # the program has run, so its side effects are committed all the same
     expect_error(dispatch(d, list(x = x)), "cannot rebuild the box")
-    expect_identical(n_success, 1L)
+    expect_identical(n_success, 2L)
   })
 
   it("compiles a new entry when the context names a new implicit input type", {
