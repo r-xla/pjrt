@@ -14,6 +14,8 @@
 
 * `register_tree_node()` makes the objects of a class nodes of a tree, with aux
   data and a printer, which `flatten()` and the dispatcher recurse into.
+* `flatten()` and `build_tree()` take an `is_leaf` predicate, whose values are
+  leaves rather than nodes, as with JAX's `tree_flatten(is_leaf = )`.
 * A `dispatcher()`'s `compile` callback can return
   `uses_default_device = FALSE` to have an entry that fixes its own device
   served under any default device, instead of recompiled when it changes.

@@ -483,6 +483,40 @@ test_that("property: random nested structures round-trip", {
   }
 })
 
+describe("flatten", {
+  it("makes the values is_leaf is TRUE for leaves", {
+    x <- list(a = 1, b = list(c = 2, d = 3))
+    expect_identical(flatten(x, is_leaf = function(v) identical(v, x$b)), list(1, list(c = 2, d = 3)))
+    # the whole value too
+    expect_identical(flatten(x, is_leaf = is.list), list(x))
+    expect_identical(flatten(x, is_leaf = function(v) FALSE), flatten(x))
+  })
+
+  it("stops at an object of a registered class that is_leaf is TRUE for", {
+    register_tree_node(
+      "pair",
+      flatten = function(p) list(list(p$a, p$b), NULL),
+      unflatten = function(children, aux) structure(list(a = children[[1L]], b = children[[2L]]), class = "pair"),
+      repr = function(children, aux) "pair"
+    )
+    withr::defer(unregister_tree_node("pair"))
+    p <- structure(list(a = 1, b = 2), class = "pair")
+    x <- list(p, 3)
+    expect_identical(flatten(x), list(1, 2, 3))
+    is_pair <- function(v) inherits(v, "pair")
+    expect_identical(flatten(x, is_leaf = is_pair), list(p, 3))
+    # build_tree() agrees, so the two round-trip
+    tree <- build_tree(x, is_leaf = is_pair)
+    expect_identical(tree_size(tree), 2L)
+    expect_identical(unflatten(tree, flatten(x, is_leaf = is_pair)), x)
+  })
+
+  it("refuses an is_leaf that does not return TRUE or FALSE", {
+    expect_error(flatten(list(1), is_leaf = function(v) NA), "must return TRUE or FALSE")
+    expect_error(flatten(list(1), is_leaf = 1))
+  })
+})
+
 describe("print.RTree", {
   it("prints the structure of a tree", {
     expect_snapshot({

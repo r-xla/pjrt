@@ -12,6 +12,12 @@
 #' with [unflatten()].
 #' @param x (any)\cr
 #'   Object to flatten.
+#' @param is_leaf (`function` | `NULL`)\cr
+#'   Called on every value the walk meets other than `NULL`, the list `x`
+#'   included; a value it returns `TRUE` for is a leaf, even a list or an
+#'   object of a registered class, as with JAX's `tree_flatten(is_leaf = )`.
+#'   Must return `TRUE` or `FALSE`. `NULL` (default) recurses into every list
+#'   and registered object.
 #' @return `list()` containing the flattened values.
 #' @seealso [build_tree()], [unflatten()], [tree_size()]
 #' @examples
@@ -19,9 +25,15 @@
 #' flatten(x)
 #'
 #' flatten(list(1:3, "hello"))
+#'
+#' # stop at the list `b`
+#' flatten(x, is_leaf = function(v) identical(v, x$b))
 #' @export
-flatten <- function(x) {
-  impl_tree_build_flatten(x)$leaves
+flatten <- function(x, is_leaf = NULL) {
+  if (!is.null(is_leaf)) {
+    checkmate::assert_function(is_leaf)
+  }
+  impl_tree_build_flatten(x, is_leaf)$leaves
 }
 
 #' @title Register a Class as a Tree Node
@@ -118,6 +130,9 @@ unregister_tree_node <- function(class) {
 #'   Object whose structure to capture. Bare lists and objects of a class
 #'   registered with [register_tree_node()] are recursed into;
 #'   everything else is a leaf.
+#' @param is_leaf (`function` | `NULL`)\cr
+#'   As for [flatten()]: a value it returns `TRUE` for is a leaf. Pass the same
+#'   one to both, so that the tree and the flat list agree.
 #' @return A `RTree`.
 #' @seealso [flatten()], [unflatten()], [tree_size()]
 #' @examples

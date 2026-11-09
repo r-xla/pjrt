@@ -825,24 +825,26 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_tree_build
-SEXP impl_tree_build(SEXP x);
-RcppExport SEXP _pjrt_impl_tree_build(SEXP xSEXP) {
+SEXP impl_tree_build(SEXP x, SEXP is_leaf);
+RcppExport SEXP _pjrt_impl_tree_build(SEXP xSEXP, SEXP is_leafSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_tree_build(x));
+    Rcpp::traits::input_parameter< SEXP >::type is_leaf(is_leafSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_tree_build(x, is_leaf));
     return rcpp_result_gen;
 END_RCPP
 }
 // impl_tree_build_flatten
-Rcpp::List impl_tree_build_flatten(SEXP x);
-RcppExport SEXP _pjrt_impl_tree_build_flatten(SEXP xSEXP) {
+Rcpp::List impl_tree_build_flatten(SEXP x, SEXP is_leaf);
+RcppExport SEXP _pjrt_impl_tree_build_flatten(SEXP xSEXP, SEXP is_leafSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_tree_build_flatten(x));
+    Rcpp::traits::input_parameter< SEXP >::type is_leaf(is_leafSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_tree_build_flatten(x, is_leaf));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1115,8 +1117,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_get_orgqr_handler_cuda", (DL_FUNC) &_pjrt_get_orgqr_handler_cuda, 0},
     {"_pjrt_get_svd_handler", (DL_FUNC) &_pjrt_get_svd_handler, 0},
     {"_pjrt_get_svd_handler_cuda", (DL_FUNC) &_pjrt_get_svd_handler_cuda, 0},
-    {"_pjrt_impl_tree_build", (DL_FUNC) &_pjrt_impl_tree_build, 1},
-    {"_pjrt_impl_tree_build_flatten", (DL_FUNC) &_pjrt_impl_tree_build_flatten, 1},
+    {"_pjrt_impl_tree_build", (DL_FUNC) &_pjrt_impl_tree_build, 2},
+    {"_pjrt_impl_tree_build_flatten", (DL_FUNC) &_pjrt_impl_tree_build_flatten, 2},
     {"_pjrt_impl_tree_unflatten", (DL_FUNC) &_pjrt_impl_tree_unflatten, 2},
     {"_pjrt_impl_tree_size", (DL_FUNC) &_pjrt_impl_tree_size, 1},
     {"_pjrt_impl_tree_equal", (DL_FUNC) &_pjrt_impl_tree_equal, 2},

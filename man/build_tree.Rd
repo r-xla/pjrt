@@ -4,13 +4,17 @@
 \alias{build_tree}
 \title{Build Tree}
 \usage{
-build_tree(x)
+build_tree(x, is_leaf = NULL)
 }
 \arguments{
 \item{x}{(any)\cr
 Object whose structure to capture. Bare lists and objects of a class
 registered with \code{\link[=register_tree_node]{register_tree_node()}} are recursed into;
 everything else is a leaf.}
+
+\item{is_leaf}{(\code{function} | \code{NULL})\cr
+As for \code{\link[=flatten]{flatten()}}: a value it returns \code{TRUE} for is a leaf. Pass the same
+one to both, so that the tree and the flat list agree.}
 }
 \value{
 A \code{RTree}.

@@ -285,12 +285,12 @@ get_svd_handler_cuda <- function() {
     .Call(`_pjrt_get_svd_handler_cuda`)
 }
 
-impl_tree_build <- function(x) {
-    .Call(`_pjrt_impl_tree_build`, x)
+impl_tree_build <- function(x, is_leaf = NULL) {
+    .Call(`_pjrt_impl_tree_build`, x, is_leaf)
 }
 
-impl_tree_build_flatten <- function(x) {
-    .Call(`_pjrt_impl_tree_build_flatten`, x)
+impl_tree_build_flatten <- function(x, is_leaf = NULL) {
+    .Call(`_pjrt_impl_tree_build_flatten`, x, is_leaf)
 }
 
 impl_tree_unflatten <- function(tree, x) {

@@ -138,15 +138,19 @@ inline std::size_t count_kind(const RTree& tree, RTree::Kind kind,
 // error instead.
 inline constexpr int kMaxTreeDepth = 1000;
 
+// `is_leaf`, an R function or R_NilValue, makes every value it returns TRUE
+// for a leaf rather than a node to recurse into (see ?flatten).
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
-                        std::vector<Rcpp::RObject>& keep, int depth = 0);
+                        std::vector<Rcpp::RObject>& keep, int depth = 0,
+                        SEXP is_leaf = R_NilValue);
 
 // Append a node with the children `x` (a list, possibly named) to `tree` and
 // recurse into them; `kind` says what node it is, and `depth` its nesting
 // within the value being flattened.
 inline void flatten_children(SEXP x, RTree::Kind kind,
                              std::vector<SEXP>& leaves, RTree& tree,
-                             std::vector<Rcpp::RObject>& keep, int depth) {
+                             std::vector<Rcpp::RObject>& keep, int depth,
+                             SEXP is_leaf) {
   if (depth >= kMaxTreeDepth) {
     Rcpp::stop("tree is nested more than %d levels deep", kMaxTreeDepth);
   }
@@ -171,7 +175,7 @@ inline void flatten_children(SEXP x, RTree::Kind kind,
     tree.name_off.push_back(-1);
   }
   for (R_xlen_t k = 0; k < n; ++k) {
-    flatten_rec(VECTOR_ELT(x, k), leaves, tree, keep, depth + 1);
+    flatten_rec(VECTOR_ELT(x, k), leaves, tree, keep, depth + 1, is_leaf);
   }
   tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
 }
@@ -180,7 +184,8 @@ inline void flatten_children(SEXP x, RTree::Kind kind,
 // a registered class's `flatten` returns is kept alive in `keep`, as the leaves
 // may point into it.
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
-                        std::vector<Rcpp::RObject>& keep, int depth) {
+                        std::vector<Rcpp::RObject>& keep, int depth,
+                        SEXP is_leaf) {
   if (x == R_NilValue) {
     tree.kind.push_back(RTree::NullNode);
     tree.n_children.push_back(0);
@@ -188,11 +193,22 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
     tree.name_off.push_back(-1);
     return;
   }
-  if (is_bare_list(x)) {
-    flatten_children(x, RTree::ListNode, leaves, tree, keep, depth);
+  bool leaf = false;
+  if (is_leaf != R_NilValue) {
+    Rcpp::Function pred(is_leaf);
+    Rcpp::RObject res = pred(x);
+    if (TYPEOF(res) != LGLSXP || XLENGTH(res) != 1 ||
+        LOGICAL(res)[0] == NA_LOGICAL) {
+      Rcpp::stop("`is_leaf` must return TRUE or FALSE");
+    }
+    leaf = LOGICAL(res)[0] == TRUE;
+  }
+  if (!leaf && is_bare_list(x)) {
+    flatten_children(x, RTree::ListNode, leaves, tree, keep, depth, is_leaf);
     return;
   }
-  if (std::shared_ptr<const TreeNodeType> type = tree_node_class(x)) {
+  if (std::shared_ptr<const TreeNodeType> type =
+          leaf ? nullptr : tree_node_class(x)) {
     // `type` keeps the registration alive while `flatten`, being R code, may
     // unregister the class.
     Rcpp::Function flatten(type->flatten);
@@ -208,7 +224,7 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
     tree.objects.push_back(
         {std::move(type), Rcpp::RObject(VECTOR_ELT(res, 1))});
     flatten_children(VECTOR_ELT(res, 0), RTree::ObjectNode, leaves, tree, keep,
-                     depth);
+                     depth, is_leaf);
     return;
   }
   tree.kind.push_back(RTree::LeafNode);

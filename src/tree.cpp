@@ -310,12 +310,12 @@ static void require_node(const RTree& t, const char* what) {
 }  // namespace rpjrt
 
 // [[Rcpp::export]]
-SEXP impl_tree_build(SEXP x) {
+SEXP impl_tree_build(SEXP x, SEXP is_leaf = R_NilValue) {
   using namespace rpjrt;
   auto tree = std::make_unique<RTree>();
   std::vector<SEXP> leaves;
   std::vector<Rcpp::RObject> keep;
-  flatten_rec(x, leaves, *tree, keep);
+  flatten_rec(x, leaves, *tree, keep, 0, is_leaf);
   return tree_xptr(tree.release());
 }
 
@@ -324,12 +324,12 @@ SEXP impl_tree_build(SEXP x) {
 // point: flatten() keeps just `$leaves`, while map_tree()/pmap_tree() use both
 // -- one walk regardless of which is needed.
 // [[Rcpp::export]]
-Rcpp::List impl_tree_build_flatten(SEXP x) {
+Rcpp::List impl_tree_build_flatten(SEXP x, SEXP is_leaf = R_NilValue) {
   using namespace rpjrt;
   auto tree = std::make_unique<RTree>();
   std::vector<SEXP> leaves;
   std::vector<Rcpp::RObject> keep;
-  flatten_rec(x, leaves, *tree, keep);
+  flatten_rec(x, leaves, *tree, keep, 0, is_leaf);
   Rcpp::List out(leaves.size());
   for (std::size_t k = 0; k < leaves.size(); ++k) out[k] = leaves[k];
   return Rcpp::List::create(Rcpp::Named("tree") = tree_xptr(tree.release()),
