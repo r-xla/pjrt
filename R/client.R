@@ -19,17 +19,29 @@
 #'   `integer(1)` an integer option (or an enum by number), a `double(1)` a floating-point
 #'   option, and a `character(1)` is parsed by the option's type -- `"True"` or `"False"`, a
 #'   number, the name of an enum value, or a comma-separated list for a repeated option, which
-#'   replaces its whole value. So an integer option takes `3L` or `"3"`, but not `3`. XLA
-#'   reports an unknown name or a value of the wrong type when compiling.
+#'   replaces its whole value. So an integer option takes `3L` or `"3"`, but not `3`, and a
+#'   single-precision option takes a `double(1)` only if it is positive, so `0` or a negative
+#'   value has to be given as a string, e.g. `"0"`. XLA reports an unknown name or a value of the
+#'   wrong type when compiling.
 #'
 #'   An option of map type, such as `xla_backend_extra_options`, takes a `character(1)` in
 #'   `XLA_FLAGS` syntax: comma-separated entries `key=value`, or `key` for an empty value, e.g.
-#'   `"xla_cpu_use_multi_output_fusion"` or `"a,b=1"`. Its entries are added to those the plugin
-#'   applies by default, so entries set through `XLA_FLAGS` are kept. XLA's overrides cannot set
-#'   a map, so pjrt reads the plugin's default `DebugOptions` back from a small program it
-#'   compiles once per client, adds the entries and sends the result. This needs a plugin that
-#'   reports the compile options it applies, which the CPU plugin does and the CUDA plugin does
-#'   not; there, set the option through `XLA_FLAGS` before the plugin is loaded.
+#'   `"xla_cpu_use_multi_output_fusion"`. Its entries are added to those the plugin applies by
+#'   default, so entries set through `XLA_FLAGS` are kept. XLA does not check the entries: it
+#'   ignores a key it does not know, and some keys count by their presence alone, so
+#'   `"xla_cpu_use_multi_output_fusion=false"` turns that option on as well. On the CPU, XLA hands
+#'   a key that does not start with `xla_` to LLVM, which ends the R process if it does not know
+#'   the key.
+#'
+#'   XLA's overrides cannot set a map, so pjrt reads the plugin's `DebugOptions`, with
+#'   `XLA_FLAGS` applied, back from a small program it compiles once per client, adds the entries
+#'   and sends the whole set. That differs from a compilation without map options in a few ways:
+#'   XLA reads some options only when a compilation sends such a set (with `xla_dump_to`, it then
+#'   also writes the compilation's inputs, and it dumps the small program too), and with
+#'   `--xla_flags_reset=true` a later change to `XLA_FLAGS` does not reach compilations with map
+#'   options. Reading the set back needs a plugin that reports the compile options it applies,
+#'   which the CPU plugin does and the CUDA plugin does not; there, set the option through
+#'   `XLA_FLAGS` before the plugin is loaded.
 #' @return `PJRTExecutable`
 #' @examplesIf plugins_downloaded()
 #' # Create a simple program
