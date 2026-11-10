@@ -10,9 +10,6 @@
 - [`as_array(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/reference/as_array.PJRTBuffer.md)
   : Convert a PJRTBuffer to an R Array
 
-- [`as_array_async()`](https://r-xla.github.io/pjrt/reference/as_array_async.md)
-  : Convert buffer to R array asynchronously
-
 - [`as_pjrt_client()`](https://r-xla.github.io/pjrt/reference/as_pjrt_client.md)
   : Convert to PJRT Client
 
@@ -121,6 +118,10 @@
 - [`print(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/reference/print.PJRTBuffer.md)
   : Print a PJRT Buffer
 
+- [`register_tree_node()`](https://r-xla.github.io/pjrt/reference/register_tree_node.md)
+  [`unregister_tree_node()`](https://r-xla.github.io/pjrt/reference/register_tree_node.md)
+  : Register a Class as a Tree Node
+
 - [`tree_child_kinds()`](https://r-xla.github.io/pjrt/reference/tree_child_kinds.md)
   : Top-Level Child Kinds
 
@@ -152,7 +153,7 @@
   Tree Path
 
 - [`tree_repr()`](https://r-xla.github.io/pjrt/reference/tree_repr.md) :
-  Canonical Tree Representation
+  Tree Representation
 
 - [`tree_root_kind()`](https://r-xla.github.io/pjrt/reference/tree_root_kind.md)
   : Tree Root Node Kind
@@ -162,6 +163,3 @@
 
 - [`unflatten()`](https://r-xla.github.io/pjrt/reference/unflatten.md) :
   Unflatten
-
-- [`value()`](https://r-xla.github.io/pjrt/reference/value.md) : Get the
-  value of an async operation

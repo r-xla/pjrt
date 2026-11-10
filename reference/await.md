@@ -2,6 +2,13 @@
 
 Block until the async operation is complete and return the object.
 
+For a
+[`PJRTBuffer`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md),
+waits for its computation or transfer. For an array returned by
+[`as_array(x, await = FALSE)`](https://r-xla.github.io/pjrt/reference/as_array.PJRTBuffer.md),
+waits for its transfer to the host and materializes the array. Any other
+R object is returned as is.
+
 ## Usage
 
 ``` r

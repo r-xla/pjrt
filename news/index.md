@@ -1,5 +1,93 @@
 # Changelog
 
+## pjrt 0.7.0
+
+### Breaking changes
+
+- The boolean data type is now named `"bool"` everywhere.
+- The `"AnvlArray"`s the dispatcher wraps its outputs in no longer carry
+  a `$device` field; read the device off `$data`.
+- `as_array_async()` is removed; use `as_array(x, await = FALSE)`, which
+  returns an R array whose values materialize when first read instead of
+  a `PJRTArrayPromise`. `value()` is removed, use the array directly or
+  [`await()`](https://r-xla.github.io/pjrt/reference/await.md) it.
+
+### New features
+
+- [`pjrt_compile()`](https://r-xla.github.io/pjrt/reference/pjrt_compile.md)
+  gains `xla_options`, XLA compiler options for that compilation only.
+- [`register_tree_node()`](https://r-xla.github.io/pjrt/reference/register_tree_node.md)
+  makes the objects of a class nodes of a tree, with aux data and a
+  printer, which
+  [`flatten()`](https://r-xla.github.io/pjrt/reference/flatten.md) and
+  the dispatcher recurse into.
+- [`flatten()`](https://r-xla.github.io/pjrt/reference/flatten.md) and
+  [`build_tree()`](https://r-xla.github.io/pjrt/reference/build_tree.md)
+  take an `is_leaf` predicate, whose values are leaves rather than
+  nodes, as with JAX’s `tree_flatten(is_leaf = )`.
+- A
+  [`dispatcher()`](https://r-xla.github.io/pjrt/reference/dispatcher.md)’s
+  `compile` callback can return `uses_default_device = FALSE` to have an
+  entry that fixes its own device served under any default device,
+  instead of recompiled when it changes.
+- [`pjrt_register_custom_call()`](https://r-xla.github.io/pjrt/reference/pjrt_register_custom_call.md)
+  accepts the `NativeSymbol` objects returned by
+  [`getNativeSymbolInfo()`](https://rdrr.io/r/base/getNativeSymbolInfo.html),
+  so a handler needs no C glue to pass its address.
+- A
+  [`dispatcher()`](https://r-xla.github.io/pjrt/reference/dispatcher.md)
+  compile callback can declare `implicit_inputs` and `implicit_outputs`,
+  values the program takes and returns beyond the call’s arguments and
+  result, and an `on_success` function that receives the implicit
+  outputs and the call’s arguments after every successful run. An
+  implicit input’s [`get()`](https://rdrr.io/r/base/get.html) returns
+  the buffer to pass on.
+- `PJRTBuffer`s can now be serialized, e.g. with
+  [`saveRDS()`](https://rdrr.io/r/base/readRDS.html); they load onto the
+  default device.
+- `PJRTBuffer` supports the `"bf16"` (bfloat16) element type.
+- `PJRTBuffer` supports the `"f16"` (IEEE 754 binary16) element type.
+- Bugfix: the `lu` custom call factorises a singular matrix instead of
+  failing with `getrf failed with info = <k>`.
+- New built-in `potrf` custom call: a batched Cholesky factorisation
+  through LAPACK on the host and cuSOLVER on CUDA, reporting each
+  matrix’s `info` instead of failing on one that is not positive
+  definite.
+- New built-in `trsm` custom call: a batched triangular solve through
+  BLAS on the host, standing in for `stablehlo.triangular_solve`, which
+  XLA’s CPU backend expands into much slower HLO.
+- New custom call `print_tensor_ordered`: `print_tensor` that takes and
+  returns a `!stablehlo.token`, so that a chain of prints runs in order.
+- Bugfix:
+  [`build_tree()`](https://r-xla.github.io/pjrt/reference/build_tree.md),
+  [`flatten()`](https://r-xla.github.io/pjrt/reference/flatten.md) and
+  [`dispatch()`](https://r-xla.github.io/pjrt/reference/dispatch.md)
+  raise an error for a value nested more than 1000 levels deep instead
+  of crashing R.
+- Bugfix:
+  [`tree_concat()`](https://r-xla.github.io/pjrt/reference/tree_concat.md)
+  rejects `names` that are not a character vector instead of leaking
+  memory.
+- Bugfix: a compile that fails after XLA compiled the program, such as
+  an HLO program with input/output aliasing, no longer leaks the
+  executable.
+- Bugfix: a buffer donated to an execution is freed instead of leaking
+  its PJRT handle.
+- Bugfix: the `gesdd`, `syevd`, `geqrf` and `orgqr` custom calls raise
+  an error for a matrix whose LAPACK workspace exceeds the int range,
+  instead of passing LAPACK a garbage workspace size.
+- Reading a buffer back to R no longer transposes it on the host: PJRT
+  copies it in column-major order directly
+  ([\#50](https://github.com/r-xla/pjrt/issues/50)).
+- Bugfix: printing a buffer, and copying it to another client, respect a
+  non-row-major device layout.
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  reads `f64`, `i32`, `i64` and `ui64` buffers straight into the result
+  vector instead of through a host-side copy.
+- Updated the XLA CPU plugin. This fixes loops that stack per-step
+  outputs taking quadratic time and an inaccurate
+  [`log1p()`](https://rdrr.io/r/base/Log.html).
+
 ## pjrt 0.6.0
 
 ### Breaking changes
@@ -11,7 +99,7 @@
 - Removed support for the ambiguity concept in the dispatcher and
   replaced it with support for `rdata` objects. This enables the
   improved precision semantics in anvl.
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html)’s
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)’s
   `check` argument is now `"warn"` (the default), `"err"` or `FALSE`,
   and a value R’s type cannot hold is reported instead of returned
   silently. Write `check = "err"` where you wrote `check = TRUE`.
@@ -21,7 +109,7 @@
   no longer take a `check` argument; what happens to an `NA` is fixed by
   the dtype.
 
-### Fetures
+### Features
 
 - New
   [`platform_support()`](https://r-xla.github.io/pjrt/reference/platform_support.md)
@@ -61,14 +149,15 @@
   same bits read unsigned are the ordinary value `2^63`.
 - Uploading an `NA` at dtype `"pred"` is now an error. It previously
   became `TRUE`, silently.
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) on a
-  donated buffer with two or more axes now errors instead of crashing R.
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  on a donated buffer with two or more axes now errors instead of
+  crashing R.
 - Large float buffers now print correctly.
 - Improved input checks in buffer creation functions.
 
 ### Other
 
-- pjrt no longer Suggests anvl and stablehlo for it’s tests and the
+- pjrt no longer Suggests anvl and stablehlo for its tests and the
   integration tests are moved to {anvl}.
 
 ## pjrt 0.5.0
@@ -157,14 +246,15 @@
 - Added support for the `bit64` package to better support long integers.
 - [`pjrt_buffer()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md),
   [`pjrt_scalar()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md),
-  and [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) gain
-  a `check` argument (default `FALSE`). When `TRUE`, the call errors
-  instead of silently losing information: on input if `data` contains
-  `NA`s, on output if the materialized R vector contains a value that’s
-  indistinguishable from `NA` or that has wrapped through the integer
-  container.
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) on a
-  `ui32` buffer now returns a
+  and
+  [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  gain a `check` argument (default `FALSE`). When `TRUE`, the call
+  errors instead of silently losing information: on input if `data`
+  contains `NA`s, on output if the materialized R vector contains a
+  value that’s indistinguishable from `NA` or that has wrapped through
+  the integer container.
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  on a `ui32` buffer now returns a
   [`bit64::integer64`](https://bit64.r-lib.org/reference/bit64-package.html)
   instead of a base `integer`, so values `>= 2^31` round-trip losslessly
   rather than wrapping to negative.
@@ -215,20 +305,18 @@ considerable performance benefits, especially on GPU. Specifically:
   [`await()`](https://r-xla.github.io/pjrt/reference/await.md). However,
   this is handled within PJRT, so this function never has to be called
   by a user.
-- [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) is still
-  synchronous, but there is now the asynchronous version
-  [`as_array_async()`](https://r-xla.github.io/pjrt/reference/as_array_async.md)
-  but this is rarely needed. If used, it returns a `PJRTArrayPromise`
-  object which can be converted to an R `array`/`vector` via
-  [`value()`](https://r-xla.github.io/pjrt/reference/value.md).
+- [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+  is still synchronous, but there is now the asynchronous version
+  `as_array_async()` but this is rarely needed. If used, it returns a
+  `PJRTArrayPromise` object which can be converted to an R
+  `array`/`vector` via `value()`.
 - To check whether a `PJRTBuffer` or `PJRTArrayPromise` is ready, use
   [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md).
 
 ### Features
 
-- Added `dtype` support for `PJRTBuffer`s via the
-  [`tengen::dtype`](https://r-xla.github.io/tengen/reference/dtype.html)
-  S3 generic. `"bool"` is now accepted as an alias for `"i1"`/`"pred"`.
+- Added `dtype` support for `PJRTBuffer`s via the `tengen::dtype` S3
+  generic. `"bool"` is now accepted as an alias for `"i1"`/`"pred"`.
 - Accept `DataType` objects in the `dtype` parameter of
   [`pjrt_buffer()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md).
 - Support `device` argument in

@@ -1,7 +1,8 @@
 # Compare Tree Structures
 
 Structural equality of two trees: identical node kinds, child structure,
-leaf positions, and names.
+leaf positions, names, and the classes and aux data of object nodes (see
+[`register_tree_node()`](https://r-xla.github.io/pjrt/reference/register_tree_node.md)).
 
 `a == b` (and `a != b`) is shorthand for this, except that comparing a
 tree with a non-tree is `FALSE` instead of an error.

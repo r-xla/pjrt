@@ -2,7 +2,8 @@
 
 Keeps only the top-level children whose names match `names` (in tree
 order), reindexing the remaining leaves so they map to contiguous
-positions in a flat list.
+positions in a flat list. The kept children are put under a list root,
+also when the root of `tree` is an object node.
 
 ## Usage
 
@@ -15,7 +16,7 @@ tree_filter_by_names(tree, names)
 - tree:
 
   (`RTree`)  
-  A named list tree as returned by
+  A tree whose root is a named list or object node, as returned by
   [`build_tree()`](https://r-xla.github.io/pjrt/reference/build_tree.md).
 
 - names:

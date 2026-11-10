@@ -99,8 +99,8 @@ device(buf)
 ```
 
 To move data back to the host, use
-[`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html). This
-blocks until the data is available:
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html).
+This blocks until the data is available:
 
 ``` r
 
@@ -165,7 +165,7 @@ Single outputs are unpacked by default; set `simplify = FALSE` to always
 get a list.
 
 To retrieve the result as an R array, call
-[`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html):
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html):
 
 ``` r
 
@@ -199,7 +199,7 @@ return `PJRTBuffer` objects immediately without blocking R. The buffer
 may not be ready yet, but you can pass it directly to other operations.
 You only pay the synchronization cost when you actually need the
 host-side result (e.g. calling
-[`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html)).
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)).
 
 ### Async types
 
@@ -207,27 +207,25 @@ host-side result (e.g. calling
 |----|----|----|
 | [`pjrt_buffer()`](https://r-xla.github.io/pjrt/reference/pjrt_buffer.md) | `PJRTBuffer` | Host-to-device transfer |
 | [`pjrt_execute()`](https://r-xla.github.io/pjrt/reference/pjrt_execute.md) | `PJRTBuffer` | Program execution |
-| [`as_array_async()`](https://r-xla.github.io/pjrt/reference/as_array_async.md) | `PJRTArrayPromise` | Device-to-host transfer |
+| `as_array(x, await = FALSE)` | R `array` | Device-to-host transfer |
 
 `PJRTBuffer` is a transparent async type — it can be used directly in
 operations even if the underlying computation hasn’t completed yet. PJRT
 handles the dependencies internally.
 
-`PJRTArrayPromise` represents data in transit from device to host.
-Because R arrays are plain R objects (not under our control like
-`PJRTBuffer`), we need a separate promise type to represent “array that
-isn’t ready yet.” This is why there are two functions for
-synchronization:
+`as_array(x, await = FALSE)` returns an ordinary-looking R array whose
+data is still in transit from device to host. Its type, `dim` and class
+are there right away; the first time its values are read, R blocks until
+the transfer has completed. Both kinds of async values support the same
+two functions:
 
-- `await(x)` — block until a `PJRTBuffer` is ready on the device. Pure
-  synchronization; no data leaves the device. Useful for timing or error
-  checking, but **not required** before passing a buffer to
+- `await(x)` — block until `x` is ready. For a `PJRTBuffer`, this is
+  pure synchronization; no data leaves the device. Useful for timing or
+  error checking, but **not required** before passing a buffer to
   [`pjrt_execute()`](https://r-xla.github.io/pjrt/reference/pjrt_execute.md).
-- `value(x)` — block until a `PJRTArrayPromise` completes, then
-  materialize and return the R array. This is how you get data out of
-  the device.
-
-Both types also support `is_ready(x)` for non-blocking readiness checks.
+  For an array from `as_array(x, await = FALSE)`, it waits for the
+  transfer.
+- `is_ready(x)` — non-blocking readiness check.
 
 ### Chaining operations
 
@@ -265,14 +263,18 @@ exec2 <- pjrt_compile(pjrt_program(src2))
 # Full async pipeline: transfer -> execute -> transfer back
 buf <- pjrt_buffer(matrix(runif(1e6), 1000, 1000), dtype = "f32")
 result <- pjrt_execute(exec2, buf)
-async_output <- as_array_async(result)   # returns immediately
+async_output <- as_array(result, await = FALSE) # returns immediately
 
 # R can do other work here...
 
-# Block only when we need the final R array
-output <- value(async_output)
-dim(output)
-#> [1] 1000 1000
+is_ready(async_output)
+#> [1] TRUE
+
+# Reading the values blocks until the transfer is done
+async_output[1:2, 1:2]
+#>           [,1]      [,2]
+#> [1,] 0.1615003 0.4767595
+#> [2,] 1.6686661 0.8233600
 ```
 
 ### When does blocking happen?
@@ -282,16 +284,17 @@ Blocking occurs when:
 1.  Calling [`await()`](https://r-xla.github.io/pjrt/reference/await.md)
     on a buffer
 2.  Calling
-    [`as_array()`](https://rdrr.io/pkg/xlamisc/man/as_array.html) on a
-    buffer
-3.  Calling [`value()`](https://r-xla.github.io/pjrt/reference/value.md)
-    on a `PJRTArrayPromise`
+    [`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
+    on a buffer
+3.  Reading the values of an array returned by
+    `as_array(x, await = FALSE)`
 4.  Printing a buffer (needs to read values to display them)
 
-Operations like [`shape()`](https://rdrr.io/pkg/xlamisc/man/shape.html),
+Operations like
+[`shape()`](https://r-xla.github.io/xlamisc/reference/shape.html),
 [`elt_type()`](https://r-xla.github.io/pjrt/reference/elt_type.md), and
-[`device()`](https://rdrr.io/pkg/xlamisc/man/device.html) do **not**
-block — buffer metadata is available immediately.
+[`device()`](https://r-xla.github.io/xlamisc/reference/device.html) do
+**not** block — buffer metadata is available immediately.
 
 ### Writing efficient loops
 

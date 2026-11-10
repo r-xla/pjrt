@@ -15,7 +15,7 @@ tree_leaf_mask(tree, groups)
 - tree:
 
   (`RTree`)  
-  A tree whose root is a list node.
+  A tree whose root is a list or object node.
 
 - groups:
 

@@ -58,7 +58,8 @@ scattered across various websites. The options include:
   non-interactive one, so a script never triggers a surprise download.
 
 - `PJRT_ZML_ARTIFACT_VERSION`: Version of ZML artifacts to download.
-  Only used when downloading plugins from zml/pjrt-artifacts.
+  Only used for the CUDA plugin, which is downloaded from
+  zml/pjrt-artifacts.
 
 - `PJRT_CPU_DEVICE_COUNT`: The number of CPU devices to use. Defaults
   to 1. This is primarily intended for testing purposes.
@@ -119,3 +120,6 @@ Other contributors:
 - The OpenXLA Authors (Authors of the PJRT C API and XLA FFI headers in
   inst/include and the XLA protobuf definitions in inst/proto
   (Apache-2.0); see inst/COPYRIGHTS) \[copyright holder\]
+
+- Christian Rau (Author of the half-precision library half.hpp bundled
+  in src/half (MIT); see inst/COPYRIGHTS) \[copyright holder\]

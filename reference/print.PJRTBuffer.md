@@ -28,7 +28,8 @@ print(
 - max_rows:
 
   (`integer(1)`)  
-  The maximum number of rows to print, excluding header and footer.
+  The maximum number of rows to print, excluding header and footer. Set
+  to `-1` for no limit.
 
 - max_width:
 
@@ -42,7 +43,8 @@ print(
 - max_rows_slice:
 
   (`integer(1)`)  
-  The maximum number of rows to print for each slice.
+  The maximum number of rows to print for each slice. Set to `-1` for no
+  limit.
 
 - header:
 

@@ -1,6 +1,6 @@
 # NA
 
-@../claude-config/CLAUDE.md
+@../claude-config/AGENTS.md
 
 ## Package Overview
 
@@ -23,8 +23,8 @@ cache keyed on the inputs’ structure and abstract values, which calls
 back into R to compile only on a miss.
 
 The dispatcher’s C++ names anvl’s data model – the `"AnvlArray"` class,
-its `$data`/`$backend`/`$device` fields, the `"plain"` backend tag, and
-the `AnvlDtype` vocabulary. That is a contract pjrt defines and anvl
+its `$data`/`$backend` fields, the `"plain"` backend tag, and the
+`AnvlDtype` vocabulary. That is a contract pjrt defines and anvl
 produces; it is deliberately *not* a package dependency. **pjrt must not
 depend on anvl, in `Suggests` or anywhere else.**
 `tests/testthat/test-dispatch.R` therefore drives the engine with its
@@ -48,8 +48,24 @@ Rcpp):
       └─ PJRTLoadedExecutable  – compiled, device-specific executable
 
     PJRTBuffer         – device-resident tensor (the main data object)
-    PJRTArrayPromise   – async device-to-host transfer result (environment-based)
-    PJRTElementType    – dtype enum (pred, i8–i64, ui8–ui64, f32, f64)
+    PJRTElementType    – dtype enum (bool, i8–i64, ui8–ui64, f32, f64)
+
+A `PJRTBuffer` is an external pointer whose protected slot holds an
+ALTREP *carrier* (`src/buffer_sexp.{h,cpp}`). The carrier holds the CPU
+keepalive and gives buffers a custom serialization (host bytes plus
+dtype and shape, re-uploaded on load to `the[["unserialize_device"]]`,
+else the default device – the device is deliberately not saved; anvl
+writes that entry from its `.onLoad()` so that buffers load onto its own
+default device; see `buffer_serialized_state()`/`buffer_unserialize()`
+in `buffer.R`). Since R tracks external pointers by reference, a buffer
+referenced several times is written once and loads as one object. A
+loaded buffer is a NULL pointer until its first use, when
+`rpjrt::buffer_xptr()` moves the uploaded buffer into it, so C++ must
+reach a buffer only through `rpjrt::buffer_xptr()`/`rpjrt::as_buffer()`,
+and its keepalive only through
+`rpjrt::buffer_keepalive()`/`rpjrt::set_buffer_keepalive()` – never
+`R_ExternalPtrAddr()`/`R_ExternalPtrProtected()` directly. C++ creates
+buffer objects with `rpjrt::wrap_buffer()`.
 
 ### Plugin and Client Lifecycle
 
@@ -59,8 +75,9 @@ in plugin.R):
 1.  `pjrt_client(platform)` checks the cache, otherwise loads the plugin
     and creates a client.
 2.  Plugin loading: checks `PJRT_PLUGIN_PATH_<PLATFORM>` env var, falls
-    back to downloading from zml/pjrt-artifacts into
-    `R_user_dir("pjrt", "cache")`.
+    back to downloading into `R_user_dir("pjrt", "cache")` – the CPU
+    plugin from r-xla/pjrt-builds, the CUDA plugin from
+    zml/pjrt-artifacts.
 3.  One client per platform — calling
     [`pjrt_client()`](https://r-xla.github.io/pjrt/reference/pjrt_client.md)
     again returns the cached instance.
@@ -87,13 +104,18 @@ Both execution and buffer transfers are asynchronous:
   returns `PJRTBuffer`s that may not be ready yet. PJRT tracks
   dependencies internally, so unready buffers can be passed directly as
   inputs to the next execution.
-- [`as_array_async()`](https://r-xla.github.io/pjrt/reference/as_array_async.md)
-  returns a `PJRTArrayPromise` (non-blocking device-to-host transfer).
+- `as_array_async()` returns a plain-looking R array that is an ALTREP
+  *host array* (`src/host_array.cpp`): it has its final type, `dim` and
+  class at once, and the first read of its data waits for the
+  device-to-host transfer and materializes it.
 - [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md)
   polls without blocking;
-  [`await()`](https://r-xla.github.io/pjrt/reference/await.md) and
-  [`value()`](https://r-xla.github.io/pjrt/reference/value.md) block
-  until complete.
+  [`await()`](https://r-xla.github.io/pjrt/reference/await.md) blocks
+  until complete (and materializes a host array). On any other R object,
+  [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md) is
+  `TRUE` and
+  [`await()`](https://r-xla.github.io/pjrt/reference/await.md) is a
+  no-op.
 
 ### Column-Major Convention
 
@@ -115,10 +137,8 @@ buffers.
 - `loaded_executable.R` –
   [`pjrt_execute()`](https://r-xla.github.io/pjrt/reference/pjrt_execute.md)
 - `async.R` –
-  [`value()`](https://r-xla.github.io/pjrt/reference/value.md),
   [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md),
-  [`await()`](https://r-xla.github.io/pjrt/reference/await.md),
-  `PJRTArrayPromise`
+  [`await()`](https://r-xla.github.io/pjrt/reference/await.md)
 - `device.R` –
   [`pjrt_device()`](https://r-xla.github.io/pjrt/reference/pjrt_device.md),
   device spec parsing (“cpu:0”)
@@ -153,3 +173,16 @@ only when the object is **garbage collected**, not when its binding goes
 out of scope or is [`rm()`](https://rdrr.io/r/base/rm.html)-ed. A test
 that relies on a finalizer must call
 [`gc()`](https://rdrr.io/r/base/gc.html) explicitly to trigger it.
+
+In C++, root R objects with Rcpp rather than by hand:
+
+- Use Rcpp types (`Rcpp::List`, `Rcpp::CharacterVector`, …) or
+  `Rcpp::Shield<SEXP>` instead of `PROTECT`/`UNPROTECT`. They unwind
+  correctly when a C++ exception is thrown, where a skipped `UNPROTECT`
+  would not. The exception is ALTREP methods, which R calls from C and
+  which must not hold objects with destructors (see `call_pjrt()` in
+  `src/buffer_sexp.h`).
+- Keep an object alive beyond the current call with `rpjrt::preserve()`
+  and `rpjrt::release()`, or `rpjrt::queue_release()` from a PJRT
+  callback thread (`src/deferred_release.h`). These use Rcpp’s precious
+  list; don’t call `R_PreserveObject()`/`R_ReleaseObject()`.

@@ -18,7 +18,7 @@ idea comes from.
 ## Usage
 
 ``` r
-build_tree(x)
+build_tree(x, is_leaf = NULL)
 ```
 
 ## Arguments
@@ -26,8 +26,18 @@ build_tree(x)
 - x:
 
   (any)  
-  Object whose structure to capture. Bare lists are recursed into;
-  everything else is a leaf.
+  Object whose structure to capture. Bare lists and objects of a class
+  registered with
+  [`register_tree_node()`](https://r-xla.github.io/pjrt/reference/register_tree_node.md)
+  are recursed into; everything else is a leaf.
+
+- is_leaf:
+
+  (`function` \| `NULL`)  
+  As for
+  [`flatten()`](https://r-xla.github.io/pjrt/reference/flatten.md): a
+  value it returns `TRUE` for is a leaf. Pass the same one to both, so
+  that the tree and the flat list agree.
 
 ## Value
 

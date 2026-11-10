@@ -13,8 +13,12 @@ make use of LAPACK on CPU and cuSOLVE on CUDA.
 {pjrt} ships a few built-in custom calls registered automatically when
 the package is loaded. This includes `print_tensor` and the
 linear-algebra primitives `geqrf` / `orgqr` (QR factorisation), `lu`,
-`svd`, and `eigh`. The example below uses `print_tensor`, which takes a
-single tensor operand, prints it, and returns nothing.
+`svd`, `eigh`, `potrf` (Cholesky), and `trsm` (triangular solve, host
+only). The factorisations read and write their matrices in column-major
+order, `trsm` in row-major order, so declare the matching
+`operand_layouts` and `result_layouts`. The example below uses
+`print_tensor`, which takes a single tensor operand, prints it, and
+returns nothing.
 
 ``` r
 
@@ -159,6 +163,48 @@ named `.Attr<T>("name")` for individual `backend_config` entries,
 variadic arity, and additional `Ctx<T>` types including a host
 `ThreadPool` (XLA’s intra-op pool, useful for parallelising hand-rolled
 CPU work). For the full list see `xla/ffi/api/ffi.h`.
+
+#### Handing the handler to R
+
+`XLA_FFI_DEFINE_HANDLER` defines `eigh_handler` as a static function
+pointer, which is what {pjrt} does internally: `src/ffi.cpp` wraps it
+with `R_MakeExternalPtr()` behind an `[[Rcpp::export]]`ed getter.
+
+Outside the package there is a shorter route.
+`XLA_FFI_DEFINE_HANDLER_SYMBOL` takes the same arguments but emits an
+`extern "C"` symbol instead, which R’s dynamic loader can find on its
+own – so the handler needs no companion getter, and the file needs no
+Rcpp:
+
+``` cpp
+XLA_FFI_DEFINE_HANDLER_SYMBOL(EighHandler, do_eigh,
+                              Ffi::Bind()
+                                  .Arg<AnyBuffer>()
+                                  .Ret<AnyBuffer>()
+                                  .Ret<AnyBuffer>());
+```
+
+Compile it against pjrt’s headers and register the symbol directly:
+
+``` r
+
+Sys.setenv(
+  PKG_CPPFLAGS = paste0("-I", system.file("include", package = "pjrt")),
+  PKG_CXXFLAGS = "-std=c++20"
+)
+system2(file.path(R.home("bin"), "R"), c("CMD", "SHLIB", "eigh.cpp"))
+
+dll <- dyn.load("eigh.so")
+pjrt_register_custom_call(
+  "eigh",
+  list(cpu = getNativeSymbolInfo("EighHandler", PACKAGE = dll)$address)
+)
+```
+
+In a package, put the file in `src/`, add `pjrt` to `LinkingTo:` and
+`C++20` to `SystemRequirements:`, and look the symbol up with
+`getNativeSymbolInfo("EighHandler", PACKAGE = "yourpkg")` from
+`.onLoad()`.
 
 #### Calling into BLAS / LAPACK
 

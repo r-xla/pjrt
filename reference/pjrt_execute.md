@@ -13,8 +13,7 @@ Use [`await()`](https://r-xla.github.io/pjrt/reference/await.md) to
 block until the result is ready. Use
 [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md) to
 check if execution has completed (non-blocking). Use
-[`as_array_async()`](https://r-xla.github.io/pjrt/reference/as_array_async.md)
-to chain async buffer-to-host transfer.
+`as_array(x, await = FALSE)` to chain an async buffer-to-host transfer.
 
 ## Usage
 
@@ -72,7 +71,7 @@ pjrt_execute(
 
 [`await()`](https://r-xla.github.io/pjrt/reference/await.md),
 [`is_ready()`](https://r-xla.github.io/pjrt/reference/is_ready.md),
-[`as_array_async()`](https://r-xla.github.io/pjrt/reference/as_array_async.md)
+[`as_array()`](https://r-xla.github.io/xlamisc/reference/as_array.html)
 
 ## Examples
 
@@ -90,7 +89,7 @@ func.func @main(
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
 #> Error: -:3:3: error: unexpected character
-#> <unknown>:0: error: Failed to parse using StableHLO v1.18.0, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
+#> <unknown>:0: error: Failed to parse using StableHLO v1.23.0, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 
 # Execute with input
 x <- pjrt_buffer(c(1.0, 2.0, 3.0, 4.0), shape = c(2, 2), dtype = "f32")

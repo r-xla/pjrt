@@ -1,7 +1,6 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://r-xla.github.io/pjrt/404.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/AGENTS.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/CLAUDE.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/LICENSE-text.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/LICENSE.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/articles/ffi.html</loc></url>
@@ -12,7 +11,6 @@
 <url><loc>https://r-xla.github.io/pjrt/news/index.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as.character.PJRTElementType.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_array.PJRTBuffer.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/reference/as_array_async.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_device.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/as_pjrt_plugin.html</loc></url>
@@ -32,7 +30,6 @@
 <url><loc>https://r-xla.github.io/pjrt/reference/is_ready.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/map_tree.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt-package.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/reference/pjrt_array_promise.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt_buffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt_client.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/pjrt_compile.html</loc></url>
@@ -50,6 +47,7 @@
 <url><loc>https://r-xla.github.io/pjrt/reference/pmap_tree.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/print.PJRTBuffer.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/reexports.html</loc></url>
+<url><loc>https://r-xla.github.io/pjrt/reference/register_tree_node.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/tree_child_kinds.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/tree_child_names.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/tree_child_sizes.html</loc></url>
@@ -64,6 +62,5 @@
 <url><loc>https://r-xla.github.io/pjrt/reference/tree_root_kind.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/tree_size.html</loc></url>
 <url><loc>https://r-xla.github.io/pjrt/reference/unflatten.html</loc></url>
-<url><loc>https://r-xla.github.io/pjrt/reference/value.html</loc></url>
 </urlset>
 
