@@ -8,13 +8,13 @@ tree_child_sizes(tree)
 }
 \arguments{
 \item{tree}{(\code{RTree})\cr
-A tree whose root is a list node.}
+A tree whose root is a list or object node.}
 }
 \value{
 An \code{integer} vector, one element per top-level child.
 }
 \description{
-The number of leaves under each top-level child of a list tree.
+The number of leaves under each top-level child of a list or object tree.
 }
 \examples{
 tree_child_sizes(build_tree(list(a = 1, b = list(2, 3), c = NULL)))

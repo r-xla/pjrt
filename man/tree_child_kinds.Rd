@@ -8,14 +8,14 @@ tree_child_kinds(tree)
 }
 \arguments{
 \item{tree}{(\code{RTree})\cr
-A tree whose root is a list node.}
+A tree whose root is a list or object node.}
 }
 \value{
 A \code{character} vector, one element per top-level child.
 }
 \description{
-The node kind (\code{"leaf"}, \code{"list"}, or \code{"null"}) of each top-level child of
-a list tree.
+The node kind (\code{"leaf"}, \code{"list"}, \code{"object"}, or \code{"null"}; see
+\code{\link[=tree_root_kind]{tree_root_kind()}}) of each top-level child of a list or object tree.
 }
 \examples{
 tree_child_kinds(build_tree(list(1, list(2), NULL)))

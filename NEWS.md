@@ -12,6 +12,10 @@
 
 ## New features
 
+* `register_tree_node()` makes the objects of a class nodes of a tree, with aux
+  data and a printer, which `flatten()` and the dispatcher recurse into.
+* `flatten()` and `build_tree()` take an `is_leaf` predicate, whose values are
+  leaves rather than nodes, as with JAX's `tree_flatten(is_leaf = )`.
 * A `dispatcher()`'s `compile` callback can return
   `uses_default_device = FALSE` to have an entry that fixes its own device
   served under any default device, instead of recompiled when it changes.
@@ -37,7 +41,9 @@
 * New custom call `print_tensor_ordered`: `print_tensor` that takes and returns
   a `!stablehlo.token`, so that a chain of prints runs in order.
 * Bugfix: `build_tree()`, `flatten()` and `dispatch()` raise an error for a
-  value nested more than 1000 lists deep instead of crashing R.
+  value nested more than 1000 levels deep instead of crashing R.
+* Bugfix: `tree_concat()` rejects `names` that are not a character vector
+  instead of leaking memory.
 * Bugfix: a compile that fails after XLA compiled the program, such as an HLO
   program with input/output aliasing, no longer leaks the executable.
 * Bugfix: a buffer donated to an execution is freed instead of leaking its

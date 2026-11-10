@@ -8,7 +8,7 @@ tree_leaf_mask(tree, groups)
 }
 \arguments{
 \item{tree}{(\code{RTree})\cr
-A tree whose root is a list node.}
+A tree whose root is a list or object node.}
 
 \item{groups}{(\code{character()})\cr
 Top-level child names to mark.}

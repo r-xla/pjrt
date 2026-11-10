@@ -4,8 +4,15 @@
 // Semantics:
 //   * NULL              -> NullNode (no leaf, but kept in the structure)
 //   * bare list         -> ListNode (recurses; remembers names)
+//   * object of a registered class
+//                       -> ObjectNode (recurses into the children the class's
+//                          `flatten` returns; remembers their names, the
+//                          class's registration and the aux data `flatten`
+//                          returns beside them, from which the registration's
+//                          `unflatten` rebuilds the object)
 //   * anything else     -> LeafNode (a classed object or atomic is a leaf)
 // "bare list" == VECSXP without a class attribute, matching R's is.object().
+// Classes are registered with register_tree_node() (see tree_node_class()).
 //
 // Representation: a tree is stored as a flat structure-of-arrays, one entry per
 // node in preorder (the flatten / DFS order). This keeps a whole tree in a
@@ -23,19 +30,36 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
+
+#include "hash.h"
 
 namespace rpjrt {
 
+// A class registered with register_tree_node(): `flatten(x)` returns
+// `list(children, aux)` for an object of the class,
+// `unflatten(children, aux)` rebuilds an object from them, and
+// `repr(children, aux)` renders the node in its tree's repr from its children's
+// strings.
+struct TreeNodeType {
+  std::string cls;  // the class name, for messages
+  Rcpp::RObject flatten;
+  Rcpp::RObject unflatten;
+  Rcpp::RObject repr;
+};
+
 struct RTree {
-  enum Kind : std::uint8_t { LeafNode, ListNode, NullNode };
+  enum Kind : std::uint8_t { LeafNode, ListNode, NullNode, ObjectNode };
 
   // Parallel arrays, indexed by node in preorder. Preorder means each node is
   // emitted before its children (which follow left-to-right), so a parent sits
   // immediately before its subtree and the whole subtree is one contiguous run.
   std::vector<std::uint8_t> kind;
-  std::vector<std::int32_t> n_children;     // ListNode: #children; else 0
+  // ListNode / ObjectNode: #children; else 0
+  std::vector<std::int32_t> n_children;
   std::vector<std::int32_t> subtree_nodes;  // #nodes in this subtree incl. self
   // index into the `names` array, i.e. the start index.
   // named list of length 0 still has a start index but because n_children==0
@@ -45,24 +69,123 @@ struct RTree {
   // All child-name strings, concatenated in node preorder: the names of an
   // earlier (by node index) named list node come before those of a later one.
   std::vector<std::string> names;
+  // One entry per ObjectNode, in node preorder (like `names`, and so an
+  // ObjectNode's entry is implicit: its rank among the ObjectNodes): the
+  // registration of the object's class and the aux data its `flatten`
+  // returned.
+  struct Object {
+    // The registration the tree was built under, whose functions unflatten
+    // and repr use even after the class is unregistered. It identifies the
+    // node type: trees built under two registrations of a class are not equal,
+    // so the dispatcher never serves an entry compiled under the other one.
+    std::shared_ptr<const TreeNodeType> type;
+    Rcpp::RObject aux;
+  };
+  std::vector<Object> objects;
 
   bool is_named(std::size_t pos) const { return name_off[pos] != -1; }
+  // A node with children: a list or an object.
+  bool has_children(std::size_t pos) const {
+    return kind[pos] == ListNode || kind[pos] == ObjectNode;
+  }
 };
 
 inline bool is_bare_list(SEXP x) {
   return TYPEOF(x) == VECSXP && !Rf_isObject(x);
 }
 
-// The deepest list nesting flatten_rec accepts. The tree functions recurse once
-// per level, so an unbounded depth would overflow the C stack and kill the R
-// session; past this limit flatten_rec raises an R error instead.
+// The registered classes, keyed by the CHARSXP of the class name. R caches
+// CHARSXPs, so a class attribute names a registered class exactly when its
+// element is the same CHARSXP: flatten_rec() looks a classed leaf up by
+// pointer, without reading or hashing its class strings.
+std::unordered_map<SEXP, std::shared_ptr<const TreeNodeType>>&
+tree_node_types();
+
+// The registry key of the class named `cls`: its CHARSXP, as UTF-8 (which for
+// an ASCII name is the one CHARSXP that any encoding of it yields). Defined in
+// tree.cpp; with `preserve`, the key is kept alive for the rest of the session,
+// as every key the registry holds must be.
+SEXP tree_node_key(const std::string& cls, bool preserve = false);
+
+// The registration of the class `x` is an object of (its first class that is
+// registered), or nullptr. Cheap when nothing is registered.
+inline std::shared_ptr<const TreeNodeType> tree_node_class(SEXP x) {
+  auto& types = tree_node_types();
+  if (types.empty() || !Rf_isObject(x)) return nullptr;
+  SEXP cls = Rf_getAttrib(x, R_ClassSymbol);
+  for (R_xlen_t k = 0; k < XLENGTH(cls); ++k) {
+    auto it = types.find(STRING_ELT(cls, k));
+    if (it != types.end()) return it->second;
+  }
+  return nullptr;
+}
+
+// The number of nodes of kind `kind` among nodes [begin, end). Objects are
+// numbered in preorder, so count_kind(tree, RTree::ObjectNode, 0, pos) is the
+// index into `tree.objects` of the first object at or after node `pos`.
+inline std::size_t count_kind(const RTree& tree, RTree::Kind kind,
+                              std::size_t begin, std::size_t end) {
+  std::size_t n = 0;
+  for (std::size_t q = begin; q < end; ++q) {
+    if (tree.kind[q] == kind) ++n;
+  }
+  return n;
+}
+
+// The deepest nesting of lists and registered objects flatten_rec accepts. The
+// tree functions recurse once per level, so an unbounded depth would overflow
+// the C stack and kill the R session; past this limit flatten_rec raises an R
+// error instead.
 inline constexpr int kMaxTreeDepth = 1000;
 
-// Append the preorder encoding of `x` to `t`, collecting leaves in order.
-// `depth` is the list nesting of `x` within the value being flattened.
+// `is_leaf`, an R function or R_NilValue, makes every value it returns TRUE
+// for a leaf rather than a node to recurse into (see ?flatten).
 inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
-                        int depth = 0) {
+                        std::vector<Rcpp::RObject>& keep, int depth = 0,
+                        SEXP is_leaf = R_NilValue);
+
+// Append a node with the children `x` (a list, possibly named) to `tree` and
+// recurse into them; `kind` says what node it is, and `depth` its nesting
+// within the value being flattened.
+inline void flatten_children(SEXP x, RTree::Kind kind,
+                             std::vector<SEXP>& leaves, RTree& tree,
+                             std::vector<Rcpp::RObject>& keep, int depth,
+                             SEXP is_leaf) {
+  if (depth >= kMaxTreeDepth) {
+    Rcpp::stop("tree is nested more than %d levels deep", kMaxTreeDepth);
+  }
   const std::size_t pos = tree.kind.size();
+  const R_xlen_t n = XLENGTH(x);
+  SEXP nms = Rf_getAttrib(x, R_NamesSymbol);
+  const bool has_names = (nms != R_NilValue);
+  tree.kind.push_back(kind);
+  tree.n_children.push_back(static_cast<std::int32_t>(n));
+  tree.subtree_nodes.push_back(0);  // place-holder. Set correctly at the end
+  if (has_names) {
+    tree.name_off.push_back(static_cast<std::int32_t>(tree.names.size()));
+    for (R_xlen_t k = 0; k < n; ++k) {
+      SEXP nm = STRING_ELT(nms, k);
+      // NA_STRING would round-trip through CHAR() as the literal "NA",
+      // silently conflating an NA name with a "NA" name (and poisoning
+      // tree_equal); reject it instead.
+      if (nm == NA_STRING) Rcpp::stop("tree names must not be NA");
+      tree.names.push_back(std::string(CHAR(nm)));
+    }
+  } else {
+    tree.name_off.push_back(-1);
+  }
+  for (R_xlen_t k = 0; k < n; ++k) {
+    flatten_rec(VECTOR_ELT(x, k), leaves, tree, keep, depth + 1, is_leaf);
+  }
+  tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
+}
+
+// Append the preorder encoding of `x` to `t`, collecting leaves in order. What
+// a registered class's `flatten` returns is kept alive in `keep`, as the leaves
+// may point into it.
+inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
+                        std::vector<Rcpp::RObject>& keep, int depth,
+                        SEXP is_leaf) {
   if (x == R_NilValue) {
     tree.kind.push_back(RTree::NullNode);
     tree.n_children.push_back(0);
@@ -70,33 +193,38 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
     tree.name_off.push_back(-1);
     return;
   }
-  if (is_bare_list(x)) {
-    if (depth >= kMaxTreeDepth) {
-      Rcpp::stop("tree is nested more than %d lists deep", kMaxTreeDepth);
+  bool leaf = false;
+  if (is_leaf != R_NilValue) {
+    Rcpp::Function pred(is_leaf);
+    Rcpp::RObject res = pred(x);
+    if (TYPEOF(res) != LGLSXP || XLENGTH(res) != 1 ||
+        LOGICAL(res)[0] == NA_LOGICAL) {
+      Rcpp::stop("`is_leaf` must return TRUE or FALSE");
     }
-    const R_xlen_t n = XLENGTH(x);
-    SEXP nms = Rf_getAttrib(x, R_NamesSymbol);
-    const bool has_names = (nms != R_NilValue);
-    tree.kind.push_back(RTree::ListNode);
-    tree.n_children.push_back(static_cast<std::int32_t>(n));
-    tree.subtree_nodes.push_back(0);  // place-holder. Set correctly at the end
-    if (has_names) {
-      tree.name_off.push_back(static_cast<std::int32_t>(tree.names.size()));
-      for (R_xlen_t k = 0; k < n; ++k) {
-        SEXP nm = STRING_ELT(nms, k);
-        // NA_STRING would round-trip through CHAR() as the literal "NA",
-        // silently conflating an NA name with a "NA" name (and poisoning
-        // tree_equal); reject it instead.
-        if (nm == NA_STRING) Rcpp::stop("tree names must not be NA");
-        tree.names.push_back(std::string(CHAR(nm)));
-      }
-    } else {
-      tree.name_off.push_back(-1);
+    leaf = LOGICAL(res)[0] == TRUE;
+  }
+  if (!leaf && is_bare_list(x)) {
+    flatten_children(x, RTree::ListNode, leaves, tree, keep, depth, is_leaf);
+    return;
+  }
+  if (std::shared_ptr<const TreeNodeType> type =
+          leaf ? nullptr : tree_node_class(x)) {
+    // `type` keeps the registration alive while `flatten`, being R code, may
+    // unregister the class.
+    Rcpp::Function flatten(type->flatten);
+    Rcpp::RObject res = flatten(x);
+    if (!is_bare_list(res) || XLENGTH(res) != 2 ||
+        !is_bare_list(VECTOR_ELT(res, 0))) {
+      Rcpp::stop(
+          "the `flatten` registered for class \"%s\" must return "
+          "`list(children, aux)`, where `children` is a list",
+          type->cls.c_str());
     }
-    for (R_xlen_t k = 0; k < n; ++k) {
-      flatten_rec(VECTOR_ELT(x, k), leaves, tree, depth + 1);
-    }
-    tree.subtree_nodes[pos] = static_cast<std::int32_t>(tree.kind.size() - pos);
+    keep.push_back(res);
+    tree.objects.push_back(
+        {std::move(type), Rcpp::RObject(VECTOR_ELT(res, 1))});
+    flatten_children(VECTOR_ELT(res, 0), RTree::ObjectNode, leaves, tree, keep,
+                     depth, is_leaf);
     return;
   }
   tree.kind.push_back(RTree::LeafNode);
@@ -107,21 +235,25 @@ inline void flatten_rec(SEXP x, std::vector<SEXP>& leaves, RTree& tree,
 }
 
 // Reconstruct an R object from the subtree at `pos`, consuming leaves in order
-// via `li`. `pos` advances past the whole subtree (children follow their parent
-// contiguously in preorder). The caller must size `leaves` to the leaf count.
+// via `li` and objects via `oi`. `pos` advances past the whole subtree
+// (children follow their parent contiguously in preorder). The caller must size
+// `leaves` to the leaf count.
 inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
-                          std::size_t& pos, std::size_t& li) {
+                          std::size_t& pos, std::size_t& li, std::size_t& oi) {
   const std::size_t node = pos++;
   switch (tree.kind[node]) {
     case RTree::NullNode:
       return R_NilValue;
     case RTree::LeafNode:
       return leaves[li++];
-    case RTree::ListNode: {
+    case RTree::ListNode:
+    case RTree::ObjectNode: {
       const int n = tree.n_children[node];
+      // Taken before the children's: objects are numbered in preorder.
+      const std::size_t obj = tree.kind[node] == RTree::ObjectNode ? oi++ : 0;
       Rcpp::List out(n);
       for (int k = 0; k < n; ++k) {
-        out[k] = unflatten_rec(tree, leaves, pos, li);
+        out[k] = unflatten_rec(tree, leaves, pos, li, oi);
       }
       if (tree.is_named(node)) {
         const std::int32_t off = tree.name_off[node];
@@ -131,6 +263,11 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
         }
         out.names() = nms;
       }
+      if (tree.kind[node] == RTree::ObjectNode) {
+        const RTree::Object& o = tree.objects[obj];
+        Rcpp::Function unflatten(o.type->unflatten);
+        return unflatten(out, o.aux);
+      }
       return out;
     }
   }
@@ -139,13 +276,9 @@ inline SEXP unflatten_rec(const RTree& tree, const std::vector<SEXP>& leaves,
 
 // Number of leaves in the subtree rooted at `pos` (== length of its flat list).
 inline int subtree_leaf_count(const RTree& tree, std::size_t pos) {
-  const std::size_t end =
-      pos + static_cast<std::size_t>(tree.subtree_nodes[pos]);
-  int c = 0;
-  for (std::size_t q = pos; q < end; ++q) {
-    if (tree.kind[q] == RTree::LeafNode) ++c;
-  }
-  return c;
+  return static_cast<int>(
+      count_kind(tree, RTree::LeafNode, pos,
+                 pos + static_cast<std::size_t>(tree.subtree_nodes[pos])));
 }
 
 // Number of leaves in the whole tree.
@@ -167,14 +300,26 @@ inline std::vector<std::size_t> child_nodes(const RTree& tree,
   return out;
 }
 
-// Structural equality: identical kinds, child counts, name offsets, and child
-// names -- together the full canonical encoding. subtree_nodes is derived from
-// the shape, so it needs no separate check; and name_off is canonical (a named
-// node's offset is fixed by the shape, and -1 exactly when unnamed), so
-// comparing it directly also captures each node's named-ness.
+// Structural equality: identical kinds, child counts, name offsets, child
+// names, and object class registrations and aux data (the latter by
+// r_identical()) -- together the full canonical encoding.
+// subtree_nodes is derived from the shape, so it needs no separate check; and
+// name_off is canonical (a named node's offset is fixed by the shape, and -1
+// exactly when unnamed), so comparing it directly also captures each node's
+// named-ness.
 inline bool tree_eq(const RTree& a, const RTree& b) {
-  return a.kind == b.kind && a.n_children == b.n_children &&
-         a.name_off == b.name_off && a.names == b.names;
+  if (!(a.kind == b.kind && a.n_children == b.n_children &&
+        a.name_off == b.name_off && a.names == b.names)) {
+    return false;
+  }
+  // Equal kinds imply equally many objects.
+  for (std::size_t k = 0; k < a.objects.size(); ++k) {
+    if (a.objects[k].type != b.objects[k].type ||
+        !r_identical(a.objects[k].aux, b.objects[k].aux)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Structural hash of an RTree, consistent with tree_eq: trees that compare

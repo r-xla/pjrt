@@ -4,11 +4,18 @@
 \alias{flatten}
 \title{Flatten}
 \usage{
-flatten(x)
+flatten(x, is_leaf = NULL)
 }
 \arguments{
 \item{x}{(any)\cr
 Object to flatten.}
+
+\item{is_leaf}{(\code{function} | \code{NULL})\cr
+Called on every value the walk meets other than \code{NULL}, the list \code{x}
+included; a value it returns \code{TRUE} for is a leaf, even a list or an
+object of a registered class, as with JAX's \code{tree_flatten(is_leaf = )}.
+Must return \code{TRUE} or \code{FALSE}. \code{NULL} (default) recurses into every list
+and registered object.}
 }
 \value{
 \code{list()} containing the flattened values.
@@ -17,8 +24,10 @@ Object to flatten.}
 Recursively flattens a nested list into a single flat list containing only
 the leaf values, preserving left-to-right order.
 
-A bare (class-less) list is recursed into; \code{NULL} contributes no leaves;
-everything else (a classed object, an atomic, a function, ...) is a leaf.
+A bare (class-less) list is recursed into; \code{NULL} contributes no leaves; an
+object of a class registered with \code{\link[=register_tree_node]{register_tree_node()}} is recursed into
+through the children its \code{flatten} returns; everything else (a classed
+object, an atomic, a function, ...) is a leaf.
 
 Use \code{\link[=build_tree]{build_tree()}} to capture the nesting structure so it can be restored
 with \code{\link[=unflatten]{unflatten()}}.
@@ -28,6 +37,9 @@ x <- list(a = 1, b = list(c = 2, d = 3))
 flatten(x)
 
 flatten(list(1:3, "hello"))
+
+# stop at the list `b`
+flatten(x, is_leaf = function(v) identical(v, x$b))
 }
 \seealso{
 \code{\link[=build_tree]{build_tree()}}, \code{\link[=unflatten]{unflatten()}}, \code{\link[=tree_size]{tree_size()}}

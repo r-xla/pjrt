@@ -8,7 +8,8 @@ tree_filter_by_names(tree, names)
 }
 \arguments{
 \item{tree}{(\code{RTree})\cr
-A named list tree as returned by \code{\link[=build_tree]{build_tree()}}.}
+A tree whose root is a named list or object node, as returned by
+\code{\link[=build_tree]{build_tree()}}.}
 
 \item{names}{(\code{character()})\cr
 Names of children to keep.}
@@ -19,7 +20,8 @@ A \code{RTree} containing only the selected children.
 \description{
 Keeps only the top-level children whose names match \code{names} (in tree
 order), reindexing the remaining leaves so they map to contiguous positions
-in a flat list.
+in a flat list. The kept children are put under a list root, also when the
+root of \code{tree} is an object node.
 }
 \examples{
 x <- list(a = 1, b = 2, c = 3)

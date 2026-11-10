@@ -12,14 +12,14 @@ A tree as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \value{
 A \code{character} vector of child names, or \code{NULL} when the root is not
-a list node or is an \emph{unnamed} list. An empty but named list
+a list or object node or is \emph{unnamed}. An empty but named list
 (\code{structure(list(), names = character(0))}) returns \code{character(0)}, not
 \code{NULL}: the tree preserves the named/unnamed distinction (see
 \code{\link[=tree_equal]{tree_equal()}}).
 }
 \description{
-The names of a list tree's top-level children (with \code{""} for unnamed
-slots), or \code{NULL} if the root is not a list node or carries no names.
+The names of a list or object tree's top-level children (with \code{""} for
+unnamed slots), or \code{NULL} if the root has no children or carries no names.
 }
 \examples{
 tree_child_names(build_tree(list(a = 1, b = 2)))

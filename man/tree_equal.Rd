@@ -15,7 +15,8 @@ Trees to compare, as returned by \code{\link[=build_tree]{build_tree()}}.}
 }
 \description{
 Structural equality of two trees: identical node kinds, child structure,
-leaf positions, and names.
+leaf positions, names, and the classes and aux data of object nodes (see
+\code{\link[=register_tree_node]{register_tree_node()}}).
 
 \code{a == b} (and \code{a != b}) is shorthand for this, except that comparing a tree
 with a non-tree is \code{FALSE} instead of an error.
