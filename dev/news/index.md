@@ -14,6 +14,8 @@
 
 ### New features
 
+- [`pjrt_compile()`](https://r-xla.github.io/pjrt/dev/reference/pjrt_compile.md)
+  gains `xla_options`, XLA compiler options for that compilation only.
 - [`register_tree_node()`](https://r-xla.github.io/pjrt/dev/reference/register_tree_node.md)
   makes the objects of a class nodes of a tree, with aux data and a
   printer, which

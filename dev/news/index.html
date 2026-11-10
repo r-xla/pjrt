@@ -61,6 +61,8 @@
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
 <ul><li>
+<code><a href="../reference/pjrt_compile.html">pjrt_compile()</a></code> gains <code>xla_options</code>, XLA compiler options for that compilation only.</li>
+<li>
 <code><a href="../reference/register_tree_node.html">register_tree_node()</a></code> makes the objects of a class nodes of a tree, with aux data and a printer, which <code><a href="../reference/flatten.html">flatten()</a></code> and the dispatcher recurse into.</li>
 <li>
 <code><a href="../reference/flatten.html">flatten()</a></code> and <code><a href="../reference/build_tree.html">build_tree()</a></code> take an <code>is_leaf</code> predicate, whose values are leaves rather than nodes, as with JAX’s <code>tree_flatten(is_leaf = )</code>.</li>
