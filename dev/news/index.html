@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">pjrt</a>
 
-    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9001</small>
+    <small class="nav-text text-default me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,15 +51,18 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="pjrt-development-version">pjrt (development version)<a class="anchor" aria-label="anchor" href="#pjrt-development-version"></a></h2>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.7.0" id="pjrt-070">pjrt 0.7.0<a class="anchor" aria-label="anchor" href="#pjrt-070"></a></h2>
 <div class="section level3">
-<h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
+<h3 id="breaking-changes-0-7-0">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-0-7-0"></a></h3>
 <ul><li>The boolean data type is now named <code>"bool"</code> everywhere.</li>
 <li>The <code>"AnvlArray"</code>s the dispatcher wraps its outputs in no longer carry a <code>$device</code> field; read the device off <code>$data</code>.</li>
 <li>
 <code>as_array_async()</code> is removed; use <code>as_array(x, await = FALSE)</code>, which returns an R array whose values materialize when first read instead of a <code>PJRTArrayPromise</code>. <code>value()</code> is removed, use the array directly or <code><a href="../reference/await.html">await()</a></code> it.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<h3 id="new-features-0-7-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-7-0"></a></h3>
 <ul><li>
 <code><a href="../reference/pjrt_compile.html">pjrt_compile()</a></code> gains <code>xla_options</code>, XLA compiler options for that compilation only.</li>
 <li>

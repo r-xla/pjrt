@@ -2,6 +2,8 @@
 
 ## pjrt (development version)
 
+## pjrt 0.7.0
+
 ### Breaking changes
 
 - The boolean data type is now named `"bool"` everywhere.
