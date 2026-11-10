@@ -1,7 +1,9 @@
 # Tree Root Node Kind
 
 The kind of a tree's root node: `"leaf"` for a single leaf, `"list"` for
-a list node, or `"null"` for the empty (`NULL`) node.
+a list node, `"object"` for an object of a class registered with
+[`register_tree_node()`](https://r-xla.github.io/pjrt/dev/reference/register_tree_node.md),
+or `"null"` for the empty (`NULL`) node.
 
 ## Usage
 

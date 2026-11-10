@@ -127,10 +127,13 @@ dispatcher(
   - `on_success` (optional): a function called with the list of the
     implicit outputs, wrapped like the other outputs, and the call's
     argument list `args`, after every run of the entry that was launched
-    without an error, before the call returns, e.g. to advance what an
-    implicit input's [`get()`](https://rdrr.io/r/base/get.html) reads,
-    or an object among the arguments. Execution is asynchronous: the
-    outputs may not be computed yet.
+    without an error, before the result is rebuilt from the `out_tree`
+    (which runs the `unflatten` of a class registered with
+    [`register_tree_node()`](https://r-xla.github.io/pjrt/dev/reference/register_tree_node.md),
+    and may fail), e.g. to advance what an implicit input's
+    [`get()`](https://rdrr.io/r/base/get.html) reads, or an object among
+    the arguments. Execution is asynchronous: the outputs may not be
+    computed yet.
 
   The program's inputs are, in order: `const_arrays`, the call's dynamic
   leaves, the implicit inputs, the phantoms. Its outputs are the leaves

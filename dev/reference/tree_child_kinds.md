@@ -1,7 +1,8 @@
 # Top-Level Child Kinds
 
-The node kind (`"leaf"`, `"list"`, or `"null"`) of each top-level child
-of a list tree.
+The node kind (`"leaf"`, `"list"`, `"object"`, or `"null"`; see
+[`tree_root_kind()`](https://r-xla.github.io/pjrt/dev/reference/tree_root_kind.md))
+of each top-level child of a list or object tree.
 
 ## Usage
 
@@ -14,7 +15,7 @@ tree_child_kinds(tree)
 - tree:
 
   (`RTree`)  
-  A tree whose root is a list node.
+  A tree whose root is a list or object node.
 
 ## Value
 

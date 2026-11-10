@@ -1,6 +1,7 @@
 # Top-Level Child Sizes
 
-The number of leaves under each top-level child of a list tree.
+The number of leaves under each top-level child of a list or object
+tree.
 
 ## Usage
 
@@ -13,7 +14,7 @@ tree_child_sizes(tree)
 - tree:
 
   (`RTree`)  
-  A tree whose root is a list node.
+  A tree whose root is a list or object node.
 
 ## Value
 

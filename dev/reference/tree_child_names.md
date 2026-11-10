@@ -1,7 +1,8 @@
 # Top-Level Child Names
 
-The names of a list tree's top-level children (with `""` for unnamed
-slots), or `NULL` if the root is not a list node or carries no names.
+The names of a list or object tree's top-level children (with `""` for
+unnamed slots), or `NULL` if the root has no children or carries no
+names.
 
 ## Usage
 
@@ -20,7 +21,7 @@ tree_child_names(tree)
 ## Value
 
 A `character` vector of child names, or `NULL` when the root is not a
-list node or is an *unnamed* list. An empty but named list
+list or object node or is *unnamed*. An empty but named list
 (`structure(list(), names = character(0))`) returns `character(0)`, not
 `NULL`: the tree preserves the named/unnamed distinction (see
 [`tree_equal()`](https://r-xla.github.io/pjrt/dev/reference/tree_equal.md)).

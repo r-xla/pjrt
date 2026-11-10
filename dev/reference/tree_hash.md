@@ -1,12 +1,17 @@
 # Structural Tree Hash
 
 A hash of a tree's structure – node kinds, child structure, leaf
-positions, and names – consistent with
+positions, names, and the class and aux data of each object of a class
+registered with
+[`register_tree_node()`](https://r-xla.github.io/pjrt/dev/reference/register_tree_node.md)
+– consistent with
 [`tree_equal()`](https://r-xla.github.io/pjrt/dev/reference/tree_equal.md):
 trees that are
 [`tree_equal()`](https://r-xla.github.io/pjrt/dev/reference/tree_equal.md)
 hash to the same value. Intended as a cache key for tree-structured
-dispatch.
+dispatch within a session: a class folds in by the address of its
+registration, so the hash of a tree with registered objects differs
+between sessions.
 
 ## Usage
 

@@ -118,6 +118,10 @@
 - [`print(`*`<PJRTBuffer>`*`)`](https://r-xla.github.io/pjrt/dev/reference/print.PJRTBuffer.md)
   : Print a PJRT Buffer
 
+- [`register_tree_node()`](https://r-xla.github.io/pjrt/dev/reference/register_tree_node.md)
+  [`unregister_tree_node()`](https://r-xla.github.io/pjrt/dev/reference/register_tree_node.md)
+  : Register a Class as a Tree Node
+
 - [`tree_child_kinds()`](https://r-xla.github.io/pjrt/dev/reference/tree_child_kinds.md)
   : Top-Level Child Kinds
 
@@ -149,7 +153,7 @@
   : Tree Path
 
 - [`tree_repr()`](https://r-xla.github.io/pjrt/dev/reference/tree_repr.md)
-  : Canonical Tree Representation
+  : Tree Representation
 
 - [`tree_root_kind()`](https://r-xla.github.io/pjrt/dev/reference/tree_root_kind.md)
   : Tree Root Node Kind

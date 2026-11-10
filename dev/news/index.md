@@ -14,6 +14,16 @@
 
 ### New features
 
+- [`register_tree_node()`](https://r-xla.github.io/pjrt/dev/reference/register_tree_node.md)
+  makes the objects of a class nodes of a tree, with aux data and a
+  printer, which
+  [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md)
+  and the dispatcher recurse into.
+- [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md)
+  and
+  [`build_tree()`](https://r-xla.github.io/pjrt/dev/reference/build_tree.md)
+  take an `is_leaf` predicate, whose values are leaves rather than
+  nodes, as with JAX’s `tree_flatten(is_leaf = )`.
 - A
   [`dispatcher()`](https://r-xla.github.io/pjrt/dev/reference/dispatcher.md)’s
   `compile` callback can return `uses_default_device = FALSE` to have an
@@ -52,8 +62,12 @@
   [`flatten()`](https://r-xla.github.io/pjrt/dev/reference/flatten.md)
   and
   [`dispatch()`](https://r-xla.github.io/pjrt/dev/reference/dispatch.md)
-  raise an error for a value nested more than 1000 lists deep instead of
-  crashing R.
+  raise an error for a value nested more than 1000 levels deep instead
+  of crashing R.
+- Bugfix:
+  [`tree_concat()`](https://r-xla.github.io/pjrt/dev/reference/tree_concat.md)
+  rejects `names` that are not a character vector instead of leaking
+  memory.
 - Bugfix: a compile that fails after XLA compiled the program, such as
   an HLO program with input/output aliasing, no longer leaks the
   executable.
