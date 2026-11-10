@@ -138,6 +138,10 @@ PJRTHandle<PJRT_LoadedExecutable> PJRTClient::compile_(
   return make_pjrt_handle(this->api.get(), args.executable);
 }
 
+// FIXME: XLA's option overrides cannot set map fields
+// (https://github.com/openxla/xla/issues/52688). Once they can, send map
+// options as overrides like the scalar ones and remove this probe, the
+// read-back and the CUDA error.
 const xla::DebugOptions &PJRTClient::default_debug_options_(
     PJRTDevice &device, const std::string &option) {
   if (debug_option_defaults_.has_value()) {
