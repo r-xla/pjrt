@@ -327,9 +327,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_xla_map_options
+Rcpp::CharacterVector impl_xla_map_options();
+RcppExport SEXP _pjrt_impl_xla_map_options() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(impl_xla_map_options());
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_client_program_compile
-Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, Rcpp::XPtr<rpjrt::PJRTProgram> program, Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options, Rcpp::List xla_options);
-RcppExport SEXP _pjrt_impl_client_program_compile(SEXP clientSEXP, SEXP deviceSEXP, SEXP programSEXP, SEXP compile_optionsSEXP, SEXP xla_optionsSEXP) {
+Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, Rcpp::XPtr<rpjrt::PJRTProgram> program, Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options, Rcpp::List xla_options, Rcpp::List xla_map_options);
+RcppExport SEXP _pjrt_impl_client_program_compile(SEXP clientSEXP, SEXP deviceSEXP, SEXP programSEXP, SEXP compile_optionsSEXP, SEXP xla_optionsSEXP, SEXP xla_map_optionsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -338,7 +348,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTProgram> >::type program(programSEXP);
     Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTCompileOptions> >::type compile_options(compile_optionsSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type xla_options(xla_optionsSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_program_compile(client, device, program, compile_options, xla_options));
+    Rcpp::traits::input_parameter< Rcpp::List >::type xla_map_options(xla_map_optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_program_compile(client, device, program, compile_options, xla_options, xla_map_options));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1075,7 +1086,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_program_repr", (DL_FUNC) &_pjrt_impl_program_repr, 2},
     {"_pjrt_impl_build_options_create", (DL_FUNC) &_pjrt_impl_build_options_create, 3},
     {"_pjrt_impl_compile_options_create", (DL_FUNC) &_pjrt_impl_compile_options_create, 1},
-    {"_pjrt_impl_client_program_compile", (DL_FUNC) &_pjrt_impl_client_program_compile, 5},
+    {"_pjrt_impl_xla_map_options", (DL_FUNC) &_pjrt_impl_xla_map_options, 0},
+    {"_pjrt_impl_client_program_compile", (DL_FUNC) &_pjrt_impl_client_program_compile, 6},
     {"_pjrt_impl_loaded_executable_device", (DL_FUNC) &_pjrt_impl_loaded_executable_device, 1},
     {"_pjrt_impl_client_buffer_from_raw", (DL_FUNC) &_pjrt_impl_client_buffer_from_raw, 6},
     {"_pjrt_impl_client_buffer_empty", (DL_FUNC) &_pjrt_impl_client_buffer_empty, 4},

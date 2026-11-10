@@ -33,8 +33,16 @@ The type of a value decides how XLA reads it: a \code{logical(1)} sets a boolean
 option, and a \code{character(1)} is parsed by the option's type -- \code{"True"} or \code{"False"}, a
 number, the name of an enum value, or a comma-separated list for a repeated option, which
 replaces its whole value. So an integer option takes \code{3L} or \code{"3"}, but not \code{3}. XLA
-reports an unknown name or a value of the wrong type when compiling. Options of map type,
-such as \code{xla_backend_extra_options}, cannot be set this way; use \code{XLA_FLAGS}.}
+reports an unknown name or a value of the wrong type when compiling.
+
+An option of map type, such as \code{xla_backend_extra_options}, takes a \code{character(1)} in
+\code{XLA_FLAGS} syntax: comma-separated entries \code{key=value}, or \code{key} for an empty value, e.g.
+\code{"xla_cpu_use_multi_output_fusion"} or \code{"a,b=1"}. Its entries are added to those the plugin
+applies by default, so entries set through \code{XLA_FLAGS} are kept. XLA's overrides cannot set
+a map, so pjrt reads the plugin's default \code{DebugOptions} back from a small program it
+compiles once per client, adds the entries and sends the result. This needs a plugin that
+reports the compile options it applies, which the CPU plugin does and the CUDA plugin does
+not; there, set the option through \code{XLA_FLAGS} before the plugin is loaded.}
 }
 \value{
 \code{PJRTExecutable}
@@ -57,5 +65,12 @@ exec <- pjrt_compile(prog)
 dir <- tempfile()
 exec <- pjrt_compile(prog, xla_options = list(xla_dump_to = dir))
 list.files(dir)
+
+# Keep XLA:CPU from duplicating cheap operations into the fusions that use them
+exec <- pjrt_compile(
+  prog,
+  device = "cpu",
+  xla_options = list(xla_backend_extra_options = "xla_cpu_use_multi_output_fusion")
+)
 \dontshow{\}) # examplesIf}
 }

@@ -96,18 +96,37 @@ Rcpp::XPtr<rpjrt::PJRTCompileOptions> impl_compile_options_create(
   return xptr;
 }
 
-// Encode a named list of R scalars (validated by check_xla_options()) as XLA
-// option overrides. The R type picks the OptionOverrideProto field, as the
-// Python type does for JAX's compiler_options.
-static rpjrt::XlaOptionOverrides xla_option_overrides(
-    const Rcpp::List &xla_options) {
-  rpjrt::XlaOptionOverrides overrides;
-  if (xla_options.size() == 0) {
-    return overrides;
+// The map-valued fields of XLA's DebugOptions, which xla_options sets from a
+// string in XLA_FLAGS syntax rather than as an override.
+// [[Rcpp::export()]]
+Rcpp::CharacterVector impl_xla_map_options() {
+  const auto *descriptor = xla::DebugOptions::descriptor();
+  Rcpp::CharacterVector names;
+  for (int i = 0; i < descriptor->field_count(); i++) {
+    const auto *field = descriptor->field(i);
+    if (field->is_map() &&
+        field->message_type()->map_key()->cpp_type() ==
+            google::protobuf::FieldDescriptor::CPPTYPE_STRING &&
+        field->message_type()->map_value()->cpp_type() ==
+            google::protobuf::FieldDescriptor::CPPTYPE_STRING) {
+      names.push_back(field->name());
+    }
   }
-  const Rcpp::CharacterVector names = xla_options.names();
-  for (R_xlen_t i = 0; i < xla_options.size(); i++) {
-    const SEXP value = xla_options[i];
+  return names;
+}
+
+// Encode the options pjrt_compile() validated: `scalars`, a named list of R
+// scalars, and `maps`, a named list of named character vectors (key = name).
+// The R type of a scalar picks the OptionOverrideProto field, as the Python
+// type does for JAX's compiler_options.
+static rpjrt::XlaOptions xla_options_from_r(const Rcpp::List &scalars,
+                                            const Rcpp::List &maps) {
+  const auto name = [](const Rcpp::List &list, R_xlen_t i) {
+    return Rcpp::as<std::string>(Rcpp::CharacterVector(list.names())[i]);
+  };
+  rpjrt::XlaOptions xla_options;
+  for (R_xlen_t i = 0; i < scalars.size(); i++) {
+    const SEXP value = scalars[i];
     xla::OptionOverrideProto proto;
     switch (TYPEOF(value)) {
       case LGLSXP:
@@ -123,12 +142,19 @@ static rpjrt::XlaOptionOverrides xla_option_overrides(
         proto.set_string_field(Rcpp::as<std::string>(value));
         break;
       default:
-        Rcpp::stop("Unsupported type for XLA option '%s'.",
-                   Rcpp::as<std::string>(names[i]));
+        Rcpp::stop("Unsupported type for XLA option '%s'.", name(scalars, i));
     }
-    overrides.emplace_back(Rcpp::as<std::string>(names[i]), std::move(proto));
+    xla_options.overrides.emplace_back(name(scalars, i), std::move(proto));
   }
-  return overrides;
+  for (R_xlen_t i = 0; i < maps.size(); i++) {
+    const Rcpp::CharacterVector entries = maps[i];
+    const Rcpp::CharacterVector keys = entries.names();
+    auto &map = xla_options.map_entries[name(maps, i)];
+    for (R_xlen_t j = 0; j < entries.size(); j++) {
+      map[Rcpp::as<std::string>(keys[j])] = Rcpp::as<std::string>(entries[j]);
+    }
+  }
+  return xla_options;
 }
 
 // [[Rcpp::export()]]
@@ -136,9 +162,10 @@ Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     Rcpp::XPtr<rpjrt::PJRTProgram> program,
     Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options,
-    Rcpp::List xla_options) {
-  auto executable = client->compile(*program, *compile_options, *device,
-                                    xla_option_overrides(xla_options));
+    Rcpp::List xla_options, Rcpp::List xla_map_options) {
+  auto executable =
+      client->compile(*program, *compile_options, *device,
+                      xla_options_from_r(xla_options, xla_map_options));
   Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> xptr(executable.release(), true);
 
   xptr.attr("class") = "PJRTLoadedExecutable";

@@ -20,8 +20,16 @@
 #'   option, and a `character(1)` is parsed by the option's type -- `"True"` or `"False"`, a
 #'   number, the name of an enum value, or a comma-separated list for a repeated option, which
 #'   replaces its whole value. So an integer option takes `3L` or `"3"`, but not `3`. XLA
-#'   reports an unknown name or a value of the wrong type when compiling. Options of map type,
-#'   such as `xla_backend_extra_options`, cannot be set this way; use `XLA_FLAGS`.
+#'   reports an unknown name or a value of the wrong type when compiling.
+#'
+#'   An option of map type, such as `xla_backend_extra_options`, takes a `character(1)` in
+#'   `XLA_FLAGS` syntax: comma-separated entries `key=value`, or `key` for an empty value, e.g.
+#'   `"xla_cpu_use_multi_output_fusion"` or `"a,b=1"`. Its entries are added to those the plugin
+#'   applies by default, so entries set through `XLA_FLAGS` are kept. XLA's overrides cannot set
+#'   a map, so pjrt reads the plugin's default `DebugOptions` back from a small program it
+#'   compiles once per client, adds the entries and sends the result. This needs a plugin that
+#'   reports the compile options it applies, which the CPU plugin does and the CUDA plugin does
+#'   not; there, set the option through `XLA_FLAGS` before the plugin is loaded.
 #' @return `PJRTExecutable`
 #' @examplesIf plugins_downloaded()
 #' # Create a simple program
@@ -37,6 +45,13 @@
 #' dir <- tempfile()
 #' exec <- pjrt_compile(prog, xla_options = list(xla_dump_to = dir))
 #' list.files(dir)
+#'
+#' # Keep XLA:CPU from duplicating cheap operations into the fusions that use them
+#' exec <- pjrt_compile(
+#'   prog,
+#'   device = "cpu",
+#'   xla_options = list(xla_backend_extra_options = "xla_cpu_use_multi_output_fusion")
+#' )
 #' @export
 pjrt_compile <- function(
   program,
@@ -49,8 +64,16 @@ pjrt_compile <- function(
   check_program(program)
   check_compile_options(compile_options)
   check_xla_options(xla_options)
+  is_map <- names(xla_options) %in% impl_xla_map_options()
 
-  impl_client_program_compile(client, device, program, compile_options, xla_options)
+  impl_client_program_compile(
+    client,
+    device,
+    program,
+    compile_options,
+    xla_options[!is_map],
+    Map(parse_xla_map_option, xla_options[is_map], names(xla_options)[is_map])
+  )
 }
 
 #' @title Create a Client
@@ -300,6 +323,21 @@ check_xla_options <- function(xla_options) {
     ))
   }
   invisible(NULL)
+}
+
+# A map-valued XLA option in XLA_FLAGS syntax ("a,b=1") as a named character vector.
+parse_xla_map_option <- function(value, name) {
+  if (!is.character(value) || !grepl("^[^,=]+(=[^,]*)?(,[^,=]+(=[^,]*)?)*$", value)) {
+    cli_abort(c(
+      "{.arg xla_options${name}} sets a map, so it must be a string of comma-separated entries {.code key=value} or {.code key}.",
+      x = "Got {.val {value}}."
+    ))
+  }
+  entries <- strsplit(value, ",", fixed = TRUE)[[1L]]
+  eq <- regexpr("=", entries, fixed = TRUE)
+  values <- ifelse(eq > 0L, substring(entries, eq + 1L), "")
+  names(values) <- ifelse(eq > 0L, substr(entries, 1L, eq - 1L), entries)
+  values
 }
 
 new_build_options <- function(
