@@ -9,7 +9,7 @@ Package website: [release](https://r-xla.github.io/pjrt/) \|
 ![R-CMD-check](https://github.com/r-xla/pjrt/actions/workflows/R-CMD-check.yaml/badge.svg)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/pjrt)](https://CRAN.R-project.org/package=pjrt)
-[![codecov](https://codecov.io/gh/r-xla/pjrt/branch/main/graph/badge.svg)](https://codecov.io/gh/r-xla/pjrt)
+[![codecov](https://codecov.io/gh/r-xla/pjrt/branch/main/graph/badge.svg)](https://app.codecov.io/gh/r-xla/pjrt)
 [![r-universe](https://r-xla.r-universe.dev/badges/pjrt)](https://r-xla.r-universe.dev/pjrt)
 <!-- badges: end -->
 

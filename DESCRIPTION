@@ -1,6 +1,6 @@
 Package: pjrt
-Title: R Interface to PJRT
-Version: 0.7.0
+Title: R Interface to 'PJRT'
+Version: 0.7.1
 Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = c("cre", "aut"),
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197")),
@@ -15,8 +15,8 @@ Authors@R: c(
     person("Christian", "Rau", role = "cph",
            comment = "Author of the half-precision library half.hpp bundled in src/half (MIT); see inst/COPYRIGHTS")
   )
-Description: Provides an R interface to PJRT (Pluggable Jit RunTime),
-    which compiles StableHLO and HLO programs with the XLA compiler and
+Description: Provides an R interface to 'PJRT' (Pluggable Jit RunTime),
+    which compiles 'StableHLO' and 'HLO' programs with the 'XLA' compiler and
     runs them on hardware backends such as CPU and GPU.
 License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
@@ -40,7 +40,6 @@ Suggests:
 LinkingTo:
     Rcpp,
     testthat
-Additional_repositories: https://r-xla.r-universe.dev
 Config/build/compilation-database: true
 Config/testthat/edition: 3
 Encoding: UTF-8

@@ -4,9 +4,9 @@
 \name{pjrt-package}
 \alias{pjrt}
 \alias{pjrt-package}
-\title{pjrt: R Interface to PJRT}
+\title{pjrt: R Interface to 'PJRT'}
 \description{
-Provides an R interface to PJRT (Pluggable Jit RunTime), which compiles StableHLO and HLO programs with the XLA compiler and runs them on hardware backends such as CPU and GPU.
+Provides an R interface to 'PJRT' (Pluggable Jit RunTime), which compiles 'StableHLO' and 'HLO' programs with the 'XLA' compiler and runs them on hardware backends such as CPU and GPU.
 }
 \section{Environment Variables}{
 
@@ -71,7 +71,7 @@ from NVIDIA's official redistributable channels by the CUDA toolkit R
 package (e.g. \code{pjrt.cuda}) at install time. Its use is governed by the
 \href{https://docs.nvidia.com/cuda/eula/}{NVIDIA CUDA Toolkit EULA}, with the
 exception of cuDNN, which is covered by the
-\href{https://docs.nvidia.com/deeplearning/cudnn/sla/index.html}{NVIDIA cuDNN SLA},
+\href{https://docs.nvidia.com/cudnn/reference/eula/}{NVIDIA cuDNN SLA},
 and NCCL, which is covered by its \href{https://github.com/NVIDIA/nccl/blob/master/LICENSE.txt}{own license}.
 By installing or using the CUDA backend you accept those terms.
 }

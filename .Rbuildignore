@@ -23,6 +23,7 @@ air.toml
 Makefile
 ^vignettes/articles/
 ^\.claude$
+^\.worktrees$
 ^\.clang-format-ignore$
 ^AGENTS\.md$
 ^jarl.toml$
