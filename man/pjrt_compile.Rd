@@ -4,7 +4,12 @@
 \alias{pjrt_compile}
 \title{Compile a Program}
 \usage{
-pjrt_compile(program, compile_options = new_compile_options(), device = NULL)
+pjrt_compile(
+  program,
+  compile_options = new_compile_options(),
+  device = NULL,
+  xla_options = list()
+)
 }
 \arguments{
 \item{program}{(\code{character(1)})\cr
@@ -18,6 +23,38 @@ A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ..
 in which case the first device for that platform is used.
 The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
 environment variable.}
+
+\item{xla_options}{(named \code{list()})\cr
+XLA compiler options for this compilation only. Each is named
+after a field of XLA's \code{DebugOptions} message (\code{xla.proto}), the names \code{XLA_FLAGS} takes
+without the leading \verb{--}, and XLA applies it on top of its defaults and of \code{XLA_FLAGS}.
+The type of a value decides how XLA reads it: a \code{logical(1)} sets a boolean option, an
+\code{integer(1)} an integer option (or an enum by number), a \code{double(1)} a floating-point
+option, and a \code{character(1)} is parsed by the option's type -- \code{"True"} or \code{"False"}, a
+number, the name of an enum value, or a comma-separated list for a repeated option, which
+replaces its whole value. So an integer option takes \code{3L} or \code{"3"}, but not \code{3}, and a
+single-precision option takes a \code{double(1)} only if it is positive, so \code{0} or a negative
+value has to be given as a string, e.g. \code{"0"}. XLA reports an unknown name or a value of the
+wrong type when compiling.
+
+An option of map type, such as \code{xla_backend_extra_options}, takes a \code{character(1)} in
+\code{XLA_FLAGS} syntax: comma-separated entries \code{key=value}, or \code{key} for an empty value, e.g.
+\code{"xla_cpu_use_multi_output_fusion"}. Its entries are added to those the plugin applies by
+default, so entries set through \code{XLA_FLAGS} are kept. XLA does not check the entries: it
+ignores a key it does not know, and some keys count by their presence alone, so
+\code{"xla_cpu_use_multi_output_fusion=false"} turns that option on as well. On the CPU, XLA hands
+a key that does not start with \code{xla_} to LLVM, which ends the R process if it does not know
+the key.
+
+XLA's overrides cannot set a map, so pjrt reads the plugin's \code{DebugOptions}, with
+\code{XLA_FLAGS} applied, back from a small program it compiles once per client, adds the entries
+and sends the whole set. That differs from a compilation without map options in a few ways:
+XLA reads some options only when a compilation sends such a set (with \code{xla_dump_to}, it then
+also writes the compilation's inputs, and it dumps the small program too), and with
+\code{--xla_flags_reset=true} a later change to \code{XLA_FLAGS} does not reach compilations with map
+options. Reading the set back needs a plugin that reports the compile options it applies,
+which the CPU plugin does and the CUDA plugin does not; there, set the option through
+\code{XLA_FLAGS} before the plugin is loaded.}
 }
 \value{
 \code{PJRTExecutable}
@@ -35,5 +72,17 @@ func.func @main(\%arg0: tensor<2xf32>) -> tensor<2xf32> {
 )"
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
+
+# Write the optimized HLO of this compilation to a directory
+dir <- tempfile()
+exec <- pjrt_compile(prog, xla_options = list(xla_dump_to = dir))
+list.files(dir)
+
+# Keep XLA:CPU from duplicating cheap operations into the fusions that use them
+exec <- pjrt_compile(
+  prog,
+  device = "cpu",
+  xla_options = list(xla_backend_extra_options = "xla_cpu_use_multi_output_fusion")
+)
 \dontshow{\}) # examplesIf}
 }

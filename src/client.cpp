@@ -3,6 +3,7 @@
 #include <Rcpp.h>
 
 #include <cctype>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -27,9 +28,69 @@ std::vector<PJRT_Device *> PJRTClient::devices() {
                      args.addressable_devices + args.num_addressable_devices);
 }
 
-std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
-    const PJRTProgram &program, PJRTCompileOptions &compile_options,
-    PJRTDevice &device) {
+namespace {
+
+// Compiled once per client by default_debug_options_() to read back the
+// plugin's default DebugOptions.
+constexpr char kDebugOptionsProbe[] = R"(
+func.func @main(%x: tensor<f32>) -> tensor<f32> {
+  return %x : tensor<f32>
+}
+)";
+
+// The compile options an executable reports. The CPU plugin reports those it
+// applied, including the DebugOptions; the CUDA plugin reports those it was
+// given.
+xla::CompileOptionsProto applied_compile_options(
+    const PJRT_Api *api, PJRT_LoadedExecutable *loaded_executable) {
+  PJRT_LoadedExecutable_GetExecutable_Args exec_args{};
+  exec_args.struct_size = sizeof(PJRT_LoadedExecutable_GetExecutable_Args);
+  exec_args.loaded_executable = loaded_executable;
+  check_err(api, api->PJRT_LoadedExecutable_GetExecutable_(&exec_args));
+  PJRTHandle<PJRT_Executable> executable =
+      make_pjrt_handle(api, exec_args.executable);
+
+  PJRT_Executable_GetCompileOptions_Args args{};
+  args.struct_size = sizeof(PJRT_Executable_GetCompileOptions_Args);
+  args.executable = executable.get();
+  check_err(api, api->PJRT_Executable_GetCompileOptions_(&args));
+  std::unique_ptr<PJRT_SerializedCompileOptions,
+                  decltype(args.serialized_compile_options_deleter)>
+      backing(args.serialized_compile_options,
+              args.serialized_compile_options_deleter);
+
+  xla::CompileOptionsProto proto;
+  if (!proto.ParseFromArray(args.serialized_bytes,
+                            static_cast<int>(args.serialized_bytes_size))) {
+    Rcpp::stop("Failed to parse the compile options the plugin reported.");
+  }
+  return proto;
+}
+
+// Set `key` to `value` in the map<string, string> field `field` of `options`.
+// Reflection keeps this independent of which map-valued field it is.
+void set_map_entry(xla::DebugOptions &options,
+                   const google::protobuf::FieldDescriptor *field,
+                   const std::string &key, const std::string &value) {
+  const auto *reflection = options.GetReflection();
+  const auto *key_field = field->message_type()->map_key();
+  const auto *value_field = field->message_type()->map_value();
+  for (int i = 0; i < reflection->FieldSize(options, field); i++) {
+    auto *entry = reflection->MutableRepeatedMessage(&options, field, i);
+    if (entry->GetReflection()->GetString(*entry, key_field) == key) {
+      entry->GetReflection()->SetString(entry, value_field, value);
+      return;
+    }
+  }
+  auto *entry = reflection->AddMessage(&options, field);
+  entry->GetReflection()->SetString(entry, key_field, key);
+  entry->GetReflection()->SetString(entry, value_field, value);
+}
+
+}  // namespace
+
+void PJRTClient::set_device_(xla::CompileOptionsProto &options,
+                             PJRTDevice &device) {
   // device_ordinal is a local hardware (StreamExecutor) ordinal, while the
   // device_assignment uses global PJRT device IDs. These coincide on a single
   // host but diverge under distributed PJRT clients, so fetch both. Setting
@@ -52,8 +113,7 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   hw_args.device = device.device;
   check_err(this->api.get(), this->api->PJRT_Device_LocalHardwareId_(&hw_args));
 
-  auto *build_opts =
-      compile_options.compile_options.mutable_executable_build_options();
+  auto *build_opts = options.mutable_executable_build_options();
   build_opts->set_device_ordinal(hw_args.local_hardware_id);
 
   auto *da = build_opts->mutable_device_assignment();
@@ -61,21 +121,95 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   da->set_computation_count(build_opts->num_partitions());
   auto *cd = da->add_computation_devices();
   cd->add_replica_device_ids(id_args.id);
+}
 
+PJRTHandle<PJRT_LoadedExecutable> PJRTClient::compile_(
+    const PJRT_Program &program, const xla::CompileOptionsProto &options) {
   PJRT_Client_Compile_Args args{};
   args.struct_size = sizeof(PJRT_Client_Compile_Args);
-
   args.client = this->client.get();
-  args.program = &program.program;
+  args.program = &program;
 
-  auto opts = compile_options.serialize();
+  std::string opts = options.SerializeAsString();
   args.compile_options = opts.data();
   args.compile_options_size = opts.size();
 
   check_err(this->api.get(), this->api->PJRT_Client_Compile_(&args));
+  return make_pjrt_handle(this->api.get(), args.executable);
+}
+
+// FIXME: XLA's option overrides cannot set map fields
+// (https://github.com/openxla/xla/issues/52688). Once they can, send map
+// options as overrides like the scalar ones and remove this probe, the
+// read-back and the CUDA error.
+const xla::DebugOptions &PJRTClient::default_debug_options_(
+    PJRTDevice &device, const std::string &option) {
+  if (debug_option_defaults_.has_value()) {
+    return *debug_option_defaults_;
+  }
+  // XLA writes its default DebugOptions, with XLA_FLAGS, into the compile
+  // options as soon as it applies an override. xla_flags_reset is one that
+  // XLA reads only from XLA_FLAGS, so setting it changes nothing else.
+  xla::CompileOptionsProto options =
+      PJRTCompileOptions(PJRTBuildOptions()).compile_options;
+  set_device_(options, device);
+  xla::OptionOverrideProto no_reset;
+  no_reset.set_bool_field(false);
+  (*options.mutable_env_option_overrides())["xla_flags_reset"] = no_reset;
+
+  std::string code = kDebugOptionsProbe;
+  PJRT_Program program{};
+  program.struct_size = sizeof(PJRT_Program);
+  program.code = code.data();
+  program.code_size = code.size();
+  program.format = "mlir";
+  program.format_size = strlen("mlir");
+
+  PJRTHandle<PJRT_LoadedExecutable> executable = compile_(program, options);
+  xla::CompileOptionsProto applied =
+      applied_compile_options(this->api.get(), executable.get());
+  if (!applied.executable_build_options().has_debug_options()) {
+    Rcpp::stop(
+        "Can't set the map-valued XLA option '%s' for one compilation: the "
+        "%s plugin does not report the compile options it applies, so pjrt "
+        "can't read back the default DebugOptions to add the entries to. "
+        "Map-valued options need a plugin that reports them, like the CPU "
+        "plugin. Set the option through XLA_FLAGS instead, before the plugin "
+        "is loaded.",
+        option, this->platform());
+  }
+  debug_option_defaults_ = applied.executable_build_options().debug_options();
+  return *debug_option_defaults_;
+}
+
+std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
+    const PJRTProgram &program, const PJRTCompileOptions &compile_options,
+    PJRTDevice &device, const XlaOptions &xla_options) {
+  xla::CompileOptionsProto options = compile_options.compile_options;
+  set_device_(options, device);
+
+  auto &overrides = *options.mutable_env_option_overrides();
+  for (const auto &[name, value] : xla_options.overrides) {
+    overrides[name] = value;
+  }
+
+  if (!xla_options.map_entries.empty()) {
+    xla::DebugOptions debug_options =
+        default_debug_options_(device, xla_options.map_entries.begin()->first);
+    for (const auto &[name, entries] : xla_options.map_entries) {
+      const auto *field =
+          xla::DebugOptions::descriptor()->FindFieldByName(name);
+      for (const auto &[key, value] : entries) {
+        set_map_entry(debug_options, field, key, value);
+      }
+    }
+    *options.mutable_executable_build_options()->mutable_debug_options() =
+        std::move(debug_options);
+  }
+
   return std::make_unique<PJRTLoadedExecutable>(
-      make_pjrt_handle(this->api.get(), args.executable), this->api,
-      program.code, program.format(), this->is_cpu());
+      compile_(program.program, options), this->api, program.code,
+      program.format(), this->is_cpu());
 }
 
 AsyncBufferFromHostResult PJRTClient::buffer_from_host_async(
@@ -151,10 +285,6 @@ PJRTCompileOptions::PJRTCompileOptions(PJRTBuildOptions build_options) {
   compile_options.set_parameter_is_tupled_arguments(false);
   compile_options.set_allocated_executable_build_options(
       build_options.build_options.release());
-}
-
-std::string PJRTCompileOptions::serialize() {
-  return compile_options.SerializeAsString();
 }
 
 // PJRTExecuteOptions implementations

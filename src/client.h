@@ -1,5 +1,8 @@
 #pragma once
+#include <map>
 #include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "buffer.h"
@@ -49,7 +52,6 @@ class PJRTCompileOptions {
  public:
   xla::CompileOptionsProto compile_options{};
   PJRTCompileOptions(PJRTBuildOptions build_options);
-  std::string serialize();
 };
 
 class PJRTExecuteOptions {
@@ -96,6 +98,17 @@ class PJRTLoadedExecutable {
   void load_num_outputs_();
 };
 
+// XLA compiler options for a single compilation, by DebugOptions field name.
+struct XlaOptions {
+  // Scalar options. They go into CompileOptionsProto.env_option_overrides,
+  // which XLA applies on top of its default DebugOptions and XLA_FLAGS.
+  std::vector<std::pair<std::string, xla::OptionOverrideProto>> overrides;
+  // Entries of map-valued options (field -> key -> value), which overrides
+  // can't set. They are merged into the plugin's default DebugOptions, which
+  // are then sent as executable_build_options.debug_options.
+  std::map<std::string, std::map<std::string, std::string>> map_entries;
+};
+
 class PJRTClient {
  public:
   // Declared before `client`, whose deleter uses it (see pjrt_handle.h).
@@ -104,8 +117,8 @@ class PJRTClient {
   PJRTClient(PJRTHandle<PJRT_Client> client, std::shared_ptr<PJRT_Api> api);
   std::vector<PJRT_Device *> devices();
   std::unique_ptr<PJRTLoadedExecutable> compile(
-      const PJRTProgram &program, PJRTCompileOptions &compile_options,
-      PJRTDevice &device);
+      const PJRTProgram &program, const PJRTCompileOptions &compile_options,
+      PJRTDevice &device, const XlaOptions &xla_options = {});
   AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,
@@ -117,6 +130,18 @@ class PJRTClient {
 
  private:
   std::optional<bool> is_cpu_;
+  // The plugin's default DebugOptions (with XLA_FLAGS), read back on first
+  // use by default_debug_options_().
+  std::optional<xla::DebugOptions> debug_option_defaults_;
+  // Point `options` at `device`.
+  void set_device_(xla::CompileOptionsProto &options, PJRTDevice &device);
+  PJRTHandle<PJRT_LoadedExecutable> compile_(
+      const PJRT_Program &program, const xla::CompileOptionsProto &options);
+  // The DebugOptions the plugin applies to a compilation that sets none.
+  // `option` names the map-valued option that needs them, for the error
+  // raised when the plugin does not report them.
+  const xla::DebugOptions &default_debug_options_(PJRTDevice &device,
+                                                  const std::string &option);
 };
 
 }  // namespace rpjrt

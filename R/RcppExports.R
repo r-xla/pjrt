@@ -113,8 +113,12 @@ impl_compile_options_create <- function(build_options) {
     .Call(`_pjrt_impl_compile_options_create`, build_options)
 }
 
-impl_client_program_compile <- function(client, device, program, compile_options) {
-    .Call(`_pjrt_impl_client_program_compile`, client, device, program, compile_options)
+impl_xla_map_options <- function() {
+    .Call(`_pjrt_impl_xla_map_options`)
+}
+
+impl_client_program_compile <- function(client, device, program, compile_options, xla_options, xla_map_options) {
+    .Call(`_pjrt_impl_client_program_compile`, client, device, program, compile_options, xla_options, xla_map_options)
 }
 
 impl_loaded_executable_device <- function(executable) {
