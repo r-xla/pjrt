@@ -13,8 +13,7 @@
 ## New features
 
 * `pjrt_compile()` gains `xla_options`, XLA compiler options for that
-  compilation only (like JAX's `compiler_options`), on top of `XLA_FLAGS`.
-  Map-valued options such as `xla_backend_extra_options` work on CPU only.
+  compilation only.
 * `register_tree_node()` makes the objects of a class nodes of a tree, with aux
   data and a printer, which `flatten()` and the dispatcher recurse into.
 * `flatten()` and `build_tree()` take an `is_leaf` predicate, whose values are

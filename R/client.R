@@ -12,7 +12,7 @@
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
 #' @param xla_options (named `list()`)\cr
-#'   XLA compiler options for this compilation only, like JAX's `compiler_options`. Each is named
+#'   XLA compiler options for this compilation only. Each is named
 #'   after a field of XLA's `DebugOptions` message (`xla.proto`), the names `XLA_FLAGS` takes
 #'   without the leading `--`, and XLA applies it on top of its defaults and of `XLA_FLAGS`.
 #'   The type of a value decides how XLA reads it: a `logical(1)` sets a boolean option, an
