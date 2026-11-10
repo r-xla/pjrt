@@ -4,7 +4,12 @@
 \alias{pjrt_compile}
 \title{Compile a Program}
 \usage{
-pjrt_compile(program, compile_options = new_compile_options(), device = NULL)
+pjrt_compile(
+  program,
+  compile_options = new_compile_options(),
+  device = NULL,
+  xla_options = list()
+)
 }
 \arguments{
 \item{program}{(\code{character(1)})\cr
@@ -18,6 +23,18 @@ A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ..
 in which case the first device for that platform is used.
 The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
 environment variable.}
+
+\item{xla_options}{(named \code{list()})\cr
+XLA compiler options for this compilation only, like JAX's \code{compiler_options}. Each is named
+after a field of XLA's \code{DebugOptions} message (\code{xla.proto}), the names \code{XLA_FLAGS} takes
+without the leading \verb{--}, and XLA applies it on top of its defaults and of \code{XLA_FLAGS}.
+The type of a value decides how XLA reads it: a \code{logical(1)} sets a boolean option, an
+\code{integer(1)} an integer option (or an enum by number), a \code{double(1)} a floating-point
+option, and a \code{character(1)} is parsed by the option's type -- \code{"True"} or \code{"False"}, a
+number, the name of an enum value, or a comma-separated list for a repeated option, which
+replaces its whole value. So an integer option takes \code{3L} or \code{"3"}, but not \code{3}. XLA
+reports an unknown name or a value of the wrong type when compiling. Options of map type,
+such as \code{xla_backend_extra_options}, cannot be set this way; use \code{XLA_FLAGS}.}
 }
 \value{
 \code{PJRTExecutable}
@@ -35,5 +52,10 @@ func.func @main(\%arg0: tensor<2xf32>) -> tensor<2xf32> {
 )"
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
+
+# Write the optimized HLO of this compilation to a directory
+dir <- tempfile()
+exec <- pjrt_compile(prog, xla_options = list(xla_dump_to = dir))
+list.files(dir)
 \dontshow{\}) # examplesIf}
 }

@@ -11,6 +11,17 @@
 #'   in which case the first device for that platform is used.
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
+#' @param xla_options (named `list()`)\cr
+#'   XLA compiler options for this compilation only, like JAX's `compiler_options`. Each is named
+#'   after a field of XLA's `DebugOptions` message (`xla.proto`), the names `XLA_FLAGS` takes
+#'   without the leading `--`, and XLA applies it on top of its defaults and of `XLA_FLAGS`.
+#'   The type of a value decides how XLA reads it: a `logical(1)` sets a boolean option, an
+#'   `integer(1)` an integer option (or an enum by number), a `double(1)` a floating-point
+#'   option, and a `character(1)` is parsed by the option's type -- `"True"` or `"False"`, a
+#'   number, the name of an enum value, or a comma-separated list for a repeated option, which
+#'   replaces its whole value. So an integer option takes `3L` or `"3"`, but not `3`. XLA
+#'   reports an unknown name or a value of the wrong type when compiling. Options of map type,
+#'   such as `xla_backend_extra_options`, cannot be set this way; use `XLA_FLAGS`.
 #' @return `PJRTExecutable`
 #' @examplesIf plugins_downloaded()
 #' # Create a simple program
@@ -21,18 +32,25 @@
 #' )"
 #' prog <- pjrt_program(src = src)
 #' exec <- pjrt_compile(prog)
+#'
+#' # Write the optimized HLO of this compilation to a directory
+#' dir <- tempfile()
+#' exec <- pjrt_compile(prog, xla_options = list(xla_dump_to = dir))
+#' list.files(dir)
 #' @export
 pjrt_compile <- function(
   program,
   compile_options = new_compile_options(),
-  device = NULL
+  device = NULL,
+  xla_options = list()
 ) {
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
   check_program(program)
   check_compile_options(compile_options)
+  check_xla_options(xla_options)
 
-  impl_client_program_compile(client, device, program, compile_options)
+  impl_client_program_compile(client, device, program, compile_options, xla_options)
 }
 
 #' @title Create a Client
@@ -259,6 +277,28 @@ new_compile_options <- function(
 
 check_compile_options <- function(compile_options) {
   stopifnot(inherits(compile_options, "PJRTCompileOptions"))
+  invisible(NULL)
+}
+
+check_xla_options <- function(xla_options) {
+  assert_list(xla_options, names = "unique")
+  is_scalar <- vapply(
+    xla_options,
+    function(x) {
+      (is.logical(x) || is.integer(x) || is.double(x) || is.character(x)) &&
+        length(x) == 1L &&
+        !is.na(x) &&
+        is.null(attributes(x))
+    },
+    logical(1L)
+  )
+  if (!all(is_scalar)) {
+    bad <- names(xla_options)[!is_scalar]
+    cli_abort(c(
+      "Each of {.arg xla_options} must be a non-missing logical, integer, double or character scalar.",
+      x = "Not one: {.val {bad}}."
+    ))
+  }
   invisible(NULL)
 }
 

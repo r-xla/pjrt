@@ -32,6 +32,48 @@ describe("pjrt_compile", {
     program <- pjrt_program(path = path, format = "hlo")
     expect_error(pjrt_compile(program), "aliasing is not supported for HLO")
   })
+
+  it("applies xla_options to that compilation only", {
+    program <- pjrt_program(path = system.file("programs/jax-stablehlo.mlir", package = "pjrt"))
+    dir <- withr::local_tempdir()
+    pjrt_compile(program, xla_options = list(xla_dump_to = dir, xla_dump_hlo_as_text = TRUE))
+    dumped <- list.files(dir)
+    expect_true(any(endsWith(dumped, "after_optimizations.txt")))
+
+    pjrt_compile(program)
+    expect_identical(list.files(dir), dumped)
+  })
+
+  it("passes each type of xla_options value through to XLA", {
+    program <- pjrt_program(path = system.file("programs/jax-stablehlo.mlir", package = "pjrt"))
+    executable <- pjrt_compile(
+      program,
+      xla_options = list(
+        xla_cpu_enable_fast_math = FALSE,
+        xla_backend_optimization_level = 2L,
+        xla_cpu_parallel_codegen_split_count = "16",
+        xla_dump_to = ""
+      )
+    )
+    expect_equal(as_array(pjrt_execute(executable, pjrt_scalar(3))), 6)
+  })
+
+  it("reports an option XLA does not know", {
+    program <- pjrt_program(path = system.file("programs/jax-stablehlo.mlir", package = "pjrt"))
+    expect_error(
+      pjrt_compile(program, xla_options = list(xla_no_such_option = TRUE)),
+      "xla_no_such_option"
+    )
+  })
+
+  it("rejects xla_options that are not named scalars", {
+    program <- pjrt_program(path = system.file("programs/jax-stablehlo.mlir", package = "pjrt"))
+    expect_error(pjrt_compile(program, xla_options = list(TRUE)), "names")
+    expect_error(pjrt_compile(program, xla_options = setNames(list(TRUE, FALSE), c("a", "a"))), "unique")
+    expect_error(pjrt_compile(program, xla_options = list(a = c(1L, 2L))), "scalar")
+    expect_error(pjrt_compile(program, xla_options = list(a = NA)), "scalar")
+    expect_error(pjrt_compile(program, xla_options = list(a = list(1L))), "scalar")
+  })
 })
 
 test_that("compile program with multiple inputs", {

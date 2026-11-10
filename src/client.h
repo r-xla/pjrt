@@ -1,5 +1,7 @@
 #pragma once
 #include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "buffer.h"
@@ -96,6 +98,12 @@ class PJRTLoadedExecutable {
   void load_num_outputs_();
 };
 
+// XLA compiler options for a single compilation, by DebugOptions field name.
+// They go into CompileOptionsProto.env_option_overrides, which XLA applies on
+// top of its default DebugOptions and XLA_FLAGS.
+using XlaOptionOverrides =
+    std::vector<std::pair<std::string, xla::OptionOverrideProto>>;
+
 class PJRTClient {
  public:
   // Declared before `client`, whose deleter uses it (see pjrt_handle.h).
@@ -105,7 +113,7 @@ class PJRTClient {
   std::vector<PJRT_Device *> devices();
   std::unique_ptr<PJRTLoadedExecutable> compile(
       const PJRTProgram &program, PJRTCompileOptions &compile_options,
-      PJRTDevice &device);
+      PJRTDevice &device, const XlaOptionOverrides &xla_options = {});
   AsyncBufferFromHostResult buffer_from_host_async(
       void *data, const std::optional<std::vector<int64_t>> &dims,
       const std::optional<std::vector<int64_t>> &strides,

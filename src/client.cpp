@@ -29,7 +29,7 @@ std::vector<PJRT_Device *> PJRTClient::devices() {
 
 std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
     const PJRTProgram &program, PJRTCompileOptions &compile_options,
-    PJRTDevice &device) {
+    PJRTDevice &device, const XlaOptionOverrides &xla_options) {
   // device_ordinal is a local hardware (StreamExecutor) ordinal, while the
   // device_assignment uses global PJRT device IDs. These coincide on a single
   // host but diverge under distributed PJRT clients, so fetch both. Setting
@@ -68,7 +68,19 @@ std::unique_ptr<PJRTLoadedExecutable> PJRTClient::compile(
   args.client = this->client.get();
   args.program = &program.program;
 
-  auto opts = compile_options.serialize();
+  // The XLA options belong to this compilation only, so they go into a copy
+  // rather than into `compile_options`, which the caller may reuse.
+  std::string opts;
+  if (xla_options.empty()) {
+    opts = compile_options.serialize();
+  } else {
+    xla::CompileOptionsProto proto = compile_options.compile_options;
+    auto &overrides = *proto.mutable_env_option_overrides();
+    for (const auto &[name, value] : xla_options) {
+      overrides[name] = value;
+    }
+    opts = proto.SerializeAsString();
+  }
   args.compile_options = opts.data();
   args.compile_options_size = opts.size();
 

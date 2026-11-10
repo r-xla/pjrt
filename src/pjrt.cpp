@@ -96,12 +96,49 @@ Rcpp::XPtr<rpjrt::PJRTCompileOptions> impl_compile_options_create(
   return xptr;
 }
 
+// Encode a named list of R scalars (validated by check_xla_options()) as XLA
+// option overrides. The R type picks the OptionOverrideProto field, as the
+// Python type does for JAX's compiler_options.
+static rpjrt::XlaOptionOverrides xla_option_overrides(
+    const Rcpp::List &xla_options) {
+  rpjrt::XlaOptionOverrides overrides;
+  if (xla_options.size() == 0) {
+    return overrides;
+  }
+  const Rcpp::CharacterVector names = xla_options.names();
+  for (R_xlen_t i = 0; i < xla_options.size(); i++) {
+    const SEXP value = xla_options[i];
+    xla::OptionOverrideProto proto;
+    switch (TYPEOF(value)) {
+      case LGLSXP:
+        proto.set_bool_field(LOGICAL(value)[0]);
+        break;
+      case INTSXP:
+        proto.set_int_field(INTEGER(value)[0]);
+        break;
+      case REALSXP:
+        proto.set_double_field(REAL(value)[0]);
+        break;
+      case STRSXP:
+        proto.set_string_field(Rcpp::as<std::string>(value));
+        break;
+      default:
+        Rcpp::stop("Unsupported type for XLA option '%s'.",
+                   Rcpp::as<std::string>(names[i]));
+    }
+    overrides.emplace_back(Rcpp::as<std::string>(names[i]), std::move(proto));
+  }
+  return overrides;
+}
+
 // [[Rcpp::export()]]
 Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> impl_client_program_compile(
     Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device,
     Rcpp::XPtr<rpjrt::PJRTProgram> program,
-    Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options) {
-  auto executable = client->compile(*program, *compile_options, *device);
+    Rcpp::XPtr<rpjrt::PJRTCompileOptions> compile_options,
+    Rcpp::List xla_options) {
+  auto executable = client->compile(*program, *compile_options, *device,
+                                    xla_option_overrides(xla_options));
   Rcpp::XPtr<rpjrt::PJRTLoadedExecutable> xptr(executable.release(), true);
 
   xptr.attr("class") = "PJRTLoadedExecutable";
