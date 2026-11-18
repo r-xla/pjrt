@@ -90,13 +90,13 @@ func.func @main(\%arg0: tensor<2xf32>) -> tensor<2xf32> {
 prog <- pjrt_program(src = src)
 exec <- pjrt_compile(prog)
 #> Error: -:2:17: error: unexpected character
-#> <unknown>:0: error: Failed to parse using StableHLO v1.25.2, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
+#> <unknown>:0: error: Failed to parse using StableHLO v1.23.0, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 
 # Write the optimized HLO of this compilation to a directory
 dir <- tempfile()
 exec <- pjrt_compile(prog, xla_options = list(xla_dump_to = dir))
 #> Error: -:2:17: error: unexpected character
-#> <unknown>:0: error: Failed to parse using StableHLO v1.25.2, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
+#> <unknown>:0: error: Failed to parse using StableHLO v1.23.0, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 list.files(dir)
 #> character(0)
 
@@ -107,5 +107,5 @@ exec <- pjrt_compile(
   xla_options = list(xla_backend_extra_options = "xla_cpu_use_multi_output_fusion")
 )
 #> Error: -:2:17: error: unexpected character
-#> <unknown>:0: error: Failed to parse using StableHLO v1.25.2, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
+#> <unknown>:0: error: Failed to parse using StableHLO v1.23.0, this could indicate forward incompatibility, >12w old unsupported plugin, or a portable artifact that needs to be further downgraded.
 ```

@@ -2,10 +2,6 @@
 
 ## pjrt (development version)
 
-- The CPU plugin is built from <openxla/xla@fc31477>, whose LLVM no
-  longer hangs compiling a random number draw inside a small while loop
-  (r-xla/anvl#655).
-
 ## pjrt 0.7.0
 
 ### Breaking changes
