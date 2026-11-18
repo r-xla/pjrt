@@ -29,7 +29,7 @@ against back to the runtime (`api.h`, `PopulateMetadata`), and a plugin will not
 accept a handler newer than itself -- so as soon as `XLA_FFI_API_MINOR` moves,
 an un-rebuilt plugin silently drops every custom call. The other direction is
 fine: a CPU plugin built from a *newer* XLA commit than the headers works (it
-is how pjrt-cpu-fc31477 ships against headers from the ZML 18.0.0 commit):
+is how pjrt-cpu-aa1e72c shipped against headers from the ZML 18.0.0 commit):
 
 ```
 No FFI handler registered for print_tensor on a platform Host (canonical host)
