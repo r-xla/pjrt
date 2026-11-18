@@ -58,11 +58,11 @@ static Error do_lu(AnyBuffer input, Result<AnyBuffer> lu_out,
   PJRT_DISPATCH_FLOAT(input.element_type(), lu_impl, input, lu_out, piv_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(lu_handler, do_lu,
-                       Ffi::Bind()
-                           .Arg<AnyBuffer>()    // input matrix
-                           .Ret<AnyBuffer>()    // LU (same dtype)
-                           .Ret<AnyBuffer>());  // pivots (int32)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(lu_handler, do_lu,
+                                Ffi::Bind()
+                                    .Arg<AnyBuffer>()    // input matrix
+                                    .Ret<AnyBuffer>()    // LU (same dtype)
+                                    .Ret<AnyBuffer>());  // pivots (int32)
 
 }  // namespace rpjrt
 

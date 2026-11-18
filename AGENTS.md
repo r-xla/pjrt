@@ -92,3 +92,7 @@ In C++, root R objects with Rcpp rather than by hand:
 
 - Use Rcpp types (`Rcpp::List`, `Rcpp::CharacterVector`, ...) or `Rcpp::Shield<SEXP>` instead of `PROTECT`/`UNPROTECT`. They unwind correctly when a C++ exception is thrown, where a skipped `UNPROTECT` would not. The exception is ALTREP methods, which R calls from C and which must not hold objects with destructors (see `call_pjrt()` in `src/buffer_sexp.h`).
 - Keep an object alive beyond the current call with `rpjrt::preserve()` and `rpjrt::release()`, or `rpjrt::queue_release()` from a PJRT callback thread (`src/deferred_release.h`). These use Rcpp's precious list; don't call `R_PreserveObject()`/`R_ReleaseObject()`.
+
+## Compiler Warnings
+
+CRAN compiles with clang and `-pedantic` and rejects warnings even when they point into the vendored headers. Define FFI handlers with `XLA_FFI_DEFINE_HANDLER_EXPLICIT()` or `XLA_FFI_DEFINE_HANDLER_AUTO()`, never `XLA_FFI_DEFINE_HANDLER()`: its `, ##__VA_ARGS__` optional-argument trick raises `-Wgnu-zero-variadic-macro-arguments` at every use.

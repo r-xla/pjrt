@@ -159,12 +159,12 @@ xla::ffi::Error do_print_ordered_call(Dictionary attrs, AnyBuffer buffer,
   return print_host_buffer(buffer.untyped_data(), attrs, buffer);
 }
 
-XLA_FFI_DEFINE_HANDLER(print_ordered_handler, do_print_ordered_call,
-                       xla::ffi::Ffi::Bind()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>()
-                           .Arg<xla::ffi::Token>()
-                           .Ret<xla::ffi::Token>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(print_ordered_handler, do_print_ordered_call,
+                                xla::ffi::Ffi::Bind()
+                                    .Attrs<Dictionary>()
+                                    .Arg<AnyBuffer>()
+                                    .Arg<xla::ffi::Token>()
+                                    .Ret<xla::ffi::Token>());
 
 xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
                                    AnyBuffer buffer) {
@@ -191,11 +191,11 @@ xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(print_handler_cuda, do_print_call_cuda,
-                       xla::ffi::Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(print_handler_cuda, do_print_call_cuda,
+                                xla::ffi::Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Attrs<Dictionary>()
+                                    .Arg<AnyBuffer>());
 
 xla::ffi::Error do_print_ordered_call_cuda(void *stream, Dictionary attrs,
                                            AnyBuffer buffer, xla::ffi::Token,
@@ -203,13 +203,14 @@ xla::ffi::Error do_print_ordered_call_cuda(void *stream, Dictionary attrs,
   return do_print_call_cuda(stream, attrs, buffer);
 }
 
-XLA_FFI_DEFINE_HANDLER(print_ordered_handler_cuda, do_print_ordered_call_cuda,
-                       xla::ffi::Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>()
-                           .Arg<xla::ffi::Token>()
-                           .Ret<xla::ffi::Token>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(print_ordered_handler_cuda,
+                                do_print_ordered_call_cuda,
+                                xla::ffi::Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Attrs<Dictionary>()
+                                    .Arg<AnyBuffer>()
+                                    .Arg<xla::ffi::Token>()
+                                    .Ret<xla::ffi::Token>());
 
 void register_ffi_handlers(PJRTPlugin *plugin,
                            const std::string &platform_name) {

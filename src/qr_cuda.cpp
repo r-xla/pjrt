@@ -79,13 +79,13 @@ static Error do_geqrf_cuda(void *stream, ScratchAllocator scratch,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(geqrf_handler_cuda, do_geqrf_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Arg<AnyBuffer>()    // input (m, n)
-                           .Ret<AnyBuffer>()    // packed (m, n)
-                           .Ret<AnyBuffer>());  // tau (k,)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(geqrf_handler_cuda, do_geqrf_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Arg<AnyBuffer>()    // input (m, n)
+                                    .Ret<AnyBuffer>()    // packed (m, n)
+                                    .Ret<AnyBuffer>());  // tau (k,)
 
 // ---- orgqr -----------------------------------------------------------------
 
@@ -151,13 +151,14 @@ static Error do_orgqr_cuda(void *stream, ScratchAllocator scratch,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(orgqr_handler_cuda, do_orgqr_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Arg<AnyBuffer>()    // packed reflectors (m, n)
-                           .Arg<AnyBuffer>()    // tau (k,)
-                           .Ret<AnyBuffer>());  // Q (m, k)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    orgqr_handler_cuda, do_orgqr_cuda,
+    Ffi::Bind()
+        .Ctx<PlatformStream<void *>>()
+        .Ctx<ScratchAllocator>()
+        .Arg<AnyBuffer>()    // packed reflectors (m, n)
+        .Arg<AnyBuffer>()    // tau (k,)
+        .Ret<AnyBuffer>());  // Q (m, k)
 
 }  // namespace rpjrt
 

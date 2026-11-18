@@ -84,12 +84,12 @@ static Error do_svd(AnyBuffer input, Result<AnyBuffer> u_out,
                       vt_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(svd_handler, do_svd,
-                       Ffi::Bind()
-                           .Arg<AnyBuffer>()    // input matrix
-                           .Ret<AnyBuffer>()    // U  (m, k)
-                           .Ret<AnyBuffer>()    // S  (k,)
-                           .Ret<AnyBuffer>());  // Vt (k, n)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(svd_handler, do_svd,
+                                Ffi::Bind()
+                                    .Arg<AnyBuffer>()    // input matrix
+                                    .Ret<AnyBuffer>()    // U  (m, k)
+                                    .Ret<AnyBuffer>()    // S  (k,)
+                                    .Ret<AnyBuffer>());  // Vt (k, n)
 
 }  // namespace rpjrt
 

@@ -1,4 +1,4 @@
-# pjrt 0.7.1
+# pjrt 0.8.0
 
 * Fixes to the package metadata, documentation links and build ignores for the
   initial CRAN submission.
