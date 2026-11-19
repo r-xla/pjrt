@@ -79,7 +79,7 @@ test_extractor <- function(leaf) {
 # pjrt engine ignores it and reads the PJRTBuffer directly.
 new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device, context = NULL) {
   extractor <- if (engine == "pjrt") NULL else test_extractor
-  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context)
+  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context, FALSE)
 }
 # ---------------------------------------------------------------------------
 # Programs. `dispatcher()` needs something real to execute, so the tests compile
@@ -1259,7 +1259,8 @@ test_that("a context resolver must return a character vector without NAs", {
       FALSE,
       test_quickr_device,
       test_extractor,
-      1
+      1,
+      FALSE
     ),
     "context must be a function or NULL"
   )
@@ -1405,7 +1406,8 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
     FALSE,
     test_quickr_device,
     extractor,
-    NULL
+    NULL,
+    FALSE
   )
   bare <- function(v) structure(list(data = v), class = "AnvlArray")
   expect_identical(impl_dispatch_run(d, list(bare(c(1, 2, 3))))$v, c(2, 4, 6))

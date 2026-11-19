@@ -1179,8 +1179,7 @@ SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
 SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                      Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                      SEXP data, std::vector<int64_t> dims,
-                                     std::string dtype,
-                                     bool row_major = false) {
+                                     std::string dtype, bool row_major) {
   if (dtype == "i8") {
     return create_buffer_from_array_async<int8_t>(
         client, data, dims, PJRT_Buffer_Type_S8, row_major, device->device);
@@ -1246,8 +1245,7 @@ SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
 SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                        Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                        SEXP data, std::vector<int64_t> dims,
-                                       std::string dtype,
-                                       bool row_major = false) {
+                                       std::string dtype, bool row_major) {
   static_assert(sizeof(double) == sizeof(int64_t),
                 "bit64::integer64 zero-copy requires sizeof(double) == "
                 "sizeof(int64_t)");
@@ -1287,8 +1285,7 @@ SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client,
 SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                      Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                      SEXP data, std::vector<int64_t> dims,
-                                     std::string dtype,
-                                     bool row_major = false) {
+                                     std::string dtype, bool row_major) {
   if (dtype == "bool") {
     return create_buffer_from_array_async<uint8_t>(
         client, data, dims, PJRT_Buffer_Type_PRED, row_major, device->device);
@@ -1306,7 +1303,7 @@ SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
 SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                     SEXP data, std::vector<int64_t> dims,
-                                    std::string dtype, bool row_major = false) {
+                                    std::string dtype, bool row_major) {
   if (dtype == "f16") {
     return create_buffer_from_array_async<half_float::half>(
         client, data, dims, PJRT_Buffer_Type_F16, row_major, device->device);

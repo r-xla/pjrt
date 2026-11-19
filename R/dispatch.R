@@ -61,7 +61,8 @@
 #' * an array input's aval -- in the cache key and in `info$avals` -- has its
 #'   buffer's shape reversed,
 #' * a bare R input is uploaded with its shape reversed, in row-major order,
-#'   which is a plain copy of its data,
+#'   which keeps its elements in place (converted one by one where R's storage
+#'   type is not the data type),
 #' * the `shape` of an implicit input and that of a phantom are R shapes: the
 #'   buffer an implicit input's `get()` returns must have it reversed, and a
 #'   phantom is allocated with it reversed.

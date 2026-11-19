@@ -5,7 +5,7 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
-impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn, reverse_shapes = FALSE) {
+impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn, reverse_shapes) {
     .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn, reverse_shapes)
 }
 
@@ -241,19 +241,19 @@ impl_loaded_executable_execute <- function(executable, input, execution_options)
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
-impl_client_buffer_from_integer <- function(client, device, data, dims, dtype, row_major = FALSE) {
+impl_client_buffer_from_integer <- function(client, device, data, dims, dtype, row_major) {
     .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_integer64 <- function(client, device, data, dims, dtype, row_major = FALSE) {
+impl_client_buffer_from_integer64 <- function(client, device, data, dims, dtype, row_major) {
     .Call(`_pjrt_impl_client_buffer_from_integer64`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_logical <- function(client, device, data, dims, dtype, row_major = FALSE) {
+impl_client_buffer_from_logical <- function(client, device, data, dims, dtype, row_major) {
     .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_double <- function(client, device, data, dims, dtype, row_major = FALSE) {
+impl_client_buffer_from_double <- function(client, device, data, dims, dtype, row_major) {
     .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype, row_major)
 }
 

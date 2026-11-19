@@ -292,6 +292,13 @@ as_dtype_string <- function(dtype) {
   dtype
 }
 
+# A scalar has no layout, so `pjrt_scalar()` takes no further arguments.
+check_no_dots <- function(...) {
+  if (...length()) {
+    cli_abort("Unused arguments")
+  }
+}
+
 convert_buffer_args <- function(
   data,
   dtype,
@@ -439,7 +446,8 @@ pjrt_scalar.logical <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  args <- convert_buffer_args(data, dtype, device, integer(), "bool", ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "bool")
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
@@ -455,7 +463,8 @@ pjrt_scalar.integer <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "i32")
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
@@ -471,7 +480,8 @@ pjrt_scalar.numeric <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "f32")
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
 }
@@ -486,7 +496,8 @@ pjrt_scalar.integer64 <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer(), ...)
+  check_no_dots(...)
+  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer())
 }
 
 #' @export
@@ -501,7 +512,8 @@ pjrt_scalar.raw <- function(
   }
   dtype <- as_dtype_string(dtype)
   check_raw_buffer_size(data, dtype, integer())
-  args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE)
   buffer <- do.call(impl_client_buffer_from_raw, args)
   buffer
 }
@@ -569,8 +581,8 @@ elt_type <- function(x) {
 #' @param row_major (`logical(1)`)\cr
 #'   Whether to return the buffer's data in row-major order, with the shape
 #'   reversed: the result is the R array of shape `rev(shape(x))` whose
-#'   column-major data are the buffer's row-major data, so the transfer
-#'   needs no transpose. It is the way back from
+#'   column-major data are the buffer's row-major data, so for a buffer in
+#'   the default layout the transfer needs no transpose. It is the way back from
 #'   `pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)`, which it returns
 #'   as `x`. Default `FALSE`, which returns the R array of shape `shape(x)`.
 #'   Either way, a buffer of rank 0 or 1 gives the same result.

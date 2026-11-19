@@ -7,9 +7,10 @@
 // converts the bytes into a plain R vector, which the host array then wraps.
 // For a dtype whose elements are already R's own (f64, i32, i64, ui64), PJRT
 // writes straight into that vector and there is nothing to convert.
-// A row-major transfer (as_array(row_major = TRUE)) copies the device's own
-// layout and gives the R array the buffer's shape reversed, so that its
-// column-major data are the buffer's row-major data: no transpose either way.
+// A row-major transfer (as_array(row_major = TRUE)) asks for a dense row-major
+// host layout and gives the R array the buffer's shape reversed, so that its
+// column-major data are the buffer's row-major data. For a buffer in the
+// default layout that is a plain copy; PJRT reorders any other layout.
 // That first access goes through pjrt's R function host_array_materialize(),
 // which checks the values as as_array() does before the host array takes them.
 //

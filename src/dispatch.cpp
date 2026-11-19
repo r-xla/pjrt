@@ -90,7 +90,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
     int capacity, SEXP compile_fn,
     Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
     std::string backend, bool move_inputs, SEXP default_device_fn,
-    SEXP extractor_fn, SEXP context_fn, bool reverse_shapes = false) {
+    SEXP extractor_fn, SEXP context_fn, bool reverse_shapes) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
