@@ -1,5 +1,6 @@
 #include "xla/ffi/api/ffi.h"
 
+#include <algorithm>
 #include <iostream>
 #include <string_view>
 
@@ -80,6 +81,11 @@ XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 
 constexpr std::string_view kPrintHeaderAttr = "print_header";
 constexpr std::string_view kPrintFooterAttr = "print_footer";
+// Prints the operand with its dimensions reversed: its bytes are taken to be
+// row-major over the reversed dimensions, i.e. column-major over its own, as a
+// caller that stores R arrays with their shape reversed passes them by
+// declaring the operand layout column-major. Optional, default false.
+constexpr std::string_view kReverseDimsAttr = "reverse_dims";
 
 std::string dtype_display_name(xla::ffi::DataType dtype) {
   PJRT_Buffer_Type pjrt_type = to_pjrt_type(dtype);
@@ -91,6 +97,16 @@ std::string dtype_display_name(xla::ffi::DataType dtype) {
 // buffer_to_string_lines.
 xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
                                   AnyBuffer buffer) {
+  bool reverse_dims = false;
+  if (attrs.contains(kReverseDimsAttr)) {
+    auto flag = attrs.get<bool>(kReverseDimsAttr);
+    if (!flag) {
+      return xla::ffi::Error(xla::ffi::ErrorCode::kInvalidArgument,
+                             "print_tensor: `reverse_dims` must be a boolean.");
+    }
+    reverse_dims = *flag;
+  }
+
   std::string_view header = "PJRTBuffer";
   if (attrs.contains(kPrintHeaderAttr)) {
     auto print_header = attrs.get<std::string_view>(kPrintHeaderAttr);
@@ -107,6 +123,7 @@ xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
   const auto dimensions_span = buffer.dimensions();
   std::vector<int64_t> dimensions(dimensions_span.begin(),
                                   dimensions_span.end());
+  if (reverse_dims) std::reverse(dimensions.begin(), dimensions.end());
 
   PJRT_Buffer_Type element_type;
   try {
@@ -131,12 +148,11 @@ xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
     }
   } else {
     Rcpp::Rcout << "[ " << dtype_display_name(buffer.element_type()) << "{";
-    const auto dims = buffer.dimensions();
-    for (size_t i = 0; i < dims.size(); ++i) {
+    for (size_t i = 0; i < dimensions.size(); ++i) {
       if (i != 0) {
         Rcpp::Rcout << ',';
       }
-      Rcpp::Rcout << dims[i];
+      Rcpp::Rcout << dimensions[i];
     }
     Rcpp::Rcout << "} ]" << "\n";
   }
