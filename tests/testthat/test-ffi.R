@@ -209,3 +209,64 @@ func.func @main(
     invisible(pjrt_execute(program, buf))
   })
 })
+
+describe("print_tensor's reverse_dims", {
+  # A program printing its operand of type `ty`, with the operand layout
+  # `layout` (minor to major) and the backend config entries `config`.
+  print_program <- function(ty, layout, config = "") {
+    pjrt_compile(pjrt_program(sprintf(
+      r"(
+func.func @main(%%x: %s) -> %s {
+  stablehlo.custom_call @print_tensor(%%x) {
+    call_target_name = "print_tensor",
+    backend_config = {%s},
+    has_side_effect = true,
+    api_version = 4 : i32,
+    operand_layouts = [dense<[%s]> : tensor<%dxindex>],
+    result_layouts = []
+  } : (%s) -> ()
+  "func.return"(%%x) : (%s) -> ()
+}
+)",
+      ty,
+      ty,
+      config,
+      paste(layout, collapse = ", "),
+      length(layout),
+      ty,
+      ty
+    )))
+  }
+  tensor_ty <- function(shape) sprintf("tensor<%sxf32>", paste(shape, collapse = "x"))
+  printed <- function(program, buf) capture.output(invisible(as_array(pjrt_execute(program, buf))))
+
+  it("prints a column-major operand as the array of its dims reversed", {
+    for (shape in list(c(2L, 3L), c(2L, 3L, 4L))) {
+      x <- array(seq_len(prod(shape)) / 4, shape)
+      n <- length(shape)
+      # The R array stored with its shape reversed, its operand declared
+      # column-major: the handler receives the bytes row-major over `shape`.
+      reversed <- printed(
+        print_program(tensor_ty(rev(shape)), seq_len(n) - 1L, "reverse_dims = true"),
+        pjrt_buffer(x, dtype = "f32", shape = rev(shape), row_major = TRUE)
+      )
+      ordinary <- printed(
+        print_program(tensor_ty(shape), rev(seq_len(n) - 1L)),
+        pjrt_buffer(x, dtype = "f32")
+      )
+      expect_identical(reversed, ordinary)
+      expect_identical(
+        reversed[[length(reversed)]],
+        sprintf("[ f32{%s} ]", paste(shape, collapse = ","))
+      )
+    }
+  })
+
+  it("prints the operand as it is when false", {
+    x <- matrix(1:6, 2L, 3L)
+    expect_identical(
+      printed(print_program(tensor_ty(c(2L, 3L)), c(1L, 0L), "reverse_dims = false"), pjrt_buffer(x, dtype = "f32")),
+      printed(print_program(tensor_ty(c(2L, 3L)), c(1L, 0L)), pjrt_buffer(x, dtype = "f32"))
+    )
+  })
+})

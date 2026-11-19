@@ -66,6 +66,8 @@ Both execution and buffer transfers are asynchronous:
 
 R uses column-major (Fortran) order. The C++ layer handles row-to-column-major conversion when transferring between R and device buffers.
 
+Opt-in, an R array of shape `(d1, ..., dn)` can instead be stored as a buffer of shape `(dn, ..., d1)`: R's column-major data are the row-major data of the reversed shape, so both directions are plain copies. `pjrt_buffer(row_major = TRUE)` and `as_array(row_major = TRUE)` move such buffers, `print(reversed = TRUE)` and `print_tensor`'s `reverse_dims` print them, and `dispatcher(reverse_shapes = TRUE)` keeps its avals in R order around them -- this is how anvl stores its arrays.
+
 ## Key Source Files
 
 - `plugin.R` – plugin loading, client caching, global state (`the`)
