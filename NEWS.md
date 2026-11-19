@@ -9,6 +9,8 @@
 * `print()` of a `PJRTBuffer` gains `reversed`, which prints it as the R array
   of its shape reversed, and the `print_tensor` custom call a `reverse_dims`
   attribute that does the same.
+* `dispatcher()` gains `reverse_shapes`, which stores an R array as a buffer
+  of its shape reversed: uploads and downloads then need no transpose.
 
 # pjrt 0.7.0
 

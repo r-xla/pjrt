@@ -90,7 +90,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
     int capacity, SEXP compile_fn,
     Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
     std::string backend, bool move_inputs, SEXP default_device_fn,
-    SEXP extractor_fn, SEXP context_fn) {
+    SEXP extractor_fn, SEXP context_fn, bool reverse_shapes = false) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
@@ -100,7 +100,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   }
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
   std::unique_ptr<Engine> eng =
-      make_engine(engine, backend, move_inputs, extractor_fn);
+      make_engine(engine, backend, move_inputs, reverse_shapes, extractor_fn);
   if (default_device_fn != R_NilValue && !Rf_isFunction(default_device_fn)) {
     Rcpp::stop("default_device must be a function or NULL");
   }
