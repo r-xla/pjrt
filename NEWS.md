@@ -6,6 +6,9 @@
   `integer64` data too, not only for raw data.
 * `as_array()` gains `row_major`, which returns a buffer's data in row-major
   order with its shape reversed, without a transpose.
+* `print()` of a `PJRTBuffer` gains `reversed`, which prints it as the R array
+  of its shape reversed, and the `print_tensor` custom call a `reverse_dims`
+  attribute that does the same.
 
 # pjrt 0.7.0
 

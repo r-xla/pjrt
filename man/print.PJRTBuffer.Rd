@@ -11,6 +11,7 @@
   max_rows_slice = getOption("pjrt.print_max_rows_slice", max_rows),
   header = TRUE,
   footer = NULL,
+  reversed = FALSE,
   ...
 )
 }
@@ -40,6 +41,14 @@ Whether to print the header.}
 \item{footer}{(\code{NULL} or \code{character(1)})\cr
 The footer line to print. If \code{NULL} (default), prints the standard
 \verb{[ <PLATFORM><TYPE>\{<SHAPE>\} ]} summary. Use \code{""} to suppress.}
+
+\item{reversed}{(\code{logical(1)})\cr
+Whether to print the buffer with its shape reversed, as the R array of
+shape \code{rev(shape(x))} whose column-major data are the buffer's row-major
+data (see the \code{row_major} argument of
+\code{\link[=as_array.PJRTBuffer]{as_array()}}). That is the R array a buffer
+uploaded with \code{pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)}
+stores, which then prints as \code{pjrt_buffer(x)} would. Default \code{FALSE}.}
 
 \item{...}{Additional arguments (unused).}
 }

@@ -65,7 +65,12 @@ A `stablehlo.custom_call` op carries:
 - `backend_config = {...}` (optional) -- a dictionary of attributes the
   handler can read. `print_tensor` accepts `print_header` (default
   `"PJRTBuffer"`) and `print_footer` (default `"[ <dtype>{<shape>} ]"`);
-  pass `""` for either to suppress that line.
+  pass `""` for either to suppress that line. It also accepts
+  `reverse_dims` (default `false`), which prints the operand with its
+  dimensions reversed. Together with a column-major operand layout
+  (e.g. `dense<[0, 1]>` for a matrix) it prints a buffer that stores an R
+  array with its shape reversed (see the `row_major` argument of
+  `pjrt_buffer()`) as that R array.
 - `operand_layouts` / `result_layouts` indicate which layout the custom call
   expects and outputs (e.g., row-major vs. col-major).
   XLA's documented default for newly-created shapes is

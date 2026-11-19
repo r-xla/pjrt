@@ -925,9 +925,9 @@ std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
 
 // [[Rcpp::export()]]
 void impl_buffer_print(SEXP buffer_sexp, int max_rows, int max_width,
-                       int max_rows_slice) {
+                       int max_rows_slice, bool reversed) {
   auto buffer = rpjrt::as_buffer(buffer_sexp);
-  buffer_print(buffer, max_rows, max_width, max_rows_slice);
+  buffer_print(buffer, max_rows, max_width, max_rows_slice, reversed);
 }
 
 // Async status functions for buffers and host data

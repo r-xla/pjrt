@@ -854,6 +854,13 @@ print.PJRTDevice <- function(x, ...) {
 #' @param footer (`NULL` or `character(1)`)\cr
 #'   The footer line to print. If `NULL` (default), prints the standard
 #'   `[ <PLATFORM><TYPE>{<SHAPE>} ]` summary. Use `""` to suppress.
+#' @param reversed (`logical(1)`)\cr
+#'   Whether to print the buffer with its shape reversed, as the R array of
+#'   shape `rev(shape(x))` whose column-major data are the buffer's row-major
+#'   data (see the `row_major` argument of
+#'   [`as_array()`][as_array.PJRTBuffer]). That is the R array a buffer
+#'   uploaded with `pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)`
+#'   stores, which then prints as `pjrt_buffer(x)` would. Default `FALSE`.
 #' @param ... Additional arguments (unused).
 #' @export
 print.PJRTBuffer <- function(
@@ -863,9 +870,11 @@ print.PJRTBuffer <- function(
   max_rows_slice = getOption("pjrt.print_max_rows_slice", max_rows),
   header = TRUE,
   footer = NULL,
+  reversed = FALSE,
   ...
 ) {
   assert_flag(header)
+  assert_flag(reversed)
   max_rows <- assert_print_rows(max_rows)
   max_width <- assert_int(max_width, coerce = TRUE)
   if (max_width %in% c(0, 1L)) {
@@ -878,6 +887,9 @@ print.PJRTBuffer <- function(
     cat(class(x)[[1L]], "\n")
   }
   shp <- shape(x)
+  if (reversed) {
+    shp <- rev(shp)
+  }
   shape_str <- if (length(shp)) {
     paste0(paste0(shp, collapse = "x"))
   } else {
@@ -887,7 +899,8 @@ print.PJRTBuffer <- function(
     x,
     max_rows = max_rows,
     max_width = max_width,
-    max_rows_slice = max_rows_slice
+    max_rows_slice = max_rows_slice,
+    reversed = reversed
   )
   if (is.null(footer)) {
     footer <- sprintf("[ %s%s{%s} ]", toupper(platform(x)), as.character(dtype(x)), shape_str)
