@@ -61,12 +61,12 @@ impl_call_r_gc <- function() {
     invisible(.Call(`_pjrt_impl_call_r_gc`))
 }
 
-impl_buffer_to_host <- function(buffer_sexp) {
-    .Call(`_pjrt_impl_buffer_to_host`, buffer_sexp)
+impl_buffer_to_host <- function(buffer_sexp, row_major) {
+    .Call(`_pjrt_impl_buffer_to_host`, buffer_sexp, row_major)
 }
 
-impl_buffer_to_host_async <- function(buffer_sexp, check) {
-    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp, check)
+impl_buffer_to_host_async <- function(buffer_sexp, check, row_major) {
+    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp, check, row_major)
 }
 
 impl_host_array_pending <- function(x) {
@@ -241,20 +241,20 @@ impl_loaded_executable_execute <- function(executable, input, execution_options)
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
-impl_client_buffer_from_integer <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype)
+impl_client_buffer_from_integer <- function(client, device, data, dims, dtype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_integer64 <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_integer64`, client, device, data, dims, dtype)
+impl_client_buffer_from_integer64 <- function(client, device, data, dims, dtype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_integer64`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_logical <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype)
+impl_client_buffer_from_logical <- function(client, device, data, dims, dtype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
+impl_client_buffer_from_double <- function(client, device, data, dims, dtype, row_major = FALSE) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype, row_major)
 }
 
 get_potrf_handler <- function() {

@@ -697,15 +697,15 @@ class PjrtEngine : public Engine {
       switch (TYPEOF(in.value)) {
         case REALSXP:
           inputs[pos++] = impl_client_buffer_from_double(
-              pe->client, pe->device, in.value, in.aval->shape, dt);
+              pe->client, pe->device, in.value, in.aval->shape, dt, false);
           break;
         case INTSXP:
           inputs[pos++] = impl_client_buffer_from_integer(
-              pe->client, pe->device, in.value, in.aval->shape, dt);
+              pe->client, pe->device, in.value, in.aval->shape, dt, false);
           break;
         default:
           inputs[pos++] = impl_client_buffer_from_logical(
-              pe->client, pe->device, in.value, in.aval->shape, dt);
+              pe->client, pe->device, in.value, in.aval->shape, dt, false);
           break;
       }
     }

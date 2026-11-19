@@ -1,5 +1,12 @@
 # pjrt (development version)
 
+## New features
+
+* `pjrt_buffer()` takes `row_major` for logical, integer, double and
+  `integer64` data too, not only for raw data.
+* `as_array()` gains `row_major`, which returns a buffer's data in row-major
+  order with its shape reversed, without a transpose.
+
 # pjrt 0.7.0
 
 ## Breaking changes

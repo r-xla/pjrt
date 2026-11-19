@@ -1173,19 +1173,20 @@ Rcpp::List impl_loaded_executable_execute(
 SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                      Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                      SEXP data, std::vector<int64_t> dims,
-                                     std::string dtype);
+                                     std::string dtype, bool row_major);
 
 // [[Rcpp::export()]]
 SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                      Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                      SEXP data, std::vector<int64_t> dims,
-                                     std::string dtype) {
+                                     std::string dtype,
+                                     bool row_major = false) {
   if (dtype == "i8") {
     return create_buffer_from_array_async<int8_t>(
-        client, data, dims, PJRT_Buffer_Type_S8, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_S8, row_major, device->device);
   } else if (dtype == "i16") {
     return create_buffer_from_array_async<int16_t>(
-        client, data, dims, PJRT_Buffer_Type_S16, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_S16, row_major, device->device);
   } else if (dtype == "i32") {
     if (TYPEOF(data) == INTSXP) {
       // Zero-copy optimization: use R's integer data directly (R int = 32-bit)
@@ -1193,45 +1194,45 @@ SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
                     "R int must be 32-bit for zero-copy");
       return create_buffer_from_array_async_no_convert(
           client, data, INTEGER_RO(data), dims, PJRT_Buffer_Type_S32,
-          sizeof(int32_t), false, device->device);
+          sizeof(int32_t), row_major, device->device);
     }
     // Doubles reach this from impl_client_buffer_from_double() and need the
     // per-element conversion; only an INTSXP is byte-compatible with S32.
     return create_buffer_from_array_async<int32_t>(
-        client, data, dims, PJRT_Buffer_Type_S32, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_S32, row_major, device->device);
   } else if (dtype == "i64") {
     return create_buffer_from_array_async<int64_t>(
-        client, data, dims, PJRT_Buffer_Type_S64, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_S64, row_major, device->device);
   } else if (dtype == "ui8") {
     return create_buffer_from_array_async<uint8_t>(
-        client, data, dims, PJRT_Buffer_Type_U8, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_U8, row_major, device->device);
   } else if (dtype == "ui16") {
     return create_buffer_from_array_async<uint16_t>(
-        client, data, dims, PJRT_Buffer_Type_U16, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_U16, row_major, device->device);
   } else if (dtype == "ui32") {
     return create_buffer_from_array_async<uint32_t>(
-        client, data, dims, PJRT_Buffer_Type_U32, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_U32, row_major, device->device);
   } else if (dtype == "ui64") {
     return create_buffer_from_array_async<uint64_t>(
-        client, data, dims, PJRT_Buffer_Type_U64, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_U64, row_major, device->device);
   } else if (dtype == "f16") {
     return create_buffer_from_array_async<half_float::half>(
-        client, data, dims, PJRT_Buffer_Type_F16, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_F16, row_major, device->device);
   } else if (dtype == "bf16") {
     return create_buffer_from_array_async<rpjrt::bfloat16>(
-        client, data, dims, PJRT_Buffer_Type_BF16, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_BF16, row_major, device->device);
   } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
-        client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_F32, row_major, device->device);
   } else if (dtype == "f64") {
     return create_buffer_from_array_async<double>(
-        client, data, dims, PJRT_Buffer_Type_F64, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_F64, row_major, device->device);
   } else if (dtype == "bool") {
     // as.logical() is the route an integer takes to bool, the same one
     // impl_client_buffer_from_double() uses.
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, device, data_conv, dims,
-                                           dtype);
+                                           dtype, row_major);
   } else {
     Rcpp::stop("Unsupported type: %s", dtype.c_str());
   }
@@ -1245,7 +1246,8 @@ SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
 SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                        Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                        SEXP data, std::vector<int64_t> dims,
-                                       std::string dtype) {
+                                       std::string dtype,
+                                       bool row_major = false) {
   static_assert(sizeof(double) == sizeof(int64_t),
                 "bit64::integer64 zero-copy requires sizeof(double) == "
                 "sizeof(int64_t)");
@@ -1277,56 +1279,58 @@ SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client,
   }
 
   return create_buffer_from_array_async_no_convert(
-      client, data, REAL_RO(data), dims, buffer_type, sizeof(int64_t), false,
-      device->device);
+      client, data, REAL_RO(data), dims, buffer_type, sizeof(int64_t),
+      row_major, device->device);
 }
 
 // [[Rcpp::export()]]
 SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                      Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                      SEXP data, std::vector<int64_t> dims,
-                                     std::string dtype) {
+                                     std::string dtype,
+                                     bool row_major = false) {
   if (dtype == "bool") {
     return create_buffer_from_array_async<uint8_t>(
-        client, data, dims, PJRT_Buffer_Type_PRED, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_PRED, row_major, device->device);
   }
   // Every other element type is a numeric one, reached through as.integer():
   // FALSE/TRUE become 0/1 and NA becomes NA_integer_, which the integer entry
   // point then treats like any other missing value. An unknown dtype string
   // still falls through to its "Unsupported type" error.
   Rcpp::IntegerVector data_conv = Rcpp::as<Rcpp::IntegerVector>(data);
-  return impl_client_buffer_from_integer(client, device, data_conv, dims,
-                                         dtype);
+  return impl_client_buffer_from_integer(client, device, data_conv, dims, dtype,
+                                         row_major);
 }
 
 // [[Rcpp::export()]]
 SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                     SEXP data, std::vector<int64_t> dims,
-                                    std::string dtype) {
+                                    std::string dtype, bool row_major = false) {
   if (dtype == "f16") {
     return create_buffer_from_array_async<half_float::half>(
-        client, data, dims, PJRT_Buffer_Type_F16, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_F16, row_major, device->device);
   } else if (dtype == "bf16") {
     return create_buffer_from_array_async<rpjrt::bfloat16>(
-        client, data, dims, PJRT_Buffer_Type_BF16, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_BF16, row_major, device->device);
   } else if (dtype == "f32") {
     return create_buffer_from_array_async<float>(
-        client, data, dims, PJRT_Buffer_Type_F32, false, device->device);
+        client, data, dims, PJRT_Buffer_Type_F32, row_major, device->device);
   } else if (dtype == "f64") {
     // Zero-copy optimization: use R's double data directly (no type conversion
     // needed)
     return create_buffer_from_array_async_no_convert(
         client, data, REAL_RO(data), dims, PJRT_Buffer_Type_F64, sizeof(double),
-        false, device->device);
+        row_major, device->device);
   } else if (dtype == "bool") {
     Rcpp::LogicalVector data_conv = Rcpp::as<Rcpp::LogicalVector>(data);
     return impl_client_buffer_from_logical(client, device, data_conv, dims,
-                                           dtype);
+                                           dtype, row_major);
   } else {
     // Every remaining dtype is an integer one, and the double data goes through
     // as it is: coercing via as<IntegerVector>() first would clip anything
     // outside the int32 range to NA, so 2^40 uploaded as -2147483648.
-    return impl_client_buffer_from_integer(client, device, data, dims, dtype);
+    return impl_client_buffer_from_integer(client, device, data, dims, dtype,
+                                           row_major);
   }
 }
