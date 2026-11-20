@@ -50,7 +50,9 @@ struct HostTransfer {
   // Rooted for the transfer's lifetime, not merely referenced: PJRT writes
   // into it until the event fires, even if nothing else refers to it.
   Rcpp::RObject values;
-  std::unique_ptr<rpjrt::PJRTEvent> event;  // null once awaited, or if empty
+  // The transfer, or for a buffer without elements the buffer itself being
+  // ready; null once awaited.
+  std::unique_ptr<rpjrt::PJRTEvent> event;
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
   // Copied in row-major order, so the R array's shape is `dims` reversed.
@@ -132,6 +134,10 @@ std::unique_ptr<HostTransfer> start_transfer(SEXP buffer_sexp, bool row_major) {
     }
     std::span<uint8_t> host_buffer(dst, nbytes);
     t->event = buffer->buffer_to_host_async(host_buffer, row_major);
+  } else {
+    // Nothing to copy, but the buffer can still be the output of an execution
+    // that failed: wait for it as a transfer would, so that its error surfaces.
+    t->event = std::make_unique<rpjrt::PJRTEvent>(buffer->ready_event());
   }
   return t;
 }

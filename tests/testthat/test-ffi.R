@@ -128,6 +128,28 @@ func.func @main(
   })
 })
 
+test_that("print handler prints a tensor without elements", {
+  # XLA:GPU hands a buffer without elements over with a null address
+  program <- pjrt_program(
+    r"(
+func.func @main(
+  %x: tensor<2x0x3xf32>
+) -> tensor<2x0x3xf32> {
+  stablehlo.custom_call @print_tensor(%x) {
+    call_target_name = "print_tensor",
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<2x0x3xf32>) -> ()
+  "func.return" (%x) : (tensor<2x0x3xf32>) -> ()
+}
+)"
+  )
+
+  program <- pjrt_compile(program)
+  out <- capture.output(invisible(await(pjrt_execute(program, pjrt_empty("f32", c(2L, 0L, 3L))))))
+  expect_identical(out, c("PJRTBuffer", "[ f32{2,0,3} ]"))
+})
+
 test_that("print handler supports empty header", {
   program <- pjrt_program(
     r"(
