@@ -23,6 +23,8 @@
 
 * The CPU plugin is built from openxla/xla@fc31477, whose LLVM no longer hangs
   compiling a random number draw inside a small while loop (r-xla/anvl#655).
+* The `print_tensor` custom call prints a tensor without elements on CUDA
+  instead of failing.
 
 ## Other
 

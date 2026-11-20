@@ -115,7 +115,9 @@ xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
     }
   }
 
-  if (!data) {
+  // A buffer without elements may have no data (XLA:GPU gives it a null
+  // address); there is nothing to read then, only the shape to print.
+  if (!data && buffer.element_count() != 0) {
     return xla::ffi::Error(xla::ffi::ErrorCode::kDataLoss,
                            "Could not find untyped data.");
   }
@@ -197,11 +199,15 @@ xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
   std::size_t size = buffer.size_bytes();
   std::vector<char> host(size);
 
-  CUdeviceptr device_ptr = reinterpret_cast<CUdeviceptr>(buffer.untyped_data());
-
-  PJRT_RETURN_IF_GPU_ERROR(g.memcpy_dtoh(host.data(), device_ptr, size, stream),
-                           "cuMemcpyDtoHAsync_v2");
-  PJRT_RETURN_IF_GPU_ERROR(g.stream_synchronize(stream), "cuStreamSynchronize");
+  if (size > 0) {
+    CUdeviceptr device_ptr =
+        reinterpret_cast<CUdeviceptr>(buffer.untyped_data());
+    PJRT_RETURN_IF_GPU_ERROR(
+        g.memcpy_dtoh(host.data(), device_ptr, size, stream),
+        "cuMemcpyDtoHAsync_v2");
+    PJRT_RETURN_IF_GPU_ERROR(g.stream_synchronize(stream),
+                             "cuStreamSynchronize");
+  }
 
   return print_host_buffer(host.data(), attrs, buffer);
 #endif
