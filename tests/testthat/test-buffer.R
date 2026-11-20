@@ -1567,6 +1567,32 @@ describe("as_array(await = FALSE)", {
   })
 })
 
+describe("as_array() of a buffer without elements", {
+  # The print fails on an attribute of the wrong type, so the execution that
+  # produces the program's only output, which has no elements, fails.
+  program <- pjrt_compile(pjrt_program(
+    r"(
+func.func @main(%x: tensor<0xf32>) -> tensor<0xf32> {
+  stablehlo.custom_call @print_tensor(%x) {
+    call_target_name = "print_tensor",
+    backend_config = {reverse_dims = "yes"},
+    has_side_effect = true,
+    api_version = 4 : i32
+  } : (tensor<0xf32>) -> ()
+  "func.return"(%x) : (tensor<0xf32>) -> ()
+}
+)"
+  ))
+
+  it("raises the error of the execution that produced it", {
+    expect_error(as_array(pjrt_execute(program, pjrt_empty("f32", 0L))), "reverse_dims")
+  })
+
+  it("raises it when awaited, with await = FALSE", {
+    expect_error(await(as_array(pjrt_execute(program, pjrt_empty("f32", 0L)), await = FALSE)), "reverse_dims")
+  })
+})
+
 test_that("pjrt_memory returns a PJRTMemory", {
   buf <- pjrt_buffer(1, dtype = "f32")
   mem <- pjrt_memory(buf)

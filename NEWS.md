@@ -25,6 +25,8 @@
   compiling a random number draw inside a small while loop (r-xla/anvl#655).
 * The `print_tensor` custom call prints a tensor without elements on CUDA
   instead of failing.
+* `as_array()` of a buffer without elements raises the error of the execution
+  that produced it, instead of returning an empty array.
 
 ## Other
 
