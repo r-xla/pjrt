@@ -79,7 +79,7 @@ test_extractor <- function(leaf) {
 # pjrt engine ignores it and reads the PJRTBuffer directly.
 new_dispatcher <- function(capacity, miss, static, engine, backend, move, default_device, context = NULL) {
   extractor <- if (engine == "pjrt") NULL else test_extractor
-  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context)
+  impl_dispatcher_create(capacity, miss, static, engine, backend, move, default_device, extractor, context, FALSE)
 }
 # ---------------------------------------------------------------------------
 # Programs. `dispatcher()` needs something real to execute, so the tests compile
@@ -1259,7 +1259,8 @@ test_that("a context resolver must return a character vector without NAs", {
       FALSE,
       test_quickr_device,
       test_extractor,
-      1
+      1,
+      FALSE
     ),
     "context must be a function or NULL"
   )
@@ -1405,7 +1406,8 @@ test_that("a closure backend can compute metadata via accessors, storing no fiel
     FALSE,
     test_quickr_device,
     extractor,
-    NULL
+    NULL,
+    FALSE
   )
   bare <- function(v) structure(list(data = v), class = "AnvlArray")
   expect_identical(impl_dispatch_run(d, list(bare(c(1, 2, 3))))$v, c(2, 4, 6))
@@ -1962,5 +1964,121 @@ describe("dispatch", {
     state$s <- pjrt_buffer(c(1, 2, 3), dtype = "f32")
     expect_equal(out(dispatch(d, list(x = x))), c(10, 20))
     expect_identical(dispatcher_size(d), 2L)
+  })
+})
+
+describe("dispatcher(reverse_shapes = TRUE)", {
+  # The R array `x` as a buffer of its shape reversed, and back.
+  rev_buf <- function(x) pjrt_buffer(x, dtype = "f32", shape = rev(dim(x)), row_major = TRUE)
+  r_value <- function(res) as_array(await(res$data), row_major = TRUE)
+
+  # A reversed-shapes dispatcher running `exec`, which is compiled for buffers
+  # of shape (3, 2), i.e. R arrays of shape (2, 3). `...` goes to the compile
+  # result, and every `info` the callback receives is appended to `env$infos`.
+  reversed_dispatcher <- function(exec, ..., env = new.env(), static = character()) {
+    dispatcher(
+      10L,
+      function(info) {
+        env$infos <- c(env$infos, list(info))
+        pjrt_entry(exec, out_avals = list(oav("f32", c(2L, 3L))), ...)
+      },
+      static = static,
+      default_device = test_pjrt_device,
+      reverse_shapes = TRUE
+    )
+  }
+  ty <- "tensor<3x2xf32>"
+  x <- matrix(1:6 / 4, 2L, 3L)
+  y <- matrix(as.double(7:12), 2L, 3L)
+
+  it("reports an array input's aval in R order and keys the cache on it", {
+    skip_if_not(plugins_downloaded())
+    env <- new.env()
+    d <- reversed_dispatcher(id_exec(ty), env = env)
+    res <- dispatch(d, list(x = parr(rev_buf(x))))
+    expect_identical(env$infos[[1L]]$avals[[1L]]$shape, c(2L, 3L))
+    # the output is wrapped from the declared aval, around a reversed buffer
+    expect_identical(res$shape, c(2L, 3L))
+    expect_identical(shape(res$data), c(3L, 2L))
+    expect_equal(r_value(res), x)
+    dispatch(d, list(x = parr(rev_buf(x + 1))))
+    expect_identical(dispatcher_size(d), 1L)
+  })
+
+  it("uploads a bare R array with its shape reversed", {
+    skip_if_not(plugins_downloaded())
+    for (r_data in list(y, matrix(7:12, 2L, 3L))) {
+      env <- new.env()
+      d <- reversed_dispatcher(binop_exec(ty), input_dtypes = c(NA, "f32"), env = env)
+      res <- dispatch(d, list(x = parr(rev_buf(x)), y = r_data))
+      expect_identical(env$infos[[1L]]$avals[[2L]]$shape, c(2L, 3L))
+      expect_equal(r_value(res), x + y)
+    }
+  })
+
+  it("passes const_arrays on as they are", {
+    skip_if_not(plugins_downloaded())
+    d <- reversed_dispatcher(binop_exec(ty), const_arrays = list(rev_buf(y)))
+    expect_equal(r_value(dispatch(d, list(x = parr(rev_buf(x))))), x + y)
+  })
+
+  it("requires an implicit input to have its declared shape reversed", {
+    skip_if_not(plugins_downloaded())
+    exec <- pjrt_compile(pjrt_program(
+      src = 'func.func @main(%x: tensor<3x2xf32>, %s: tensor<3x2xf32>) -> tensor<3x2xf32> {
+       %0 = "stablehlo.subtract"(%x, %s) : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<3x2xf32>
+       "func.return"(%0): (tensor<3x2xf32>) -> ()
+     }'
+    ))
+    env <- new.env()
+    input <- list(get = function() env$s, dtype = "f32", shape = c(2L, 3L))
+    d <- reversed_dispatcher(exec, implicit_inputs = list(input))
+    env$s <- rev_buf(y)
+    expect_equal(r_value(dispatch(d, list(x = parr(rev_buf(x))))), x - y)
+    env$s <- pjrt_buffer(y, dtype = "f32")
+    expect_error(dispatch(d, list(x = parr(rev_buf(x)))), "must have the declared dtype \\(f32\\) and shape")
+  })
+
+  it("allocates a phantom with its declared shape reversed", {
+    skip_if_not(plugins_downloaded())
+    d <- reversed_dispatcher(
+      id_exec(ty),
+      phantom_specs = list(list(dtype = "f32", shape = c(2L, 3L))),
+      static = "flag"
+    )
+    res <- dispatch(d, list(flag = TRUE))
+    expect_identical(res$shape, c(2L, 3L))
+    expect_identical(shape(res$data), c(3L, 2L))
+  })
+
+  it("is only supported by the pjrt backend", {
+    cb <- function(info) stop("must not reach the compile callback")
+    expect_error(
+      dispatcher(
+        10L,
+        cb,
+        backend = "quickr",
+        default_device = test_quickr_device,
+        extractor = test_extractor,
+        reverse_shapes = TRUE
+      ),
+      "reverse_shapes"
+    )
+    expect_error(
+      impl_dispatcher_create(
+        10L,
+        cb,
+        character(),
+        "closure",
+        "quickr",
+        FALSE,
+        test_quickr_device,
+        test_extractor,
+        NULL,
+        TRUE
+      ),
+      "only supported by the pjrt engine"
+    )
+    expect_error(dispatcher(10L, cb, default_device = test_pjrt_device, reverse_shapes = NA), "reverse_shapes")
   })
 })

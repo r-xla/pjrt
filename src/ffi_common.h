@@ -58,6 +58,22 @@ inline xla::ffi::Error batched_square_dims(const Dims &dims, const char *op,
   return xla::ffi::Error::Success();
 }
 
+// The size of an m x n matrix passed as its column-major data, i.e. as a
+// row-major [n, m] buffer: the way pjrt stores an R matrix with its shape
+// reversed (`pjrt_buffer(row_major = TRUE)`). LAPACK and cuSOLVER read that
+// data as the matrix itself, with leading dimension m.
+template <typename Dims>
+inline xla::ffi::Error matrix_dims(const Dims &dims, const char *op, int &m,
+                                   int &n) {
+  if (dims.size() != 2) {
+    return xla::ffi::Error::InvalidArgument(std::string(op) +
+                                            " requires a matrix [n, m]");
+  }
+  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "rows", m));
+  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "cols", n));
+  return xla::ffi::Error::Success();
+}
+
 }  // namespace rpjrt
 
 // Dispatch on a buffer's element_type for f32/f64 only (the only float

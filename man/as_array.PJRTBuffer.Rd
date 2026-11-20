@@ -4,7 +4,7 @@
 \alias{as_array.PJRTBuffer}
 \title{Convert a PJRTBuffer to an R Array}
 \usage{
-\method{as_array}{PJRTBuffer}(x, check = "warn", await = TRUE, ...)
+\method{as_array}{PJRTBuffer}(x, check = "warn", await = TRUE, row_major = FALSE, ...)
 }
 \arguments{
 \item{x}{(\code{\link[=pjrt_buffer]{PJRTBuffer}})\cr
@@ -41,6 +41,15 @@ produce a wrapped or NA value.}
 Whether to wait for the transfer to the host (the default). If \code{FALSE},
 return immediately with an array whose values arrive asynchronously.}
 
+\item{row_major}{(\code{logical(1)})\cr
+Whether to return the buffer's data in row-major order, with the shape
+reversed: the result is the R array of shape \code{rev(shape(x))} whose
+column-major data are the buffer's row-major data, so the transfer
+needs no transpose. It is the way back from
+\code{pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)}, which it returns
+as \code{x}. Default \code{FALSE}, which returns the R array of shape \code{shape(x)}.
+Either way, a buffer of rank 0 or 1 gives the same result.}
+
 \item{...}{Additional arguments (unused).}
 }
 \value{
@@ -71,6 +80,9 @@ as_array(buf)
 result <- as_array(buf, await = FALSE)
 is_ready(result)
 result
+
+# The shape reversed, without a transpose
+as_array(buf, row_major = TRUE)
 \dontshow{\}) # examplesIf}
 }
 \seealso{

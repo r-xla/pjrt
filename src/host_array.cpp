@@ -7,6 +7,10 @@
 // converts the bytes into a plain R vector, which the host array then wraps.
 // For a dtype whose elements are already R's own (f64, i32, i64, ui64), PJRT
 // writes straight into that vector and there is nothing to convert.
+// A row-major transfer (as_array(row_major = TRUE)) asks for a dense row-major
+// host layout and gives the R array the buffer's shape reversed, so that its
+// column-major data are the buffer's row-major data. For a buffer in the
+// default layout that is a plain copy; PJRT reorders any other layout.
 // That first access goes through pjrt's R function host_array_materialize(),
 // which checks the values as as_array() does before the host array takes them.
 //
@@ -38,17 +42,21 @@
 namespace {
 
 // A device-to-host transfer: where PJRT copies the buffer to (in column-major
-// order), and the event that fires once it is done. That is `values`, the
-// result vector itself, for a dtype R stores bit for bit (see is_r_native()),
-// and `bytes`, to be converted, for any other.
+// order, or in row-major order for `row_major`), and the event that fires once
+// it is done. That is `values`, the result vector itself, for a dtype R stores
+// bit for bit (see is_r_native()), and `bytes`, to be converted, for any other.
 struct HostTransfer {
   std::vector<uint8_t> bytes;
   // Rooted for the transfer's lifetime, not merely referenced: PJRT writes
   // into it until the event fires, even if nothing else refers to it.
   Rcpp::RObject values;
-  std::unique_ptr<rpjrt::PJRTEvent> event;  // null once awaited, or if empty
+  // The transfer, or for a buffer without elements the buffer itself being
+  // ready; null once awaited.
+  std::unique_ptr<rpjrt::PJRTEvent> event;
   PJRT_Buffer_Type type;
   std::vector<int64_t> dims;
+  // Copied in row-major order, so the R array's shape is `dims` reversed.
+  bool row_major = false;
   std::string check;  // as_array()'s `check` level
 
   HostTransfer() = default;
@@ -107,11 +115,12 @@ void* vector_dataptr(SEXP x) {
   }
 }
 
-std::unique_ptr<HostTransfer> start_transfer(SEXP buffer_sexp) {
+std::unique_ptr<HostTransfer> start_transfer(SEXP buffer_sexp, bool row_major) {
   auto buffer = rpjrt::as_buffer(buffer_sexp);
   auto t = std::make_unique<HostTransfer>();
   t->type = buffer->element_type();
   t->dims = buffer->dimensions();
+  t->row_major = row_major;
   const auto numel = number_of_elements(t->dims);
   if (numel > 0) {
     const size_t nbytes = numel * sizeof_pjrt_buffer_type(t->type);
@@ -124,12 +133,16 @@ std::unique_ptr<HostTransfer> start_transfer(SEXP buffer_sexp) {
       dst = t->bytes.data();
     }
     std::span<uint8_t> host_buffer(dst, nbytes);
-    t->event = buffer->buffer_to_host_async(host_buffer, false);
+    t->event = buffer->buffer_to_host_async(host_buffer, row_major);
+  } else {
+    // Nothing to copy, but the buffer can still be the output of an execution
+    // that failed: wait for it as a transfer would, so that its error surfaces.
+    t->event = std::make_unique<rpjrt::PJRTEvent>(buffer->ready_event());
   }
   return t;
 }
 
-// Casts each element of the transfer's column-major bytes to `out`'s type.
+// Casts each element of the transfer's bytes to `out`'s type, in order.
 template <typename T>
 void convert(const HostTransfer& t, SEXP out) {
   const T* src = reinterpret_cast<const T*>(t.bytes.data());
@@ -214,7 +227,9 @@ SEXP to_vector(HostTransfer& t) {
 
 void set_array_attributes(SEXP x, const HostTransfer& t) {
   if (!t.dims.empty()) {
-    Rcpp::IntegerVector dim(t.dims.begin(), t.dims.end());
+    Rcpp::IntegerVector dim =
+        t.row_major ? Rcpp::IntegerVector(t.dims.rbegin(), t.dims.rend())
+                    : Rcpp::IntegerVector(t.dims.begin(), t.dims.end());
     Rf_setAttrib(x, R_DimSymbol, dim);
   }
   if (is_integer64(t.type)) {
@@ -287,16 +302,17 @@ void register_host_array_altrep(DllInfo* dll) {
 }
 
 // [[Rcpp::export()]]
-SEXP impl_buffer_to_host(SEXP buffer_sexp) {
-  auto t = start_transfer(buffer_sexp);
+SEXP impl_buffer_to_host(SEXP buffer_sexp, bool row_major) {
+  auto t = start_transfer(buffer_sexp, row_major);
   Rcpp::Shield<SEXP> out(to_vector(*t));
   set_array_attributes(out, *t);
   return out;
 }
 
 // [[Rcpp::export()]]
-SEXP impl_buffer_to_host_async(SEXP buffer_sexp, std::string check) {
-  auto t = start_transfer(buffer_sexp);
+SEXP impl_buffer_to_host_async(SEXP buffer_sexp, std::string check,
+                               bool row_major) {
+  auto t = start_transfer(buffer_sexp, row_major);
   t->check = std::move(check);
   R_altrep_class_t cls;
   switch (r_type(t->type)) {

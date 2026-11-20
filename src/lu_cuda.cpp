@@ -1,4 +1,6 @@
-// CUDA LU decomposition via cuSOLVER. Mirrors src/lu.cpp on the GPU.
+// CUDA LU decomposition via cuSOLVER. Mirrors src/lu.cpp on the GPU, with
+// every matrix passed as its column-major data: an m x n matrix is a row-major
+// [n, m] buffer (see `matrix_dims()`).
 #include <Rcpp.h>
 
 #include "ffi_common.h"
@@ -22,10 +24,8 @@ static Error lu_cuda_impl(void *stream, ScratchAllocator &scratch,
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
 
-  auto dims = input.dimensions();
   int m, n;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
+  PJRT_RETURN_IF_ERROR(matrix_dims(input.dimensions(), "lu", m, n));
 
   auto input_ptr = reinterpret_cast<CUdeviceptr>(input.untyped_data());
   auto lu_ptr = reinterpret_cast<CUdeviceptr>((*lu_out).untyped_data());
@@ -73,13 +73,13 @@ static Error do_lu_cuda(void *stream, ScratchAllocator scratch, AnyBuffer input,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(lu_handler_cuda, do_lu_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Arg<AnyBuffer>()
-                           .Ret<AnyBuffer>()
-                           .Ret<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(lu_handler_cuda, do_lu_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Arg<AnyBuffer>()
+                                    .Ret<AnyBuffer>()
+                                    .Ret<AnyBuffer>());
 
 }  // namespace rpjrt
 

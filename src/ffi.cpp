@@ -1,5 +1,6 @@
 #include "xla/ffi/api/ffi.h"
 
+#include <algorithm>
 #include <iostream>
 #include <string_view>
 
@@ -80,6 +81,11 @@ XLA_FFI_DEFINE_HANDLER_AUTO(test_handler, do_test_call);
 
 constexpr std::string_view kPrintHeaderAttr = "print_header";
 constexpr std::string_view kPrintFooterAttr = "print_footer";
+// Prints the operand with its dimensions reversed: its bytes are taken to be
+// row-major over the reversed dimensions, i.e. column-major over its own, as a
+// caller that stores R arrays with their shape reversed passes them by
+// declaring the operand layout column-major. Optional, default false.
+constexpr std::string_view kReverseDimsAttr = "reverse_dims";
 
 std::string dtype_display_name(xla::ffi::DataType dtype) {
   PJRT_Buffer_Type pjrt_type = to_pjrt_type(dtype);
@@ -91,6 +97,16 @@ std::string dtype_display_name(xla::ffi::DataType dtype) {
 // buffer_to_string_lines.
 xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
                                   AnyBuffer buffer) {
+  bool reverse_dims = false;
+  if (attrs.contains(kReverseDimsAttr)) {
+    auto flag = attrs.get<bool>(kReverseDimsAttr);
+    if (!flag) {
+      return xla::ffi::Error(xla::ffi::ErrorCode::kInvalidArgument,
+                             "print_tensor: `reverse_dims` must be a boolean.");
+    }
+    reverse_dims = *flag;
+  }
+
   std::string_view header = "PJRTBuffer";
   if (attrs.contains(kPrintHeaderAttr)) {
     auto print_header = attrs.get<std::string_view>(kPrintHeaderAttr);
@@ -99,7 +115,9 @@ xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
     }
   }
 
-  if (!data) {
+  // A buffer without elements may have no data (XLA:GPU gives it a null
+  // address); there is nothing to read then, only the shape to print.
+  if (!data && buffer.element_count() != 0) {
     return xla::ffi::Error(xla::ffi::ErrorCode::kDataLoss,
                            "Could not find untyped data.");
   }
@@ -107,6 +125,7 @@ xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
   const auto dimensions_span = buffer.dimensions();
   std::vector<int64_t> dimensions(dimensions_span.begin(),
                                   dimensions_span.end());
+  if (reverse_dims) std::reverse(dimensions.begin(), dimensions.end());
 
   PJRT_Buffer_Type element_type;
   try {
@@ -131,12 +150,11 @@ xla::ffi::Error print_host_buffer(const void *data, Dictionary attrs,
     }
   } else {
     Rcpp::Rcout << "[ " << dtype_display_name(buffer.element_type()) << "{";
-    const auto dims = buffer.dimensions();
-    for (size_t i = 0; i < dims.size(); ++i) {
+    for (size_t i = 0; i < dimensions.size(); ++i) {
       if (i != 0) {
         Rcpp::Rcout << ',';
       }
-      Rcpp::Rcout << dims[i];
+      Rcpp::Rcout << dimensions[i];
     }
     Rcpp::Rcout << "} ]" << "\n";
   }
@@ -159,12 +177,12 @@ xla::ffi::Error do_print_ordered_call(Dictionary attrs, AnyBuffer buffer,
   return print_host_buffer(buffer.untyped_data(), attrs, buffer);
 }
 
-XLA_FFI_DEFINE_HANDLER(print_ordered_handler, do_print_ordered_call,
-                       xla::ffi::Ffi::Bind()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>()
-                           .Arg<xla::ffi::Token>()
-                           .Ret<xla::ffi::Token>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(print_ordered_handler, do_print_ordered_call,
+                                xla::ffi::Ffi::Bind()
+                                    .Attrs<Dictionary>()
+                                    .Arg<AnyBuffer>()
+                                    .Arg<xla::ffi::Token>()
+                                    .Ret<xla::ffi::Token>());
 
 xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
                                    AnyBuffer buffer) {
@@ -181,21 +199,25 @@ xla::ffi::Error do_print_call_cuda(void *stream, Dictionary attrs,
   std::size_t size = buffer.size_bytes();
   std::vector<char> host(size);
 
-  CUdeviceptr device_ptr = reinterpret_cast<CUdeviceptr>(buffer.untyped_data());
-
-  PJRT_RETURN_IF_GPU_ERROR(g.memcpy_dtoh(host.data(), device_ptr, size, stream),
-                           "cuMemcpyDtoHAsync_v2");
-  PJRT_RETURN_IF_GPU_ERROR(g.stream_synchronize(stream), "cuStreamSynchronize");
+  if (size > 0) {
+    CUdeviceptr device_ptr =
+        reinterpret_cast<CUdeviceptr>(buffer.untyped_data());
+    PJRT_RETURN_IF_GPU_ERROR(
+        g.memcpy_dtoh(host.data(), device_ptr, size, stream),
+        "cuMemcpyDtoHAsync_v2");
+    PJRT_RETURN_IF_GPU_ERROR(g.stream_synchronize(stream),
+                             "cuStreamSynchronize");
+  }
 
   return print_host_buffer(host.data(), attrs, buffer);
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(print_handler_cuda, do_print_call_cuda,
-                       xla::ffi::Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(print_handler_cuda, do_print_call_cuda,
+                                xla::ffi::Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Attrs<Dictionary>()
+                                    .Arg<AnyBuffer>());
 
 xla::ffi::Error do_print_ordered_call_cuda(void *stream, Dictionary attrs,
                                            AnyBuffer buffer, xla::ffi::Token,
@@ -203,13 +225,14 @@ xla::ffi::Error do_print_ordered_call_cuda(void *stream, Dictionary attrs,
   return do_print_call_cuda(stream, attrs, buffer);
 }
 
-XLA_FFI_DEFINE_HANDLER(print_ordered_handler_cuda, do_print_ordered_call_cuda,
-                       xla::ffi::Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Attrs<Dictionary>()
-                           .Arg<AnyBuffer>()
-                           .Arg<xla::ffi::Token>()
-                           .Ret<xla::ffi::Token>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(print_ordered_handler_cuda,
+                                do_print_ordered_call_cuda,
+                                xla::ffi::Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Attrs<Dictionary>()
+                                    .Arg<AnyBuffer>()
+                                    .Arg<xla::ffi::Token>()
+                                    .Ret<xla::ffi::Token>());
 
 void register_ffi_handlers(PJRTPlugin *plugin,
                            const std::string &platform_name) {
