@@ -93,14 +93,14 @@ static Error do_potrf_cuda(void *stream, ScratchAllocator scratch, bool lower,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(potrf_handler_cuda, do_potrf_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Attr<bool>("lower")
-                           .Arg<AnyBuffer>()
-                           .Ret<AnyBuffer>()
-                           .Ret<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(potrf_handler_cuda, do_potrf_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Attr<bool>("lower")
+                                    .Arg<AnyBuffer>()
+                                    .Ret<AnyBuffer>()
+                                    .Ret<AnyBuffer>());
 
 }  // namespace rpjrt
 

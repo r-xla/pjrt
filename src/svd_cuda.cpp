@@ -99,15 +99,15 @@ static Error do_svd_cuda(void *stream, ScratchAllocator scratch,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(svd_handler_cuda, do_svd_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Attr<bool>("transposed")
-                           .Arg<AnyBuffer>()
-                           .Ret<AnyBuffer>()
-                           .Ret<AnyBuffer>()
-                           .Ret<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(svd_handler_cuda, do_svd_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Attr<bool>("transposed")
+                                    .Arg<AnyBuffer>()
+                                    .Ret<AnyBuffer>()
+                                    .Ret<AnyBuffer>()
+                                    .Ret<AnyBuffer>());
 
 }  // namespace rpjrt
 

@@ -1,7 +1,32 @@
 # pjrt (development version)
 
+## New features
+
+* `pjrt_buffer()` takes `row_major` for logical, integer, double and
+  `integer64` data too, not only for raw data.
+* `as_array()` gains `row_major`, which returns a buffer's data in row-major
+  order with its shape reversed, without a transpose.
+* `print()` of a `PJRTBuffer` gains `reversed`, which prints it as the R array
+  of its shape reversed, and the `print_tensor` custom call a `reverse_dims`
+  attribute that does the same.
+* `dispatcher()` gains `reverse_shapes`, which reports and declares R shapes
+  for buffers that store an R array with its shape reversed, and uploads bare
+  R inputs that way without reordering them.
+
+## Bug fixes
+
+* The CPU plugin is built from openxla/xla@fc31477, whose LLVM no longer hangs
+  compiling a random number draw inside a small while loop (r-xla/anvl#655).
+
+## Other
+
 * pjrt no longer needs testthat to install: its C++ unit tests use a bundled
   copy of testthat's Catch headers.
+
+# pjrt 0.8.0
+
+* Fixes to the package metadata, documentation links and build ignores for the
+  initial CRAN submission.
 
 # pjrt 0.7.0
 

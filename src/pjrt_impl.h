@@ -37,15 +37,15 @@ SEXP client_buffer_empty(Rcpp::XPtr<rpjrt::PJRTClient> client,
 SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                     Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                     SEXP data, std::vector<int64_t> dims,
-                                    std::string dtype);
+                                    std::string dtype, bool row_major);
 SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                      Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                      SEXP data, std::vector<int64_t> dims,
-                                     std::string dtype);
+                                     std::string dtype, bool row_major);
 SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client,
                                      Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                      SEXP data, std::vector<int64_t> dims,
-                                     std::string dtype);
+                                     std::string dtype, bool row_major);
 SEXP impl_buffer_copy_to_device(SEXP buffer,
                                 Rcpp::XPtr<rpjrt::PJRTDevice> device,
                                 Rcpp::XPtr<rpjrt::PJRTClient> dst_client,

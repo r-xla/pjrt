@@ -72,11 +72,11 @@ static Error do_geqrf(AnyBuffer input, Result<AnyBuffer> packed_out,
                       tau_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(geqrf_handler, do_geqrf,
-                       Ffi::Bind()
-                           .Arg<AnyBuffer>()    // input matrix (m, n)
-                           .Ret<AnyBuffer>()    // packed (m, n)
-                           .Ret<AnyBuffer>());  // tau (k,)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(geqrf_handler, do_geqrf,
+                                Ffi::Bind()
+                                    .Arg<AnyBuffer>()    // input matrix (m, n)
+                                    .Ret<AnyBuffer>()    // packed (m, n)
+                                    .Ret<AnyBuffer>());  // tau (k,)
 
 // ---- orgqr -----------------------------------------------------------------
 
@@ -124,11 +124,12 @@ static Error do_orgqr(AnyBuffer packed, AnyBuffer tau_in,
   PJRT_DISPATCH_FLOAT(packed.element_type(), orgqr_impl, packed, tau_in, q_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(orgqr_handler, do_orgqr,
-                       Ffi::Bind()
-                           .Arg<AnyBuffer>()    // packed reflectors (m, n)
-                           .Arg<AnyBuffer>()    // tau (k,)
-                           .Ret<AnyBuffer>());  // Q (m, k)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    orgqr_handler, do_orgqr,
+    Ffi::Bind()
+        .Arg<AnyBuffer>()    // packed reflectors (m, n)
+        .Arg<AnyBuffer>()    // tau (k,)
+        .Ret<AnyBuffer>());  // Q (m, k)
 
 }  // namespace rpjrt
 

@@ -1065,6 +1065,116 @@ test_that("buffer <-> raw: row_major parameter", {
   }
 })
 
+# `x` with its axes reversed, as aperm() does, for any R array: aperm() drops
+# the class of a bit64::integer64.
+rev_axes <- function(x) {
+  if (length(dim(x)) < 2L) {
+    return(x)
+  }
+  out <- x[as.vector(aperm(array(seq_along(x), dim(x))))]
+  dim(out) <- rev(dim(x))
+  out
+}
+
+# Every route an upload takes: R's own bytes (f64, i32, i64, ui64), a
+# conversion, and an R type that is first converted to another (a double at an
+# integer dtype, a logical at a numeric one).
+reversal_cases <- list(
+  list(dtype = "f32", values = function(n) seq_len(n) / 4),
+  list(dtype = "f64", values = function(n) seq_len(n) / 4),
+  list(dtype = "f16", values = function(n) seq_len(n) / 4),
+  list(dtype = "bf16", values = function(n) seq_len(n) / 4),
+  list(dtype = "i8", values = function(n) as.double(seq_len(n))),
+  list(dtype = "f64", values = function(n) seq_len(n)),
+  list(dtype = "i32", values = function(n) seq_len(n)),
+  list(dtype = "ui8", values = function(n) seq_len(n)),
+  list(dtype = "bool", values = function(n) seq_len(n) %% 3L == 0L),
+  list(dtype = "i32", values = function(n) seq_len(n) %% 3L == 0L),
+  list(dtype = "i64", values = function(n) bit64::as.integer64(seq_len(n)) + bit64::as.integer64(2)^40L),
+  list(dtype = "ui64", values = function(n) bit64::as.integer64(seq_len(n)) + bit64::as.integer64(2)^40L)
+)
+
+# Ranks 0 to 4, with size-0 axes.
+reversal_shapes <- list(integer(), 5L, c(2L, 3L), c(2L, 3L, 4L), c(2L, 1L, 3L, 2L), c(0L, 3L), c(2L, 0L, 4L))
+
+# Calls `f(x, dtype, shape)` for an R array `x` of each case and shape.
+for_reversal_cases <- function(f) {
+  for (case in reversal_cases) {
+    for (shape in reversal_shapes) {
+      x <- case$values(prod(shape))
+      if (length(shape)) {
+        dim(x) <- shape
+      }
+      f(x, case$dtype, shape)
+    }
+  }
+}
+
+describe("pjrt_buffer(row_major = TRUE)", {
+  it("reads the data in row-major order into the shape", {
+    buf <- pjrt_buffer(as.double(1:6), shape = c(2L, 3L), row_major = TRUE)
+    expect_equal(as_array(buf), matrix(1:6, 2L, 3L, byrow = TRUE))
+  })
+
+  it("stores an R array with its axes reversed", {
+    for_reversal_cases(function(x, dtype, shape) {
+      buf <- pjrt_buffer(x, dtype = dtype, shape = rev(shape), row_major = TRUE)
+      expect_identical(shape(buf), rev(shape))
+      expect_identical(as_array(buf), rev_axes(as_array(pjrt_buffer(x, dtype = dtype, shape = shape))))
+    })
+    x <- array(1:24, c(2L, 3L, 4L))
+    expect_identical(as_array(pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)), aperm(x))
+  })
+
+  it("requires `row_major` to be a flag", {
+    expect_error(pjrt_buffer(c(1, 2), row_major = NA), "row_major")
+    expect_error(pjrt_buffer(1:2, row_major = "yes"), "row_major")
+    expect_error(pjrt_buffer(c(TRUE, FALSE), row_major = 1), "row_major")
+    expect_error(pjrt_buffer(bit64::as.integer64(1:2), row_major = NULL), "row_major")
+  })
+})
+
+describe("as_array(row_major = TRUE)", {
+  it("returns the R array a reversed upload was made from", {
+    for_reversal_cases(function(x, dtype, shape) {
+      buf <- pjrt_buffer(x, dtype = dtype, shape = rev(shape), row_major = TRUE)
+      expected <- as_array(pjrt_buffer(x, dtype = dtype, shape = shape))
+      expect_identical(as_array(buf, row_major = TRUE), expected)
+      expect_identical(as_array(buf, row_major = TRUE, await = FALSE), expected)
+    })
+  })
+
+  it("returns a buffer with its axes reversed", {
+    for_reversal_cases(function(x, dtype, shape) {
+      buf <- pjrt_buffer(x, dtype = dtype, shape = shape)
+      expected <- rev_axes(as_array(buf))
+      expect_identical(as_array(buf, row_major = TRUE), expected)
+      expect_identical(as_array(buf, row_major = TRUE, await = FALSE), expected)
+    })
+    x <- array(1:24, c(2L, 3L, 4L))
+    expect_identical(as_array(pjrt_buffer(x), row_major = TRUE), aperm(x))
+  })
+
+  it("carries the reversed dim before the transfer is awaited", {
+    x <- array(1:6, c(1L, 2L, 3L))
+    result <- as_array(pjrt_buffer(x), await = FALSE, row_major = TRUE)
+    expect_identical(dim(result), c(3L, 2L, 1L))
+    expect_identical(result, aperm(x))
+  })
+
+  it("checks the values it returns", {
+    buf <- suppressWarnings(pjrt_buffer(matrix(c(NA, 1:5), 2L, 3L), dtype = "i32"))
+    expect_warning(as_array(buf, row_major = TRUE), "NA")
+    expect_error(as_array(buf, check = "err", row_major = TRUE), "NA")
+  })
+
+  it("requires `row_major` to be a flag", {
+    buf <- pjrt_buffer(c(1, 2))
+    expect_error(as_array(buf, row_major = NA), "row_major")
+    expect_error(as_array(buf, row_major = "yes", await = FALSE), "row_major")
+  })
+})
+
 test_that("device works", {
   buf <- pjrt_buffer(1)
   expect_class(device(buf), "PJRTDevice")
@@ -1644,6 +1754,22 @@ describe("CPU buffer memory management", {
     skip_if(!is_cpu())
     b <- pjrt_buffer(raw(4096L * 4L), dtype = "f32", shape = 4096L, row_major = FALSE)
     expect_raw_backing(b, 4096L * 4L)
+  })
+
+  # A row-major upload is in the device's default layout, which XLA's CPU
+  # client imports zero-copy at any rank (column-major strides it copies).
+  it("aliases a row-major upload of any rank in its backing RAWSXP", {
+    skip_if(!is_cpu())
+    shape <- c(16L, 32L, 64L)
+    expect_raw_backing(
+      pjrt_buffer(array(1.25, shape), dtype = "f32", shape = rev(shape), row_major = TRUE),
+      32768L * 4L
+    )
+    expect_raw_backing(
+      pjrt_buffer(array(1.25, shape), dtype = "f64", shape = rev(shape), row_major = TRUE),
+      32768L * 8L
+    )
+    expect_raw_backing(pjrt_buffer(array(1L, shape), dtype = "i32", shape = rev(shape), row_major = TRUE), 32768L * 4L)
   })
 
   it("reports the backing RAWSXP size via object.size, not just the pointer", {

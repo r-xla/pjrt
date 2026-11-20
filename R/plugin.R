@@ -274,7 +274,7 @@ plugin_url <- function(platform) {
     # version back to the runtime, and a plugin older than the headers
     # silently refuses every custom call. See the upgrade-pjrt skill.
     return(sprintf(
-      "https://github.com/r-xla/pjrt-builds/releases/download/pjrt-cpu-aa1e72c/pjrt-cpu_%s-%s.tar.gz",
+      "https://github.com/r-xla/pjrt-builds/releases/download/pjrt-cpu-fc31477/pjrt-cpu_%s-%s.tar.gz",
       os,
       arch
     ))

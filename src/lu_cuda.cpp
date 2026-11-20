@@ -73,13 +73,13 @@ static Error do_lu_cuda(void *stream, ScratchAllocator scratch, AnyBuffer input,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(lu_handler_cuda, do_lu_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Arg<AnyBuffer>()
-                           .Ret<AnyBuffer>()
-                           .Ret<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(lu_handler_cuda, do_lu_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Arg<AnyBuffer>()
+                                    .Ret<AnyBuffer>()
+                                    .Ret<AnyBuffer>());
 
 }  // namespace rpjrt
 
