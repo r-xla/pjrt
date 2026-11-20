@@ -5,7 +5,8 @@
 //   U  : (m, k)
 //   S  : (k,)     (always non-negative, real)
 //   Vt : (k, n)
-// such that A = U diag(S) Vt.
+// such that A = U diag(S) Vt. Every matrix is passed as its column-major data:
+// an m x n matrix is a row-major [n, m] buffer (see `matrix_dims()`).
 //
 // gesdd needs an integer workspace `iwork` of size 8*k in addition to the
 // real workspace queried via lwork = -1.
@@ -29,10 +30,8 @@ static Error svd_impl(AnyBuffer input, Result<AnyBuffer> u_out,
                       Result<AnyBuffer> s_out, Result<AnyBuffer> vt_out) {
   using S = typename Lapack<T>::S;
 
-  auto dims = input.dimensions();
   int m, n;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
+  PJRT_RETURN_IF_ERROR(matrix_dims(input.dimensions(), "svd", m, n));
   int k = std::min(m, n);
 
   const T *in = static_cast<const T *>(input.untyped_data());

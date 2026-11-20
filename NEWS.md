@@ -1,5 +1,11 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* The `geqrf`, `orgqr`, `lu` and `svd` custom calls take an m x n matrix as a
+  row-major `[n, m]` buffer (its column-major data, the way an R matrix is
+  stored with its shape reversed) instead of a column-major `[m, n]` one.
+
 ## New features
 
 * `pjrt_buffer()` takes `row_major` for logical, integer, double and

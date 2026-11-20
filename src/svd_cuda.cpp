@@ -1,10 +1,12 @@
-// CUDA SVD via cuSOLVER gesvd.
+// CUDA SVD via cuSOLVER gesvd. Mirrors src/svd.cpp on the GPU, with every
+// matrix passed as its column-major data: an m x n matrix is a row-major
+// [n, m] buffer (see `matrix_dims()`).
 //
 // gesvd requires m >= n. For m < n we use A = U D V^t  <=>  A^t = V D^t U^t:
-// the lowering transposes A (by declaring operand / U / Vt as row-major,
-// which reinterprets the buffer as A^t), we run gesvd on A^t, then transpose
-// back implicitly via the same layout trick on the outputs — which on this
-// side just means swapping the U / Vt output slots.
+// with `transposed`, the lowering declares the operand / U / Vt buffers
+// column-major instead, which hands over the column-major data of A^t, we run
+// gesvd on A^t, and the same layouts on the outputs transpose back — which on
+// this side just means swapping the U / Vt output slots.
 //
 // jobu / jobvt are passed as 'S' (reduced); for m >= n that gives:
 //   U  : (m, n)    -- ldu = m
@@ -35,10 +37,8 @@ static Error svd_cuda_impl(void *stream, ScratchAllocator &scratch,
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
 
-  auto dims = input.dimensions();
   int m_orig, n_orig;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m_orig));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n_orig));
+  PJRT_RETURN_IF_ERROR(matrix_dims(input.dimensions(), "svd", m_orig, n_orig));
   int m = transposed ? n_orig : m_orig;
   int n = transposed ? m_orig : n_orig;
 

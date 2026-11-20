@@ -1,4 +1,5 @@
-// QR decomposition primitives.
+// QR decomposition primitives. Every matrix is passed as its column-major
+// data: an m x n matrix is a row-major [n, m] buffer (see `matrix_dims()`).
 //
 //   geqrf : A (m, n) -> packed (m, n), tau (k,)
 //     Householder QR factorisation. The output `packed` holds R in the
@@ -34,10 +35,8 @@ static Error geqrf_impl(AnyBuffer input, Result<AnyBuffer> packed_out,
                         Result<AnyBuffer> tau_out) {
   using S = typename Lapack<T>::S;
 
-  auto dims = input.dimensions();
   int m, n;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
+  PJRT_RETURN_IF_ERROR(matrix_dims(input.dimensions(), "geqrf", m, n));
   int k = std::min(m, n);
 
   const T *in = static_cast<const T *>(input.untyped_data());
@@ -85,10 +84,8 @@ static Error orgqr_impl(AnyBuffer packed, AnyBuffer tau_in,
                         Result<AnyBuffer> q_out) {
   using S = typename Lapack<T>::S;
 
-  auto dims = packed.dimensions();
   int m, n;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
+  PJRT_RETURN_IF_ERROR(matrix_dims(packed.dimensions(), "orgqr", m, n));
   int k = std::min(m, n);
 
   const T *p_in = static_cast<const T *>(packed.untyped_data());

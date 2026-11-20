@@ -106,6 +106,53 @@ build_program <- function(
   )
 }
 
+# Compile the custom_call program of build_program(). With `reversed`, its
+# buffers store R arrays with their shape reversed, as anvl stores its arrays:
+# the specs give the R shapes, the program declares the reversed ones, and
+# every buffer is row-major unless `in_layouts` / `out_layouts` say otherwise.
+compile_linalg <- function(target, in_specs, out_specs, attrs, in_layouts, out_layouts, reversed) {
+  if (reversed) {
+    reverse_spec <- function(s) {
+      s$dims <- rev(s$dims)
+      s
+    }
+    in_specs <- lapply(in_specs, reverse_spec)
+    out_specs <- lapply(out_specs, reverse_spec)
+    row_major_layouts <- function(specs) vapply(specs, function(s) row_major_layout(length(s$dims)), character(1))
+    if (is.null(in_layouts)) {
+      in_layouts <- row_major_layouts(in_specs)
+    }
+    if (is.null(out_layouts)) {
+      out_layouts <- row_major_layouts(out_specs)
+    }
+  }
+  src <- build_program(
+    target,
+    in_specs,
+    out_specs,
+    attrs = attrs,
+    in_layouts = in_layouts,
+    out_layouts = out_layouts
+  )
+  pjrt_compile(pjrt_program(src))
+}
+
+# Upload `inputs` with the dtypes of their in_specs, with the shape reversed
+# for `reversed` (see compile_linalg()).
+upload_linalg <- function(inputs, in_specs, reversed) {
+  Map(
+    function(x, s) {
+      if (reversed) {
+        pjrt_buffer(x, dtype = s$dtype, shape = rev(s$dims), row_major = TRUE)
+      } else {
+        pjrt_buffer(x, dtype = s$dtype)
+      }
+    },
+    inputs,
+    in_specs
+  )
+}
+
 # Compile a custom_call program once, run it on `inputs` (parallel to
 # `in_specs`), return the outputs as a list of base-R arrays / vectors. Each
 # input is uploaded with the dtype declared in its in_spec.
@@ -120,25 +167,14 @@ run_linalg <- function(
   out_specs,
   attrs = list(),
   in_layouts = NULL,
-  out_layouts = NULL
+  out_layouts = NULL,
+  reversed = FALSE
 ) {
   stopifnot(length(inputs) == length(in_specs))
-  src <- build_program(
-    target,
-    in_specs,
-    out_specs,
-    attrs = attrs,
-    in_layouts = in_layouts,
-    out_layouts = out_layouts
-  )
-  program <- pjrt_compile(pjrt_program(src))
-  bufs <- Map(
-    function(x, s) pjrt_buffer(x, dtype = s$dtype),
-    inputs,
-    in_specs
-  )
+  program <- compile_linalg(target, in_specs, out_specs, attrs, in_layouts, out_layouts, reversed)
+  bufs <- upload_linalg(inputs, in_specs, reversed)
   outs <- do.call(pjrt_execute, c(list(program), bufs, simplify = FALSE))
-  lapply(outs, as_array)
+  lapply(outs, as_array, row_major = reversed)
 }
 
 # Run a kernel and assert every input device buffer is byte-identical
@@ -155,22 +191,11 @@ expect_inputs_preserved <- function(
   out_specs,
   attrs = list(),
   in_layouts = NULL,
-  out_layouts = NULL
+  out_layouts = NULL,
+  reversed = FALSE
 ) {
-  src <- build_program(
-    target,
-    in_specs = in_specs,
-    out_specs = out_specs,
-    attrs = attrs,
-    in_layouts = in_layouts,
-    out_layouts = out_layouts
-  )
-  exec <- pjrt_compile(pjrt_program(src))
-  bufs <- Map(
-    function(x, s) pjrt_buffer(x, dtype = s$dtype),
-    inputs,
-    in_specs
-  )
+  exec <- compile_linalg(target, in_specs, out_specs, attrs, in_layouts, out_layouts, reversed)
+  bufs <- upload_linalg(inputs, in_specs, reversed)
   pre <- lapply(bufs, as_array)
   do.call(pjrt_execute, c(list(exec), bufs))
   for (i in seq_along(bufs)) {
