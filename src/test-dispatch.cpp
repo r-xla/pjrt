@@ -1,10 +1,10 @@
 #include <Rcpp.h>
-#include <testthat.h>
 
 #include <string>
 #include <vector>
 
 #include "dispatch_key.h"
+#include "testthat/testthat.h"
 
 // The dispatcher's cache key decides which compiled program a call runs. A
 // mistake here does not error -- it silently returns someone else's executable.
