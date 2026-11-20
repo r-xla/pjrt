@@ -1,5 +1,8 @@
 # pjrt (development version)
 
+* pjrt no longer needs testthat to install: its C++ unit tests use a bundled
+  copy of testthat's Catch headers.
+
 # pjrt 0.7.0
 
 ## Breaking changes
