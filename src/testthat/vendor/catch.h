@@ -26,11 +26,24 @@
 #       pragma warning(push)
 #       pragma warning(disable: 161 1682)
 #   else // __ICC
+#       pragma clang diagnostic ignored "-Wglobal-constructors"
+#       pragma clang diagnostic ignored "-Wvariadic-macros"
+#       pragma clang diagnostic ignored "-Wc99-extensions"
+#       pragma clang diagnostic ignored "-Wunused-variable"
 #       pragma clang diagnostic push
+#       pragma clang diagnostic ignored "-Wpadded"
+#       pragma clang diagnostic ignored "-Wc++98-compat"
+#       pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
+#       pragma clang diagnostic ignored "-Wswitch-enum"
+#       pragma clang diagnostic ignored "-Wcovered-switch-default"
 #    endif
 #elif defined __GNUC__
+#    pragma GCC diagnostic ignored "-Wvariadic-macros"
+#    pragma GCC diagnostic ignored "-Wunused-variable"
+#    pragma GCC diagnostic ignored "-Wparentheses"
 
 #    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wpadded"
 #endif
 #if defined(CATCH_CONFIG_MAIN) || defined(CATCH_CONFIG_RUNNER)
 #  define CATCH_IMPL
@@ -545,6 +558,7 @@ namespace Catch {
 
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wpadded"
 #endif
 
 namespace Catch {
@@ -1515,6 +1529,7 @@ inline void arcSafeRelease( NSObject* ){}
 inline id performOptionalSelector( id obj, SEL sel ) {
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Warc-performSelector-leaks"
 #endif
     if( [obj respondsToSelector: sel] )
         return [obj performSelector: sel];
@@ -3217,6 +3232,7 @@ namespace Catch {
 
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wpadded"
 #endif
 
 namespace Catch {
@@ -3520,6 +3536,7 @@ LeakDetector leakDetector;
 
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
 // #included from: ../catch_session.hpp
@@ -3536,6 +3553,7 @@ LeakDetector leakDetector;
 
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wpadded"
 #endif
 
 // #included from: catch_test_spec.hpp
@@ -3543,6 +3561,7 @@ LeakDetector leakDetector;
 
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wpadded"
 #endif
 
 // #included from: catch_wildcard_pattern.hpp
@@ -3591,6 +3610,7 @@ namespace Catch
 
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wunreachable-code"
 #endif
             throw std::logic_error( "Unknown enum" );
 #ifdef __clang__
@@ -8503,6 +8523,7 @@ namespace Catch
 
 #ifdef __clang__
 # pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wc++11-long-long"
 #endif
 
 #ifdef CATCH_PLATFORM_WINDOWS

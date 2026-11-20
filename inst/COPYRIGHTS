@@ -103,12 +103,10 @@ THE SOFTWARE.
 
 src/testthat/testthat.h and src/testthat/vendor/catch.h
 -------------------------------------------------------
-The C++ unit-test headers of the testthat R package, version 3.3.2: its
-testthat.h and the single-header Catch v1.9.6 it bundles. They back the C++
-unit tests in src/test-*.cpp. Every `#pragma GCC/clang diagnostic ignored`
-line is removed from both (in testthat.h together with the `#ifdef __GNUC__`
-around it), since R CMD check flags pragmas that suppress diagnostics; the
-files are otherwise unchanged.
+Verbatim copies of the C++ unit-test headers of the testthat R package,
+version 3.3.2: its testthat.h and its vendored catch.h, the single-header
+Catch v1.9.6 as patched by testthat. They back the C++ unit tests in
+src/test-*.cpp.
 
   testthat.h: Copyright (c) 2023 testthat authors.
   Distributed under the MIT License.
@@ -117,7 +115,10 @@ files are otherwise unchanged.
   Distributed under the Boost Software License, Version 1.0, whose full text
   is given in the src/hash.h section above.
 
-Source (tag v3.3.2):
+Source (tag v3.3.2, sha256 of testthat.h
+d4fe0b263fb9068e77505ea77b0b67061b183e5b09ed48fbf2e8914974e5bf93 and of
+vendor/catch.h
+bb1f48e7fc8f2f6e465a8edbdc5895aa8951769a76c82e42053422b40418063f):
   https://github.com/r-lib/testthat/tree/v3.3.2/inst/include/testthat
 
 The full text of the MIT License of testthat.h follows.

@@ -51,6 +51,10 @@
 # include <climits> // CHAR_MAX
 # include <cstdio>  // EOF
 
+# ifdef __GNUC__
+#  pragma GCC diagnostic ignored "-Wparentheses"
+# endif
+
 namespace Catch {
 
 // Avoid 'R CMD check' warnings related to the use of 'std::rand()' and
