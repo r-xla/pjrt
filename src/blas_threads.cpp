@@ -82,8 +82,9 @@ BlasThreads blas_threads() {
 std::int64_t lapack_max_threads() {
   // Windows links Rtools' static reference BLAS, which runs no threads.
   static const BlasThreads threads = blas_threads();
-  return threads.concurrent_calls_ok() ? std::numeric_limits<std::int64_t>::max()
-                                       : 1;
+  return threads.concurrent_calls_ok()
+             ? std::numeric_limits<std::int64_t>::max()
+             : 1;
 }
 
 }  // namespace rpjrt
