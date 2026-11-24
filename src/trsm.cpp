@@ -18,14 +18,13 @@
 //       `transpose_a` and a otherwise. It may alias b, but not a.
 //
 // A singular `a` is not detected, as with trsm itself: x then holds Inf / NaN.
-#include <Rcpp.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 #include "ffi_lapack.h"
 
 using namespace xla::ffi;
@@ -116,9 +115,6 @@ XLA_FFI_DEFINE_HANDLER(trsm_handler, do_trsm,
                            .Arg<AnyBuffer>()             // b [..., m, n]
                            .Ret<AnyBuffer>());           // x [..., m, n]
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_trsm_handler() { return trsm_handler; }
 
-// [[Rcpp::export]]
-SEXP get_trsm_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::trsm_handler, R_NilValue, R_NilValue);
-}
+}  // namespace rpjrt

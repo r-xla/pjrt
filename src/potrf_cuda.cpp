@@ -5,9 +5,8 @@
 // CUBLAS_FILL_MODE_UPPER (1). Each matrix of the batch gets its own potrf call
 // whose devInfo is that matrix's slot of the `info` output, so the result
 // stays on the device and the handler never synchronises the stream.
-#include <Rcpp.h>
-
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 
 #ifndef _WIN32
 #include <cstddef>
@@ -102,10 +101,6 @@ XLA_FFI_DEFINE_HANDLER(potrf_handler_cuda, do_potrf_cuda,
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_potrf_handler_cuda() { return potrf_handler_cuda; }
 
-// [[Rcpp::export]]
-SEXP get_potrf_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::potrf_handler_cuda, R_NilValue,
-                           R_NilValue);
-}
+}  // namespace rpjrt

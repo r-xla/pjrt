@@ -17,32 +17,12 @@ impl_dispatch_run <- function(dispatcher, args) {
     .Call(`_pjrt_impl_dispatch_run`, dispatcher, args)
 }
 
-get_eigh_handler <- function() {
-    .Call(`_pjrt_get_eigh_handler`)
-}
-
-get_eigh_handler_cuda <- function() {
-    .Call(`_pjrt_get_eigh_handler_cuda`)
-}
-
 impl_register_custom_call <- function(plugin, target_name, handler_ptr, platform_name) {
     invisible(.Call(`_pjrt_impl_register_custom_call`, plugin, target_name, handler_ptr, platform_name))
 }
 
-get_print_handler <- function() {
-    .Call(`_pjrt_get_print_handler`)
-}
-
-get_print_ordered_handler <- function() {
-    .Call(`_pjrt_get_print_ordered_handler`)
-}
-
-get_print_ordered_handler_cuda <- function() {
-    .Call(`_pjrt_get_print_ordered_handler_cuda`)
-}
-
-get_print_handler_cuda <- function() {
-    .Call(`_pjrt_get_print_handler_cuda`)
+builtin_custom_calls <- function() {
+    .Call(`_pjrt_builtin_custom_calls`)
 }
 
 test_get_extension <- function(plugin, platform_name) {
@@ -79,14 +59,6 @@ impl_host_array_set <- function(x, values) {
 
 impl_host_array_is_ready <- function(x) {
     .Call(`_pjrt_impl_host_array_is_ready`, x)
-}
-
-get_lu_handler <- function() {
-    .Call(`_pjrt_get_lu_handler`)
-}
-
-get_lu_handler_cuda <- function() {
-    .Call(`_pjrt_get_lu_handler_cuda`)
 }
 
 impl_plugin_load <- function(path) {
@@ -257,38 +229,6 @@ impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
     .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
 }
 
-get_potrf_handler <- function() {
-    .Call(`_pjrt_get_potrf_handler`)
-}
-
-get_potrf_handler_cuda <- function() {
-    .Call(`_pjrt_get_potrf_handler_cuda`)
-}
-
-get_geqrf_handler <- function() {
-    .Call(`_pjrt_get_geqrf_handler`)
-}
-
-get_orgqr_handler <- function() {
-    .Call(`_pjrt_get_orgqr_handler`)
-}
-
-get_geqrf_handler_cuda <- function() {
-    .Call(`_pjrt_get_geqrf_handler_cuda`)
-}
-
-get_orgqr_handler_cuda <- function() {
-    .Call(`_pjrt_get_orgqr_handler_cuda`)
-}
-
-get_svd_handler <- function() {
-    .Call(`_pjrt_get_svd_handler`)
-}
-
-get_svd_handler_cuda <- function() {
-    .Call(`_pjrt_get_svd_handler_cuda`)
-}
-
 impl_tree_build <- function(x, is_leaf = NULL) {
     .Call(`_pjrt_impl_tree_build`, x, is_leaf)
 }
@@ -359,9 +299,5 @@ impl_register_tree_node <- function(cls, flatten, unflatten, repr) {
 
 impl_unregister_tree_node <- function(cls) {
     invisible(.Call(`_pjrt_impl_unregister_tree_node`, cls))
-}
-
-get_trsm_handler <- function() {
-    .Call(`_pjrt_get_trsm_handler`)
 }
 

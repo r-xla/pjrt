@@ -63,26 +63,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// get_eigh_handler
-SEXP get_eigh_handler();
-RcppExport SEXP _pjrt_get_eigh_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_eigh_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_eigh_handler_cuda
-SEXP get_eigh_handler_cuda();
-RcppExport SEXP _pjrt_get_eigh_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_eigh_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_register_custom_call
 void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin, const std::string& target_name, SEXP handler_ptr, const std::string& platform_name);
 RcppExport SEXP _pjrt_impl_register_custom_call(SEXP pluginSEXP, SEXP target_nameSEXP, SEXP handler_ptrSEXP, SEXP platform_nameSEXP) {
@@ -96,43 +76,13 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// get_print_handler
-SEXP get_print_handler();
-RcppExport SEXP _pjrt_get_print_handler() {
+// builtin_custom_calls
+Rcpp::List builtin_custom_calls();
+RcppExport SEXP _pjrt_builtin_custom_calls() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_print_ordered_handler
-SEXP get_print_ordered_handler();
-RcppExport SEXP _pjrt_get_print_ordered_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_ordered_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_print_ordered_handler_cuda
-SEXP get_print_ordered_handler_cuda();
-RcppExport SEXP _pjrt_get_print_ordered_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_ordered_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_print_handler_cuda
-SEXP get_print_handler_cuda();
-RcppExport SEXP _pjrt_get_print_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_handler_cuda());
+    rcpp_result_gen = Rcpp::wrap(builtin_custom_calls());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -233,26 +183,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_host_array_is_ready(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_lu_handler
-SEXP get_lu_handler();
-RcppExport SEXP _pjrt_get_lu_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_lu_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_lu_handler_cuda
-SEXP get_lu_handler_cuda();
-RcppExport SEXP _pjrt_get_lu_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_lu_handler_cuda());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -756,86 +686,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// get_potrf_handler
-SEXP get_potrf_handler();
-RcppExport SEXP _pjrt_get_potrf_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_potrf_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_potrf_handler_cuda
-SEXP get_potrf_handler_cuda();
-RcppExport SEXP _pjrt_get_potrf_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_potrf_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_geqrf_handler
-SEXP get_geqrf_handler();
-RcppExport SEXP _pjrt_get_geqrf_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_geqrf_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_orgqr_handler
-SEXP get_orgqr_handler();
-RcppExport SEXP _pjrt_get_orgqr_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_orgqr_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_geqrf_handler_cuda
-SEXP get_geqrf_handler_cuda();
-RcppExport SEXP _pjrt_get_geqrf_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_geqrf_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_orgqr_handler_cuda
-SEXP get_orgqr_handler_cuda();
-RcppExport SEXP _pjrt_get_orgqr_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_orgqr_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_svd_handler
-SEXP get_svd_handler();
-RcppExport SEXP _pjrt_get_svd_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_svd_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_svd_handler_cuda
-SEXP get_svd_handler_cuda();
-RcppExport SEXP _pjrt_get_svd_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_svd_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_tree_build
 SEXP impl_tree_build(SEXP x, SEXP is_leaf);
 RcppExport SEXP _pjrt_impl_tree_build(SEXP xSEXP, SEXP is_leafSEXP) {
@@ -1044,16 +894,6 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// get_trsm_handler
-SEXP get_trsm_handler();
-RcppExport SEXP _pjrt_get_trsm_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_trsm_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
 
 RcppExport SEXP run_testthat_tests(SEXP);
 
@@ -1062,13 +902,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 9},
     {"_pjrt_impl_dispatcher_size", (DL_FUNC) &_pjrt_impl_dispatcher_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
-    {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
-    {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
     {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},
-    {"_pjrt_get_print_handler", (DL_FUNC) &_pjrt_get_print_handler, 0},
-    {"_pjrt_get_print_ordered_handler", (DL_FUNC) &_pjrt_get_print_ordered_handler, 0},
-    {"_pjrt_get_print_ordered_handler_cuda", (DL_FUNC) &_pjrt_get_print_ordered_handler_cuda, 0},
-    {"_pjrt_get_print_handler_cuda", (DL_FUNC) &_pjrt_get_print_handler_cuda, 0},
+    {"_pjrt_builtin_custom_calls", (DL_FUNC) &_pjrt_builtin_custom_calls, 0},
     {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 2},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
     {"_pjrt_impl_gc_call_count", (DL_FUNC) &_pjrt_impl_gc_call_count, 0},
@@ -1078,8 +913,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_host_array_pending", (DL_FUNC) &_pjrt_impl_host_array_pending, 1},
     {"_pjrt_impl_host_array_set", (DL_FUNC) &_pjrt_impl_host_array_set, 2},
     {"_pjrt_impl_host_array_is_ready", (DL_FUNC) &_pjrt_impl_host_array_is_ready, 1},
-    {"_pjrt_get_lu_handler", (DL_FUNC) &_pjrt_get_lu_handler, 0},
-    {"_pjrt_get_lu_handler_cuda", (DL_FUNC) &_pjrt_get_lu_handler_cuda, 0},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
     {"_pjrt_impl_plugin_client_create", (DL_FUNC) &_pjrt_impl_plugin_client_create, 2},
     {"_pjrt_impl_program_load", (DL_FUNC) &_pjrt_impl_program_load, 2},
@@ -1122,14 +955,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_client_buffer_from_integer64", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer64, 5},
     {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 5},
     {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 5},
-    {"_pjrt_get_potrf_handler", (DL_FUNC) &_pjrt_get_potrf_handler, 0},
-    {"_pjrt_get_potrf_handler_cuda", (DL_FUNC) &_pjrt_get_potrf_handler_cuda, 0},
-    {"_pjrt_get_geqrf_handler", (DL_FUNC) &_pjrt_get_geqrf_handler, 0},
-    {"_pjrt_get_orgqr_handler", (DL_FUNC) &_pjrt_get_orgqr_handler, 0},
-    {"_pjrt_get_geqrf_handler_cuda", (DL_FUNC) &_pjrt_get_geqrf_handler_cuda, 0},
-    {"_pjrt_get_orgqr_handler_cuda", (DL_FUNC) &_pjrt_get_orgqr_handler_cuda, 0},
-    {"_pjrt_get_svd_handler", (DL_FUNC) &_pjrt_get_svd_handler, 0},
-    {"_pjrt_get_svd_handler_cuda", (DL_FUNC) &_pjrt_get_svd_handler_cuda, 0},
     {"_pjrt_impl_tree_build", (DL_FUNC) &_pjrt_impl_tree_build, 2},
     {"_pjrt_impl_tree_build_flatten", (DL_FUNC) &_pjrt_impl_tree_build_flatten, 2},
     {"_pjrt_impl_tree_unflatten", (DL_FUNC) &_pjrt_impl_tree_unflatten, 2},
@@ -1148,7 +973,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_tree_diff", (DL_FUNC) &_pjrt_impl_tree_diff, 2},
     {"_pjrt_impl_register_tree_node", (DL_FUNC) &_pjrt_impl_register_tree_node, 4},
     {"_pjrt_impl_unregister_tree_node", (DL_FUNC) &_pjrt_impl_unregister_tree_node, 1},
-    {"_pjrt_get_trsm_handler", (DL_FUNC) &_pjrt_get_trsm_handler, 0},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };

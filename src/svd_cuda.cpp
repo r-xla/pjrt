@@ -11,9 +11,8 @@
 //   S  : (n,)
 //   Vt : (n, n)    -- ldvt = n
 // matching the host gesdd output shapes when k = n.
-#include <Rcpp.h>
-
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 
 #ifndef _WIN32
 #include <cstddef>
@@ -109,10 +108,6 @@ XLA_FFI_DEFINE_HANDLER(svd_handler_cuda, do_svd_cuda,
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_svd_handler_cuda() { return svd_handler_cuda; }
 
-// [[Rcpp::export]]
-SEXP get_svd_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::svd_handler_cuda, R_NilValue,
-                           R_NilValue);
-}
+}  // namespace rpjrt

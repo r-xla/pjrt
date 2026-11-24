@@ -1,10 +1,12 @@
 #include "xla/ffi/api/ffi.h"
 
 #include <iostream>
+#include <iterator>
 #include <string_view>
 
 #include "buffer.h"
 #include "buffer_printer.h"
+#include "ffi_handlers.h"
 #include "plugin.h"
 #include "utils.h"
 #include "xla/ffi/api/api.h"
@@ -253,28 +255,57 @@ void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin,
   check_err(plugin->api.get(), ffi_extension->register_handler(&args));
 }
 
+// Returns pjrt's built-in custom calls as a list named by custom-call target.
+// Each element holds external pointers to the target's handlers, named by
+// PJRT platform -- the form `pjrt_register_custom_call()` takes.
 // [[Rcpp::export]]
-SEXP get_print_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::print_handler, R_NilValue,
-                           R_NilValue);
-}
+Rcpp::List builtin_custom_calls() {
+  using namespace rpjrt;
+  struct Entry {
+    const char *target;
+    XLA_FFI_Handler *host;
+    XLA_FFI_Handler *cuda;  // nullptr when there is no CUDA handler
+  };
+  const Entry entries[] = {
+      {"print_tensor", print_handler, print_handler_cuda},
+      // Takes and returns a token, so that a chain of them prints in order.
+      {"print_tensor_ordered", print_ordered_handler,
+       print_ordered_handler_cuda},
+      // Linear algebra: LAPACK on the host, cuSOLVER on CUDA.
+      {"geqrf", get_geqrf_handler(), get_geqrf_handler_cuda()},
+      {"orgqr", get_orgqr_handler(), get_orgqr_handler_cuda()},
+      {"lu", get_lu_handler(), get_lu_handler_cuda()},
+      {"svd", get_svd_handler(), get_svd_handler_cuda()},
+      {"eigh", get_eigh_handler(), get_eigh_handler_cuda()},
+      {"potrf", get_potrf_handler(), get_potrf_handler_cuda()},
+      // On CUDA, XLA itself lowers `stablehlo.triangular_solve` to cuBLAS.
+      {"trsm", get_trsm_handler(), nullptr},
+  };
 
-// [[Rcpp::export]]
-SEXP get_print_ordered_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::print_ordered_handler, R_NilValue,
-                           R_NilValue);
-}
-
-// [[Rcpp::export]]
-SEXP get_print_ordered_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::print_ordered_handler_cuda,
-                           R_NilValue, R_NilValue);
-}
-
-// [[Rcpp::export]]
-SEXP get_print_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::print_handler_cuda, R_NilValue,
-                           R_NilValue);
+  auto xptr = [](XLA_FFI_Handler *handler) {
+    return R_MakeExternalPtr(reinterpret_cast<void *>(handler), R_NilValue,
+                             R_NilValue);
+  };
+  const R_xlen_t n = std::size(entries);
+  Rcpp::List out(n);
+  Rcpp::CharacterVector targets(n);
+  for (R_xlen_t i = 0; i < n; ++i) {
+    const Entry &e = entries[i];
+    const R_xlen_t m = e.cuda == nullptr ? 1 : 2;
+    Rcpp::List handlers(m);
+    Rcpp::CharacterVector platforms(m);
+    handlers[0] = xptr(e.host);
+    platforms[0] = "host";
+    if (e.cuda != nullptr) {
+      handlers[1] = xptr(e.cuda);
+      platforms[1] = "cuda";
+    }
+    handlers.names() = platforms;
+    out[i] = handlers;
+    targets[i] = e.target;
+  }
+  out.names() = targets;
+  return out;
 }
 
 // [[Rcpp::export]]

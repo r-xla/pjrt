@@ -15,13 +15,12 @@
 // `info` and decides (anvl fills that factor with NaN). Returning info as an
 // output rather than failing is what lets the CUDA handler stay asynchronous
 // (devInfo lives on the device), and keeps both platforms on one contract.
-#include <Rcpp.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 #include "ffi_lapack.h"
 
 using namespace xla::ffi;
@@ -76,10 +75,6 @@ XLA_FFI_DEFINE_HANDLER(potrf_handler, do_potrf,
                            .Ret<AnyBuffer>()     // factor [..., n, n]
                            .Ret<AnyBuffer>());   // info [...] (int32)
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_potrf_handler() { return potrf_handler; }
 
-// [[Rcpp::export]]
-SEXP get_potrf_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::potrf_handler, R_NilValue,
-                           R_NilValue);
-}
+}  // namespace rpjrt

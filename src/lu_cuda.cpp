@@ -1,7 +1,6 @@
 // CUDA LU decomposition via cuSOLVER. Mirrors src/lu.cpp on the GPU.
-#include <Rcpp.h>
-
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 
 #ifndef _WIN32
 #include <cstddef>
@@ -81,10 +80,6 @@ XLA_FFI_DEFINE_HANDLER(lu_handler_cuda, do_lu_cuda,
                            .Ret<AnyBuffer>()
                            .Ret<AnyBuffer>());
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_lu_handler_cuda() { return lu_handler_cuda; }
 
-// [[Rcpp::export]]
-SEXP get_lu_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::lu_handler_cuda, R_NilValue,
-                           R_NilValue);
-}
+}  // namespace rpjrt
