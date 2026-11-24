@@ -66,12 +66,13 @@ static Error do_lu(ThreadPool pool, AnyBuffer input, Result<AnyBuffer> lu_out,
                       piv_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(lu_handler, do_lu,
-                       Ffi::Bind()
-                           .Ctx<ThreadPool>()   // XLA's intra-op threads
-                           .Arg<AnyBuffer>()    // matrices [..., n, m]
-                           .Ret<AnyBuffer>()    // LU [..., n, m] (same dtype)
-                           .Ret<AnyBuffer>());  // pivots [..., k] (int32)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    lu_handler, do_lu,
+    Ffi::Bind()
+        .Ctx<ThreadPool>()   // XLA's intra-op threads
+        .Arg<AnyBuffer>()    // matrices [..., n, m]
+        .Ret<AnyBuffer>()    // LU [..., n, m] (same dtype)
+        .Ret<AnyBuffer>());  // pivots [..., k] (int32)
 
 XLA_FFI_Handler *get_lu_handler() { return lu_handler; }
 

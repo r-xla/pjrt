@@ -92,13 +92,14 @@ static Error do_svd(ThreadPool pool, AnyBuffer input, Result<AnyBuffer> u_out,
                       vt_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(svd_handler, do_svd,
-                       Ffi::Bind()
-                           .Ctx<ThreadPool>()   // XLA's intra-op threads
-                           .Arg<AnyBuffer>()    // matrices [..., n, m]
-                           .Ret<AnyBuffer>()    // U  [..., k, m]
-                           .Ret<AnyBuffer>()    // S  [..., k]
-                           .Ret<AnyBuffer>());  // Vt [..., n, k]
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    svd_handler, do_svd,
+    Ffi::Bind()
+        .Ctx<ThreadPool>()   // XLA's intra-op threads
+        .Arg<AnyBuffer>()    // matrices [..., n, m]
+        .Ret<AnyBuffer>()    // U  [..., k, m]
+        .Ret<AnyBuffer>()    // S  [..., k]
+        .Ret<AnyBuffer>());  // Vt [..., n, k]
 
 XLA_FFI_Handler *get_svd_handler() { return svd_handler; }
 

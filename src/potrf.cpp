@@ -68,13 +68,14 @@ static Error do_potrf(ThreadPool pool, bool lower, AnyBuffer input,
                       info_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(potrf_handler, do_potrf,
-                       Ffi::Bind()
-                           .Ctx<ThreadPool>()    // XLA's intra-op threads
-                           .Attr<bool>("lower")  // which triangle
-                           .Arg<AnyBuffer>()     // matrices [..., n, n]
-                           .Ret<AnyBuffer>()     // factor [..., n, n]
-                           .Ret<AnyBuffer>());   // info [...] (int32)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    potrf_handler, do_potrf,
+    Ffi::Bind()
+        .Ctx<ThreadPool>()    // XLA's intra-op threads
+        .Attr<bool>("lower")  // which triangle
+        .Arg<AnyBuffer>()     // matrices [..., n, n]
+        .Ret<AnyBuffer>()     // factor [..., n, n]
+        .Ret<AnyBuffer>());   // info [...] (int32)
 
 XLA_FFI_Handler *get_potrf_handler() { return potrf_handler; }
 

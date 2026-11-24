@@ -82,12 +82,13 @@ static Error do_eigh(ThreadPool pool, AnyBuffer input, Result<AnyBuffer> v_out,
                       w_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(eigh_handler, do_eigh,
-                       Ffi::Bind()
-                           .Ctx<ThreadPool>()   // XLA's intra-op threads
-                           .Arg<AnyBuffer>()    // symmetric [..., n, n]
-                           .Ret<AnyBuffer>()    // eigenvectors [..., n, n]
-                           .Ret<AnyBuffer>());  // eigenvalues [..., n]
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    eigh_handler, do_eigh,
+    Ffi::Bind()
+        .Ctx<ThreadPool>()   // XLA's intra-op threads
+        .Arg<AnyBuffer>()    // symmetric [..., n, n]
+        .Ret<AnyBuffer>()    // eigenvectors [..., n, n]
+        .Ret<AnyBuffer>());  // eigenvalues [..., n]
 
 XLA_FFI_Handler *get_eigh_handler() { return eigh_handler; }
 

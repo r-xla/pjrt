@@ -82,12 +82,13 @@ static Error do_geqrf(ThreadPool pool, AnyBuffer input,
                       tau_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(geqrf_handler, do_geqrf,
-                       Ffi::Bind()
-                           .Ctx<ThreadPool>()   // XLA's intra-op threads
-                           .Arg<AnyBuffer>()    // matrices [..., n, m]
-                           .Ret<AnyBuffer>()    // packed [..., n, m]
-                           .Ret<AnyBuffer>());  // tau [..., k]
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    geqrf_handler, do_geqrf,
+    Ffi::Bind()
+        .Ctx<ThreadPool>()   // XLA's intra-op threads
+        .Arg<AnyBuffer>()    // matrices [..., n, m]
+        .Ret<AnyBuffer>()    // packed [..., n, m]
+        .Ret<AnyBuffer>());  // tau [..., k]
 
 // ---- orgqr -----------------------------------------------------------------
 
@@ -142,12 +143,13 @@ static Error do_orgqr(ThreadPool pool, AnyBuffer packed, AnyBuffer tau,
                       q_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(orgqr_handler, do_orgqr,
-                       Ffi::Bind()
-                           .Ctx<ThreadPool>()   // XLA's intra-op threads
-                           .Arg<AnyBuffer>()    // packed [..., n, m]
-                           .Arg<AnyBuffer>()    // tau [..., k]
-                           .Ret<AnyBuffer>());  // Q [..., k, m]
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    orgqr_handler, do_orgqr,
+    Ffi::Bind()
+        .Ctx<ThreadPool>()   // XLA's intra-op threads
+        .Arg<AnyBuffer>()    // packed [..., n, m]
+        .Arg<AnyBuffer>()    // tau [..., k]
+        .Ret<AnyBuffer>());  // Q [..., k, m]
 
 XLA_FFI_Handler *get_geqrf_handler() { return geqrf_handler; }
 XLA_FFI_Handler *get_orgqr_handler() { return orgqr_handler; }

@@ -97,16 +97,17 @@ static Error do_trsm(ThreadPool pool, bool left_side, bool lower,
                       transpose_a, unit_diagonal, a, b, out);
 }
 
-XLA_FFI_DEFINE_HANDLER(trsm_handler, do_trsm,
-                       Ffi::Bind()
-                           .Ctx<ThreadPool>()          // XLA's intra-op threads
-                           .Attr<bool>("left_side")    // op(a) x or x op(a)
-                           .Attr<bool>("lower")        // which triangle
-                           .Attr<bool>("transpose_a")  // op(a) = t(a)
-                           .Attr<bool>("unit_diagonal")  // diag(a) taken as 1
-                           .Arg<AnyBuffer>()             // a [..., k, k]
-                           .Arg<AnyBuffer>()             // b [..., m, n]
-                           .Ret<AnyBuffer>());           // x [..., m, n]
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    trsm_handler, do_trsm,
+    Ffi::Bind()
+        .Ctx<ThreadPool>()            // XLA's intra-op threads
+        .Attr<bool>("left_side")      // op(a) x or x op(a)
+        .Attr<bool>("lower")          // which triangle
+        .Attr<bool>("transpose_a")    // op(a) = t(a)
+        .Attr<bool>("unit_diagonal")  // diag(a) taken as 1
+        .Arg<AnyBuffer>()             // a [..., k, k]
+        .Arg<AnyBuffer>()             // b [..., m, n]
+        .Ret<AnyBuffer>());           // x [..., m, n]
 
 XLA_FFI_Handler *get_trsm_handler() { return trsm_handler; }
 
