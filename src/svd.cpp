@@ -10,8 +10,6 @@
 //
 // gesdd needs an integer workspace `iwork` of size 8*k in addition to the
 // real workspace queried via lwork = -1.
-#include <Rcpp.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -19,6 +17,7 @@
 #include <vector>
 
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 #include "ffi_lapack.h"
 
 using namespace xla::ffi;
@@ -90,9 +89,6 @@ XLA_FFI_DEFINE_HANDLER_EXPLICIT(svd_handler, do_svd,
                                     .Ret<AnyBuffer>()    // S  (k,)
                                     .Ret<AnyBuffer>());  // Vt (k, n)
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_svd_handler() { return svd_handler; }
 
-// [[Rcpp::export]]
-SEXP get_svd_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::svd_handler, R_NilValue, R_NilValue);
-}
+}  // namespace rpjrt

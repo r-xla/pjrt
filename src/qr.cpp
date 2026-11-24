@@ -13,8 +13,6 @@
 //     produced by geqrf. cuSOLVER / LAPACK both run this in place on an
 //     m x k matrix; we copy the first m*k entries of `packed` into the Q
 //     output buffer and factorise there.
-#include <Rcpp.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -22,6 +20,7 @@
 #include <vector>
 
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 #include "ffi_lapack.h"
 
 using namespace xla::ffi;
@@ -128,16 +127,7 @@ XLA_FFI_DEFINE_HANDLER_EXPLICIT(
         .Arg<AnyBuffer>()    // tau (k,)
         .Ret<AnyBuffer>());  // Q (m, k)
 
+XLA_FFI_Handler *get_geqrf_handler() { return geqrf_handler; }
+XLA_FFI_Handler *get_orgqr_handler() { return orgqr_handler; }
+
 }  // namespace rpjrt
-
-// [[Rcpp::export]]
-SEXP get_geqrf_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::geqrf_handler, R_NilValue,
-                           R_NilValue);
-}
-
-// [[Rcpp::export]]
-SEXP get_orgqr_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::orgqr_handler, R_NilValue,
-                           R_NilValue);
-}

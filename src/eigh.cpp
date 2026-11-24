@@ -10,14 +10,13 @@
 //
 // syevd needs *two* workspaces (real `work` of size lwork, integer `iwork` of
 // size liwork) -- both queried with the lwork = -1 idiom.
-#include <Rcpp.h>
-
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <vector>
 
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 #include "ffi_lapack.h"
 
 using namespace xla::ffi;
@@ -84,9 +83,6 @@ XLA_FFI_DEFINE_HANDLER_EXPLICIT(eigh_handler, do_eigh,
                                     .Ret<AnyBuffer>()    // eigenvectors (n, n)
                                     .Ret<AnyBuffer>());  // eigenvalues (n,)
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_eigh_handler() { return eigh_handler; }
 
-// [[Rcpp::export]]
-SEXP get_eigh_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::eigh_handler, R_NilValue, R_NilValue);
-}
+}  // namespace rpjrt

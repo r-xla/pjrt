@@ -4,9 +4,8 @@
 //   jobz = CUSOLVER_EIG_MODE_VECTOR (1)
 //   uplo = CUBLAS_FILL_MODE_LOWER   (0)
 // matching the LAPACK 'V' / 'L' choice in src/eigh.cpp.
-#include <Rcpp.h>
-
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 
 #ifndef _WIN32
 #include <cstddef>
@@ -91,10 +90,6 @@ XLA_FFI_DEFINE_HANDLER_EXPLICIT(eigh_handler_cuda, do_eigh_cuda,
                                     .Ret<AnyBuffer>()
                                     .Ret<AnyBuffer>());
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_eigh_handler_cuda() { return eigh_handler_cuda; }
 
-// [[Rcpp::export]]
-SEXP get_eigh_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::eigh_handler_cuda, R_NilValue,
-                           R_NilValue);
-}
+}  // namespace rpjrt

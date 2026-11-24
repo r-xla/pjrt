@@ -6,9 +6,8 @@
 //   geqrf : A (m, n) -> packed (m, n), tau (k,)
 //   orgqr : packed (m, n), tau (k,) -> Q (m, k)
 // R is recovered from `packed` via stablehlo `triu` outside the handler.
-#include <Rcpp.h>
-
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 
 #ifndef _WIN32
 #include <algorithm>
@@ -158,16 +157,7 @@ XLA_FFI_DEFINE_HANDLER_EXPLICIT(
         .Arg<AnyBuffer>()    // tau (k,)
         .Ret<AnyBuffer>());  // Q (m, k)
 
+XLA_FFI_Handler *get_geqrf_handler_cuda() { return geqrf_handler_cuda; }
+XLA_FFI_Handler *get_orgqr_handler_cuda() { return orgqr_handler_cuda; }
+
 }  // namespace rpjrt
-
-// [[Rcpp::export]]
-SEXP get_geqrf_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::geqrf_handler_cuda, R_NilValue,
-                           R_NilValue);
-}
-
-// [[Rcpp::export]]
-SEXP get_orgqr_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::orgqr_handler_cuda, R_NilValue,
-                           R_NilValue);
-}

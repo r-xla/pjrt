@@ -11,8 +11,6 @@
 // Outputs:
 //   LU      : (m, n), same dtype as input
 //   pivots  : (k,)   int32
-#include <Rcpp.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -20,6 +18,7 @@
 #include <vector>
 
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 #include "ffi_lapack.h"
 
 using namespace xla::ffi;
@@ -65,9 +64,6 @@ XLA_FFI_DEFINE_HANDLER_EXPLICIT(lu_handler, do_lu,
                                     .Ret<AnyBuffer>()    // LU (same dtype)
                                     .Ret<AnyBuffer>());  // pivots (int32)
 
-}  // namespace rpjrt
+XLA_FFI_Handler *get_lu_handler() { return lu_handler; }
 
-// [[Rcpp::export]]
-SEXP get_lu_handler() {
-  return R_MakeExternalPtr((void *)rpjrt::lu_handler, R_NilValue, R_NilValue);
-}
+}  // namespace rpjrt
