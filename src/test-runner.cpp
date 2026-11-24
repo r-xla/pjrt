@@ -4,4 +4,4 @@
  * available in your package.
  */
 #define TESTTHAT_TEST_RUNNER
-#include <testthat.h>
+#include "testthat/testthat.h"

@@ -82,13 +82,13 @@ static Error do_eigh_cuda(void *stream, ScratchAllocator scratch,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(eigh_handler_cuda, do_eigh_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Arg<AnyBuffer>()
-                           .Ret<AnyBuffer>()
-                           .Ret<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(eigh_handler_cuda, do_eigh_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Arg<AnyBuffer>()
+                                    .Ret<AnyBuffer>()
+                                    .Ret<AnyBuffer>());
 
 XLA_FFI_Handler *get_eigh_handler_cuda() { return eigh_handler_cuda; }
 

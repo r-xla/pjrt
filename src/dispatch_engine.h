@@ -211,11 +211,12 @@ void read_input_dtypes(const Rcpp::List& res,
 // `engine_name` is the R-facing selector: "pjrt" or "closure"; throws on any
 // other value. `backend` is the tag the dispatcher's arrays carry (the engine
 // needs it to stamp the arrays it wraps and to recognize its own leaves).
-// `extractor` is the R closure ClosureEngine calls to read a leaf's metadata
-// via the backend's accessors (required for "closure"; ignored, pass
-// R_NilValue, for "pjrt"). See ?dispatcher.
+// `reverse_shapes` stores arrays as buffers of the reversed shape ("pjrt"
+// only; throws for "closure"). `extractor` is the R closure ClosureEngine
+// calls to read a leaf's metadata via the backend's accessors (required for
+// "closure"; ignored, pass R_NilValue, for "pjrt"). See ?dispatcher.
 std::unique_ptr<Engine> make_engine(const std::string& engine_name,
                                     std::string backend, bool move_inputs,
-                                    SEXP extractor);
+                                    bool reverse_shapes, SEXP extractor);
 
 }  // namespace rpjrt

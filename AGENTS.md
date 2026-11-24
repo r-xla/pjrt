@@ -66,6 +66,8 @@ Both execution and buffer transfers are asynchronous:
 
 R uses column-major (Fortran) order. The C++ layer handles row-to-column-major conversion when transferring between R and device buffers.
 
+Opt-in, an R array of shape `(d1, ..., dn)` can instead be stored as a buffer of shape `(dn, ..., d1)`: R's column-major data are the row-major data of the reversed shape, so both directions are plain copies. `pjrt_buffer(row_major = TRUE)` and `as_array(row_major = TRUE)` move such buffers, `print(reversed = TRUE)` and `print_tensor`'s `reverse_dims` print them, and `dispatcher(reverse_shapes = TRUE)` keeps its avals in R order around them -- this is how anvl stores its arrays.
+
 ## Key Source Files
 
 - `plugin.R` – plugin loading, client caching, global state (`the`)
@@ -92,3 +94,7 @@ In C++, root R objects with Rcpp rather than by hand:
 
 - Use Rcpp types (`Rcpp::List`, `Rcpp::CharacterVector`, ...) or `Rcpp::Shield<SEXP>` instead of `PROTECT`/`UNPROTECT`. They unwind correctly when a C++ exception is thrown, where a skipped `UNPROTECT` would not. The exception is ALTREP methods, which R calls from C and which must not hold objects with destructors (see `call_pjrt()` in `src/buffer_sexp.h`).
 - Keep an object alive beyond the current call with `rpjrt::preserve()` and `rpjrt::release()`, or `rpjrt::queue_release()` from a PJRT callback thread (`src/deferred_release.h`). These use Rcpp's precious list; don't call `R_PreserveObject()`/`R_ReleaseObject()`.
+
+## Compiler Warnings
+
+CRAN compiles with clang and `-pedantic` and rejects warnings even when they point into the vendored headers. Define FFI handlers with `XLA_FFI_DEFINE_HANDLER_EXPLICIT()` or `XLA_FFI_DEFINE_HANDLER_AUTO()`, never `XLA_FFI_DEFINE_HANDLER()`: its `, ##__VA_ARGS__` optional-argument trick raises `-Wgnu-zero-variadic-macro-arguments` at every use.

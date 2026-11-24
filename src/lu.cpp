@@ -5,6 +5,9 @@
 // pivot indices are returned in `ipiv`, 1-based row swaps applied during
 // elimination.
 //
+// Every matrix is passed as its column-major data: an m x n matrix is a
+// row-major [n, m] buffer (see `matrix_dims()`).
+//
 // Outputs:
 //   LU      : (m, n), same dtype as input
 //   pivots  : (k,)   int32
@@ -27,10 +30,8 @@ static Error lu_impl(AnyBuffer input, Result<AnyBuffer> lu_out,
                      Result<AnyBuffer> piv_out) {
   using S = typename Lapack<T>::S;
 
-  auto dims = input.dimensions();
   int m, n;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
+  PJRT_RETURN_IF_ERROR(matrix_dims(input.dimensions(), "lu", m, n));
 
   const T *in = static_cast<const T *>(input.untyped_data());
   T *lu_data = static_cast<T *>((*lu_out).untyped_data());
@@ -57,11 +58,11 @@ static Error do_lu(AnyBuffer input, Result<AnyBuffer> lu_out,
   PJRT_DISPATCH_FLOAT(input.element_type(), lu_impl, input, lu_out, piv_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(lu_handler, do_lu,
-                       Ffi::Bind()
-                           .Arg<AnyBuffer>()    // input matrix
-                           .Ret<AnyBuffer>()    // LU (same dtype)
-                           .Ret<AnyBuffer>());  // pivots (int32)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(lu_handler, do_lu,
+                                Ffi::Bind()
+                                    .Arg<AnyBuffer>()    // input matrix
+                                    .Ret<AnyBuffer>()    // LU (same dtype)
+                                    .Ret<AnyBuffer>());  // pivots (int32)
 
 XLA_FFI_Handler *get_lu_handler() { return lu_handler; }
 

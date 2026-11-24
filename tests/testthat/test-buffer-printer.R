@@ -232,3 +232,53 @@ test_that("stress test f32", {
 test_that("custom footer", {
   expect_snapshot(print(pjrt_buffer(1L), footer = "[abc]"))
 })
+
+describe("print(reversed = TRUE)", {
+  # A buffer storing the R array `x` with its axes reversed prints as the
+  # ordinary buffer of `x`.
+  expect_prints_reversed <- function(x, dtype, shape, ...) {
+    reversed <- pjrt_buffer(x, dtype = dtype, shape = rev(shape), row_major = TRUE)
+    ordinary <- pjrt_buffer(x, dtype = dtype, shape = shape)
+    expect_identical(
+      capture.output(print(reversed, ..., reversed = TRUE)),
+      capture.output(print(ordinary, ...))
+    )
+  }
+
+  it("prints the R array a reversed upload was made from", {
+    values <- list(
+      f32 = function(n) seq_len(n) / 4,
+      f64 = function(n) seq_len(n) * 1e7,
+      f16 = function(n) seq_len(n) / 4,
+      bf16 = function(n) seq_len(n) / 4,
+      i8 = function(n) seq_len(n) - 10L,
+      i32 = function(n) seq_len(n) * 1000L,
+      i64 = function(n) bit64::as.integer64(seq_len(n)),
+      ui8 = function(n) seq_len(n),
+      ui64 = function(n) bit64::as.integer64(seq_len(n)),
+      bool = function(n) seq_len(n) %% 3L == 0L
+    )
+    shapes <- list(integer(), 5L, c(2L, 3L), c(2L, 3L, 4L), c(2L, 1L, 3L, 2L), c(0L, 3L), c(2L, 0L, 4L))
+    for (dtype in names(values)) {
+      for (shape in shapes) {
+        expect_prints_reversed(values[[dtype]](prod(shape)), dtype, shape)
+      }
+    }
+  })
+
+  it("truncates as the ordinary buffer does", {
+    expect_prints_reversed(seq_len(120L) / 7, "f32", c(3L, 40L), max_width = 30L)
+    expect_prints_reversed(seq_len(120L), "i32", c(4L, 5L, 6L), max_rows = 7L)
+    expect_prints_reversed(seq_len(120L), "i32", c(4L, 5L, 6L), max_rows_slice = 2L)
+    expect_prints_reversed(1:6, "i32", c(2L, 3L), header = FALSE, footer = "")
+  })
+
+  it("prints the buffer's own shape by default", {
+    buf <- pjrt_buffer(1:6, shape = c(3L, 2L), row_major = TRUE)
+    expect_identical(capture.output(print(buf)), capture.output(print(pjrt_buffer(matrix(1:6, 3L, 2L, byrow = TRUE)))))
+  })
+
+  it("requires `reversed` to be a flag", {
+    expect_error(print(pjrt_buffer(1:2), reversed = NA), "reversed")
+  })
+})

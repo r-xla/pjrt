@@ -1,4 +1,6 @@
-// CUDA QR primitives via cuSOLVER. Mirrors src/qr.cpp on the GPU.
+// CUDA QR primitives via cuSOLVER. Mirrors src/qr.cpp on the GPU, with every
+// matrix passed as its column-major data: an m x n matrix is a row-major
+// [n, m] buffer (see `matrix_dims()`).
 //
 // As on the host, QR is split into two custom calls:
 //   geqrf : A (m, n) -> packed (m, n), tau (k,)
@@ -29,10 +31,8 @@ static Error geqrf_cuda_impl(void *stream, ScratchAllocator &scratch,
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
 
-  auto dims = input.dimensions();
   int m, n;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
+  PJRT_RETURN_IF_ERROR(matrix_dims(input.dimensions(), "geqrf", m, n));
 
   auto input_ptr = reinterpret_cast<CUdeviceptr>(input.untyped_data());
   auto packed_ptr = reinterpret_cast<CUdeviceptr>((*packed_out).untyped_data());
@@ -78,13 +78,13 @@ static Error do_geqrf_cuda(void *stream, ScratchAllocator scratch,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(geqrf_handler_cuda, do_geqrf_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Arg<AnyBuffer>()    // input (m, n)
-                           .Ret<AnyBuffer>()    // packed (m, n)
-                           .Ret<AnyBuffer>());  // tau (k,)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(geqrf_handler_cuda, do_geqrf_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Arg<AnyBuffer>()    // input (m, n)
+                                    .Ret<AnyBuffer>()    // packed (m, n)
+                                    .Ret<AnyBuffer>());  // tau (k,)
 
 // ---- orgqr -----------------------------------------------------------------
 
@@ -97,10 +97,8 @@ static Error orgqr_cuda_impl(void *stream, ScratchAllocator &scratch,
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
 
-  auto dims = packed.dimensions();
   int m, n;
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[0], "rows", m));
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[1], "cols", n));
+  PJRT_RETURN_IF_ERROR(matrix_dims(packed.dimensions(), "orgqr", m, n));
   int k = std::min(m, n);
 
   auto packed_ptr = reinterpret_cast<CUdeviceptr>(packed.untyped_data());
@@ -150,13 +148,14 @@ static Error do_orgqr_cuda(void *stream, ScratchAllocator scratch,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(orgqr_handler_cuda, do_orgqr_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Arg<AnyBuffer>()    // packed reflectors (m, n)
-                           .Arg<AnyBuffer>()    // tau (k,)
-                           .Ret<AnyBuffer>());  // Q (m, k)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(
+    orgqr_handler_cuda, do_orgqr_cuda,
+    Ffi::Bind()
+        .Ctx<PlatformStream<void *>>()
+        .Ctx<ScratchAllocator>()
+        .Arg<AnyBuffer>()    // packed reflectors (m, n)
+        .Arg<AnyBuffer>()    // tau (k,)
+        .Ret<AnyBuffer>());  // Q (m, k)
 
 XLA_FFI_Handler *get_geqrf_handler_cuda() { return geqrf_handler_cuda; }
 XLA_FFI_Handler *get_orgqr_handler_cuda() { return orgqr_handler_cuda; }

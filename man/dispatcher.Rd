@@ -12,7 +12,8 @@ dispatcher(
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL,
-  context = NULL
+  context = NULL,
+  reverse_shapes = FALSE
 )
 }
 \arguments{
@@ -206,6 +207,11 @@ reaches \code{compile} as \code{info$context}. Unlike \code{default_device}, whi
 consulted only when no array names a device, this is resolved for every
 call: any entry may depend on it. \code{NULL} (default) keys on the inputs
 alone.}
+
+\item{reverse_shapes}{(\code{logical(1)})\cr
+Whether arrays are stored as buffers of their shape reversed (see
+\emph{Reversed shapes}). Only \code{backend = "pjrt"} supports it: any other
+backend's \code{extractor} reports the avals itself. Default \code{FALSE}.}
 }
 \value{
 \code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}, an external pointer to the
@@ -265,5 +271,30 @@ Of an array input, the dispatcher reads only \verb{$data} directly, plus
 off the \code{PJRTBuffer}; for any other backend all metadata comes from
 \code{extractor}. A backend is free to store it as fields or to compute it on
 demand.
+}
+
+\section{Reversed shapes}{
+
+With \code{backend = "pjrt"} and \code{reverse_shapes = TRUE}, an array of R shape
+\verb{(d1, ..., dn)} is stored as a \code{PJRTBuffer} of shape \verb{(dn, ..., d1)}. R's
+column-major data are the row-major data of the reversed shape, so such a
+buffer moves between R and the device without a transpose (see the
+\code{row_major} arguments of \code{\link[=pjrt_buffer]{pjrt_buffer()}} and
+\code{\link[=as_array.PJRTBuffer]{as_array()}}). Everything the dispatcher exchanges
+with the caller stays in R order:
+\itemize{
+\item an array input's aval -- in the cache key and in \code{info$avals} -- has its
+buffer's shape reversed,
+\item a bare R input is uploaded with its shape reversed, in row-major order,
+which is a plain copy of its data,
+\item the \code{shape} of an implicit input and that of a phantom are R shapes: the
+buffer an implicit input's \code{get()} returns must have it reversed, and a
+phantom is allocated with it reversed.
+}
+
+The outputs, implicit ones included, are wrapped from their avals as
+declared, which are therefore R shapes too, while the executable returns
+buffers of the reversed shapes. \code{const_arrays} are passed on as they are,
+so the caller uploads them reversed itself.
 }
 

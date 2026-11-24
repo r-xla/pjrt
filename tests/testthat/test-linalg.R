@@ -3,6 +3,10 @@ describe("qr (geqrf + orgqr)", {
   # factorisation of tall, wide, and square matrices in f32 / f64, plus
   # input-buffer donation into the packed-reflectors output.
   #
+  # The matrices are passed the way anvl stores them, with their shape
+  # reversed (`reversed = TRUE`), as are those of the lu, svd and eigh tests
+  # below.
+  #
   # Correctness: geqrf returns a packed matrix (Householder reflectors below
   # the diagonal, R in the upper triangle of the first k rows) plus the tau
   # scalars; we recover R by zeroing the strict lower triangle of those rows
@@ -27,7 +31,8 @@ describe("qr (geqrf + orgqr)", {
       out_specs = list(
         list(dims = c(m, n), dtype = dtype),
         list(dims = k, dtype = dtype)
-      )
+      ),
+      reversed = TRUE
     )
   }
 
@@ -42,7 +47,8 @@ describe("qr (geqrf + orgqr)", {
         list(dims = c(m, n), dtype = dtype),
         list(dims = k, dtype = dtype)
       ),
-      out_specs = list(list(dims = c(m, k), dtype = dtype))
+      out_specs = list(list(dims = c(m, k), dtype = dtype)),
+      reversed = TRUE
     )
     res[[1L]]
   }
@@ -106,7 +112,8 @@ describe("qr (geqrf + orgqr)", {
       out_specs = list(
         list(dims = c(5, 4), dtype = "f64"),
         list(dims = 4, dtype = "f64")
-      )
+      ),
+      reversed = TRUE
     )
   })
 })
@@ -163,7 +170,8 @@ describe("lu", {
       out_specs = list(
         list(dims = c(m, n), dtype = dtype),
         list(dims = k, dtype = "i32")
-      )
+      ),
+      reversed = TRUE
     )
   }
 
@@ -203,6 +211,22 @@ describe("lu", {
     expect_equal(lu_reconstruct(res[[1L]], as.integer(res[[2L]])), a, tolerance = 1e-10)
   })
 
+  it("rejects input that is not a matrix", {
+    expect_error(
+      run_linalg(
+        "lu",
+        inputs = list(array(0, c(2L, 2L, 2L))),
+        in_specs = list(list(dims = c(2L, 2L, 2L), dtype = "f64")),
+        out_specs = list(
+          list(dims = c(2L, 2L, 2L), dtype = "f64"),
+          list(dims = 2L, dtype = "i32")
+        ),
+        reversed = TRUE
+      ),
+      "requires a matrix"
+    )
+  })
+
   it("returns int32 pivots", {
     res <- run_lu(matrix(c(0, 1, 1, 1), nrow = 2), "f64")
     expect_true(is.integer(as.vector(res[[2L]])))
@@ -225,7 +249,8 @@ describe("lu", {
       out_specs = list(
         list(dims = c(4, 4), dtype = "f64"),
         list(dims = 4, dtype = "i32")
-      )
+      ),
+      reversed = TRUE
     )
   })
 })
@@ -259,8 +284,8 @@ describe("svd", {
     U %*% Sd %*% Vt
   }
 
-  # CUDA-only: when m < n, pass transposed = true and switch operand / U / Vt
-  # to row-major layouts. The CPU handler ignores both.
+  # CUDA-only: when m < n, pass transposed = true and switch the operand / U /
+  # Vt buffers to column-major layouts. The CPU handler ignores both.
   svd_attrs <- function(m, n) {
     if (!is_cuda()) {
       return(list())
@@ -274,8 +299,8 @@ describe("svd", {
       return(list(in_layouts = NULL, out_layouts = NULL))
     }
     list(
-      in_layouts = row_major_layout(2L),
-      out_layouts = c(row_major_layout(2L), col_major_layout(1L), row_major_layout(2L))
+      in_layouts = col_major_layout(2L),
+      out_layouts = c(col_major_layout(2L), col_major_layout(1L), col_major_layout(2L))
     )
   }
 
@@ -302,7 +327,8 @@ describe("svd", {
       ),
       attrs = svd_attrs(m, n),
       in_layouts = layouts$in_layouts,
-      out_layouts = layouts$out_layouts
+      out_layouts = layouts$out_layouts,
+      reversed = TRUE
     )
   }
 
@@ -368,7 +394,8 @@ describe("svd", {
         list(dims = 4, dtype = "f64"),
         list(dims = c(4, 4), dtype = "f64")
       ),
-      attrs = svd_attrs(5, 4)
+      attrs = svd_attrs(5, 4),
+      reversed = TRUE
     )
   })
 })
@@ -417,7 +444,8 @@ describe("eigh", {
       out_specs = list(
         list(dims = c(n, n), dtype = dtype),
         list(dims = n, dtype = dtype)
-      )
+      ),
+      reversed = TRUE
     )
   }
 
@@ -468,7 +496,8 @@ describe("eigh", {
       out_specs = list(
         list(dims = c(4, 4), dtype = "f64"),
         list(dims = 4, dtype = "f64")
-      )
+      ),
+      reversed = TRUE
     )
   })
 })

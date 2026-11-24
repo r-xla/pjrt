@@ -63,10 +63,15 @@ The default (\code{NULL}) depends on the method.}
 
 \item{...}{(any)\cr
 Additional arguments.
-For \code{raw} types, this includes:
+The \code{logical}, \code{integer}, \code{numeric}, \code{integer64} and \code{raw} methods take:
 \itemize{
-\item \code{row_major}: Whether to read the data in row-major format or column-major format.
-R uses column-major format.
+\item \code{row_major} (\code{logical(1)}): Whether \code{data} holds its elements in
+row-major order rather than in R's column-major order. Defaults to
+\code{FALSE}, except for \code{raw} data, which must name it. As R's column-major
+data are the row-major data of the reversed shape,
+\code{pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)} stores the array
+\code{x} with its axes reversed, without transposing it; see the \code{row_major}
+argument of \code{\link[=as_array.PJRTBuffer]{as_array()}} for the way back.
 }}
 }
 \value{

@@ -73,6 +73,10 @@ class PJRTBuffer {
   // Block until the buffer's data is ready, then check for errors
   void await();
 
+  // The event that fires once the buffer's data is ready, carrying the error
+  // of the execution that produced the buffer, if that failed
+  PJRTEvent ready_event();
+
   // Copy the buffer to a different device within the same client
   std::unique_ptr<PJRTBuffer> copy_to_device(PJRTDevice& dst_device);
 
@@ -95,7 +99,6 @@ class PJRTBuffer {
   std::vector<int64_t> cached_dims_;
   PJRT_Device* cached_device_ = nullptr;
   void cache_meta();
-  PJRTEvent ready_event();
   // Returns this->buffer, raising an R-level error if the underlying
   // PJRT handle has been invalidated by donation. Used by every method
   // that hands `this->buffer` to a PJRT C API call, so that operating on

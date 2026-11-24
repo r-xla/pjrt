@@ -77,11 +77,11 @@ static Error do_eigh(AnyBuffer input, Result<AnyBuffer> v_out,
   PJRT_DISPATCH_FLOAT(input.element_type(), eigh_impl, input, v_out, w_out);
 }
 
-XLA_FFI_DEFINE_HANDLER(eigh_handler, do_eigh,
-                       Ffi::Bind()
-                           .Arg<AnyBuffer>()    // symmetric matrix
-                           .Ret<AnyBuffer>()    // eigenvectors (n, n)
-                           .Ret<AnyBuffer>());  // eigenvalues (n,)
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(eigh_handler, do_eigh,
+                                Ffi::Bind()
+                                    .Arg<AnyBuffer>()    // symmetric matrix
+                                    .Ret<AnyBuffer>()    // eigenvectors (n, n)
+                                    .Ret<AnyBuffer>());  // eigenvalues (n,)
 
 XLA_FFI_Handler *get_eigh_handler() { return eigh_handler; }
 

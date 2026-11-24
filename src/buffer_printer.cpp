@@ -108,20 +108,6 @@ static std::pair<FloatPrintMode, int> choose_float_print_mode(
   return {FloatPrintMode::Scientific, 1};
 }
 
-template <typename CopyT>
-static std::vector<CopyT> buffer_to_host_copy(rpjrt::PJRTBuffer *buf,
-                                              int64_t numel) {
-  std::vector<CopyT> temp_vec(static_cast<size_t>(numel));
-  std::span<uint8_t> host_buffer(reinterpret_cast<uint8_t *>(temp_vec.data()),
-                                 static_cast<size_t>(numel * sizeof(CopyT)));
-  auto event = buf->buffer_to_host_async(host_buffer, true);
-  if (event) {
-    event->await();
-    event->check_error();
-  }
-  return temp_vec;
-}
-
 // Returns a pair:
 // * c_end: until which column to print from c_start
 // * uniform_width: column width
@@ -517,9 +503,12 @@ std::vector<std::string> buffer_to_string_lines(
 }
 
 void buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
-                  int max_width, int max_rows_slice) {
-  const auto dimensions = buffer->dimensions();
+                  int max_width, int max_rows_slice, bool reversed) {
   const auto element_type = buffer->element_type();
+  // Reversed, the buffer is printed as the R array of the reversed shape, whose
+  // row-major data are the buffer's column-major data.
+  std::vector<int64_t> dimensions = buffer->dimensions();
+  if (reversed) std::reverse(dimensions.begin(), dimensions.end());
 
   int64_t numel = dimensions.empty() ? 1 : number_of_elements(dimensions);
 
@@ -527,105 +516,21 @@ void buffer_print(Rcpp::XPtr<rpjrt::PJRTBuffer> buffer, int max_rows,
     return;
   }
 
-  std::vector<std::string> cont;
-
-  switch (element_type) {
-    case PJRT_Buffer_Type_F16: {
-      std::vector<half_float::half> temp_vec =
-          buffer_to_host_copy<half_float::half>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_BF16: {
-      std::vector<rpjrt::bfloat16> temp_vec =
-          buffer_to_host_copy<rpjrt::bfloat16>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_F32: {
-      std::vector<float> temp_vec =
-          buffer_to_host_copy<float>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_F64: {
-      std::vector<double> temp_vec =
-          buffer_to_host_copy<double>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_S8: {
-      std::vector<int8_t> temp_vec =
-          buffer_to_host_copy<int8_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_S16: {
-      std::vector<int16_t> temp_vec =
-          buffer_to_host_copy<int16_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_S32: {
-      std::vector<int32_t> temp_vec =
-          buffer_to_host_copy<int32_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_S64: {
-      std::vector<int64_t> temp_vec =
-          buffer_to_host_copy<int64_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_U8: {
-      std::vector<uint8_t> temp_vec =
-          buffer_to_host_copy<uint8_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_U16: {
-      std::vector<uint16_t> temp_vec =
-          buffer_to_host_copy<uint16_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_U32: {
-      std::vector<uint32_t> temp_vec =
-          buffer_to_host_copy<uint32_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_U64: {
-      std::vector<uint64_t> temp_vec =
-          buffer_to_host_copy<uint64_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    case PJRT_Buffer_Type_PRED: {
-      std::vector<uint8_t> temp_vec =
-          buffer_to_host_copy<uint8_t>(buffer.get(), numel);
-      cont = buffer_to_string_lines(temp_vec.data(), dimensions, element_type,
-                                    max_rows, max_width, max_rows_slice);
-      break;
-    }
-    default:
-      Rcpp::stop("Unsupported buffer element type for printing.");
+  // Fetched as plain bytes, which buffer_to_string_lines() reads as the
+  // element type: a vector's storage is aligned for any scalar type.
+  std::vector<uint8_t> bytes(static_cast<size_t>(numel) *
+                             sizeof_pjrt_buffer_type(element_type));
+  std::span<uint8_t> host_buffer(bytes.data(), bytes.size());
+  auto event = buffer->buffer_to_host_async(host_buffer, !reversed);
+  if (event) {
+    event->await();
+    event->check_error();
   }
+  const std::vector<std::string> cont =
+      buffer_to_string_lines(bytes.data(), dimensions, element_type, max_rows,
+                             max_width, max_rows_slice);
 
-  for (int i = 0; i < static_cast<int>(cont.size()); ++i) {
-    Rcpp::Rcout << cont[i] << '\n';
+  for (const auto &line : cont) {
+    Rcpp::Rcout << line << '\n';
   }
 }

@@ -1,8 +1,7 @@
-#include <testthat.h>
-
 #include <limits>
 
 #include "ffi_common.h"
+#include "testthat/testthat.h"
 
 context("workspace_to_int") {
   test_that("converts a workspace size that fits in int") {
