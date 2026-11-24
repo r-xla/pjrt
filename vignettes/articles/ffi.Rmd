@@ -249,8 +249,10 @@ with `.Ctx<ThreadPool>()`. Two things make that pool tricky to use:
   with XLA's threads when it is called from several of them at once, and
   then runs far slower than one call after the other; a serial OpenBLAS may
   not be safe to call from several threads at all.
-  `lapack_max_threads()` in `src/ffi_lapack.h` keeps such a BLAS to one
-  call at a time.
+  `lapack_max_threads()` in `src/ffi_lapack.h` then has a handler work
+  through its batch one matrix at a time. That holds within one call only:
+  XLA can still run two handlers at once, for independent operations of a
+  program or for programs that run at the same time.
 
 ### CUDA
 
@@ -453,7 +455,7 @@ then read corrupted data. The fix: copy input → destination buffer
 first, then factor in place there, with a pointer-equality check so
 the copy is skipped when the buffers already alias
 (`if (in != target) memcpy(...)`). jaxlib uses the same pattern in
-every linalg kernel; pjrt's `maybe_promote_inplace` helper bakes the
+every linalg kernel; pjrt's `copy_unless_aliased()` helper bakes the
 guard in for the CPU side.
 
 **Dimension type mismatch and byte-size overflow.** Buffer

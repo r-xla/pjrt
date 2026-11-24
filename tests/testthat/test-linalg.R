@@ -93,20 +93,32 @@ describe("qr (geqrf + orgqr)", {
     expect_qr_correct(a, "f32")
   })
 
-  it("factorises every matrix of a batch", {
+  it("factorises every matrix of a batch, tall and wide", {
     withr::local_seed(6)
-    a <- array(rnorm(5L * 3L * 6L), c(5L, 3L, 2L, 3L))
-    res <- run_geqrf(a, "f64")
-    expect_equal(dim(res[[2L]]), c(3L, 2L, 3L))
-    Q <- run_orgqr(res[[1L]], res[[2L]], "f64")
-    expect_equal(dim(Q), c(5L, 3L, 2L, 3L))
-    for (i in 1:2) {
-      for (j in 1:3) {
-        R <- res[[1L]][1:3, , i, j]
-        R[lower.tri(R)] <- 0
-        expect_equal(Q[,, i, j] %*% R, a[,, i, j], tolerance = 1e-10)
-        expect_equal(crossprod(Q[,, i, j]), diag(3L), tolerance = 1e-10)
+    for (d in list(c(5L, 3L), c(3L, 5L))) {
+      k <- min(d)
+      a <- array(rnorm(prod(d) * 6L), c(d, 2L, 3L))
+      res <- run_geqrf(a, "f64")
+      expect_equal(dim(res[[2L]]), c(k, 2L, 3L))
+      Q <- run_orgqr(res[[1L]], res[[2L]], "f64")
+      expect_equal(dim(Q), c(d[[1L]], k, 2L, 3L))
+      for (i in 1:2) {
+        for (j in 1:3) {
+          R <- res[[1L]][seq_len(k), , i, j]
+          R[lower.tri(R)] <- 0
+          expect_equal(Q[,, i, j] %*% R, a[,, i, j], tolerance = 1e-10)
+          expect_equal(crossprod(Q[,, i, j]), diag(k), tolerance = 1e-10)
+        }
       }
+    }
+  })
+
+  it("factorises a matrix without rows or columns", {
+    for (d in list(c(3L, 0L), c(0L, 3L))) {
+      res <- run_geqrf(matrix(numeric(), d[[1L]], d[[2L]]), "f64")
+      expect_equal(dim(res[[1L]]), d)
+      expect_length(res[[2L]], 0L)
+      expect_equal(dim(run_orgqr(res[[1L]], res[[2L]], "f64")), c(d[[1L]], 0L))
     }
   })
 

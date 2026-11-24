@@ -44,7 +44,9 @@ static Error geqrf_impl(ThreadPool &pool, AnyBuffer input,
                                    "packed [..., n, m]"));
   PJRT_RETURN_IF_ERROR(
       batch.check((*tau_out).dimensions(), {k}, "geqrf", "tau [..., k]"));
-  if (batch.size == 0) return Error::Success();
+  // An empty batch, or matrices without rows or columns, leave nothing to
+  // factor; older LAPACK even rejects the workspace size it reports for them.
+  if (batch.size == 0 || k == 0) return Error::Success();
 
   const T *in = static_cast<const T *>(input.untyped_data());
   T *packed = static_cast<T *>((*packed_out).untyped_data());
@@ -104,7 +106,9 @@ static Error orgqr_impl(ThreadPool &pool, AnyBuffer packed_in, AnyBuffer tau_in,
       batch.check(tau_in.dimensions(), {k}, "orgqr", "tau [..., k]"));
   PJRT_RETURN_IF_ERROR(
       batch.check((*q_out).dimensions(), {k, m}, "orgqr", "Q [..., k, m]"));
-  if (batch.size == 0) return Error::Success();
+  // An empty batch, or matrices without rows or columns, leave nothing to
+  // factor; older LAPACK even rejects the workspace size it reports for them.
+  if (batch.size == 0 || k == 0) return Error::Success();
 
   const T *packed = static_cast<const T *>(packed_in.untyped_data());
   const T *tau = static_cast<const T *>(tau_in.untyped_data());

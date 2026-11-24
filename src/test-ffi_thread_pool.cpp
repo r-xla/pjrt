@@ -94,6 +94,8 @@ context("parallel_for") {
         [&](std::int64_t b0, std::int64_t b1) { return v.visit(b0, b1); });
     expect_true(e.success());
     expect_true(v.each_once());
+    // the calling thread works as well, so the pool gets one task fewer
+    expect_true(pool.n_tasks() == 7u);
   }
 
   test_that("finishes on the calling thread when the pool runs nothing") {

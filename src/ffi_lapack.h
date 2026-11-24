@@ -183,15 +183,16 @@ struct Lapack<float> {
   }
 };
 
-// The most threads the handlers may call LAPACK from at once, for
+// The most threads a handler may call LAPACK from at once, for
 // parallel_for(): one if the BLAS runs threads of its own (a multi-threaded
 // OpenBLAS, MKL, BLIS or FlexiBLAS) or is a serial OpenBLAS, and no limit
 // otherwise. Calls from XLA's threads at once make the threads of such a BLAS
 // compete with one another and with XLA's, so that they run far slower than
 // one call after the other, and a serial OpenBLAS is safe to call from several
-// threads only if it was built to be. The BLAS's thread count is read on every
-// call, so a batch is spread over XLA's threads once a multi-threaded BLAS is
-// set to one thread.
+// threads only if it was built to be. The limit holds within one handler call;
+// XLA can still run two handlers at once. The BLAS's thread count is read on
+// every call, so a batch is spread over XLA's threads once a multi-threaded
+// BLAS is set to one thread.
 std::int64_t lapack_max_threads();
 
 // Copy `n` elements from `src` to `dst`, the buffer a routine that works in

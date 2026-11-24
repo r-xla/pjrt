@@ -9,9 +9,8 @@
 ## New features
 
 * The `geqrf`, `orgqr`, `lu`, `svd` and `eigh` custom calls take a batch of
-  matrices `[..., n, m]`, as `potrf` and `trsm` do. On the host, all of them
-  spread a batch over XLA's threads, unless the BLAS is OpenBLAS, MKL, BLIS or
-  FlexiBLAS running threads of its own, or a serial OpenBLAS.
+  matrices `[..., n, m]`, as `potrf` and `trsm` do, and on the host spread it
+  over XLA's threads where the BLAS allows.
 * `pjrt_buffer()` takes `row_major` for logical, integer, double and
   `integer64` data too, not only for raw data.
 * `as_array()` gains `row_major`, which returns a buffer's data in row-major

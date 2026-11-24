@@ -38,7 +38,9 @@ static Error geqrf_cuda_impl(void *stream, ScratchAllocator &scratch,
                                    "packed [..., n, m]"));
   PJRT_RETURN_IF_ERROR(
       batch.check((*tau_out).dimensions(), {k}, "geqrf", "tau [..., k]"));
-  if (batch.size == 0) return Error::Success();
+  // An empty batch, or matrices without rows or columns, leave nothing to
+  // factor.
+  if (batch.size == 0 || k == 0) return Error::Success();
 
   Solver solver(get_cuda_libs());
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
@@ -116,7 +118,9 @@ static Error orgqr_cuda_impl(void *stream, ScratchAllocator &scratch,
       batch.check(tau_in.dimensions(), {k}, "orgqr", "tau [..., k]"));
   PJRT_RETURN_IF_ERROR(
       batch.check((*q_out).dimensions(), {k, m}, "orgqr", "Q [..., k, m]"));
-  if (batch.size == 0) return Error::Success();
+  // An empty batch, or matrices without rows or columns, leave nothing to
+  // factor.
+  if (batch.size == 0 || k == 0) return Error::Success();
 
   Solver solver(get_cuda_libs());
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
