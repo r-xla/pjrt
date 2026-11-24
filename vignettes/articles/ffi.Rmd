@@ -107,14 +107,17 @@ example, is declared as:
 #include "xla/ffi/api/ffi.h"   // ships in pjrt's inst/include/
 using namespace xla::ffi;       // brings Error, AnyBuffer, Result<>, ... into scope
 
-static Error do_eigh(AnyBuffer input,
+static Error do_eigh(ThreadPool pool,
+                     AnyBuffer input,
                      Result<AnyBuffer> v_out,
                      Result<AnyBuffer> w_out);
 ```
 
-The first parameter is the input matrix; the two `Result<AnyBuffer>`
-parameters are the output buffers (eigenvectors and eigenvalues) that
-XLA has already allocated and that the handler fills in. The return
+The first parameter is XLA's intra-op thread pool, a *context* the runtime
+supplies (see "Spreading a batch over XLA's threads" below). Then come the
+input matrices; the two `Result<AnyBuffer>` parameters are the output buffers
+(eigenvectors and eigenvalues) that XLA has already allocated and that the
+handler fills in. The return
 value is `Error::Success()` on success, or one of the
 `Error::Invalid…` / `Error::Internal` factories to surface a runtime
 failure to XLA.
@@ -122,17 +125,18 @@ failure to XLA.
 #### Registering the handler with `XLA_FFI_DEFINE_HANDLER`
 
 A C++ function on its own is not yet usable from MLIR -- the runtime has
-no way to know that `do_eigh` wants three buffers, in that order, with
-no attributes or contexts. `XLA_FFI_DEFINE_HANDLER` is the macro that
+no way to know that `do_eigh` wants the thread pool and three buffers, in
+that order, with no attributes. `XLA_FFI_DEFINE_HANDLER` is the macro that
 attaches that decoding metadata to the function and emits a symbol PJRT
 can call:
 
 ```c++
 XLA_FFI_DEFINE_HANDLER(eigh_handler, do_eigh,
                        Ffi::Bind()
-                           .Arg<AnyBuffer>()    // symmetric matrix
-                           .Ret<AnyBuffer>()    // eigenvectors (n, n)
-                           .Ret<AnyBuffer>());  // eigenvalues (n,)
+                           .Ctx<ThreadPool>()   // XLA's intra-op threads
+                           .Arg<AnyBuffer>()    // symmetric [..., n, n]
+                           .Ret<AnyBuffer>()    // eigenvectors [..., n, n]
+                           .Ret<AnyBuffer>());  // eigenvalues [..., n]
 ```
 
 The pieces:
@@ -147,15 +151,15 @@ The most important builder methods, all of which we already saw above:
 
 - `.Arg<AnyBuffer>()` / `.Ret<AnyBuffer>()` -- one operand / result of
   any dtype / rank.
+- `.Ctx<ThreadPool>()` -- XLA's intra-op thread pool on the host.
 - `.Attrs<Dictionary>()` -- the whole `backend_config` as a typed
   dictionary (used by `print_tensor`).
 
 Other binding methods exist -- statically typed `Buffer<dtype, rank>`,
 named `.Attr<T>("name")` for individual `backend_config` entries,
 `Token` for pure-ordering ops, `RemainingArgs` / `RemainingRets` for
-variadic arity, and additional `Ctx<T>` types including a host
-`ThreadPool` (XLA's intra-op pool, useful for parallelising hand-rolled
-CPU work). For the full list see `xla/ffi/api/ffi.h`.
+variadic arity, and additional `Ctx<T>` types. For the full list see
+`xla/ffi/api/ffi.h`.
 
 #### Handing the handler to R
 
@@ -171,6 +175,7 @@ Outside the package there is a shorter route.
 ```c++
 XLA_FFI_DEFINE_HANDLER_SYMBOL(EighHandler, do_eigh,
                               Ffi::Bind()
+                                  .Ctx<ThreadPool>()
                                   .Arg<AnyBuffer>()
                                   .Ret<AnyBuffer>()
                                   .Ret<AnyBuffer>());
@@ -224,9 +229,28 @@ execution rather than reading garbage results downstream.
 LAPACK, which only ships the double-precision routines -- single
 -precision is not available. A handler that calls into single-precision
 LAPACK will fail to load on Windows. macOS and Linux are unaffected
-(they use the system LAPACK, which has both precisions). The
-workaround is to promote f32 to f64 around the LAPACK call on Windows;
-See the existing linear algebra custom calls how to do this via C++ templates.
+(they use the system LAPACK, which has both precisions). {pjrt} links the
+static reference LAPACK and BLAS that Rtools ships instead (see its
+`configure`), and a package with handlers of its own can do the same.
+
+#### Spreading a batch over XLA's threads
+
+The linear-algebra handlers take a batch of matrices `[..., n, m]` and
+factor them on the threads of XLA's intra-op pool, which a handler binds
+with `.Ctx<ThreadPool>()`. Two things make that pool tricky to use:
+
+- XLA promises neither that a task scheduled with `pool.Schedule()` runs in
+  parallel nor that it runs before the handler returns -- the handler may
+  itself occupy the only thread of the pool. So a handler must not simply
+  wait for its tasks. `parallel_for()` in `src/ffi_thread_pool.h` has the
+  calling thread work through the batch as well, and waits only for the
+  matrices another thread has taken.
+- A BLAS that runs threads of its own, such as OpenBLAS by default, competes
+  with XLA's threads when it is called from several of them at once, and
+  then runs far slower than one call after the other; a serial OpenBLAS may
+  not be safe to call from several threads at all.
+  `lapack_max_threads()` in `src/ffi_lapack.h` keeps such a BLAS to one
+  call at a time.
 
 ### CUDA
 

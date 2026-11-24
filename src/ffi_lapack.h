@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
-#include <type_traits>
-#include <vector>
+#include <string>
 
 #include "ffi_common.h"
 
@@ -102,168 +102,103 @@ inline xla::ffi::Error lapack_check_info(int info, const char *routine) {
       std::string(routine) + " failed with info = " + std::to_string(info));
 }
 
-// Per-precision dispatch trait. ::S is the storage type that the LAPACK
-// routines actually see.
+// Per-precision dispatch trait: Lapack<T>::potrf() etc. call the routine of
+// the precision T.
 template <typename T>
 struct Lapack;
 
 template <>
 struct Lapack<double> {
-  using S = double;
-  static void geqrf(const int *m, const int *n, S *a, const int *lda, S *tau,
-                    S *work, const int *lwork, int *info) {
+  static void geqrf(const int *m, const int *n, double *a, const int *lda,
+                    double *tau, double *work, const int *lwork, int *info) {
     dgeqrf_(m, n, a, lda, tau, work, lwork, info);
   }
-  static void orgqr(const int *m, const int *n, const int *k, S *a,
-                    const int *lda, const S *tau, S *work, const int *lwork,
-                    int *info) {
+  static void orgqr(const int *m, const int *n, const int *k, double *a,
+                    const int *lda, const double *tau, double *work,
+                    const int *lwork, int *info) {
     dorgqr_(m, n, k, a, lda, tau, work, lwork, info);
   }
-  static void getrf(const int *m, const int *n, S *a, const int *lda, int *ipiv,
-                    int *info) {
+  static void getrf(const int *m, const int *n, double *a, const int *lda,
+                    int *ipiv, int *info) {
     dgetrf_(m, n, a, lda, ipiv, info);
   }
-  static void gesdd(const char *jobz, const int *m, const int *n, S *a,
-                    const int *lda, S *s, S *u, const int *ldu, S *vt,
-                    const int *ldvt, S *work, const int *lwork, int *iwork,
-                    int *info) {
+  static void gesdd(const char *jobz, const int *m, const int *n, double *a,
+                    const int *lda, double *s, double *u, const int *ldu,
+                    double *vt, const int *ldvt, double *work, const int *lwork,
+                    int *iwork, int *info) {
     dgesdd_(jobz, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, iwork, info);
   }
-  static void syevd(const char *jobz, const char *uplo, const int *n, S *a,
-                    const int *lda, S *w, S *work, const int *lwork, int *iwork,
-                    const int *liwork, int *info) {
+  static void syevd(const char *jobz, const char *uplo, const int *n, double *a,
+                    const int *lda, double *w, double *work, const int *lwork,
+                    int *iwork, const int *liwork, int *info) {
     dsyevd_(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info);
   }
-  static void potrf(const char *uplo, const int *n, S *a, const int *lda,
+  static void potrf(const char *uplo, const int *n, double *a, const int *lda,
                     int *info) {
     dpotrf_(uplo, n, a, lda, info);
   }
   static void trsm(const char *side, const char *uplo, const char *transa,
-                   const char *diag, const int *m, const int *n, const S *alpha,
-                   const S *a, const int *lda, S *b, const int *ldb) {
+                   const char *diag, const int *m, const int *n,
+                   const double *alpha, const double *a, const int *lda,
+                   double *b, const int *ldb) {
     dtrsm_(side, uplo, transa, diag, m, n, alpha, a, lda, b, ldb);
   }
 };
 
 template <>
 struct Lapack<float> {
-  using S = float;
-  static void geqrf(const int *m, const int *n, S *a, const int *lda, S *tau,
-                    S *work, const int *lwork, int *info) {
+  static void geqrf(const int *m, const int *n, float *a, const int *lda,
+                    float *tau, float *work, const int *lwork, int *info) {
     sgeqrf_(m, n, a, lda, tau, work, lwork, info);
   }
-  static void orgqr(const int *m, const int *n, const int *k, S *a,
-                    const int *lda, const S *tau, S *work, const int *lwork,
-                    int *info) {
+  static void orgqr(const int *m, const int *n, const int *k, float *a,
+                    const int *lda, const float *tau, float *work,
+                    const int *lwork, int *info) {
     sorgqr_(m, n, k, a, lda, tau, work, lwork, info);
   }
-  static void getrf(const int *m, const int *n, S *a, const int *lda, int *ipiv,
-                    int *info) {
+  static void getrf(const int *m, const int *n, float *a, const int *lda,
+                    int *ipiv, int *info) {
     sgetrf_(m, n, a, lda, ipiv, info);
   }
-  static void gesdd(const char *jobz, const int *m, const int *n, S *a,
-                    const int *lda, S *s, S *u, const int *ldu, S *vt,
-                    const int *ldvt, S *work, const int *lwork, int *iwork,
-                    int *info) {
+  static void gesdd(const char *jobz, const int *m, const int *n, float *a,
+                    const int *lda, float *s, float *u, const int *ldu,
+                    float *vt, const int *ldvt, float *work, const int *lwork,
+                    int *iwork, int *info) {
     sgesdd_(jobz, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, iwork, info);
   }
-  static void syevd(const char *jobz, const char *uplo, const int *n, S *a,
-                    const int *lda, S *w, S *work, const int *lwork, int *iwork,
-                    const int *liwork, int *info) {
+  static void syevd(const char *jobz, const char *uplo, const int *n, float *a,
+                    const int *lda, float *w, float *work, const int *lwork,
+                    int *iwork, const int *liwork, int *info) {
     ssyevd_(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info);
   }
-  static void potrf(const char *uplo, const int *n, S *a, const int *lda,
+  static void potrf(const char *uplo, const int *n, float *a, const int *lda,
                     int *info) {
     spotrf_(uplo, n, a, lda, info);
   }
   static void trsm(const char *side, const char *uplo, const char *transa,
-                   const char *diag, const int *m, const int *n, const S *alpha,
-                   const S *a, const int *lda, S *b, const int *ldb) {
+                   const char *diag, const int *m, const int *n,
+                   const float *alpha, const float *a, const int *lda, float *b,
+                   const int *ldb) {
     strsm_(side, uplo, transa, diag, m, n, alpha, a, lda, b, ldb);
   }
 };
 
-// ----------------------------------------------------------------------------
-// Precision-promotion helpers
-//
-// LAPACK kernels work in `S = Lapack<T>::S`. When S == T LAPACK writes directly
-// into the FFI buffers
-// (no heap allocation); when S != T we stage through a `std::vector<S>`
-// and cast at the boundary. These helpers factor out the
-// `if constexpr (std::is_same_v<S, T>)` branch so each call site is one line.
-//
-// Pick the helper by the buffer's role in the LAPACK call:
-//
-//   promote_input     - LAPACK reads it (const S*).
-//   promote_output    - LAPACK writes it; no input to seed.
-//                       Pair with demote_output after the call.
-//   promote_inplace   - LAPACK reads AND writes it; seeded from `src`.
-//                       Use when an FFI output buffer can serve as the
-//                       in-place factor target (e.g. eigh V <- A,
-//                       LU lu <- A, QR packed <- A). Tolerates src == target
-//                       for XLA input-output aliasing. Pair with demote_output.
-//   promote_workspace - LAPACK reads AND writes it, but no FFI buffer fits
-//                       the role -- always allocates. Use when output shapes
-//                       don't match input (e.g. SVD's working A). No demote
-//                       (the buffer is scratch, not an output).
-//   demote_output     - cast staged storage back into the T-typed FFI buffer.
-//                       No-op when S == T. Pair with the two writeable
-//                       promote_* helpers above.
-// ----------------------------------------------------------------------------
+// The most threads the handlers may call LAPACK from at once, for
+// parallel_for(): one if the BLAS runs threads of its own (a multi-threaded
+// OpenBLAS, MKL, BLIS or FlexiBLAS) or is a serial OpenBLAS, and no limit
+// otherwise. Calls from XLA's threads at once make the threads of such a BLAS
+// compete with one another and with XLA's, so that they run far slower than
+// one call after the other, and a serial OpenBLAS is safe to call from several
+// threads only if it was built to be. The BLAS's thread count is read on every
+// call, so a batch is spread over XLA's threads once a multi-threaded BLAS is
+// set to one thread.
+std::int64_t lapack_max_threads();
 
-template <typename T, typename S = typename Lapack<T>::S>
-inline S *promote_inplace(std::vector<S> &storage, T *target, std::size_t n,
-                          const T *src) {
-  if constexpr (std::is_same_v<S, T>) {
-    if (src != target) std::memcpy(target, src, n * sizeof(T));
-    return target;
-  } else {
-    storage.resize(n);
-    for (std::size_t i = 0; i < n; i++) storage[i] = static_cast<S>(src[i]);
-    return storage.data();
-  }
-}
-
-template <typename T, typename S = typename Lapack<T>::S>
-inline S *promote_output(std::vector<S> &storage, T *target, std::size_t n) {
-  if constexpr (std::is_same_v<S, T>) {
-    return target;
-  } else {
-    storage.resize(n);
-    return storage.data();
-  }
-}
-
-template <typename T, typename S = typename Lapack<T>::S>
-inline const S *promote_input(std::vector<S> &storage, std::size_t n,
-                              const T *src) {
-  if constexpr (std::is_same_v<S, T>) {
-    return src;
-  } else {
-    storage.resize(n);
-    for (std::size_t i = 0; i < n; i++) storage[i] = static_cast<S>(src[i]);
-    return storage.data();
-  }
-}
-
-template <typename T, typename S = typename Lapack<T>::S>
-inline S *promote_workspace(std::vector<S> &storage, std::size_t n,
-                            const T *src) {
-  storage.resize(n);
-  if constexpr (std::is_same_v<S, T>) {
-    std::memcpy(storage.data(), src, n * sizeof(T));
-  } else {
-    for (std::size_t i = 0; i < n; i++) storage[i] = static_cast<S>(src[i]);
-  }
-  return storage.data();
-}
-
-template <typename T, typename S = typename Lapack<T>::S>
-inline void demote_output(const std::vector<S> &storage, T *target,
-                          std::size_t n) {
-  if constexpr (!std::is_same_v<S, T>) {
-    for (std::size_t i = 0; i < n; i++) target[i] = static_cast<T>(storage[i]);
-  }
+// Copy `n` elements from `src` to `dst`, the buffer a routine that works in
+// place factors in, unless XLA aliased the two.
+template <typename T>
+inline void copy_unless_aliased(T *dst, const T *src, std::size_t n) {
+  if (dst != src) std::memcpy(dst, src, n * sizeof(T));
 }
 
 }  // namespace rpjrt
