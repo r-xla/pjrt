@@ -76,7 +76,7 @@ describe("plugin_path()", {
     dirs <- local_plugin_dirs()
     local_mocked_bindings(
       plugin_download = function(dir, platform) write_plugin(dir),
-      dir_writable = function(path) !startsWith(path, dirname(dirname(dirs[[1L]])))
+      dir_writable = function(path) !identical(path, dirs[[1L]])
     )
     expect_equal(plugin_path("cpu"), file.path(dirs[[2L]], "libpjrt_cpu.so"))
   })
@@ -97,6 +97,13 @@ describe("installed_package_dir()", {
   it("is NULL when pjrt is loaded with load_all()", {
     local_mocked_bindings(is_dev_package = function(name) name == "pjrt", .package = "pkgload")
     expect_null(installed_package_dir())
+  })
+})
+
+describe("dir_writable()", {
+  it("checks the closest existing ancestor of a missing directory", {
+    root <- withr::local_tempdir()
+    expect_true(dir_writable(file.path(root, "a", "b")))
   })
 })
 

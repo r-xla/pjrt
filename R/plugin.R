@@ -160,10 +160,14 @@ plugin_download_dir <- function(platform) {
 }
 
 # Whether `path` can be created or replaced: whether its closest existing
-# ancestor is writable.
+# ancestor is writable. FALSE when no ancestor exists (e.g. a missing drive).
 dir_writable <- function(path) {
   while (!dir.exists(path)) {
-    path <- dirname(path)
+    parent <- dirname(path)
+    if (parent == path) {
+      return(FALSE)
+    }
+    path <- parent
   }
   file.access(path, 2L) == 0L
 }
