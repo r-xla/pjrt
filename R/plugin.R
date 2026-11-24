@@ -130,12 +130,13 @@ plugin_dirs <- function(platform) {
   file.path(dirs, platform)
 }
 
-# The directory of the installed pjrt package, or NULL when pjrt is loaded from
-# source (e.g. with pkgload), so that plugins are not downloaded into the
-# source tree.
+# The directory of the installed pjrt package, or NULL when pjrt is loaded with
+# pkgload::load_all(), so that plugins are not downloaded into the source tree.
 installed_package_dir <- function() {
-  dir <- system.file(package = "pjrt")
-  if (file.exists(file.path(dir, "Meta", "package.rds"))) dir else NULL
+  if (isNamespaceLoaded("pkgload") && pkgload::is_dev_package("pjrt")) {
+    return(NULL)
+  }
+  system.file(package = "pjrt")
 }
 
 # The first of plugin_dirs() holding the plugin currently configured for

@@ -81,10 +81,22 @@ describe("plugin_path()", {
     expect_equal(plugin_path("cpu"), file.path(dirs[[2L]], "libpjrt_cpu.so"))
   })
 
-  it("only uses the user cache when pjrt is loaded from source", {
+  it("only uses the user cache when pjrt is loaded with load_all()", {
     dirs <- local_plugin_dirs()
     local_mocked_bindings(installed_package_dir = function() NULL)
     expect_equal(plugin_dirs("cpu"), dirs[[2L]])
+  })
+})
+
+describe("installed_package_dir()", {
+  it("is the package directory when pjrt is installed", {
+    local_mocked_bindings(is_dev_package = function(name) FALSE, .package = "pkgload")
+    expect_equal(installed_package_dir(), system.file(package = "pjrt"))
+  })
+
+  it("is NULL when pjrt is loaded with load_all()", {
+    local_mocked_bindings(is_dev_package = function(name) name == "pjrt", .package = "pkgload")
+    expect_null(installed_package_dir())
   })
 })
 
