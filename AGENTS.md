@@ -39,7 +39,7 @@ A `PJRTBuffer` is an external pointer whose protected slot holds an ALTREP *carr
 Plugins and clients are singletons cached in a global environment (`the` in plugin.R):
 
 1. `pjrt_client(platform)` checks the cache, otherwise loads the plugin and creates a client.
-2. Plugin loading: checks `PJRT_PLUGIN_PATH_<PLATFORM>` env var, falls back to downloading into `R_user_dir("pjrt", "cache")` -- the CPU plugin from r-xla/pjrt-builds, the CUDA plugin from zml/pjrt-artifacts.
+2. Plugin loading: checks `PJRT_PLUGIN_PATH_<PLATFORM>` env var, then the `plugins/<platform>` directory of the installed package and `R_user_dir("pjrt", "cache")/<platform>` (`plugin_dirs()`), using the first whose stored hash matches the plugin URL. Otherwise it downloads into the first of them that is writable -- the CPU plugin from r-xla/pjrt-builds, the CUDA plugin from zml/pjrt-artifacts. The package directory is skipped when pjrt is loaded from source, so development never downloads into the source tree.
 3. One client per platform — calling `pjrt_client()` again returns the cached instance.
 
 ### Execution Pipeline
