@@ -78,6 +78,76 @@ Dispatcher& as_dispatcher(SEXP handle) {
   return *ptr;
 }
 
+// The level of the option `pjrt.upload_check`, as pjrt's R function
+// upload_check_level() normalizes it: "warn" when unset, "none" for FALSE. The
+// three accepted spellings are read here, without leaving C++, because this
+// runs on every call that uploads an R integer; any other value is handed to
+// the R function, which rejects it with the error `pjrt_buffer(check = )`
+// gives.
+static std::string upload_check_level() {
+  SEXP opt = Rf_GetOption1(Rf_install("pjrt.upload_check"));
+  if (opt == R_NilValue) return "warn";
+  if (TYPEOF(opt) == LGLSXP && XLENGTH(opt) == 1 && LOGICAL(opt)[0] == FALSE) {
+    return "none";
+  }
+  if (TYPEOF(opt) == STRSXP && XLENGTH(opt) == 1 &&
+      STRING_ELT(opt, 0) != NA_STRING) {
+    const std::string level = CHAR(STRING_ELT(opt, 0));
+    if (level == "warn" || level == "err") return level;
+  }
+  Rcpp::Function resolve =
+      Rcpp::Environment::namespace_env("pjrt")["upload_check_level"];
+  return Rcpp::as<std::string>(resolve(R_NilValue));
+}
+
+// The flat leaf the call's `input`-th execute-time input comes from: a static
+// leaf supplies no input, so the two counts differ by the statics before it.
+static std::size_t leaf_of_input(const std::vector<char>& is_static,
+                                 std::size_t input) {
+  std::size_t k = 0;
+  for (; k < is_static.size(); ++k) {
+    if (is_static[k]) continue;
+    if (input == 0) break;
+    --input;
+  }
+  return k;
+}
+
+// An R integer uploaded at i32 travels zero-copy, so an NA in it reaches the
+// device as the ordinary value INT_MIN -- the one missing value an upload
+// keeps rather than converts or rejects. pjrt_buffer() reports it at its
+// `check` level; a dispatched call has no such argument, so it is reported at
+// the level of the option `pjrt.upload_check` that `check` defaults to, naming
+// the input it is in. Only an R integer can get here: a logical uploads only
+// at bool, a double at an integer dtype rejects its NA, and an integer at any
+// other integer dtype does too (see upload_pair_supported() and the buffer
+// entry points). The option is read only for a call that uploads an R integer
+// at i32, and the scan skipped when it is FALSE.
+static void check_kept_na(const std::vector<ExecInput>& exec_inputs,
+                          const std::vector<char>& is_static,
+                          const RTree& in_tree) {
+  std::string level;
+  for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
+    const ExecInput& in = exec_inputs[k];
+    if (in.aval->kind != AvalKind::kRData || in.dtype != AnvlDtype::kI32 ||
+        TYPEOF(in.value) != INTSXP) {
+      continue;
+    }
+    if (level.empty()) level = upload_check_level();
+    if (level == "none") return;
+    const int* x = INTEGER_RO(in.value);
+    const R_xlen_t n = XLENGTH(in.value);
+    bool any_na = false;
+    for (R_xlen_t i = 0; i < n && !any_na; ++i) any_na = x[i] == NA_INTEGER;
+    if (!any_na) continue;
+    std::string subject = leaf_subject(in_tree, leaf_of_input(is_static, k));
+    subject[0] = 'I';  // it starts the sentence: "Input `x`"
+    Rcpp::Function report =
+        Rcpp::Environment::namespace_env("pjrt")["report_na_kept"];
+    report("i32", level, subject);
+  }
+}
+
 }  // namespace rpjrt
 
 // ---- Dispatcher: the native eager-dispatch hot path ------------------------
@@ -384,6 +454,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
       exec_inputs[k].dtype = entry->input_dtypes[k];
     }
+    check_kept_na(exec_inputs, is_static, in_tree);
   }
   return engine.run(*entry, exec_inputs, args);
 }

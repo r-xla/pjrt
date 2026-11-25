@@ -34,7 +34,9 @@ constexpr FloatFormat kF64Format = {"0x7FF8000000000000", "0x7FF0000000000000",
                                     "0xFFF0000000000000", 17};
 
 std::string format_float_value(double value, const FloatFormat &fmt) {
-  if (R_IsNaN(value)) {
+  // ISNAN, not R_IsNaN: R_IsNaN is false for R's NA_real_, which is a NaN too
+  // and would otherwise fall through to the infinities below as -Inf.
+  if (ISNAN(value)) {
     return fmt.nan;
   } else if (!R_finite(value)) {
     return (value > 0) ? fmt.pos_inf : fmt.neg_inf;

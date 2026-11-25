@@ -58,6 +58,17 @@ NULL
 #' * `PJRT_DEBUG`: If set (to any non-empty value), enables verbose debug output
 #'   via `cli::cli_inform()`.
 #'
+#' @section Options:
+#' * `pjrt.upload_check`: The default of the `check` argument of
+#'   [`pjrt_buffer()`] and [`pjrt_scalar()`] -- how an upload reports a missing
+#'   value that the element type keeps as an ordinary number (an `NA_integer_`
+#'   at `"i32"`, a `bit64::integer64` `NA` at `"i64"`): `"warn"` (the default
+#'   when unset), `"err"` or `FALSE`. The bare R data a [`dispatcher()`]
+#'   uploads follows it too.
+#' * `pjrt.print_max_rows`, `pjrt.print_max_width`, `pjrt.print_max_rows_slice`:
+#'   The defaults of the arguments of the same names of
+#'   [`print()`][print.PJRTBuffer] for a `PJRTBuffer`.
+#'
 #' @section Third-Party Licenses:
 #' The `pjrt` package itself is MIT-licensed. The CUDA backend dynamically
 #' loads NVIDIA software which is not bundled with `pjrt`, but downloaded

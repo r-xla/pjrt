@@ -22,7 +22,7 @@
 #' * an `"AnvlArray"` of the dispatcher's `backend` (an array of the `"plain"`
 #'   backend, which captures a trace-time constant, is never an input), or
 #' * bare R data: an unclassed double, integer or logical vector that is
-#'   either an [is.array()] value or a length-1 scalar other than `NA`.
+#'   either an [is.array()] value or a length-1 scalar, `NA` included.
 #'
 #' Unless `move_inputs = TRUE`, all array inputs must also live on one device.
 #' `compile` is therefore never asked to validate: it is called only on a cache
@@ -172,6 +172,13 @@
 #'     be uploaded is rejected here rather than at execute time: a `"double"`
 #'     input takes any dtype, an `"integer"` input any but `"bool"`, and a
 #'     `"logical"` input only `"bool"`.
+#'
+#'     A missing value is uploaded as [`pjrt_buffer()`] uploads it at that
+#'     dtype: it becomes `NaN` at a float, is an error where the dtype has no
+#'     missing value, and an `NA_integer_` at `"i32"` arrives as `INT_MIN`.
+#'     That last one is reported, naming the input, at the level of the option
+#'     `pjrt.upload_check` -- the default of `pjrt_buffer()`'s `check`, as a
+#'     call has no `check` of its own.
 #'
 #'     Any other `backend` uploads nothing: `r_fun` gets each R value itself, so
 #'     no entry could take effect and every one of them must be `NA`. A declared

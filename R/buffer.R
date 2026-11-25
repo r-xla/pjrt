@@ -26,12 +26,15 @@ is_buffer <- function(x) {
 #'
 #' A missing value is *not* rejected where R's own `NA` and the element type
 #' already share a bit pattern and the vector travels zero-copy: an
-#' `NA_integer_` at `"i32"` arrives as `INT_MIN`, and a `bit64::integer64`
-#' `NA` at `"i64"` arrives as `INT64_MIN`. Both warn, and [`as_array()`] warns
-#' about them again on the way back, its `check` argument defaulting to
-#' `"warn"`. At every other integer element type, and at `"bool"`, a missing
-#' value is an error -- including an `integer64` `NA` at `"ui64"`, where those
-#' same bits are the ordinary value `2^63`.
+#' `NA_integer_` (or a logical `NA`) at `"i32"` arrives as `INT_MIN`, and a
+#' `bit64::integer64` `NA` at `"i64"` arrives as `INT64_MIN`. Both are accepted
+#' but change meaning on the device, where they are ordinary numbers, so
+#' `check` reports them: a warning by default, an error with `check = "err"`,
+#' and nothing with `check = FALSE`. [`as_array()`] reports them again on the
+#' way back, at the level of its own `check`. At every other integer element
+#' type, and at `"bool"`, a missing value is an error at every level of `check`
+#' -- including an `integer64` `NA` at `"ui64"`, where those same bits are the
+#' ordinary value `2^63`.
 #'
 #' At a floating-point element type a missing value is neither rejected nor
 #' warned about: it becomes `NaN`, from an `NA_real_` and an `NA_integer_`
@@ -111,8 +114,16 @@ is_buffer <- function(x) {
 #'   case the first device for that platform is used.
 #'   The default is to use the CPU platform, but this can be configured via the `PJRT_PLATFORM`
 #'   environment variable.
-#'   A value the target dtype cannot hold is rejected whatever this is set to,
-#'   so the flag only governs missing values.
+#' @param check (`NULL` | `character(1)` | `FALSE`)\cr
+#'   How to report a missing value the element type keeps as an ordinary
+#'   number (an `NA` at `"i32"`, or a `bit64::integer64` `NA` at `"i64"`; see
+#'   *Important*): `"warn"` warns and uploads it, `"err"` aborts, and `FALSE`
+#'   skips the scan for it altogether. `TRUE` is not accepted -- with two
+#'   levels of strictness it does not say which one is meant. The default
+#'   (`NULL`) takes the option `pjrt.upload_check`, and `"warn"` when it is not
+#'   set. A value the element type cannot hold is rejected whatever this is set
+#'   to, and a missing value at a floating-point element type is never
+#'   reported, so `check` only governs the missing values that are kept.
 #' @param ... (any)\cr
 #'   Additional arguments.
 #'   The `logical`, `integer`, `numeric`, `integer64` and `raw` methods take:
@@ -144,46 +155,64 @@ pjrt_buffer <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  check = NULL,
   ...
 ) {
   UseMethod("pjrt_buffer")
 }
 
-# NA_integer_ is INT_MIN, and an integer vector uploads to i32 zero-copy, so an
-# NA reaches the device as an ordinary -2147483648 and only looks like NA again
-# once it is back in R. Every other integer dtype rejects a missing value, so
-# this is the one case that would otherwise pass unremarked.
-warn_na_i32 <- function(data, dtype) {
-  if (identical(dtype, "i32") && anyNA(data)) {
-    warn_na_kept("-2147483648")
+# The level an upload's `check` asks for, normalized like as_array()'s:
+# the argument when given, else the option `pjrt.upload_check`, else "warn".
+# The dispatcher reads the option in C++ and calls this only to reject a value
+# it does not accept, so the two agree on what is valid.
+upload_check_level <- function(check = NULL) {
+  if (!is.null(check)) {
+    return(check_level(check))
+  }
+  option <- getOption("pjrt.upload_check")
+  if (is.null(option)) {
+    return("warn")
+  }
+  check_level(option, what = "The option {.code pjrt.upload_check}")
+}
+
+# Report, at level `check`, an NA in `data` that a buffer of `dtype` keeps as an
+# ordinary number. `keeps` is the dtype the source type travels to zero-copy,
+# carrying R's own NA bit pattern with it: "i32" for an R integer -- or a
+# logical, which reaches it through as.integer() -- where NA_integer_ is
+# INT_MIN, and "i64" for a bit64::integer64, where NA_integer64_ is INT64_MIN.
+# At every other integer dtype the NA is rejected in C++, whatever `check` is.
+# `anyNA()` is safe on an integer64: it falls back to bit64's `is.na()`, so it
+# tests for INT64_MIN and not for a double NaN, which some legitimate int64
+# values reinterpret to.
+check_na_kept <- function(data, dtype, keeps, check, call = rlang::caller_env()) {
+  if (identical(dtype, keeps) && !identical(check, "none") && anyNA(data)) {
+    report_na_kept(dtype, check, call = call)
   }
   invisible(NULL)
 }
 
-# The same carve-out one width up: NA_integer64_ is INT64_MIN, and a
-# bit64::integer64 vector uploads to i64 zero-copy. Only an integer64 source
-# gets here -- an `integer` or a `double` at i64 is converted rather than
-# passed through, and its NA is rejected in C++ -- so the dtype test alone is
-# enough to tell the passthrough apart. `anyNA()` is safe on an integer64: it
-# falls back to bit64's `is.na()`, so it tests for INT64_MIN and not for a
-# double NaN, which some legitimate int64 values reinterpret to.
-warn_na_i64 <- function(data, dtype) {
-  if (identical(dtype, "i64") && anyNA(data)) {
-    warn_na_kept("-9223372036854775808")
+# Reports such an NA. The dispatcher calls this too, for an R input it uploads,
+# with `input` naming that input. The sentinel is a string:
+# -9223372036854775808 has no exact double to format from. The message does not
+# say how many NAs there are: the callers stop at the first one, and counting
+# them would mean a second full pass over the input on what is otherwise a
+# zero-copy upload.
+report_na_kept <- function(dtype, check, input = "Input `data`", call = NULL) {
+  sentinel <- if (identical(dtype, "i64")) "-9223372036854775808" else "-2147483648"
+  message <- c(
+    "{input} contains at least one {.val NA}, which {.val {dtype}} stores as {.val {sentinel}}.",
+    i = "It materializes as {.val NA} again in R, which {.code as_array()} reports on the way back."
+  )
+  if (identical(check, "err")) {
+    cli_abort(
+      c(message, i = "Set {.code check = FALSE} or the option {.code pjrt.upload_check} to accept it."),
+      call = call
+    )
   }
-  invisible(NULL)
-}
-
-# `sentinel` is the value the NA lands on, as a string: -9223372036854775808
-# has no exact double to format from. The message does not say how many NAs
-# there are: the callers test with anyNA(), which stops at the first one, and
-# counting them would mean a second full pass over the input on what is
-# otherwise a zero-copy upload.
-warn_na_kept <- function(sentinel) {
   cli::cli_warn(c(
-    "Input {.arg data} contains at least one {.val NA}, stored on the device as {.val {sentinel}}.",
-    i = "The value materializes as {.val NA} again in R, which {.code as_array()} reports on the way back.",
-    i = "Use {.fn suppressWarnings} to silence this."
+    message,
+    i = "Set {.code check = \"err\"} to make this an error, or {.code check = FALSE} to silence it; the option {.code pjrt.upload_check} sets the default."
   ))
 }
 
@@ -219,7 +248,7 @@ pjrt_buffer.PJRTBuffer <- buffer_identity
 #' scalar <- pjrt_scalar(42, dtype = "f32")
 #' scalar
 #' @export
-pjrt_scalar <- function(data, dtype = NULL, device = NULL, ...) {
+pjrt_scalar <- function(data, dtype = NULL, device = NULL, check = NULL, ...) {
   UseMethod("pjrt_scalar")
 }
 
@@ -336,11 +365,13 @@ pjrt_buffer.logical <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  check = NULL,
   row_major = FALSE,
   ...
 ) {
+  check <- upload_check_level(check)
   args <- convert_buffer_args(data, dtype, device, shape, "bool", row_major = row_major, ...)
-  warn_na_i32(data, args$dtype)
+  check_na_kept(data, args$dtype, "i32", check)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -351,11 +382,13 @@ pjrt_buffer.integer <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  check = NULL,
   row_major = FALSE,
   ...
 ) {
+  check <- upload_check_level(check)
   args <- convert_buffer_args(data, dtype, device, shape, "i32", row_major = row_major, ...)
-  warn_na_i32(data, args$dtype)
+  check_na_kept(data, args$dtype, "i32", check)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -366,9 +399,13 @@ pjrt_buffer.numeric <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  check = NULL,
   row_major = FALSE,
   ...
 ) {
+  # A double keeps no NA: it becomes NaN at a float dtype and is rejected at
+  # any other, so `check` is only validated.
+  upload_check_level(check)
   args <- convert_buffer_args(data, dtype, device, shape, "f32", row_major = row_major, ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
@@ -380,9 +417,11 @@ pjrt_buffer.integer64 <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  check = NULL,
   row_major = FALSE,
   ...
 ) {
+  check <- upload_check_level(check)
   args <- convert_buffer_args(data, dtype, device, shape, "i64", row_major = row_major, ...)
   if (!args$dtype %in% c("i64", "ui64")) {
     cli_abort(
@@ -392,7 +431,7 @@ pjrt_buffer.integer64 <- function(
   # i64 is the passthrough; at ui64 the same bit pattern is the ordinary value
   # 2^63, so a missing value is rejected there instead (in C++, with the
   # message every other rejected NA gets).
-  warn_na_i64(args$data, args$dtype)
+  check_na_kept(args$data, args$dtype, "i64", check)
   impl_client_buffer_from_integer64(
     client = args$client,
     device = args$device,
@@ -410,8 +449,11 @@ pjrt_buffer.raw <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  check = NULL,
   row_major
 ) {
+  # Bytes have no missing value, so `check` is only validated.
+  upload_check_level(check)
   if (is.null(shape)) {
     cli_abort("shape must be provided")
   }
@@ -441,14 +483,16 @@ pjrt_scalar.logical <- function(
   data,
   dtype = NULL,
   device = NULL,
+  check = NULL,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
   check_no_dots(...)
+  check <- upload_check_level(check)
   args <- convert_buffer_args(data, dtype, device, integer(), "bool")
-  warn_na_i32(data, args$dtype)
+  check_na_kept(data, args$dtype, "i32", check)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
 }
@@ -458,14 +502,16 @@ pjrt_scalar.integer <- function(
   data,
   dtype = NULL,
   device = NULL,
+  check = NULL,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
   check_no_dots(...)
+  check <- upload_check_level(check)
   args <- convert_buffer_args(data, dtype, device, integer(), "i32")
-  warn_na_i32(data, args$dtype)
+  check_na_kept(data, args$dtype, "i32", check)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
 }
@@ -475,12 +521,14 @@ pjrt_scalar.numeric <- function(
   data,
   dtype = NULL,
   device = NULL,
+  check = NULL,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
   check_no_dots(...)
+  upload_check_level(check)
   args <- convert_buffer_args(data, dtype, device, integer(), "f32")
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
@@ -491,13 +539,14 @@ pjrt_scalar.integer64 <- function(
   data,
   dtype = NULL,
   device = NULL,
+  check = NULL,
   ...
 ) {
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
   check_no_dots(...)
-  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer())
+  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer(), check = check)
 }
 
 #' @export
@@ -505,8 +554,10 @@ pjrt_scalar.raw <- function(
   data,
   ...,
   dtype = NULL,
-  device = NULL
+  device = NULL,
+  check = NULL
 ) {
+  upload_check_level(check)
   if (is.null(dtype)) {
     cli_abort("dtype must be provided")
   }
@@ -655,8 +706,8 @@ check_representable <- function(result, dt, check, call = rlang::caller_env()) {
 
 # `check` is "warn", "err" or FALSE, normalized to "warn" / "err" / "none".
 # TRUE is rejected rather than mapped: with two levels of strictness it does
-# not say which one is meant.
-check_level <- function(check) {
+# not say which one is meant. `what` names the value in the error.
+check_level <- function(check, what = "{.arg check}") {
   if (isFALSE(check)) {
     return("none")
   }
@@ -664,7 +715,7 @@ check_level <- function(check) {
     return(check)
   }
   cli_abort(c(
-    "{.arg check} must be {.val warn}, {.val err} or {.code FALSE}, not {.val {check}}.",
+    paste(what, "must be {.val warn}, {.val err} or {.code FALSE}, not {.val {check}}."),
     i = "{.code TRUE} is not accepted; pick {.val warn} or {.val err}."
   ))
 }

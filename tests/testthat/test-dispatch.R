@@ -2082,3 +2082,76 @@ describe("dispatcher(reverse_shapes = TRUE)", {
     expect_error(dispatcher(10L, cb, default_device = test_pjrt_device, reverse_shapes = NA), "reverse_shapes")
   })
 })
+
+describe("a bare R input with a missing value", {
+  # A dispatcher of the identity program on one input of `shape`, which it
+  # declares at `dtype` (`ty` in MLIR).
+  identity_dispatcher <- function(dtype, ty = dtype, shape = integer()) {
+    tensor <- sprintf("tensor<%s>", paste(c(shape, ty), collapse = "x"))
+    src <- sprintf(
+      'func.func @main(%%x: %s) -> %s {
+        "func.return"(%%x): (%s) -> ()
+      }',
+      tensor,
+      tensor,
+      tensor
+    )
+    exec <- pjrt_compile(pjrt_program(src = src))
+    dispatcher(
+      10L,
+      function(info) pjrt_entry(exec, out_avals = list(oav(dtype, shape)), input_dtypes = dtype),
+      default_device = test_pjrt_device
+    )
+  }
+  run <- function(x, dtype, ty = dtype, shape = integer()) {
+    res <- dispatch(identity_dispatcher(dtype, ty, shape), list(x = x))
+    as_array(await(res$data), check = FALSE)
+  }
+
+  it("is accepted as a scalar, and shares the entry of its storage type", {
+    skip_if_not(plugins_downloaded())
+    d <- identity_dispatcher("f64")
+    expect_equal(as_array(dispatch(d, list(x = 2.5))$data), 2.5)
+    expect_true(is.na(as_array(dispatch(d, list(x = NA_real_))$data)))
+    expect_equal(dispatcher_size(d), 1L)
+  })
+
+  it("becomes NaN at a float, as pjrt_buffer() makes it", {
+    skip_if_not(plugins_downloaded())
+    expect_true(is.nan(run(NA_real_, "f32")))
+    expect_true(is.nan(run(NA_integer_, "f32")))
+    expect_true(is.nan(run(NaN, "f64")))
+    expect_true(is.na(run(array(c(1, NA), 2L), "f64", shape = 2L)[2L]))
+  })
+
+  it("warns where i32 keeps it, naming the input", {
+    skip_if_not(plugins_downloaded())
+    expect_snapshot(invisible(run(NA_integer_, "i32")))
+    expect_true(is.na(suppressWarnings(run(NA_integer_, "i32"))))
+    expect_warning(
+      res <- run(array(c(1L, NA), 2L), "i32", shape = 2L),
+      "Input `x` contains at least one .NA."
+    )
+    expect_identical(res, array(c(1L, NA), 2L))
+    expect_no_warning(run(1L, "i32"))
+  })
+
+  it("is reported at the level of the option `pjrt.upload_check`", {
+    skip_if_not(plugins_downloaded())
+    withr::local_options(pjrt.upload_check = "err")
+    expect_snapshot(run(NA_integer_, "i32"), error = TRUE)
+    withr::local_options(pjrt.upload_check = FALSE)
+    expect_no_warning(res <- run(NA_integer_, "i32"))
+    expect_true(is.na(res))
+    withr::local_options(pjrt.upload_check = "nope")
+    expect_error(run(NA_integer_, "i32"), "pjrt.upload_check")
+  })
+
+  it("is an error where the dtype has no missing value, at every level", {
+    skip_if_not(plugins_downloaded())
+    withr::local_options(pjrt.upload_check = FALSE)
+    expect_error(run(NA, "bool", "i1"), "cannot be converted to \"bool\"")
+    expect_error(run(NA_integer_, "i64"), "cannot be converted to \"i64\"")
+    expect_error(run(NA_real_, "i32"), "cannot be converted to \"i32\"")
+  })
+})

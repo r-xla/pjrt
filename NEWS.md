@@ -24,9 +24,17 @@
 * `dispatcher()` gains `reverse_shapes`, which reports and declares R shapes
   for buffers that store an R array with its shape reversed, and uploads bare
   R inputs that way without reordering them.
+* `pjrt_buffer()` and `pjrt_scalar()` gain `check` (`"warn"`, `"err"` or
+  `FALSE`, defaulting to the new option `pjrt.upload_check`), which sets how
+  an `NA` kept as `INT_MIN` at `"i32"` or `INT64_MIN` at `"i64"` is reported.
+* `dispatch()` accepts an `NA` scalar as bare R data, uploading it as
+  `pjrt_buffer()` would, and reports an `NA` it keeps at `"i32"` at the level
+  of `pjrt.upload_check`, naming the input.
 
 ## Bug fixes
 
+* `format_buffer()` formats an `NA` in an `"f64"` buffer as NaN instead of as
+  `-Inf`.
 * The CPU plugin is built from openxla/xla@fc31477, whose LLVM no longer hangs
   compiling a random number draw inside a small while loop (r-xla/anvl#655).
 * The `print_tensor` custom call prints a tensor without elements on CUDA

@@ -401,10 +401,65 @@ test_that("an NA an integer dtype does not reject travels to the device", {
   expect_no_error(pjrt_buffer(c(1, NA, 3)))
   expect_warning(pjrt_buffer(c(1L, NA_integer_, 3L)), "-2147483648")
   expect_warning(pjrt_scalar(NA_integer_), "-2147483648")
+})
 
-  # An upload takes no opt-in: what a dtype does with an NA is fixed by the
-  # dtype, so there is no argument to pass.
-  expect_error(pjrt_buffer(c(1, NA, 3), check = TRUE), "Unused argument")
+describe("the `check` of an upload", {
+  it("turns a kept NA into an error with \"err\", or skips it with FALSE", {
+    expect_snapshot(pjrt_buffer(c(1L, NA), check = "err"), error = TRUE)
+    expect_error(pjrt_scalar(NA_integer_, check = "err"), "-2147483648")
+    expect_error(pjrt_buffer(NA, dtype = "i32", check = "err"), "-2147483648")
+    expect_error(pjrt_scalar(NA, dtype = "i32", check = "err"), "-2147483648")
+    expect_error(
+      pjrt_buffer(bit64::NA_integer64_, check = "err"),
+      "-9223372036854775808"
+    )
+    expect_error(
+      pjrt_scalar(bit64::NA_integer64_, check = "err"),
+      "-9223372036854775808"
+    )
+
+    expect_no_warning(buf <- pjrt_buffer(c(1L, NA), check = FALSE))
+    expect_identical(as_array(buf, check = FALSE), array(c(1L, NA), 2L))
+    expect_no_warning(pjrt_scalar(NA_integer_, check = FALSE))
+    expect_no_warning(pjrt_buffer(bit64::NA_integer64_, check = FALSE))
+  })
+
+  it("defaults to the option `pjrt.upload_check`", {
+    withr::local_options(pjrt.upload_check = "err")
+    expect_error(pjrt_buffer(NA_integer_), "-2147483648")
+    # the argument wins over the option
+    expect_no_warning(pjrt_buffer(NA_integer_, check = FALSE))
+    expect_warning(pjrt_buffer(NA_integer_, check = "warn"), "-2147483648")
+
+    withr::local_options(pjrt.upload_check = FALSE)
+    expect_no_warning(pjrt_buffer(NA_integer_))
+    expect_error(pjrt_buffer(NA_integer_, check = "err"), "-2147483648")
+  })
+
+  it("leaves the errors and the NaN of a missing value as they are", {
+    # An NA the dtype cannot keep is an error at every level, and one a float
+    # turns into NaN is never reported.
+    for (check in list("err", "warn", FALSE)) {
+      expect_error(pjrt_buffer(NA_integer_, dtype = "i64", check = check), "Missing value")
+      expect_error(pjrt_buffer(NA_real_, dtype = "i32", check = check), "Missing value")
+      expect_error(pjrt_buffer(NA, check = check), "Missing value")
+      expect_error(pjrt_buffer(2^31, dtype = "i32", check = check), "overflow")
+      expect_no_warning(pjrt_buffer(c(1, NA), check = check))
+      expect_no_warning(pjrt_buffer(NA_integer_, dtype = "f32", check = check))
+    }
+  })
+
+  it("is validated whatever the data", {
+    expect_snapshot(pjrt_buffer(c(1, NA, 3), check = TRUE), error = TRUE)
+    expect_error(pjrt_buffer(1L, check = "error"), "must be")
+    expect_error(pjrt_scalar(1, check = TRUE), "must be")
+    expect_error(
+      pjrt_buffer(as.raw(1), dtype = "ui8", shape = 1L, row_major = FALSE, check = NA),
+      "must be"
+    )
+    withr::local_options(pjrt.upload_check = TRUE)
+    expect_snapshot(pjrt_buffer(1L), error = TRUE)
+  })
 })
 
 test_that("as_array reports an i32 / i64 NA collision at every check level", {
