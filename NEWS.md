@@ -8,6 +8,9 @@
 
 ## New features
 
+* Plugins are downloaded into the installation directory of `pjrt`, so that
+  all users of a library share them, and into
+  `tools::R_user_dir("pjrt", "cache")` only when it is not writable.
 * `pjrt_buffer()` takes `row_major` for logical, integer, double and
   `integer64` data too, not only for raw data.
 * `as_array()` gains `row_major`, which returns a buffer's data in row-major
