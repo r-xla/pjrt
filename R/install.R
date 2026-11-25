@@ -12,6 +12,11 @@
 #' created, but the download requires user confirmation, unless
 #' the environment variable `PJRT_INSTALL=1`.
 #'
+#' The plugins are stored in the installation directory of `pjrt`, so that all
+#' users of its library share them, and reinstalling `pjrt` removes them. When
+#' that directory is not writable, they are stored in
+#' `tools::R_user_dir("pjrt", "cache")` instead.
+#'
 #' @param cuda (`logical(1)` | `NULL`)\cr
 #'   Whether to also install the CUDA plugin. When `NULL` (the default),
 #'   CUDA support is auto-detected: the CUDA plugin is installed when an

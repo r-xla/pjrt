@@ -28,4 +28,9 @@ shipped by pjrt.cuda by default, see \code{PJRT_CUDA_R_PACKAGE} in
 Plugins are otherwise downloaded lazily the first time a client is
 created, but the download requires user confirmation, unless
 the environment variable \code{PJRT_INSTALL=1}.
+
+The plugins are stored in the installation directory of \code{pjrt}, so that all
+users of its library share them, and reinstalling \code{pjrt} removes them. When
+that directory is not writable, they are stored in
+\code{tools::R_user_dir("pjrt", "cache")} instead.
 }

@@ -39,6 +39,7 @@ Imports:
     xlamisc (>= 0.5.0)
 Suggests:
     callr,
+    pkgload,
     testthat (>= 3.0.0),
     xml2
 LinkingTo:
