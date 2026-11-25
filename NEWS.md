@@ -8,6 +8,9 @@
 
 ## New features
 
+* The `geqrf`, `orgqr`, `lu`, `svd` and `eigh` custom calls take a batch of
+  matrices `[..., n, m]`, as `potrf` and `trsm` do, and on the host spread it
+  over XLA's threads where the BLAS allows.
 * Plugins are downloaded into the installation directory of `pjrt`, so that
   all users of a library share them, and into
   `tools::R_user_dir("pjrt", "cache")` only when it is not writable.
