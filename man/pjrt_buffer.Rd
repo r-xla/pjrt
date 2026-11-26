@@ -6,9 +6,9 @@
 \alias{pjrt_empty}
 \title{Create a PJRT Buffer}
 \usage{
-pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, check = NULL, ...)
+pjrt_buffer(data, dtype = NULL, device = NULL, shape = NULL, ...)
 
-pjrt_scalar(data, dtype = NULL, device = NULL, check = NULL, ...)
+pjrt_scalar(data, dtype = NULL, device = NULL, ...)
 
 pjrt_empty(dtype, shape, device = NULL)
 }
@@ -52,23 +52,14 @@ wrapped or clamped result, and the range is tested after truncation, so
 A \code{PJRTDevice} object or the name of the platform to use ("cpu", "cuda", ...), in which
 case the first device for that platform is used.
 The default is to use the CPU platform, but this can be configured via the \code{PJRT_PLATFORM}
-environment variable.}
+environment variable.
+A value the target dtype cannot hold is rejected whatever this is set to,
+so the flag only governs missing values.}
 
 \item{shape}{(\code{NULL} | \code{integer()})\cr
 The dimensions of the buffer.
 The default (\code{NULL}) is to infer them from the data if possible.
 The default (\code{NULL}) depends on the method.}
-
-\item{check}{(\code{NULL} | \code{character(1)} | \code{FALSE})\cr
-How to report a missing value the element type keeps as an ordinary
-number (an \code{NA} at \code{"i32"}, or a \code{bit64::integer64} \code{NA} at \code{"i64"}; see
-\emph{Important}): \code{"warn"} warns and uploads it, \code{"err"} aborts, and \code{FALSE}
-skips the scan for it altogether. \code{TRUE} is not accepted -- with two
-levels of strictness it does not say which one is meant. The default
-(\code{NULL}) takes the option \code{pjrt.upload_check}, and \code{"warn"} when it is not
-set. A value the element type cannot hold is rejected whatever this is set
-to, and a missing value at a floating-point element type is never
-reported, so \code{check} only governs the missing values that are kept.}
 
 \item{...}{(any)\cr
 Additional arguments.
@@ -103,15 +94,12 @@ is checked on the truncated value, so \code{255.7} still fits \code{"ui8"}.
 
 A missing value is \emph{not} rejected where R's own \code{NA} and the element type
 already share a bit pattern and the vector travels zero-copy: an
-\code{NA_integer_} (or a logical \code{NA}) at \code{"i32"} arrives as \code{INT_MIN}, and a
-\code{bit64::integer64} \code{NA} at \code{"i64"} arrives as \code{INT64_MIN}. Both are accepted
-but change meaning on the device, where they are ordinary numbers, so
-\code{check} reports them: a warning by default, an error with \code{check = "err"},
-and nothing with \code{check = FALSE}. \code{\link[=as_array]{as_array()}} reports them again on the
-way back, at the level of its own \code{check}. At every other integer element
-type, and at \code{"bool"}, a missing value is an error at every level of \code{check}
--- including an \code{integer64} \code{NA} at \code{"ui64"}, where those same bits are the
-ordinary value \code{2^63}.
+\code{NA_integer_} at \code{"i32"} arrives as \code{INT_MIN}, and a \code{bit64::integer64}
+\code{NA} at \code{"i64"} arrives as \code{INT64_MIN}. Both warn, and \code{\link[=as_array]{as_array()}} warns
+about them again on the way back, its \code{check} argument defaulting to
+\code{"warn"}. At every other integer element type, and at \code{"bool"}, a missing
+value is an error -- including an \code{integer64} \code{NA} at \code{"ui64"}, where those
+same bits are the ordinary value \code{2^63}.
 
 At a floating-point element type a missing value is neither rejected nor
 warned about: it becomes \code{NaN}, from an \code{NA_real_} and an \code{NA_integer_}

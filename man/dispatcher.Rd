@@ -125,9 +125,7 @@ input takes any dtype, an \code{"integer"} input any but \code{"bool"}, and a
 A missing value is uploaded as \code{\link[=pjrt_buffer]{pjrt_buffer()}} uploads it at that
 dtype: it becomes \code{NaN} at a float, is an error where the dtype has no
 missing value, and an \code{NA_integer_} at \code{"i32"} arrives as \code{INT_MIN}.
-That last one is reported, naming the input, at the level of the option
-\code{pjrt.upload_check} -- the default of \code{pjrt_buffer()}'s \code{check}, as a
-call has no \code{check} of its own.
+That last one warns, naming the input, as \code{pjrt_buffer()} does.
 
 Any other \code{backend} uploads nothing: \code{r_fun} gets each R value itself, so
 no entry could take effect and every one of them must be \code{NA}. A declared

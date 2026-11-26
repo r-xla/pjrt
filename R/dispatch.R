@@ -176,9 +176,7 @@
 #'     A missing value is uploaded as [`pjrt_buffer()`] uploads it at that
 #'     dtype: it becomes `NaN` at a float, is an error where the dtype has no
 #'     missing value, and an `NA_integer_` at `"i32"` arrives as `INT_MIN`.
-#'     That last one is reported, naming the input, at the level of the option
-#'     `pjrt.upload_check` -- the default of `pjrt_buffer()`'s `check`, as a
-#'     call has no `check` of its own.
+#'     That last one warns, naming the input, as `pjrt_buffer()` does.
 #'
 #'     Any other `backend` uploads nothing: `r_fun` gets each R value itself, so
 #'     no entry could take effect and every one of them must be `NA`. A declared

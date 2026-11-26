@@ -63,21 +63,6 @@ via \code{cli::cli_inform()}.
 }
 }
 
-\section{Options}{
-
-\itemize{
-\item \code{pjrt.upload_check}: The default of the \code{check} argument of
-\code{\link[=pjrt_buffer]{pjrt_buffer()}} and \code{\link[=pjrt_scalar]{pjrt_scalar()}} -- how an upload reports a missing
-value that the element type keeps as an ordinary number (an \code{NA_integer_}
-at \code{"i32"}, a \code{bit64::integer64} \code{NA} at \code{"i64"}): \code{"warn"} (the default
-when unset), \code{"err"} or \code{FALSE}. The bare R data a \code{\link[=dispatcher]{dispatcher()}}
-uploads follows it too.
-\item \code{pjrt.print_max_rows}, \code{pjrt.print_max_width}, \code{pjrt.print_max_rows_slice}:
-The defaults of the arguments of the same names of
-\code{\link[=print.PJRTBuffer]{print()}} for a \code{PJRTBuffer}.
-}
-}
-
 \section{Third-Party Licenses}{
 
 The \code{pjrt} package itself is MIT-licensed. The CUDA backend dynamically
@@ -115,8 +100,6 @@ Other contributors:
   \item Daniel James (Author of the Boost.ContainerHash hash_combine copied in src/hash.h (BSL-1.0); see inst/COPYRIGHTS) [copyright holder]
   \item The OpenXLA Authors (Authors of the PJRT C API and XLA FFI headers in inst/include and the XLA protobuf definitions in inst/proto (Apache-2.0); see inst/COPYRIGHTS) [copyright holder]
   \item Christian Rau (Author of the half-precision library half.hpp bundled in src/half (MIT); see inst/COPYRIGHTS) [copyright holder]
-  \item Posit Software, PBC (Copyright holder of testthat's C++ unit-test header bundled in src/testthat (MIT); see inst/COPYRIGHTS) [copyright holder]
-  \item Two Blue Cubes Ltd (Copyright holder of the Catch unit-test framework bundled in src/testthat/vendor (BSL-1.0); see inst/COPYRIGHTS) [copyright holder]
 }
 
 }

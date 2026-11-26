@@ -1,31 +1,3 @@
-# the `check` of an upload / turns a kept NA into an error with "err", or skips it with FALSE
-
-    Code
-      pjrt_buffer(c(1L, NA), check = "err")
-    Condition
-      Error in `pjrt_buffer()`:
-      ! Input `data` contains at least one "NA", which "i32" stores as "-2147483648".
-      i It materializes as "NA" again in R, which `as_array()` reports on the way back.
-      i Set `check = FALSE` or the option `pjrt.upload_check` to accept it.
-
-# the `check` of an upload / is validated whatever the data
-
-    Code
-      pjrt_buffer(c(1, NA, 3), check = TRUE)
-    Condition
-      Error in `check_level()`:
-      ! `check` must be "warn", "err" or `FALSE`, not TRUE.
-      i `TRUE` is not accepted; pick "warn" or "err".
-
----
-
-    Code
-      pjrt_buffer(1L)
-    Condition
-      Error in `check_level()`:
-      ! The option `pjrt.upload_check` must be "warn", "err" or `FALSE`, not TRUE.
-      i `TRUE` is not accepted; pick "warn" or "err".
-
 # an integer and a double agree at an integer dtype
 
     Code

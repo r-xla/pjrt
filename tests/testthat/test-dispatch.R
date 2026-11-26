@@ -2136,20 +2136,8 @@ describe("a bare R input with a missing value", {
     expect_no_warning(run(1L, "i32"))
   })
 
-  it("is reported at the level of the option `pjrt.upload_check`", {
+  it("is an error where the dtype has no missing value", {
     skip_if_not(plugins_downloaded())
-    withr::local_options(pjrt.upload_check = "err")
-    expect_snapshot(run(NA_integer_, "i32"), error = TRUE)
-    withr::local_options(pjrt.upload_check = FALSE)
-    expect_no_warning(res <- run(NA_integer_, "i32"))
-    expect_true(is.na(res))
-    withr::local_options(pjrt.upload_check = "nope")
-    expect_error(run(NA_integer_, "i32"), "pjrt.upload_check")
-  })
-
-  it("is an error where the dtype has no missing value, at every level", {
-    skip_if_not(plugins_downloaded())
-    withr::local_options(pjrt.upload_check = FALSE)
     expect_error(run(NA, "bool", "i1"), "cannot be converted to \"bool\"")
     expect_error(run(NA_integer_, "i64"), "cannot be converted to \"i64\"")
     expect_error(run(NA_real_, "i32"), "cannot be converted to \"i32\"")

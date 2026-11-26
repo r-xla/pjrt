@@ -74,8 +74,7 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   // A missing value is data like any other: the storage type is all the key
   // needs, and the upload treats an NA the way pjrt_buffer() does at the dtype
   // the entry declares -- NaN at a float, an error where the dtype has no
-  // missing value, and INT_MIN at i32, reported at the `pjrt.upload_check`
-  // level.
+  // missing value, and INT_MIN at i32, with a warning.
   SEXP dim = Rf_getAttrib(leaf, R_DimSymbol);
   if (dim != R_NilValue) {
     // an array of any rank
