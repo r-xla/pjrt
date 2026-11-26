@@ -178,10 +178,11 @@ warn_na_i64 <- function(data, dtype) {
 # has no exact double to format from. The message does not say how many NAs
 # there are: the callers test with anyNA(), which stops at the first one, and
 # counting them would mean a second full pass over the input on what is
-# otherwise a zero-copy upload.
-warn_na_kept <- function(sentinel) {
+# otherwise a zero-copy upload. The dispatcher calls this too, for an R input
+# it uploads, with `input` naming that input.
+warn_na_kept <- function(sentinel, input = "Input `data`") {
   cli::cli_warn(c(
-    "Input {.arg data} contains at least one {.val NA}, stored on the device as {.val {sentinel}}.",
+    "{input} contains at least one {.val NA}, stored on the device as {.val {sentinel}}.",
     i = "The value materializes as {.val NA} again in R, which {.code as_array()} reports on the way back.",
     i = "Use {.fn suppressWarnings} to silence this."
   ))

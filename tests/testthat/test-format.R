@@ -12,6 +12,15 @@ test_that("format_buffer works for floats", {
   expect_equal(format_buffer(pjrt_scalar(-Inf, "f64")), "0xFFF0000000000000")
 })
 
+describe("format_buffer", {
+  it("formats a missing value as NaN", {
+    # R's NA_real_ is a NaN that an f64 buffer keeps bit for bit; it must not
+    # fall through to the infinities.
+    expect_equal(format_buffer(pjrt_scalar(NA_real_, "f64")), "0x7FF8000000000000")
+    expect_equal(format_buffer(pjrt_scalar(NA_real_, "f32")), "0x7FC00000")
+  })
+})
+
 test_that("format_buffer works for bf16", {
   # 4 significant digits round-trip bfloat16
   expect_equal(format_buffer(pjrt_scalar(1.5, "bf16")), "1.500e+00")

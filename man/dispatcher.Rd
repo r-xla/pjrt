@@ -122,6 +122,11 @@ be uploaded is rejected here rather than at execute time: a \code{"double"}
 input takes any dtype, an \code{"integer"} input any but \code{"bool"}, and a
 \code{"logical"} input only \code{"bool"}.
 
+A missing value is uploaded as \code{\link[=pjrt_buffer]{pjrt_buffer()}} uploads it at that
+dtype: it becomes \code{NaN} at a float, is an error where the dtype has no
+missing value, and an \code{NA_integer_} at \code{"i32"} arrives as \code{INT_MIN}.
+That last one warns, naming the input, as \code{pjrt_buffer()} does.
+
 Any other \code{backend} uploads nothing: \code{r_fun} gets each R value itself, so
 no entry could take effect and every one of them must be \code{NA}. A declared
 dtype is rejected there rather than accepted and ignored, for the same
@@ -241,7 +246,7 @@ offending argument by its path in the argument tree. A dynamic leaf must be
 \item an \code{"AnvlArray"} of the dispatcher's \code{backend} (an array of the \code{"plain"}
 backend, which captures a trace-time constant, is never an input), or
 \item bare R data: an unclassed double, integer or logical vector that is
-either an \code{\link[=is.array]{is.array()}} value or a length-1 scalar other than \code{NA}.
+either an \code{\link[=is.array]{is.array()}} value or a length-1 scalar, \code{NA} included.
 }
 
 Unless \code{move_inputs = TRUE}, all array inputs must also live on one device.
@@ -286,7 +291,8 @@ with the caller stays in R order:
 \item an array input's aval -- in the cache key and in \code{info$avals} -- has its
 buffer's shape reversed,
 \item a bare R input is uploaded with its shape reversed, in row-major order,
-which is a plain copy of its data,
+which keeps its elements in place (converted one by one where R's storage
+type is not the data type),
 \item the \code{shape} of an implicit input and that of a phantom are R shapes: the
 buffer an implicit input's \code{get()} returns must have it reversed, and a
 phantom is allocated with it reversed.

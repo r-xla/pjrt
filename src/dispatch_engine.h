@@ -61,8 +61,8 @@ struct RDataInfo {
   std::vector<int64_t> shape;  // empty for a rank-0 literal
 };
 
-// Nullopt for anything that is not uploadable bare R data -- NA literals
-// included: they have no value the program could be given.
+// Nullopt for anything that is not uploadable bare R data. A missing value is
+// uploadable: what it becomes is up to the dtype it is uploaded at.
 std::optional<RDataInfo> classify_rdata(SEXP leaf);
 
 // class(x)[1L], as R would print it, for naming a rejected leaf's type.

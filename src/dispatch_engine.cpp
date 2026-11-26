@@ -71,9 +71,13 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
     default:
       return std::nullopt;
   }
+  // A missing value is data like any other: the storage type is all the key
+  // needs, and the upload treats an NA the way pjrt_buffer() does at the dtype
+  // the entry declares -- NaN at a float, an error where the dtype has no
+  // missing value, and INT_MIN at i32, with a warning.
   SEXP dim = Rf_getAttrib(leaf, R_DimSymbol);
   if (dim != R_NilValue) {
-    // an array of any rank; NA elements pass through like pjrt_buffer()'s
+    // an array of any rank
     const R_xlen_t n = XLENGTH(dim);
     info.shape.reserve(n);
     for (R_xlen_t k = 0; k < n; ++k) info.shape.push_back(INTEGER(dim)[k]);
@@ -81,21 +85,7 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   }
   if (XLENGTH(leaf) != 1)
     return std::nullopt;  // bare vector: not a valid input
-  // a scalar literal; reject NA (it has no dtype), keep NaN
-  switch (t) {
-    case REALSXP:
-      if (R_IsNA(REAL(leaf)[0])) return std::nullopt;
-      break;
-    case INTSXP:
-      if (INTEGER(leaf)[0] == NA_INTEGER) return std::nullopt;
-      break;
-    case LGLSXP:
-      if (LOGICAL(leaf)[0] == NA_LOGICAL) return std::nullopt;
-      break;
-    default:
-      break;
-  }
-  return info;
+  return info;            // a scalar literal
 }
 
 // Falls back to the implicit class of an unclassed value; a matrix reports its
