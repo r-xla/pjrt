@@ -24,9 +24,9 @@
 * `dispatcher()` gains `reverse_shapes`, which reports and declares R shapes
   for buffers that store an R array with its shape reversed, and uploads bare
   R inputs that way without reordering them.
-* `dispatch()` accepts an `NA` scalar as bare R data, uploading it as
-  `pjrt_buffer()` would, and warns about an `NA` it keeps at `"i32"`, naming
-  the input.
+* `dispatch()` accepts an `NA_real_` or `NA_integer_` scalar as bare R data,
+  uploading it as `pjrt_buffer()` would, and warns about an `NA_integer_` it
+  keeps at `"i32"`, naming the input.
 
 ## Bug fixes
 
