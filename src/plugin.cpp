@@ -1,6 +1,9 @@
 #include "plugin.h"
 
 #include <Rcpp.h>
+
+#include <algorithm>
+#include <limits>
 #ifndef _WIN32
 #include <dlfcn.h>
 #else
@@ -58,42 +61,63 @@ std::unique_ptr<PJRTClient> PJRTPlugin::client_create(
       make_pjrt_handle(this->api.get(), args.client), this->api);
 }
 
-std::vector<std::pair<std::string, SEXP>> PJRTPlugin::attributes() const {
+namespace {
+
+Rcpp::RObject int64s_to_r(const int64_t *values, size_t n) {
+  bool fits = std::all_of(values, values + n, [](int64_t v) {
+    return v > std::numeric_limits<int>::min() &&
+           v <= std::numeric_limits<int>::max();
+  });
+  if (fits) {
+    Rcpp::IntegerVector out(n);
+    std::transform(values, values + n, out.begin(),
+                   [](int64_t v) { return static_cast<int>(v); });
+    return out;
+  }
+  Rcpp::NumericVector out(n);
+  std::transform(values, values + n, out.begin(),
+                 [](int64_t v) { return static_cast<double>(v); });
+  return out;
+}
+
+}  // namespace
+
+Rcpp::List named_values_to_list(const PJRT_NamedValue *values, size_t n) {
+  Rcpp::List out(n);
+  Rcpp::CharacterVector names(n);
+  for (size_t i = 0; i < n; ++i) {
+    const PJRT_NamedValue &nv = values[i];
+    names[i] = std::string(nv.name, nv.name_size);
+    switch (nv.type) {
+      case PJRT_NamedValue_kString:
+        out[i] = std::string(nv.string_value, nv.value_size);
+        break;
+      case PJRT_NamedValue_kInt64:
+        out[i] = int64s_to_r(&nv.int64_value, 1);
+        break;
+      case PJRT_NamedValue_kInt64List:
+        out[i] = int64s_to_r(nv.int64_array_value, nv.value_size);
+        break;
+      case PJRT_NamedValue_kFloat:
+        out[i] = static_cast<double>(nv.float_value);
+        break;
+      case PJRT_NamedValue_kBool:
+        out[i] = static_cast<bool>(nv.bool_value);
+        break;
+      default:
+        out[i] = Rcpp::LogicalVector::create(NA_LOGICAL);
+    }
+  }
+  out.attr("names") = names;
+  return out;
+}
+
+Rcpp::List PJRTPlugin::attributes() const {
   PJRT_Plugin_Attributes_Args args{};
   args.struct_size = sizeof(PJRT_Plugin_Attributes_Args);
   args.extension_start = nullptr;
   check_err(api.get(), api->PJRT_Plugin_Attributes_(&args));
-  std::vector<std::pair<std::string, SEXP>> out;
-  for (size_t i = 0; i < args.num_attributes; ++i) {
-    const PJRT_NamedValue &nv = args.attributes[i];
-    std::string key(nv.name, nv.name_size);
-    SEXP value;
-    switch (nv.type) {
-      case PJRT_NamedValue_kString:
-        value =
-            Rf_mkString(std::string(nv.string_value, nv.value_size).c_str());
-        break;
-      case PJRT_NamedValue_kInt64:
-        value = Rf_ScalarInteger(static_cast<int>(nv.int64_value));
-        break;
-      case PJRT_NamedValue_kInt64List: {
-        Rcpp::IntegerVector v(nv.int64_array_value,
-                              nv.int64_array_value + nv.value_size);
-        value = v;
-        break;
-      }
-      case PJRT_NamedValue_kFloat:
-        value = Rf_ScalarReal(static_cast<double>(nv.float_value));
-        break;
-      case PJRT_NamedValue_kBool:
-        value = Rf_ScalarLogical(nv.bool_value ? TRUE : FALSE);
-        break;
-      default:
-        value = Rf_ScalarLogical(NA_LOGICAL);
-    }
-    out.emplace_back(key, value);
-  }
-  return out;
+  return named_values_to_list(args.attributes, args.num_attributes);
 }
 
 std::pair<int, int> PJRTPlugin::pjrt_api_version() const {

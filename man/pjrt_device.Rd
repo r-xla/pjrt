@@ -20,6 +20,7 @@ Create a PJRT Device from an R object.
 
 \itemize{
 \item \code{\link[=platform]{platform()}} for a \code{character(1)} representation of the platform.
+\item \code{\link[=device_attributes]{device_attributes()}} for the attributes the plugin reports for it.
 }
 }
 

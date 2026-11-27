@@ -8,6 +8,8 @@
 
 ## New features
 
+* `device_attributes()` returns the attributes a plugin reports for a device,
+  such as the `compute_capability` of a CUDA device.
 * The `geqrf`, `orgqr`, `lu`, `svd` and `eigh` custom calls take a batch of
   matrices `[..., n, m]`, as `potrf` and `trsm` do, and on the host spread it
   over XLA's threads where the BLAS allows.
