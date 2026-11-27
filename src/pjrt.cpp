@@ -897,30 +897,36 @@ Rcpp::IntegerVector impl_plugin_pjrt_api_version(
 
 // [[Rcpp::export()]]
 Rcpp::List impl_plugin_attributes(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin) {
-  auto attrs = plugin->attributes();
-  Rcpp::List out;
-  Rcpp::CharacterVector names(attrs.size());
-  for (size_t i = 0; i < attrs.size(); ++i) {
-    names[i] = attrs[i].first;
-    out.push_back(attrs[i].second);
-  }
-  out.attr("names") = names;
-  return out;
+  return plugin->attributes();
+}
+
+static PJRT_DeviceDescription *device_description(
+    const rpjrt::PJRTDevice &device) {
+  PJRT_Device_GetDescription_Args args{};
+  args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
+  args.device = device.device;
+  check_err(device.api.get(), device.api->PJRT_Device_GetDescription_(&args));
+  return args.device_description;
 }
 
 // [[Rcpp::export()]]
 std::string impl_device_to_string(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
   auto api = device->api;
-  PJRT_Device_GetDescription_Args desc_args{};
-  desc_args.struct_size = sizeof(PJRT_Device_GetDescription_Args);
-  desc_args.device = device->device;
-  check_err(api.get(), api->PJRT_Device_GetDescription_(&desc_args));
+  PJRT_DeviceDescription_ToString_Args args{};
+  args.struct_size = sizeof(PJRT_DeviceDescription_ToString_Args);
+  args.device_description = device_description(*device);
+  check_err(api.get(), api->PJRT_DeviceDescription_ToString_(&args));
+  return std::string(args.to_string, args.to_string_size);
+}
 
-  PJRT_DeviceDescription_ToString_Args str_args{};
-  str_args.struct_size = sizeof(PJRT_DeviceDescription_ToString_Args);
-  str_args.device_description = desc_args.device_description;
-  check_err(api.get(), api->PJRT_DeviceDescription_ToString_(&str_args));
-  return std::string(str_args.to_string, str_args.to_string_size);
+// [[Rcpp::export()]]
+Rcpp::List impl_device_attributes(Rcpp::XPtr<rpjrt::PJRTDevice> device) {
+  auto api = device->api;
+  PJRT_DeviceDescription_Attributes_Args args{};
+  args.struct_size = sizeof(PJRT_DeviceDescription_Attributes_Args);
+  args.device_description = device_description(*device);
+  check_err(api.get(), api->PJRT_DeviceDescription_Attributes_(&args));
+  return rpjrt::named_values_to_list(args.attributes, args.num_attributes);
 }
 
 // [[Rcpp::export()]]

@@ -520,6 +520,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_device_attributes
+Rcpp::List impl_device_attributes(Rcpp::XPtr<rpjrt::PJRTDevice> device);
+RcppExport SEXP _pjrt_impl_device_attributes(SEXP deviceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_device_attributes(device));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_buffer_print
 void impl_buffer_print(SEXP buffer_sexp, int max_rows, int max_width, int max_rows_slice, bool reversed);
 RcppExport SEXP _pjrt_impl_buffer_print(SEXP buffer_sexpSEXP, SEXP max_rowsSEXP, SEXP max_widthSEXP, SEXP max_rows_sliceSEXP, SEXP reversedSEXP) {
@@ -949,6 +960,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_plugin_pjrt_api_version", (DL_FUNC) &_pjrt_impl_plugin_pjrt_api_version, 1},
     {"_pjrt_impl_plugin_attributes", (DL_FUNC) &_pjrt_impl_plugin_attributes, 1},
     {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
+    {"_pjrt_impl_device_attributes", (DL_FUNC) &_pjrt_impl_device_attributes, 1},
     {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 5},
     {"_pjrt_impl_buffer_is_ready", (DL_FUNC) &_pjrt_impl_buffer_is_ready, 1},
     {"_pjrt_impl_buffer_await", (DL_FUNC) &_pjrt_impl_buffer_await, 1},

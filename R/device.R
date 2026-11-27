@@ -3,6 +3,7 @@
 #' Create a PJRT Device from an R object.
 #' @section Extractors:
 #' * [`platform()`] for a `character(1)` representation of the platform.
+#' * [`device_attributes()`] for the attributes the plugin reports for it.
 #' @param device (any)\cr
 #'   The device.
 #' @return `PJRTDevice`
@@ -21,6 +22,22 @@ pjrt_device <- function(device) {
     return(as_pjrt_device(device))
   }
   cli_abort("Must be a PJRTDevice or a platform name")
+}
+
+#' @title Get Device Attributes
+#' @description
+#' Get the attributes the plugin reports for a device. A CUDA device reports,
+#' among others, its `compute_capability` (e.g. `"8.6"`), `core_count` and
+#' `device_memory_bytes_limit`. The set of attributes depends on the plugin.
+#' @param device (`PJRTDevice` | `character(1)`)\cr
+#'   The device, or a device specification such as `"cuda:0"`.
+#' @return named `list()`\cr
+#'   An integer attribute is an `integer` where it fits and a `double` otherwise.
+#' @examplesIf plugins_downloaded("cpu")
+#' device_attributes("cpu")
+#' @export
+device_attributes <- function(device) {
+  impl_device_attributes(pjrt_device(device))
 }
 
 
