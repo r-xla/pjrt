@@ -1,9 +1,8 @@
-#include <testthat.h>
-
 #include <functional>
 #include <string>
 
 #include "lru_cache.h"
+#include "testthat/testthat.h"
 
 using IntCache = rpjrt::LRUCache<int, int, std::hash<int>, std::equal_to<int>>;
 using StrCache = rpjrt::LRUCache<std::string, int, std::hash<std::string>,

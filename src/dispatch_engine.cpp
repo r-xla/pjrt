@@ -4,6 +4,7 @@
 
 #include "dispatch_engine.h"
 
+#include <algorithm>
 #include <cstring>
 #include <unordered_map>
 #include <utility>
@@ -70,9 +71,13 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
     default:
       return std::nullopt;
   }
+  // A missing value is data like any other: the storage type is all the key
+  // needs, and the upload treats an NA the way pjrt_buffer() does at the dtype
+  // the entry declares -- NaN at a float, an error where the dtype has no
+  // missing value, and INT_MIN at i32, with a warning.
   SEXP dim = Rf_getAttrib(leaf, R_DimSymbol);
   if (dim != R_NilValue) {
-    // an array of any rank; NA elements pass through like pjrt_buffer()'s
+    // an array of any rank
     const R_xlen_t n = XLENGTH(dim);
     info.shape.reserve(n);
     for (R_xlen_t k = 0; k < n; ++k) info.shape.push_back(INTEGER(dim)[k]);
@@ -80,21 +85,7 @@ std::optional<RDataInfo> classify_rdata(SEXP leaf) {
   }
   if (XLENGTH(leaf) != 1)
     return std::nullopt;  // bare vector: not a valid input
-  // a scalar literal; reject NA (it has no dtype), keep NaN
-  switch (t) {
-    case REALSXP:
-      if (R_IsNA(REAL(leaf)[0])) return std::nullopt;
-      break;
-    case INTSXP:
-      if (INTEGER(leaf)[0] == NA_INTEGER) return std::nullopt;
-      break;
-    case LGLSXP:
-      if (LOGICAL(leaf)[0] == NA_LOGICAL) return std::nullopt;
-      break;
-    default:
-      break;
-  }
-  return info;
+  return info;            // a scalar literal
 }
 
 // Falls back to the implicit class of an unclassed value; a matrix reports its
@@ -462,10 +453,11 @@ constexpr int kTemplateDataSlot = 0;
 
 class PjrtEngine : public Engine {
  public:
-  PjrtEngine(std::string backend, bool move_inputs)
+  PjrtEngine(std::string backend, bool move_inputs, bool reverse_shapes)
       : backend_(std::move(backend)),
         opts_(impl_execution_options_create(std::vector<int64_t>(), 0)),
-        move_inputs_(move_inputs) {}
+        move_inputs_(move_inputs),
+        reverse_shapes_(reverse_shapes) {}
 
   // This engine uploads a bare R input itself, so the program must say at which
   // dtype: there is no default it could fall back on that the program would
@@ -477,7 +469,9 @@ class PjrtEngine : public Engine {
   // own fields (this engine never consults them). `$backend` is the only
   // R-list field it needs, for the reject path. The buffer is interpreted only
   // once the leaf's tag matches, so a foreign leaf carries its tag back for
-  // the core to reject rather than failing the buffer check here.
+  // the core to reject rather than failing the buffer check here. Under
+  // `reverse_shapes` the buffer's shape is the array's reversed, so the aval
+  // reverses it back: the key and the callback see R shapes.
   std::optional<ArrayLeaf> read_array(SEXP leaf, const RTree& in_tree,
                                       std::size_t leaf_index) override {
     if (!is_anvl_array(leaf)) return std::nullopt;
@@ -492,7 +486,7 @@ class PjrtEngine : public Engine {
       }
       Rcpp::XPtr<PJRTBuffer> buf = as_buffer(al.data);
       al.aval.dtype = anvl_dtype_from_pjrt(buf->element_type());
-      al.aval.shape = buf->dimensions();
+      al.aval.shape = reversed(buf->dimensions());
       check_dtype_representable(al.aval, in_tree, leaf_index);
       // Device from the buffer, not $device: interned by PJRT_Device* (see
       // canonical_device) so the token still matches a literal-only call's
@@ -580,7 +574,7 @@ class PjrtEngine : public Engine {
         PhantomSpec ps;
         ps.dtype =
             string_to_pjrt_buffer_type(Rcpp::as<std::string>(spec["dtype"]));
-        ps.shape = Rcpp::as<std::vector<int64_t>>(spec["shape"]);
+        ps.shape = reversed(Rcpp::as<std::vector<int64_t>>(spec["shape"]));
         phantom_specs.push_back(std::move(ps));
       }
     }
@@ -620,7 +614,7 @@ class PjrtEngine : public Engine {
         } catch (const std::exception& ex) {
           Rcpp::stop("`implicit_inputs[[%d]]$dtype`: %s", k, ex.what());
         }
-        ii.shape = implicit_input_shape(field("shape"), k);
+        ii.shape = reversed(implicit_input_shape(field("shape"), k));
         implicit_inputs.push_back(std::move(ii));
       }
     }
@@ -675,7 +669,9 @@ class PjrtEngine : public Engine {
     // buffer input passes through
     // -- or, under `move_inputs`, is copied to the entry's device when it lives
     // elsewhere; a bare R literal/array is uploaded to the entry's device, at
-    // the dtype `input_dtypes` declared for it. The GC-rooted
+    // the dtype `input_dtypes` declared for it (under `reverse_shapes`, with
+    // its shape reversed: R's column-major data are the row-major data of the
+    // reversed shape, so that is a plain copy). The GC-rooted
     // `inputs` list is built first and each allocated buffer (copy, upload,
     // phantom) written straight into its slot: it is reachable only through
     // `inputs` (the R GC does not scan C++ locals across the next allocation).
@@ -694,18 +690,22 @@ class PjrtEngine : public Engine {
       // value is used for: an R double that meets an f64 array has to arrive as
       // f64, not rounded through an f32 guess first.
       const char* dt = anvl_dtype_name(in.dtype);
+      std::vector<int64_t> dims = reversed(in.aval->shape);
       switch (TYPEOF(in.value)) {
         case REALSXP:
           inputs[pos++] = impl_client_buffer_from_double(
-              pe->client, pe->device, in.value, in.aval->shape, dt);
+              pe->client, pe->device, in.value, std::move(dims), dt,
+              reverse_shapes_);
           break;
         case INTSXP:
           inputs[pos++] = impl_client_buffer_from_integer(
-              pe->client, pe->device, in.value, in.aval->shape, dt);
+              pe->client, pe->device, in.value, std::move(dims), dt,
+              reverse_shapes_);
           break;
         default:
           inputs[pos++] = impl_client_buffer_from_logical(
-              pe->client, pe->device, in.value, in.aval->shape, dt);
+              pe->client, pe->device, in.value, std::move(dims), dt,
+              reverse_shapes_);
           break;
       }
     }
@@ -806,8 +806,9 @@ class PjrtEngine : public Engine {
   }
 
   // The buffer implicit input `ii` (the `k`th) supplies to a run of `pe`: the
-  // PJRTBuffer its `get()` returns, of the input's dtype and shape, copied to
-  // the entry's device if it lives elsewhere.
+  // PJRTBuffer its `get()` returns, of the input's dtype and shape (which
+  // build_entry() already reversed under `reverse_shapes`), copied to the
+  // entry's device if it lives elsewhere.
   SEXP read_implicit_input(const PjrtEntry& pe, const ImplicitInput& ii,
                            int k) const {
     Rcpp::Function get(ii.get);
@@ -884,6 +885,13 @@ class PjrtEngine : public Engine {
     return device_cache_.emplace(p, xptr).first->second;
   }
 
+  // `shape` reversed under `reverse_shapes`, else as it is: the buffer shape
+  // of an array of R shape `shape`, and the other way round.
+  std::vector<int64_t> reversed(std::vector<int64_t> shape) const {
+    if (reverse_shapes_) std::reverse(shape.begin(), shape.end());
+    return shape;
+  }
+
   std::string backend_;
   Rcpp::XPtr<PJRTExecuteOptions> opts_;  // reusable, one per engine
   std::unordered_map<PJRT_Device*, Rcpp::RObject> device_cache_;
@@ -891,20 +899,32 @@ class PjrtEngine : public Engine {
   // dispatcher, so it is state here rather than an argument threaded through
   // every run().
   bool move_inputs_ = false;
+  // Store an array of R shape (d1, ..., dn) as a buffer of shape (dn, ..., d1)
+  // (?dispatcher's `reverse_shapes`). Avals, implicit input and phantom shapes
+  // are in R order, and the buffers in reversed order.
+  bool reverse_shapes_ = false;
 };
 
 }  // namespace
 
 std::unique_ptr<Engine> make_engine(const std::string& engine_name,
                                     std::string backend, bool move_inputs,
-                                    SEXP extractor) {
+                                    bool reverse_shapes, SEXP extractor) {
   if (engine_name == "pjrt") {
-    return std::make_unique<PjrtEngine>(std::move(backend), move_inputs);
+    return std::make_unique<PjrtEngine>(std::move(backend), move_inputs,
+                                        reverse_shapes);
   }
   // ClosureEngine takes no `move_inputs`: under it the backend's `r_fun` places
   // its own inputs (see its run()). It does need the extractor to read a leaf's
-  // metadata via the backend's accessors.
+  // metadata via the backend's accessors. It takes no `reverse_shapes` either:
+  // the extractor reports the avals and `r_fun` stores the arrays, so there is
+  // no buffer shape it could reverse.
   if (engine_name == "closure") {
+    if (reverse_shapes) {
+      Rcpp::stop(
+          "`reverse_shapes` is only supported by the pjrt engine: any other "
+          "backend's extractor reports the avals itself");
+    }
     return std::make_unique<ClosureEngine>(std::move(backend), extractor);
   }
   Rcpp::stop("engine must be \"pjrt\" or \"closure\"");

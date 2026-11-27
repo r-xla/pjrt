@@ -1,7 +1,10 @@
 // Shared utilities for XLA FFI handlers backed by LAPACK / cuSOLVER.
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <limits>
 #include <string>
 
@@ -41,20 +44,57 @@ inline xla::ffi::Error workspace_to_int(S size, const char *op, int &out) {
   return xla::ffi::Error::Success();
 }
 
-// Split the dimensions of a batch of square matrices, [..., n, n], into the
-// matrix size `n` and the number of matrices `batch` (the product of the
-// leading dimensions; 1 when there are none).
-template <typename Dims>
-inline xla::ffi::Error batched_square_dims(const Dims &dims, const char *op,
-                                           int &n, std::int64_t &batch) {
+// A batch of m x n matrices, each passed as its column-major data: a row-major
+// [..., n, m] buffer, the way pjrt stores an R array of shape (m, n, ...) with
+// its shape reversed (`pjrt_buffer(row_major = TRUE)`). The batch dimensions
+// lead, and LAPACK and cuSOLVER read the data of every matrix as the matrix
+// itself, with leading dimension m.
+struct MatrixBatch {
+  int m = 0;
+  int n = 0;
+  // The number of matrices: the product of the batch dimensions, 1 when there
+  // are none.
+  std::int64_t size = 1;
+  xla::ffi::Span<const std::int64_t> dims;
+
+  // Fail unless `buffer`, the `what` of `op`, has the batch dimensions
+  // followed by `tail`: the buffers of a call must agree on their batch.
+  xla::ffi::Error check(xla::ffi::Span<const std::int64_t> buffer,
+                        std::initializer_list<std::int64_t> tail,
+                        const char *op, const char *what) const {
+    bool ok =
+        buffer.size() == dims.size() + tail.size() &&
+        std::equal(dims.begin(), dims.end(), buffer.begin()) &&
+        std::equal(tail.begin(), tail.end(), buffer.begin() + dims.size());
+    if (ok) return xla::ffi::Error::Success();
+    return xla::ffi::Error::InvalidArgument(
+        std::string(op) + " requires " + what +
+        " with the batch dimensions of its operand");
+  }
+};
+
+inline xla::ffi::Error matrix_batch(xla::ffi::Span<const std::int64_t> dims,
+                                    const char *op, MatrixBatch &out) {
   std::size_t r = dims.size();
-  if (r < 2 || dims[r - 2] != dims[r - 1]) {
+  if (r < 2) {
+    return xla::ffi::Error::InvalidArgument(
+        std::string(op) + " requires a batch of matrices [..., n, m]");
+  }
+  PJRT_RETURN_IF_ERROR(dim_to_int(dims[r - 1], "rows", out.m));
+  PJRT_RETURN_IF_ERROR(dim_to_int(dims[r - 2], "cols", out.n));
+  out.dims = dims.first(r - 2);
+  out.size = 1;
+  for (std::int64_t d : out.dims) out.size *= d;
+  return xla::ffi::Error::Success();
+}
+
+inline xla::ffi::Error square_matrix_batch(
+    xla::ffi::Span<const std::int64_t> dims, const char *op, MatrixBatch &out) {
+  PJRT_RETURN_IF_ERROR(matrix_batch(dims, op, out));
+  if (out.m != out.n) {
     return xla::ffi::Error::InvalidArgument(
         std::string(op) + " requires a batch of square matrices [..., n, n]");
   }
-  PJRT_RETURN_IF_ERROR(dim_to_int(dims[r - 1], "matrix", n));
-  batch = 1;
-  for (std::size_t i = 0; i + 2 < r; i++) batch *= dims[i];
   return xla::ffi::Error::Success();
 }
 

@@ -115,9 +115,14 @@ is_buffer <- function(x) {
 #'   so the flag only governs missing values.
 #' @param ... (any)\cr
 #'   Additional arguments.
-#'   For `raw` types, this includes:
-#'   - `row_major`: Whether to read the data in row-major format or column-major format.
-#'     R uses column-major format.
+#'   The `logical`, `integer`, `numeric`, `integer64` and `raw` methods take:
+#'   - `row_major` (`logical(1)`): Whether `data` holds its elements in
+#'     row-major order rather than in R's column-major order. Defaults to
+#'     `FALSE`, except for `raw` data, which must name it. As R's column-major
+#'     data are the row-major data of the reversed shape,
+#'     `pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)` stores the array
+#'     `x` with its axes reversed, without transposing it; see the `row_major`
+#'     argument of [`as_array()`][as_array.PJRTBuffer] for the way back.
 #' @return `PJRTBuffer`
 #' @examplesIf plugins_downloaded()
 #' # Create a buffer from a numeric vector
@@ -173,10 +178,11 @@ warn_na_i64 <- function(data, dtype) {
 # has no exact double to format from. The message does not say how many NAs
 # there are: the callers test with anyNA(), which stops at the first one, and
 # counting them would mean a second full pass over the input on what is
-# otherwise a zero-copy upload.
-warn_na_kept <- function(sentinel) {
+# otherwise a zero-copy upload. The dispatcher calls this too, for an R input
+# it uploads, with `input` naming that input.
+warn_na_kept <- function(sentinel, input = "Input `data`") {
   cli::cli_warn(c(
-    "Input {.arg data} contains at least one {.val NA}, stored on the device as {.val {sentinel}}.",
+    "{input} contains at least one {.val NA}, stored on the device as {.val {sentinel}}.",
     i = "The value materializes as {.val NA} again in R, which {.code as_array()} reports on the way back.",
     i = "Use {.fn suppressWarnings} to silence this."
   ))
@@ -287,11 +293,28 @@ as_dtype_string <- function(dtype) {
   dtype
 }
 
-convert_buffer_args <- function(data, dtype, device, shape, default, recycle = TRUE, ...) {
+# A scalar has no layout, so `pjrt_scalar()` takes no further arguments.
+check_no_dots <- function(...) {
+  if (...length()) {
+    cli_abort("Unused arguments")
+  }
+}
+
+convert_buffer_args <- function(
+  data,
+  dtype,
+  device,
+  shape,
+  default,
+  recycle = TRUE,
+  row_major = FALSE,
+  ...
+) {
   dtype <- as_dtype_string(dtype %||% default)
   shape <- shape %||% get_dims(data)
   device <- as_pjrt_device(device)
   client <- client_from_device(device)
+  assert_flag(row_major)
   if (...length()) {
     cli_abort("Unused arguments")
   }
@@ -303,7 +326,8 @@ convert_buffer_args <- function(data, dtype, device, shape, default, recycle = T
     client = client,
     device = device,
     data = data,
-    dims = shape
+    dims = shape,
+    row_major = row_major
   )
 }
 
@@ -313,9 +337,10 @@ pjrt_buffer.logical <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  row_major = FALSE,
   ...
 ) {
-  args <- convert_buffer_args(data, dtype, device, shape, "bool", ...)
+  args <- convert_buffer_args(data, dtype, device, shape, "bool", row_major = row_major, ...)
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
@@ -327,9 +352,10 @@ pjrt_buffer.integer <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  row_major = FALSE,
   ...
 ) {
-  args <- convert_buffer_args(data, dtype, device, shape, "i32", ...)
+  args <- convert_buffer_args(data, dtype, device, shape, "i32", row_major = row_major, ...)
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
@@ -341,9 +367,10 @@ pjrt_buffer.numeric <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  row_major = FALSE,
   ...
 ) {
-  args <- convert_buffer_args(data, dtype, device, shape, "f32", ...)
+  args <- convert_buffer_args(data, dtype, device, shape, "f32", row_major = row_major, ...)
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
 }
@@ -354,9 +381,10 @@ pjrt_buffer.integer64 <- function(
   dtype = NULL,
   device = NULL,
   shape = NULL,
+  row_major = FALSE,
   ...
 ) {
-  args <- convert_buffer_args(data, dtype, device, shape, "i64", ...)
+  args <- convert_buffer_args(data, dtype, device, shape, "i64", row_major = row_major, ...)
   if (!args$dtype %in% c("i64", "ui64")) {
     cli_abort(
       "{.cls integer64} input only supports {.val i64} or {.val ui64} dtype, got {.val {args$dtype}}."
@@ -371,7 +399,8 @@ pjrt_buffer.integer64 <- function(
     device = args$device,
     data = args$data,
     dims = args$dims,
-    dtype = args$dtype
+    dtype = args$dtype,
+    row_major = args$row_major
   )
 }
 
@@ -418,7 +447,8 @@ pjrt_scalar.logical <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  args <- convert_buffer_args(data, dtype, device, integer(), "bool", ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "bool")
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_logical, args)
   buffer
@@ -434,7 +464,8 @@ pjrt_scalar.integer <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  args <- convert_buffer_args(data, dtype, device, integer(), "i32", ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "i32")
   warn_na_i32(data, args$dtype)
   buffer <- do.call(impl_client_buffer_from_integer, args)
   buffer
@@ -450,7 +481,8 @@ pjrt_scalar.numeric <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  args <- convert_buffer_args(data, dtype, device, integer(), "f32", ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "f32")
   buffer <- do.call(impl_client_buffer_from_double, args)
   buffer
 }
@@ -465,7 +497,8 @@ pjrt_scalar.integer64 <- function(
   if (length(data) != 1) {
     cli_abort("data must have length 1")
   }
-  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer(), ...)
+  check_no_dots(...)
+  pjrt_buffer.integer64(data, dtype = dtype, device = device, shape = integer())
 }
 
 #' @export
@@ -480,7 +513,8 @@ pjrt_scalar.raw <- function(
   }
   dtype <- as_dtype_string(dtype)
   check_raw_buffer_size(data, dtype, integer())
-  args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE, ...)
+  check_no_dots(...)
+  args <- convert_buffer_args(data, dtype, device, integer(), "f32", recycle = FALSE)
   buffer <- do.call(impl_client_buffer_from_raw, args)
   buffer
 }
@@ -545,6 +579,14 @@ elt_type <- function(x) {
 #' @param await (`logical(1)`)\cr
 #'   Whether to wait for the transfer to the host (the default). If `FALSE`,
 #'   return immediately with an array whose values arrive asynchronously.
+#' @param row_major (`logical(1)`)\cr
+#'   Whether to return the buffer's data in row-major order, with the shape
+#'   reversed: the result is the R array of shape `rev(shape(x))` whose
+#'   column-major data are the buffer's row-major data, so for a buffer in
+#'   the default layout the transfer needs no transpose. It is the way back from
+#'   `pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)`, which it returns
+#'   as `x`. Default `FALSE`, which returns the R array of shape `shape(x)`.
+#'   Either way, a buffer of rank 0 or 1 gives the same result.
 #' @param ... Additional arguments (unused).
 #' @return An R `array` (or `vector` for shape `integer()`).
 #' @seealso [is_ready()], [await()], [pjrt_execute()]
@@ -556,10 +598,14 @@ elt_type <- function(x) {
 #' result <- as_array(buf, await = FALSE)
 #' is_ready(result)
 #' result
+#'
+#' # The shape reversed, without a transpose
+#' as_array(buf, row_major = TRUE)
 #' @export
-as_array.PJRTBuffer <- function(x, check = "warn", await = TRUE, ...) {
+as_array.PJRTBuffer <- function(x, check = "warn", await = TRUE, row_major = FALSE, ...) {
   check <- check_level(check)
   assert_flag(await)
+  assert_flag(row_major)
   if (!await) {
     # The check runs on the array's first read, which can come from any code;
     # erroring there would surface far from this call (see ?as_array.PJRTBuffer).
@@ -569,9 +615,9 @@ as_array.PJRTBuffer <- function(x, check = "warn", await = TRUE, ...) {
         i = "Use {.code check = \"warn\"} or {.code check = FALSE} with {.code await = FALSE}."
       ))
     }
-    return(as_array_async(x, check))
+    return(as_array_async(x, check, row_major))
   }
-  result <- impl_buffer_to_host(x)
+  result <- impl_buffer_to_host(x, row_major)
   check_representable(result, as.character(elt_type(x)), check)
   result
 }
@@ -648,9 +694,9 @@ report_lossy <- function(check, call, message, .envir = parent.frame()) {
 
 # Starts the transfer of `x` to the host and returns its host array: an R array
 # whose values materialize when first read, checked at level `check` ("warn" or
-# "none").
-as_array_async <- function(x, check) {
-  impl_buffer_to_host_async(x, check)
+# "none"), in row-major order with the shape reversed for `row_major`.
+as_array_async <- function(x, check, row_major) {
+  impl_buffer_to_host_async(x, check, row_major)
 }
 
 # Called by a host array (src/host_array.cpp) on the first read of its data,
@@ -821,6 +867,13 @@ print.PJRTDevice <- function(x, ...) {
 #' @param footer (`NULL` or `character(1)`)\cr
 #'   The footer line to print. If `NULL` (default), prints the standard
 #'   `[ <PLATFORM><TYPE>{<SHAPE>} ]` summary. Use `""` to suppress.
+#' @param reversed (`logical(1)`)\cr
+#'   Whether to print the buffer with its shape reversed, as the R array of
+#'   shape `rev(shape(x))` whose column-major data are the buffer's row-major
+#'   data (see the `row_major` argument of
+#'   [`as_array()`][as_array.PJRTBuffer]). That is the R array a buffer
+#'   uploaded with `pjrt_buffer(x, shape = rev(dim(x)), row_major = TRUE)`
+#'   stores, which then prints as `pjrt_buffer(x)` would. Default `FALSE`.
 #' @param ... Additional arguments (unused).
 #' @export
 print.PJRTBuffer <- function(
@@ -830,9 +883,11 @@ print.PJRTBuffer <- function(
   max_rows_slice = getOption("pjrt.print_max_rows_slice", max_rows),
   header = TRUE,
   footer = NULL,
+  reversed = FALSE,
   ...
 ) {
   assert_flag(header)
+  assert_flag(reversed)
   max_rows <- assert_print_rows(max_rows)
   max_width <- assert_int(max_width, coerce = TRUE)
   if (max_width %in% c(0, 1L)) {
@@ -845,6 +900,9 @@ print.PJRTBuffer <- function(
     cat(class(x)[[1L]], "\n")
   }
   shp <- shape(x)
+  if (reversed) {
+    shp <- rev(shp)
+  }
   shape_str <- if (length(shp)) {
     paste0(paste0(shp, collapse = "x"))
   } else {
@@ -854,7 +912,8 @@ print.PJRTBuffer <- function(
     x,
     max_rows = max_rows,
     max_width = max_width,
-    max_rows_slice = max_rows_slice
+    max_rows_slice = max_rows_slice,
+    reversed = reversed
   )
   if (is.null(footer)) {
     footer <- sprintf("[ %s%s{%s} ]", toupper(platform(x)), as.character(dtype(x)), shape_str)

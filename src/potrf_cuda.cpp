@@ -5,9 +5,8 @@
 // CUBLAS_FILL_MODE_UPPER (1). Each matrix of the batch gets its own potrf call
 // whose devInfo is that matrix's slot of the `info` output, so the result
 // stays on the device and the handler never synchronises the stream.
-#include <Rcpp.h>
-
 #include "ffi_common.h"
+#include "ffi_handlers.h"
 
 #ifndef _WIN32
 #include <cstddef>
@@ -25,15 +24,18 @@ template <typename T>
 static Error potrf_cuda_impl(void *stream, ScratchAllocator &scratch,
                              bool lower, AnyBuffer input, Result<AnyBuffer> out,
                              Result<AnyBuffer> info_out) {
+  MatrixBatch batch;
+  PJRT_RETURN_IF_ERROR(square_matrix_batch(input.dimensions(), "potrf", batch));
+  const int n = batch.n;
+  PJRT_RETURN_IF_ERROR(
+      batch.check((*out).dimensions(), {n, n}, "potrf", "factor [..., n, n]"));
+  PJRT_RETURN_IF_ERROR(
+      batch.check((*info_out).dimensions(), {}, "potrf", "info [...]"));
+  if (batch.size == 0) return Error::Success();
+
   Solver solver(get_cuda_libs());
   PJRT_RETURN_IF_ERROR(solver.begin(scratch, stream));
   auto &g = solver.g;
-
-  int n;
-  std::int64_t batch;
-  PJRT_RETURN_IF_ERROR(
-      batched_square_dims(input.dimensions(), "potrf", n, batch));
-  if (batch == 0) return Error::Success();
 
   auto input_ptr = reinterpret_cast<CUdeviceptr>(input.untyped_data());
   auto out_ptr = reinterpret_cast<CUdeviceptr>((*out).untyped_data());
@@ -44,7 +46,7 @@ static Error potrf_cuda_impl(void *stream, ScratchAllocator &scratch,
   if (n == 0) {
     PJRT_RETURN_IF_GPU_ERROR(
         g.memset_d8(reinterpret_cast<CUdeviceptr>(info), 0,
-                    static_cast<std::size_t>(batch) * sizeof(int), stream),
+                    static_cast<std::size_t>(batch.size) * sizeof(int), stream),
         "cuMemsetD8Async (info)");
     return Error::Success();
   }
@@ -53,7 +55,7 @@ static Error potrf_cuda_impl(void *stream, ScratchAllocator &scratch,
   if (out_ptr != input_ptr) {
     PJRT_RETURN_IF_GPU_ERROR(
         g.memcpy_dtod(out_ptr, input_ptr,
-                      mat * static_cast<std::size_t>(batch) * sizeof(T),
+                      mat * static_cast<std::size_t>(batch.size) * sizeof(T),
                       stream),
         "cuMemcpyDtoDAsync (input -> factor)");
   }
@@ -70,7 +72,7 @@ static Error potrf_cuda_impl(void *stream, ScratchAllocator &scratch,
   PJRT_RETURN_IF_ERROR(allocate_workspace<T>(
       scratch, static_cast<std::size_t>(lwork), "potrf workspace", d_work));
 
-  for (std::int64_t b = 0; b < batch; b++) {
+  for (std::int64_t b = 0; b < batch.size; b++) {
     PJRT_RETURN_IF_GPU_ERROR(
         CuSolver<T>::potrf(g)(solver.handle.get(), uplo, n, a + b * mat, n,
                               d_work, lwork, info + b),
@@ -93,19 +95,15 @@ static Error do_potrf_cuda(void *stream, ScratchAllocator scratch, bool lower,
 #endif
 }
 
-XLA_FFI_DEFINE_HANDLER(potrf_handler_cuda, do_potrf_cuda,
-                       Ffi::Bind()
-                           .Ctx<PlatformStream<void *>>()
-                           .Ctx<ScratchAllocator>()
-                           .Attr<bool>("lower")
-                           .Arg<AnyBuffer>()
-                           .Ret<AnyBuffer>()
-                           .Ret<AnyBuffer>());
+XLA_FFI_DEFINE_HANDLER_EXPLICIT(potrf_handler_cuda, do_potrf_cuda,
+                                Ffi::Bind()
+                                    .Ctx<PlatformStream<void *>>()
+                                    .Ctx<ScratchAllocator>()
+                                    .Attr<bool>("lower")
+                                    .Arg<AnyBuffer>()
+                                    .Ret<AnyBuffer>()
+                                    .Ret<AnyBuffer>());
+
+XLA_FFI_Handler *get_potrf_handler_cuda() { return potrf_handler_cuda; }
 
 }  // namespace rpjrt
-
-// [[Rcpp::export]]
-SEXP get_potrf_handler_cuda() {
-  return R_MakeExternalPtr((void *)rpjrt::potrf_handler_cuda, R_NilValue,
-                           R_NilValue);
-}

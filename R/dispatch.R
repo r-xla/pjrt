@@ -22,7 +22,7 @@
 #' * an `"AnvlArray"` of the dispatcher's `backend` (an array of the `"plain"`
 #'   backend, which captures a trace-time constant, is never an input), or
 #' * bare R data: an unclassed double, integer or logical vector that is
-#'   either an [is.array()] value or a length-1 scalar other than `NA`.
+#'   either an [is.array()] value or a length-1 scalar, `NA` included.
 #'
 #' Unless `move_inputs = TRUE`, all array inputs must also live on one device.
 #' `compile` is therefore never asked to validate: it is called only on a cache
@@ -49,6 +49,28 @@
 #' off the `PJRTBuffer`; for any other backend all metadata comes from
 #' `extractor`. A backend is free to store it as fields or to compute it on
 #' demand.
+#'
+#' @section Reversed shapes:
+#' With `backend = "pjrt"` and `reverse_shapes = TRUE`, an array of R shape
+#' `(d1, ..., dn)` is stored as a `PJRTBuffer` of shape `(dn, ..., d1)`. R's
+#' column-major data are the row-major data of the reversed shape, so such a
+#' buffer moves between R and the device without a transpose (see the
+#' `row_major` arguments of [`pjrt_buffer()`] and
+#' [`as_array()`][as_array.PJRTBuffer]). Everything the dispatcher exchanges
+#' with the caller stays in R order:
+#' * an array input's aval -- in the cache key and in `info$avals` -- has its
+#'   buffer's shape reversed,
+#' * a bare R input is uploaded with its shape reversed, in row-major order,
+#'   which keeps its elements in place (converted one by one where R's storage
+#'   type is not the data type),
+#' * the `shape` of an implicit input and that of a phantom are R shapes: the
+#'   buffer an implicit input's `get()` returns must have it reversed, and a
+#'   phantom is allocated with it reversed.
+#'
+#' The outputs, implicit ones included, are wrapped from their avals as
+#' declared, which are therefore R shapes too, while the executable returns
+#' buffers of the reversed shapes. `const_arrays` are passed on as they are,
+#' so the caller uploads them reversed itself.
 #'
 #' @param capacity (`integer(1)`)\cr
 #'   Maximum number of entries to cache; the least recently used one is
@@ -151,6 +173,11 @@
 #'     input takes any dtype, an `"integer"` input any but `"bool"`, and a
 #'     `"logical"` input only `"bool"`.
 #'
+#'     A missing value is uploaded as [`pjrt_buffer()`] uploads it at that
+#'     dtype: it becomes `NaN` at a float, is an error where the dtype has no
+#'     missing value, and an `NA_integer_` at `"i32"` arrives as `INT_MIN`.
+#'     That last one warns, naming the input, as `pjrt_buffer()` does.
+#'
 #'     Any other `backend` uploads nothing: `r_fun` gets each R value itself, so
 #'     no entry could take effect and every one of them must be `NA`. A declared
 #'     dtype is rejected there rather than accepted and ignored, for the same
@@ -228,6 +255,10 @@
 #'   consulted only when no array names a device, this is resolved for every
 #'   call: any entry may depend on it. `NULL` (default) keys on the inputs
 #'   alone.
+#' @param reverse_shapes (`logical(1)`)\cr
+#'   Whether arrays are stored as buffers of their shape reversed (see
+#'   *Reversed shapes*). Only `backend = "pjrt"` supports it: any other
+#'   backend's `extractor` reports the avals itself. Default `FALSE`.
 #' @return [`dispatcher()`] returns a `Dispatcher`, an external pointer to the
 #'   native dispatcher and its cache.
 #' @export
@@ -239,7 +270,8 @@ dispatcher <- function(
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL,
-  context = NULL
+  context = NULL,
+  reverse_shapes = FALSE
 ) {
   checkmate::assert_count(capacity, positive = TRUE)
   checkmate::assert_function(compile)
@@ -249,6 +281,7 @@ dispatcher <- function(
   checkmate::assert_function(default_device, null.ok = TRUE)
   checkmate::assert_function(extractor, null.ok = TRUE)
   checkmate::assert_function(context, null.ok = TRUE)
+  checkmate::assert_flag(reverse_shapes)
   if (!move_inputs && is.null(default_device)) {
     cli::cli_abort(
       "{.arg default_device} is required unless {.code move_inputs = TRUE}."
@@ -263,6 +296,12 @@ dispatcher <- function(
        function that reads a leaf's metadata via the backend's accessors."
     )
   }
+  if (engine == "closure" && reverse_shapes) {
+    cli::cli_abort(
+      "{.code reverse_shapes = TRUE} requires {.code backend = \"pjrt\"}: any
+       other backend's {.arg extractor} reports the avals itself."
+    )
+  }
   impl_dispatcher_create(
     as.integer(capacity),
     compile,
@@ -272,7 +311,8 @@ dispatcher <- function(
     move_inputs,
     default_device,
     extractor,
-    context
+    context,
+    reverse_shapes
   )
 }
 

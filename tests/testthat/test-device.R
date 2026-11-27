@@ -72,3 +72,17 @@ test_that("PJRTDevice is usable as a hashtab key", {
   ht[[dev2]] <- "b"
   expect_equal(ht[[dev1]], "b")
 })
+
+describe("device_attributes", {
+  it("returns the attributes as a named list", {
+    attrs <- device_attributes("cpu")
+    expect_list(attrs)
+    expect_identical(names(attrs), unique(names(attrs)))
+  })
+
+  it("reports the compute capability of a CUDA device", {
+    skip_if(!is_cuda())
+    attrs <- device_attributes(Sys.getenv("PJRT_PLATFORM"))
+    expect_match(attrs$compute_capability, "^[0-9]+\\.[0-9]+$")
+  })
+})

@@ -12,7 +12,8 @@ dispatcher(
   move_inputs = FALSE,
   default_device = NULL,
   extractor = NULL,
-  context = NULL
+  context = NULL,
+  reverse_shapes = FALSE
 )
 }
 \arguments{
@@ -121,6 +122,11 @@ be uploaded is rejected here rather than at execute time: a \code{"double"}
 input takes any dtype, an \code{"integer"} input any but \code{"bool"}, and a
 \code{"logical"} input only \code{"bool"}.
 
+A missing value is uploaded as \code{\link[=pjrt_buffer]{pjrt_buffer()}} uploads it at that
+dtype: it becomes \code{NaN} at a float, is an error where the dtype has no
+missing value, and an \code{NA_integer_} at \code{"i32"} arrives as \code{INT_MIN}.
+That last one warns, naming the input, as \code{pjrt_buffer()} does.
+
 Any other \code{backend} uploads nothing: \code{r_fun} gets each R value itself, so
 no entry could take effect and every one of them must be \code{NA}. A declared
 dtype is rejected there rather than accepted and ignored, for the same
@@ -206,6 +212,11 @@ reaches \code{compile} as \code{info$context}. Unlike \code{default_device}, whi
 consulted only when no array names a device, this is resolved for every
 call: any entry may depend on it. \code{NULL} (default) keys on the inputs
 alone.}
+
+\item{reverse_shapes}{(\code{logical(1)})\cr
+Whether arrays are stored as buffers of their shape reversed (see
+\emph{Reversed shapes}). Only \code{backend = "pjrt"} supports it: any other
+backend's \code{extractor} reports the avals itself. Default \code{FALSE}.}
 }
 \value{
 \code{\link[=dispatcher]{dispatcher()}} returns a \code{Dispatcher}, an external pointer to the
@@ -235,7 +246,7 @@ offending argument by its path in the argument tree. A dynamic leaf must be
 \item an \code{"AnvlArray"} of the dispatcher's \code{backend} (an array of the \code{"plain"}
 backend, which captures a trace-time constant, is never an input), or
 \item bare R data: an unclassed double, integer or logical vector that is
-either an \code{\link[=is.array]{is.array()}} value or a length-1 scalar other than \code{NA}.
+either an \code{\link[=is.array]{is.array()}} value or a length-1 scalar, \code{NA} included.
 }
 
 Unless \code{move_inputs = TRUE}, all array inputs must also live on one device.
@@ -265,5 +276,31 @@ Of an array input, the dispatcher reads only \verb{$data} directly, plus
 off the \code{PJRTBuffer}; for any other backend all metadata comes from
 \code{extractor}. A backend is free to store it as fields or to compute it on
 demand.
+}
+
+\section{Reversed shapes}{
+
+With \code{backend = "pjrt"} and \code{reverse_shapes = TRUE}, an array of R shape
+\verb{(d1, ..., dn)} is stored as a \code{PJRTBuffer} of shape \verb{(dn, ..., d1)}. R's
+column-major data are the row-major data of the reversed shape, so such a
+buffer moves between R and the device without a transpose (see the
+\code{row_major} arguments of \code{\link[=pjrt_buffer]{pjrt_buffer()}} and
+\code{\link[=as_array.PJRTBuffer]{as_array()}}). Everything the dispatcher exchanges
+with the caller stays in R order:
+\itemize{
+\item an array input's aval -- in the cache key and in \code{info$avals} -- has its
+buffer's shape reversed,
+\item a bare R input is uploaded with its shape reversed, in row-major order,
+which keeps its elements in place (converted one by one where R's storage
+type is not the data type),
+\item the \code{shape} of an implicit input and that of a phantom are R shapes: the
+buffer an implicit input's \code{get()} returns must have it reversed, and a
+phantom is allocated with it reversed.
+}
+
+The outputs, implicit ones included, are wrapped from their avals as
+declared, which are therefore R shapes too, while the executable returns
+buffers of the reversed shapes. \code{const_arrays} are passed on as they are,
+so the caller uploads them reversed itself.
 }
 

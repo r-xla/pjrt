@@ -118,8 +118,58 @@ pjrt_plugin <- function(platform) {
   plugin
 }
 
-platform_cache_dir <- function(platform) {
-  file.path(tools::R_user_dir("pjrt", which = "cache"), platform)
+# The directories a plugin for `platform` is stored in, in order of preference:
+# the `plugins` directory of the installed package, which all users of its
+# library share, then the user cache.
+plugin_dirs <- function(platform) {
+  pkg_dir <- installed_package_dir()
+  dirs <- c(
+    if (!is.null(pkg_dir)) file.path(pkg_dir, "plugins"),
+    tools::R_user_dir("pjrt", which = "cache")
+  )
+  file.path(dirs, platform)
+}
+
+# The directory of the installed pjrt package, or NULL when pjrt is loaded with
+# pkgload::load_all(), so that plugins are not downloaded into the source tree.
+installed_package_dir <- function() {
+  if (isNamespaceLoaded("pkgload") && pkgload::is_dev_package("pjrt")) {
+    return(NULL)
+  }
+  system.file(package = "pjrt")
+}
+
+# The first of plugin_dirs() holding the plugin currently configured for
+# `platform`, or NULL if there is none.
+find_plugin_dir <- function(platform) {
+  expected_hash <- rlang::hash(as.character(plugin_url(platform)))
+  Find(
+    \(dir) {
+      hash_path <- file.path(dir, "hash")
+      file.exists(hash_path) && identical(readLines(hash_path), expected_hash)
+    },
+    plugin_dirs(platform)
+  )
+}
+
+# The directory to download the plugin for `platform` into: the first of
+# plugin_dirs() that can be written to, falling back to the user cache.
+plugin_download_dir <- function(platform) {
+  dirs <- plugin_dirs(platform)
+  Find(dir_writable, dirs) %||% dirs[[length(dirs)]]
+}
+
+# Whether `path` can be created or replaced: whether its closest existing
+# ancestor is writable. FALSE when no ancestor exists (e.g. a missing drive).
+dir_writable <- function(path) {
+  while (!dir.exists(path)) {
+    parent <- dirname(path)
+    if (parent == path) {
+      return(FALSE)
+    }
+    path <- parent
+  }
+  file.access(path, 2L) == 0L
 }
 
 #' @title Check if Plugin is Downloaded
@@ -135,7 +185,7 @@ platform_cache_dir <- function(platform) {
 #' @export
 plugins_downloaded <- function(platforms = NULL) {
   platforms <- platforms %||% Sys.getenv("PJRT_PLATFORM", "cpu")
-  all(vapply(platforms, \(p) dir.exists(platform_cache_dir(p)), logical(1)))
+  all(vapply(platforms, \(p) any(dir.exists(plugin_dirs(p))), logical(1L)))
 }
 
 plugin_path <- function(platform) {
@@ -150,34 +200,13 @@ plugin_path <- function(platform) {
     return(envvar)
   }
 
-  platform_cache_dir <- platform_cache_dir(platform)
-
-  plugin_hash_path <- file.path(platform_cache_dir, "hash")
-
-  if (!dir.exists(platform_cache_dir)) {
-    plugin_download(platform_cache_dir, platform)
-  } else {
-    plugin_hash <- readLines(plugin_hash_path)
-    expected_hash <- rlang::hash(as.character(plugin_url(platform)))
-
-    if (plugin_hash != expected_hash) {
-      plugin_download(platform_cache_dir, platform)
-    }
+  dir <- find_plugin_dir(platform)
+  if (is.null(dir)) {
+    dir <- plugin_download_dir(platform)
+    plugin_download(dir, platform)
   }
 
-  if (!file.exists(plugin_hash_path)) {
-    plugin_download(platform_cache_dir, platform)
-  } else {
-    plugin_hash <- readLines(plugin_hash_path)
-    expected_hash <- rlang::hash(as.character(plugin_url(platform)))
-
-    if (plugin_hash != expected_hash) {
-      message("Plugin hash mismatch. Re-downloading...")
-      plugin_download(platform_cache_dir, platform)
-    }
-  }
-
-  list.files(platform_cache_dir, pattern = "pjrt", full.names = TRUE)
+  list.files(dir, pattern = "pjrt", full.names = TRUE)
 }
 
 # Ask the user for permission before downloading a PJRT plugin, mirroring the
@@ -190,7 +219,7 @@ plugin_path <- function(platform) {
 # script never triggers a surprise download. This is never reached during
 # `R CMD check` because examples are guarded behind `plugins_downloaded()` and
 # the test suite only runs when `PJRT_TEST=1` (see tests/testthat.R).
-confirm_plugin_install <- function(platform, url) {
+confirm_plugin_install <- function(platform, url, dir) {
   install <- Sys.getenv("PJRT_INSTALL", unset = "")
 
   if (install == "1") {
@@ -216,7 +245,7 @@ confirm_plugin_install <- function(platform, url) {
 
   cli::cli_inform(c(
     "The {.val {platform}} PJRT plugin needs to be {.strong downloaded} for {.pkg pjrt} to work.",
-    i = "It will be downloaded from {.url {url}} and cached in {.path {platform_cache_dir(platform)}}.",
+    i = "It will be downloaded from {.url {url}} and stored in {.path {dir}}.",
     i = "Set {.envvar PJRT_INSTALL} to {.val 1} to skip this prompt in the future."
   ))
   response <- utils::askYesNo("Do you want to download it now?")
@@ -227,25 +256,22 @@ confirm_plugin_install <- function(platform, url) {
   invisible(TRUE)
 }
 
-plugin_download <- function(cache_dir, platform = NULL) {
-  plugin_hash_path <- file.path(cache_dir, "hash")
-
+plugin_download <- function(dir, platform = NULL) {
   url <- plugin_url(platform)
-  confirm_plugin_install(platform, url)
+  confirm_plugin_install(platform, url, dir)
   tempfile <- tempfile(fileext = ".tar.gz")
   cli::cli_inform("Downloading PJRT plugin from {.url {url}}")
   withr::local_options(timeout = max(getOption("timeout"), 600L))
   utils::download.file(url, tempfile, mode = "wb", quiet = FALSE)
 
-  if (dir.exists(cache_dir)) {
-    fs::dir_delete(cache_dir)
+  if (dir.exists(dir)) {
+    fs::dir_delete(dir)
   }
-  fs::dir_create(cache_dir, recurse = TRUE)
+  fs::dir_create(dir, recurse = TRUE)
 
-  plugin_hash <- rlang::hash(as.character(url))
-  writeLines(plugin_hash, plugin_hash_path)
+  writeLines(rlang::hash(as.character(url)), file.path(dir, "hash"))
 
-  utils::untar(tempfile, exdir = cache_dir)
+  utils::untar(tempfile, exdir = dir)
 }
 
 plugin_url <- function(platform) {
@@ -274,7 +300,7 @@ plugin_url <- function(platform) {
     # version back to the runtime, and a plugin older than the headers
     # silently refuses every custom call. See the upgrade-pjrt skill.
     return(sprintf(
-      "https://github.com/r-xla/pjrt-builds/releases/download/pjrt-cpu-aa1e72c/pjrt-cpu_%s-%s.tar.gz",
+      "https://github.com/r-xla/pjrt-builds/releases/download/pjrt-cpu-fc31477/pjrt-cpu_%s-%s.tar.gz",
       os,
       arch
     ))

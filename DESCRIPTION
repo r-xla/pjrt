@@ -1,6 +1,6 @@
 Package: pjrt
-Title: R Interface to PJRT
-Version: 0.7.0.9000
+Title: R Interface to 'PJRT'
+Version: 0.8.0.9005
 Authors@R: c(
     person("Sebastian", "Fischer", , "seb.fischer@tutamail.com", role = c("cre", "aut"),
            comment = c(ORCID = "https://orcid.org/0000-0002-9609-3197")),
@@ -13,10 +13,14 @@ Authors@R: c(
     person("The OpenXLA Authors", role = "cph",
            comment = "Authors of the PJRT C API and XLA FFI headers in inst/include and the XLA protobuf definitions in inst/proto (Apache-2.0); see inst/COPYRIGHTS"),
     person("Christian", "Rau", role = "cph",
-           comment = "Author of the half-precision library half.hpp bundled in src/half (MIT); see inst/COPYRIGHTS")
+           comment = "Author of the half-precision library half.hpp bundled in src/half (MIT); see inst/COPYRIGHTS"),
+    person("Posit Software, PBC", role = "cph",
+           comment = "Copyright holder of testthat's C++ unit-test header bundled in src/testthat (MIT); see inst/COPYRIGHTS"),
+    person("Two Blue Cubes Ltd", role = "cph",
+           comment = "Copyright holder of the Catch unit-test framework bundled in src/testthat/vendor (BSL-1.0); see inst/COPYRIGHTS")
   )
-Description: Provides an R interface to PJRT (Pluggable Jit RunTime),
-    which compiles StableHLO and HLO programs with the XLA compiler and
+Description: Provides an R interface to 'PJRT' (Pluggable Jit RunTime),
+    which compiles 'StableHLO' and 'HLO' programs with the 'XLA' compiler and
     runs them on hardware backends such as CPU and GPU.
 License: MIT + file LICENSE
 URL: https://r-xla.github.io/pjrt/, https://github.com/r-xla/pjrt
@@ -35,12 +39,11 @@ Imports:
     xlamisc (>= 0.5.0)
 Suggests:
     callr,
+    pkgload,
     testthat (>= 3.0.0),
     xml2
 LinkingTo:
-    Rcpp,
-    testthat
-Additional_repositories: https://r-xla.r-universe.dev
+    Rcpp
 Config/build/compilation-database: true
 Config/testthat/edition: 3
 Encoding: UTF-8

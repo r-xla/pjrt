@@ -78,6 +78,48 @@ Dispatcher& as_dispatcher(SEXP handle) {
   return *ptr;
 }
 
+// The flat leaf the call's `input`-th execute-time input comes from: a static
+// leaf supplies no input, so the two counts differ by the statics before it.
+static std::size_t leaf_of_input(const std::vector<char>& is_static,
+                                 std::size_t input) {
+  std::size_t k = 0;
+  for (; k < is_static.size(); ++k) {
+    if (is_static[k]) continue;
+    if (input == 0) break;
+    --input;
+  }
+  return k;
+}
+
+// An R integer uploaded at i32 travels zero-copy, so an NA in it reaches the
+// device as the ordinary value INT_MIN -- the one missing value an upload
+// keeps rather than converts or rejects. pjrt_buffer() warns about it, and so
+// does a dispatched call, naming the input it is in. Only an R integer can get
+// here: a logical uploads only at bool, a double at an integer dtype rejects
+// its NA, and an integer at any other integer dtype does too (see
+// upload_pair_supported() and the buffer entry points).
+static void warn_kept_na(const std::vector<ExecInput>& exec_inputs,
+                         const std::vector<char>& is_static,
+                         const RTree& in_tree) {
+  for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
+    const ExecInput& in = exec_inputs[k];
+    if (in.aval->kind != AvalKind::kRData || in.dtype != AnvlDtype::kI32 ||
+        TYPEOF(in.value) != INTSXP) {
+      continue;
+    }
+    const int* x = INTEGER_RO(in.value);
+    const R_xlen_t n = XLENGTH(in.value);
+    bool any_na = false;
+    for (R_xlen_t i = 0; i < n && !any_na; ++i) any_na = x[i] == NA_INTEGER;
+    if (!any_na) continue;
+    std::string subject = leaf_subject(in_tree, leaf_of_input(is_static, k));
+    subject[0] = 'I';  // it starts the sentence: "Input `x`"
+    Rcpp::Function warn =
+        Rcpp::Environment::namespace_env("pjrt")["warn_na_kept"];
+    warn("-2147483648", subject);
+  }
+}
+
 }  // namespace rpjrt
 
 // ---- Dispatcher: the native eager-dispatch hot path ------------------------
@@ -90,7 +132,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
     int capacity, SEXP compile_fn,
     Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine,
     std::string backend, bool move_inputs, SEXP default_device_fn,
-    SEXP extractor_fn, SEXP context_fn) {
+    SEXP extractor_fn, SEXP context_fn, bool reverse_shapes) {
   using namespace rpjrt;
   // A zero-capacity LRU evicts every entry as it is inserted, so the compile
   // path would insert and then dereference a null entry.
@@ -100,7 +142,7 @@ Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(
   }
   if (backend.empty()) Rcpp::stop("backend must be a non-empty string");
   std::unique_ptr<Engine> eng =
-      make_engine(engine, backend, move_inputs, extractor_fn);
+      make_engine(engine, backend, move_inputs, reverse_shapes, extractor_fn);
   if (default_device_fn != R_NilValue && !Rf_isFunction(default_device_fn)) {
     Rcpp::stop("default_device must be a function or NULL");
   }
@@ -384,6 +426,7 @@ SEXP impl_dispatch_run(SEXP dispatcher, Rcpp::List args) {
     for (std::size_t k = 0; k < exec_inputs.size(); ++k) {
       exec_inputs[k].dtype = entry->input_dtypes[k];
     }
+    warn_kept_na(exec_inputs, is_static, in_tree);
   }
   return engine.run(*entry, exec_inputs, args);
 }

@@ -1,5 +1,56 @@
 # pjrt (development version)
 
+## Breaking changes
+
+* The `geqrf`, `orgqr`, `lu` and `svd` custom calls take an m x n matrix as a
+  row-major `[n, m]` buffer (its column-major data, the way an R matrix is
+  stored with its shape reversed) instead of a column-major `[m, n]` one.
+
+## New features
+
+* `device_attributes()` returns the attributes a plugin reports for a device,
+  such as the `compute_capability` of a CUDA device.
+* The `geqrf`, `orgqr`, `lu`, `svd` and `eigh` custom calls take a batch of
+  matrices `[..., n, m]`, as `potrf` and `trsm` do, and on the host spread it
+  over XLA's threads where the BLAS allows.
+* Plugins are downloaded into the installation directory of `pjrt`, so that
+  all users of a library share them, and into
+  `tools::R_user_dir("pjrt", "cache")` only when it is not writable.
+* `pjrt_buffer()` takes `row_major` for logical, integer, double and
+  `integer64` data too, not only for raw data.
+* `as_array()` gains `row_major`, which returns a buffer's data in row-major
+  order with its shape reversed, without a transpose.
+* `print()` of a `PJRTBuffer` gains `reversed`, which prints it as the R array
+  of its shape reversed, and the `print_tensor` custom call a `reverse_dims`
+  attribute that does the same.
+* `dispatcher()` gains `reverse_shapes`, which reports and declares R shapes
+  for buffers that store an R array with its shape reversed, and uploads bare
+  R inputs that way without reordering them.
+* `dispatch()` accepts an `NA_real_` or `NA_integer_` scalar as bare R data,
+  uploading it as `pjrt_buffer()` would, and warns about an `NA_integer_` it
+  keeps at `"i32"`, naming the input.
+
+## Bug fixes
+
+* `format_buffer()` formats an `NA` in an `"f64"` buffer as NaN instead of as
+  `-Inf`.
+* The CPU plugin is built from openxla/xla@fc31477, whose LLVM no longer hangs
+  compiling a random number draw inside a small while loop (r-xla/anvl#655).
+* The `print_tensor` custom call prints a tensor without elements on CUDA
+  instead of failing.
+* `as_array()` of a buffer without elements raises the error of the execution
+  that produced it, instead of returning an empty array.
+
+## Other
+
+* pjrt no longer needs testthat to install: its C++ unit tests use a bundled
+  copy of testthat's Catch headers.
+
+# pjrt 0.8.0
+
+* Fixes to the package metadata, documentation links and build ignores for the
+  initial CRAN submission.
+
 # pjrt 0.7.0
 
 ## Breaking changes

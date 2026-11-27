@@ -22,8 +22,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_dispatcher_create
-Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(int capacity, SEXP compile_fn, Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn, SEXP extractor_fn, SEXP context_fn);
-RcppExport SEXP _pjrt_impl_dispatcher_create(SEXP capacitySEXP, SEXP compile_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP, SEXP extractor_fnSEXP, SEXP context_fnSEXP) {
+Rcpp::XPtr<rpjrt::Dispatcher> impl_dispatcher_create(int capacity, SEXP compile_fn, Rcpp::Nullable<Rcpp::CharacterVector> static_names, std::string engine, std::string backend, bool move_inputs, SEXP default_device_fn, SEXP extractor_fn, SEXP context_fn, bool reverse_shapes);
+RcppExport SEXP _pjrt_impl_dispatcher_create(SEXP capacitySEXP, SEXP compile_fnSEXP, SEXP static_namesSEXP, SEXP engineSEXP, SEXP backendSEXP, SEXP move_inputsSEXP, SEXP default_device_fnSEXP, SEXP extractor_fnSEXP, SEXP context_fnSEXP, SEXP reverse_shapesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -36,7 +36,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type default_device_fn(default_device_fnSEXP);
     Rcpp::traits::input_parameter< SEXP >::type extractor_fn(extractor_fnSEXP);
     Rcpp::traits::input_parameter< SEXP >::type context_fn(context_fnSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_dispatcher_create(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn));
+    Rcpp::traits::input_parameter< bool >::type reverse_shapes(reverse_shapesSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_dispatcher_create(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn, reverse_shapes));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -63,26 +64,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// get_eigh_handler
-SEXP get_eigh_handler();
-RcppExport SEXP _pjrt_get_eigh_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_eigh_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_eigh_handler_cuda
-SEXP get_eigh_handler_cuda();
-RcppExport SEXP _pjrt_get_eigh_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_eigh_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
 // impl_register_custom_call
 void impl_register_custom_call(Rcpp::XPtr<rpjrt::PJRTPlugin> plugin, const std::string& target_name, SEXP handler_ptr, const std::string& platform_name);
 RcppExport SEXP _pjrt_impl_register_custom_call(SEXP pluginSEXP, SEXP target_nameSEXP, SEXP handler_ptrSEXP, SEXP platform_nameSEXP) {
@@ -96,43 +77,13 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// get_print_handler
-SEXP get_print_handler();
-RcppExport SEXP _pjrt_get_print_handler() {
+// builtin_custom_calls
+Rcpp::List builtin_custom_calls();
+RcppExport SEXP _pjrt_builtin_custom_calls() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_print_ordered_handler
-SEXP get_print_ordered_handler();
-RcppExport SEXP _pjrt_get_print_ordered_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_ordered_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_print_ordered_handler_cuda
-SEXP get_print_ordered_handler_cuda();
-RcppExport SEXP _pjrt_get_print_ordered_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_ordered_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_print_handler_cuda
-SEXP get_print_handler_cuda();
-RcppExport SEXP _pjrt_get_print_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_print_handler_cuda());
+    rcpp_result_gen = Rcpp::wrap(builtin_custom_calls());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -181,25 +132,27 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_buffer_to_host
-SEXP impl_buffer_to_host(SEXP buffer_sexp);
-RcppExport SEXP _pjrt_impl_buffer_to_host(SEXP buffer_sexpSEXP) {
+SEXP impl_buffer_to_host(SEXP buffer_sexp, bool row_major);
+RcppExport SEXP _pjrt_impl_buffer_to_host(SEXP buffer_sexpSEXP, SEXP row_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type buffer_sexp(buffer_sexpSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host(buffer_sexp));
+    Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host(buffer_sexp, row_major));
     return rcpp_result_gen;
 END_RCPP
 }
 // impl_buffer_to_host_async
-SEXP impl_buffer_to_host_async(SEXP buffer_sexp, std::string check);
-RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP buffer_sexpSEXP, SEXP checkSEXP) {
+SEXP impl_buffer_to_host_async(SEXP buffer_sexp, std::string check, bool row_major);
+RcppExport SEXP _pjrt_impl_buffer_to_host_async(SEXP buffer_sexpSEXP, SEXP checkSEXP, SEXP row_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type buffer_sexp(buffer_sexpSEXP);
     Rcpp::traits::input_parameter< std::string >::type check(checkSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer_sexp, check));
+    Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_buffer_to_host_async(buffer_sexp, check, row_major));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -233,26 +186,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(impl_host_array_is_ready(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_lu_handler
-SEXP get_lu_handler();
-RcppExport SEXP _pjrt_get_lu_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_lu_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_lu_handler_cuda
-SEXP get_lu_handler_cuda();
-RcppExport SEXP _pjrt_get_lu_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_lu_handler_cuda());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -587,16 +520,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// impl_device_attributes
+Rcpp::List impl_device_attributes(Rcpp::XPtr<rpjrt::PJRTDevice> device);
+RcppExport SEXP _pjrt_impl_device_attributes(SEXP deviceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<rpjrt::PJRTDevice> >::type device(deviceSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_device_attributes(device));
+    return rcpp_result_gen;
+END_RCPP
+}
 // impl_buffer_print
-void impl_buffer_print(SEXP buffer_sexp, int max_rows, int max_width, int max_rows_slice);
-RcppExport SEXP _pjrt_impl_buffer_print(SEXP buffer_sexpSEXP, SEXP max_rowsSEXP, SEXP max_widthSEXP, SEXP max_rows_sliceSEXP) {
+void impl_buffer_print(SEXP buffer_sexp, int max_rows, int max_width, int max_rows_slice, bool reversed);
+RcppExport SEXP _pjrt_impl_buffer_print(SEXP buffer_sexpSEXP, SEXP max_rowsSEXP, SEXP max_widthSEXP, SEXP max_rows_sliceSEXP, SEXP reversedSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type buffer_sexp(buffer_sexpSEXP);
     Rcpp::traits::input_parameter< int >::type max_rows(max_rowsSEXP);
     Rcpp::traits::input_parameter< int >::type max_width(max_widthSEXP);
     Rcpp::traits::input_parameter< int >::type max_rows_slice(max_rows_sliceSEXP);
-    impl_buffer_print(buffer_sexp, max_rows, max_width, max_rows_slice);
+    Rcpp::traits::input_parameter< bool >::type reversed(reversedSEXP);
+    impl_buffer_print(buffer_sexp, max_rows, max_width, max_rows_slice, reversed);
     return R_NilValue;
 END_RCPP
 }
@@ -697,8 +642,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // impl_client_buffer_from_integer
-SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_integer(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+SEXP impl_client_buffer_from_integer(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype, bool row_major);
+RcppExport SEXP _pjrt_impl_client_buffer_from_integer(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP, SEXP row_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -707,13 +652,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
     Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
     Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer(client, device, data, dims, dtype));
+    Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer(client, device, data, dims, dtype, row_major));
     return rcpp_result_gen;
 END_RCPP
 }
 // impl_client_buffer_from_integer64
-SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_integer64(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+SEXP impl_client_buffer_from_integer64(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype, bool row_major);
+RcppExport SEXP _pjrt_impl_client_buffer_from_integer64(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP, SEXP row_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -722,13 +668,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
     Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
     Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer64(client, device, data, dims, dtype));
+    Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_integer64(client, device, data, dims, dtype, row_major));
     return rcpp_result_gen;
 END_RCPP
 }
 // impl_client_buffer_from_logical
-SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_logical(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+SEXP impl_client_buffer_from_logical(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype, bool row_major);
+RcppExport SEXP _pjrt_impl_client_buffer_from_logical(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP, SEXP row_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -737,13 +684,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
     Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
     Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_logical(client, device, data, dims, dtype));
+    Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_logical(client, device, data, dims, dtype, row_major));
     return rcpp_result_gen;
 END_RCPP
 }
 // impl_client_buffer_from_double
-SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype);
-RcppExport SEXP _pjrt_impl_client_buffer_from_double(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP) {
+SEXP impl_client_buffer_from_double(Rcpp::XPtr<rpjrt::PJRTClient> client, Rcpp::XPtr<rpjrt::PJRTDevice> device, SEXP data, std::vector<int64_t> dims, std::string dtype, bool row_major);
+RcppExport SEXP _pjrt_impl_client_buffer_from_double(SEXP clientSEXP, SEXP deviceSEXP, SEXP dataSEXP, SEXP dimsSEXP, SEXP dtypeSEXP, SEXP row_majorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -752,87 +700,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type data(dataSEXP);
     Rcpp::traits::input_parameter< std::vector<int64_t> >::type dims(dimsSEXP);
     Rcpp::traits::input_parameter< std::string >::type dtype(dtypeSEXP);
-    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double(client, device, data, dims, dtype));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_potrf_handler
-SEXP get_potrf_handler();
-RcppExport SEXP _pjrt_get_potrf_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_potrf_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_potrf_handler_cuda
-SEXP get_potrf_handler_cuda();
-RcppExport SEXP _pjrt_get_potrf_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_potrf_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_geqrf_handler
-SEXP get_geqrf_handler();
-RcppExport SEXP _pjrt_get_geqrf_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_geqrf_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_orgqr_handler
-SEXP get_orgqr_handler();
-RcppExport SEXP _pjrt_get_orgqr_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_orgqr_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_geqrf_handler_cuda
-SEXP get_geqrf_handler_cuda();
-RcppExport SEXP _pjrt_get_geqrf_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_geqrf_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_orgqr_handler_cuda
-SEXP get_orgqr_handler_cuda();
-RcppExport SEXP _pjrt_get_orgqr_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_orgqr_handler_cuda());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_svd_handler
-SEXP get_svd_handler();
-RcppExport SEXP _pjrt_get_svd_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_svd_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_svd_handler_cuda
-SEXP get_svd_handler_cuda();
-RcppExport SEXP _pjrt_get_svd_handler_cuda() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_svd_handler_cuda());
+    Rcpp::traits::input_parameter< bool >::type row_major(row_majorSEXP);
+    rcpp_result_gen = Rcpp::wrap(impl_client_buffer_from_double(client, device, data, dims, dtype, row_major));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1044,42 +913,25 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// get_trsm_handler
-SEXP get_trsm_handler();
-RcppExport SEXP _pjrt_get_trsm_handler() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(get_trsm_handler());
-    return rcpp_result_gen;
-END_RCPP
-}
 
 RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_cpp_tests_enabled", (DL_FUNC) &_pjrt_cpp_tests_enabled, 0},
-    {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 9},
+    {"_pjrt_impl_dispatcher_create", (DL_FUNC) &_pjrt_impl_dispatcher_create, 10},
     {"_pjrt_impl_dispatcher_size", (DL_FUNC) &_pjrt_impl_dispatcher_size, 1},
     {"_pjrt_impl_dispatch_run", (DL_FUNC) &_pjrt_impl_dispatch_run, 2},
-    {"_pjrt_get_eigh_handler", (DL_FUNC) &_pjrt_get_eigh_handler, 0},
-    {"_pjrt_get_eigh_handler_cuda", (DL_FUNC) &_pjrt_get_eigh_handler_cuda, 0},
     {"_pjrt_impl_register_custom_call", (DL_FUNC) &_pjrt_impl_register_custom_call, 4},
-    {"_pjrt_get_print_handler", (DL_FUNC) &_pjrt_get_print_handler, 0},
-    {"_pjrt_get_print_ordered_handler", (DL_FUNC) &_pjrt_get_print_ordered_handler, 0},
-    {"_pjrt_get_print_ordered_handler_cuda", (DL_FUNC) &_pjrt_get_print_ordered_handler_cuda, 0},
-    {"_pjrt_get_print_handler_cuda", (DL_FUNC) &_pjrt_get_print_handler_cuda, 0},
+    {"_pjrt_builtin_custom_calls", (DL_FUNC) &_pjrt_builtin_custom_calls, 0},
     {"_pjrt_test_get_extension", (DL_FUNC) &_pjrt_test_get_extension, 2},
     {"_pjrt_format_raw_buffer_cpp", (DL_FUNC) &_pjrt_format_raw_buffer_cpp, 3},
     {"_pjrt_impl_gc_call_count", (DL_FUNC) &_pjrt_impl_gc_call_count, 0},
     {"_pjrt_impl_call_r_gc", (DL_FUNC) &_pjrt_impl_call_r_gc, 0},
-    {"_pjrt_impl_buffer_to_host", (DL_FUNC) &_pjrt_impl_buffer_to_host, 1},
-    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 2},
+    {"_pjrt_impl_buffer_to_host", (DL_FUNC) &_pjrt_impl_buffer_to_host, 2},
+    {"_pjrt_impl_buffer_to_host_async", (DL_FUNC) &_pjrt_impl_buffer_to_host_async, 3},
     {"_pjrt_impl_host_array_pending", (DL_FUNC) &_pjrt_impl_host_array_pending, 1},
     {"_pjrt_impl_host_array_set", (DL_FUNC) &_pjrt_impl_host_array_set, 2},
     {"_pjrt_impl_host_array_is_ready", (DL_FUNC) &_pjrt_impl_host_array_is_ready, 1},
-    {"_pjrt_get_lu_handler", (DL_FUNC) &_pjrt_get_lu_handler, 0},
-    {"_pjrt_get_lu_handler_cuda", (DL_FUNC) &_pjrt_get_lu_handler_cuda, 0},
     {"_pjrt_impl_plugin_load", (DL_FUNC) &_pjrt_impl_plugin_load, 1},
     {"_pjrt_impl_plugin_client_create", (DL_FUNC) &_pjrt_impl_plugin_client_create, 2},
     {"_pjrt_impl_program_load", (DL_FUNC) &_pjrt_impl_program_load, 2},
@@ -1108,7 +960,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_plugin_pjrt_api_version", (DL_FUNC) &_pjrt_impl_plugin_pjrt_api_version, 1},
     {"_pjrt_impl_plugin_attributes", (DL_FUNC) &_pjrt_impl_plugin_attributes, 1},
     {"_pjrt_impl_device_to_string", (DL_FUNC) &_pjrt_impl_device_to_string, 1},
-    {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 4},
+    {"_pjrt_impl_device_attributes", (DL_FUNC) &_pjrt_impl_device_attributes, 1},
+    {"_pjrt_impl_buffer_print", (DL_FUNC) &_pjrt_impl_buffer_print, 5},
     {"_pjrt_impl_buffer_is_ready", (DL_FUNC) &_pjrt_impl_buffer_is_ready, 1},
     {"_pjrt_impl_buffer_await", (DL_FUNC) &_pjrt_impl_buffer_await, 1},
     {"_pjrt_impl_process_pending_releases", (DL_FUNC) &_pjrt_impl_process_pending_releases, 0},
@@ -1118,18 +971,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_test_buffer_aliases_keepalive", (DL_FUNC) &_pjrt_impl_test_buffer_aliases_keepalive, 1},
     {"_pjrt_impl_loaded_executable_aliases", (DL_FUNC) &_pjrt_impl_loaded_executable_aliases, 1},
     {"_pjrt_impl_loaded_executable_execute", (DL_FUNC) &_pjrt_impl_loaded_executable_execute, 3},
-    {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 5},
-    {"_pjrt_impl_client_buffer_from_integer64", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer64, 5},
-    {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 5},
-    {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 5},
-    {"_pjrt_get_potrf_handler", (DL_FUNC) &_pjrt_get_potrf_handler, 0},
-    {"_pjrt_get_potrf_handler_cuda", (DL_FUNC) &_pjrt_get_potrf_handler_cuda, 0},
-    {"_pjrt_get_geqrf_handler", (DL_FUNC) &_pjrt_get_geqrf_handler, 0},
-    {"_pjrt_get_orgqr_handler", (DL_FUNC) &_pjrt_get_orgqr_handler, 0},
-    {"_pjrt_get_geqrf_handler_cuda", (DL_FUNC) &_pjrt_get_geqrf_handler_cuda, 0},
-    {"_pjrt_get_orgqr_handler_cuda", (DL_FUNC) &_pjrt_get_orgqr_handler_cuda, 0},
-    {"_pjrt_get_svd_handler", (DL_FUNC) &_pjrt_get_svd_handler, 0},
-    {"_pjrt_get_svd_handler_cuda", (DL_FUNC) &_pjrt_get_svd_handler_cuda, 0},
+    {"_pjrt_impl_client_buffer_from_integer", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer, 6},
+    {"_pjrt_impl_client_buffer_from_integer64", (DL_FUNC) &_pjrt_impl_client_buffer_from_integer64, 6},
+    {"_pjrt_impl_client_buffer_from_logical", (DL_FUNC) &_pjrt_impl_client_buffer_from_logical, 6},
+    {"_pjrt_impl_client_buffer_from_double", (DL_FUNC) &_pjrt_impl_client_buffer_from_double, 6},
     {"_pjrt_impl_tree_build", (DL_FUNC) &_pjrt_impl_tree_build, 2},
     {"_pjrt_impl_tree_build_flatten", (DL_FUNC) &_pjrt_impl_tree_build_flatten, 2},
     {"_pjrt_impl_tree_unflatten", (DL_FUNC) &_pjrt_impl_tree_unflatten, 2},
@@ -1148,7 +993,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pjrt_impl_tree_diff", (DL_FUNC) &_pjrt_impl_tree_diff, 2},
     {"_pjrt_impl_register_tree_node", (DL_FUNC) &_pjrt_impl_register_tree_node, 4},
     {"_pjrt_impl_unregister_tree_node", (DL_FUNC) &_pjrt_impl_unregister_tree_node, 1},
-    {"_pjrt_get_trsm_handler", (DL_FUNC) &_pjrt_get_trsm_handler, 0},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };

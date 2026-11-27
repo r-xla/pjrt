@@ -5,8 +5,8 @@ cpp_tests_enabled <- function() {
     .Call(`_pjrt_cpp_tests_enabled`)
 }
 
-impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn) {
-    .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn)
+impl_dispatcher_create <- function(capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn, reverse_shapes) {
+    .Call(`_pjrt_impl_dispatcher_create`, capacity, compile_fn, static_names, engine, backend, move_inputs, default_device_fn, extractor_fn, context_fn, reverse_shapes)
 }
 
 impl_dispatcher_size <- function(dispatcher) {
@@ -17,32 +17,12 @@ impl_dispatch_run <- function(dispatcher, args) {
     .Call(`_pjrt_impl_dispatch_run`, dispatcher, args)
 }
 
-get_eigh_handler <- function() {
-    .Call(`_pjrt_get_eigh_handler`)
-}
-
-get_eigh_handler_cuda <- function() {
-    .Call(`_pjrt_get_eigh_handler_cuda`)
-}
-
 impl_register_custom_call <- function(plugin, target_name, handler_ptr, platform_name) {
     invisible(.Call(`_pjrt_impl_register_custom_call`, plugin, target_name, handler_ptr, platform_name))
 }
 
-get_print_handler <- function() {
-    .Call(`_pjrt_get_print_handler`)
-}
-
-get_print_ordered_handler <- function() {
-    .Call(`_pjrt_get_print_ordered_handler`)
-}
-
-get_print_ordered_handler_cuda <- function() {
-    .Call(`_pjrt_get_print_ordered_handler_cuda`)
-}
-
-get_print_handler_cuda <- function() {
-    .Call(`_pjrt_get_print_handler_cuda`)
+builtin_custom_calls <- function() {
+    .Call(`_pjrt_builtin_custom_calls`)
 }
 
 test_get_extension <- function(plugin, platform_name) {
@@ -61,12 +41,12 @@ impl_call_r_gc <- function() {
     invisible(.Call(`_pjrt_impl_call_r_gc`))
 }
 
-impl_buffer_to_host <- function(buffer_sexp) {
-    .Call(`_pjrt_impl_buffer_to_host`, buffer_sexp)
+impl_buffer_to_host <- function(buffer_sexp, row_major) {
+    .Call(`_pjrt_impl_buffer_to_host`, buffer_sexp, row_major)
 }
 
-impl_buffer_to_host_async <- function(buffer_sexp, check) {
-    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp, check)
+impl_buffer_to_host_async <- function(buffer_sexp, check, row_major) {
+    .Call(`_pjrt_impl_buffer_to_host_async`, buffer_sexp, check, row_major)
 }
 
 impl_host_array_pending <- function(x) {
@@ -79,14 +59,6 @@ impl_host_array_set <- function(x, values) {
 
 impl_host_array_is_ready <- function(x) {
     .Call(`_pjrt_impl_host_array_is_ready`, x)
-}
-
-get_lu_handler <- function() {
-    .Call(`_pjrt_get_lu_handler`)
-}
-
-get_lu_handler_cuda <- function() {
-    .Call(`_pjrt_get_lu_handler_cuda`)
 }
 
 impl_plugin_load <- function(path) {
@@ -201,8 +173,12 @@ impl_device_to_string <- function(device) {
     .Call(`_pjrt_impl_device_to_string`, device)
 }
 
-impl_buffer_print <- function(buffer_sexp, max_rows, max_width, max_rows_slice) {
-    invisible(.Call(`_pjrt_impl_buffer_print`, buffer_sexp, max_rows, max_width, max_rows_slice))
+impl_device_attributes <- function(device) {
+    .Call(`_pjrt_impl_device_attributes`, device)
+}
+
+impl_buffer_print <- function(buffer_sexp, max_rows, max_width, max_rows_slice, reversed) {
+    invisible(.Call(`_pjrt_impl_buffer_print`, buffer_sexp, max_rows, max_width, max_rows_slice, reversed))
 }
 
 impl_buffer_is_ready <- function(buffer_sexp) {
@@ -241,52 +217,20 @@ impl_loaded_executable_execute <- function(executable, input, execution_options)
     .Call(`_pjrt_impl_loaded_executable_execute`, executable, input, execution_options)
 }
 
-impl_client_buffer_from_integer <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype)
+impl_client_buffer_from_integer <- function(client, device, data, dims, dtype, row_major) {
+    .Call(`_pjrt_impl_client_buffer_from_integer`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_integer64 <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_integer64`, client, device, data, dims, dtype)
+impl_client_buffer_from_integer64 <- function(client, device, data, dims, dtype, row_major) {
+    .Call(`_pjrt_impl_client_buffer_from_integer64`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_logical <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype)
+impl_client_buffer_from_logical <- function(client, device, data, dims, dtype, row_major) {
+    .Call(`_pjrt_impl_client_buffer_from_logical`, client, device, data, dims, dtype, row_major)
 }
 
-impl_client_buffer_from_double <- function(client, device, data, dims, dtype) {
-    .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype)
-}
-
-get_potrf_handler <- function() {
-    .Call(`_pjrt_get_potrf_handler`)
-}
-
-get_potrf_handler_cuda <- function() {
-    .Call(`_pjrt_get_potrf_handler_cuda`)
-}
-
-get_geqrf_handler <- function() {
-    .Call(`_pjrt_get_geqrf_handler`)
-}
-
-get_orgqr_handler <- function() {
-    .Call(`_pjrt_get_orgqr_handler`)
-}
-
-get_geqrf_handler_cuda <- function() {
-    .Call(`_pjrt_get_geqrf_handler_cuda`)
-}
-
-get_orgqr_handler_cuda <- function() {
-    .Call(`_pjrt_get_orgqr_handler_cuda`)
-}
-
-get_svd_handler <- function() {
-    .Call(`_pjrt_get_svd_handler`)
-}
-
-get_svd_handler_cuda <- function() {
-    .Call(`_pjrt_get_svd_handler_cuda`)
+impl_client_buffer_from_double <- function(client, device, data, dims, dtype, row_major) {
+    .Call(`_pjrt_impl_client_buffer_from_double`, client, device, data, dims, dtype, row_major)
 }
 
 impl_tree_build <- function(x, is_leaf = NULL) {
@@ -359,9 +303,5 @@ impl_register_tree_node <- function(cls, flatten, unflatten, repr) {
 
 impl_unregister_tree_node <- function(cls) {
     invisible(.Call(`_pjrt_impl_unregister_tree_node`, cls))
-}
-
-get_trsm_handler <- function() {
-    .Call(`_pjrt_get_trsm_handler`)
 }
 

@@ -3,6 +3,10 @@ describe("qr (geqrf + orgqr)", {
   # factorisation of tall, wide, and square matrices in f32 / f64, plus
   # input-buffer donation into the packed-reflectors output.
   #
+  # The matrices are passed the way anvl stores them, with their shape
+  # reversed (`reversed = TRUE`), as are those of the lu, svd and eigh tests
+  # below.
+  #
   # Correctness: geqrf returns a packed matrix (Householder reflectors below
   # the diagonal, R in the upper triangle of the first k rows) plus the tau
   # scalars; we recover R by zeroing the strict lower triangle of those rows
@@ -12,11 +16,11 @@ describe("qr (geqrf + orgqr)", {
   # (e.g. depends on R's diagonal signs), so we don't compare Q or R against
   # any reference factorisation.
 
+  # `a` is a matrix or a batch of them, (m, n, ...).
   run_geqrf <- function(a, dtype, donate = FALSE) {
-    m <- nrow(a)
-    n <- ncol(a)
-    k <- min(m, n)
-    in_spec <- list(dims = c(m, n), dtype = dtype)
+    d <- dim(a)
+    k <- min(d[1:2])
+    in_spec <- list(dims = d, dtype = dtype)
     if (donate) {
       in_spec$aliases <- 1L
     }
@@ -25,24 +29,25 @@ describe("qr (geqrf + orgqr)", {
       inputs = list(a),
       in_specs = list(in_spec),
       out_specs = list(
-        list(dims = c(m, n), dtype = dtype),
-        list(dims = k, dtype = dtype)
-      )
+        list(dims = d, dtype = dtype),
+        list(dims = c(k, d[-(1:2)]), dtype = dtype)
+      ),
+      reversed = TRUE
     )
   }
 
   run_orgqr <- function(packed, tau, dtype) {
-    m <- nrow(packed)
-    n <- ncol(packed)
-    k <- min(m, n)
+    d <- dim(packed)
+    k <- min(d[1:2])
     res <- run_linalg(
       "orgqr",
       inputs = list(packed, tau),
       in_specs = list(
-        list(dims = c(m, n), dtype = dtype),
-        list(dims = k, dtype = dtype)
+        list(dims = d, dtype = dtype),
+        list(dims = c(k, d[-(1:2)]), dtype = dtype)
       ),
-      out_specs = list(list(dims = c(m, k), dtype = dtype))
+      out_specs = list(list(dims = c(d[1L], k, d[-(1:2)]), dtype = dtype)),
+      reversed = TRUE
     )
     res[[1L]]
   }
@@ -88,6 +93,35 @@ describe("qr (geqrf + orgqr)", {
     expect_qr_correct(a, "f32")
   })
 
+  it("factorises every matrix of a batch, tall and wide", {
+    withr::local_seed(6)
+    for (d in list(c(5L, 3L), c(3L, 5L))) {
+      k <- min(d)
+      a <- array(rnorm(prod(d) * 6L), c(d, 2L, 3L))
+      res <- run_geqrf(a, "f64")
+      expect_equal(dim(res[[2L]]), c(k, 2L, 3L))
+      Q <- run_orgqr(res[[1L]], res[[2L]], "f64")
+      expect_equal(dim(Q), c(d[[1L]], k, 2L, 3L))
+      for (i in 1:2) {
+        for (j in 1:3) {
+          R <- res[[1L]][seq_len(k), , i, j]
+          R[lower.tri(R)] <- 0
+          expect_equal(Q[,, i, j] %*% R, a[,, i, j], tolerance = 1e-10)
+          expect_equal(crossprod(Q[,, i, j]), diag(k), tolerance = 1e-10)
+        }
+      }
+    }
+  })
+
+  it("factorises a matrix without rows or columns", {
+    for (d in list(c(3L, 0L), c(0L, 3L))) {
+      res <- run_geqrf(matrix(numeric(), d[[1L]], d[[2L]]), "f64")
+      expect_equal(dim(res[[1L]]), d)
+      expect_length(res[[2L]], 0L)
+      expect_equal(dim(run_orgqr(res[[1L]], res[[2L]], "f64")), c(d[[1L]], 0L))
+    }
+  })
+
   it("works with a donated input buffer (geqrf)", {
     withr::local_seed(4)
     a <- matrix(rnorm(20), 5, 4)
@@ -106,7 +140,8 @@ describe("qr (geqrf + orgqr)", {
       out_specs = list(
         list(dims = c(5, 4), dtype = "f64"),
         list(dims = 4, dtype = "f64")
-      )
+      ),
+      reversed = TRUE
     )
   })
 })
@@ -148,11 +183,10 @@ describe("lu", {
     a
   }
 
+  # `a` is a matrix or a batch of them, (m, n, ...).
   run_lu <- function(a, dtype, donate = FALSE) {
-    m <- nrow(a)
-    n <- ncol(a)
-    k <- min(m, n)
-    in_spec <- list(dims = c(m, n), dtype = dtype)
+    d <- dim(a)
+    in_spec <- list(dims = d, dtype = dtype)
     if (donate) {
       in_spec$aliases <- 1L
     }
@@ -161,9 +195,10 @@ describe("lu", {
       inputs = list(a),
       in_specs = list(in_spec),
       out_specs = list(
-        list(dims = c(m, n), dtype = dtype),
-        list(dims = k, dtype = "i32")
-      )
+        list(dims = d, dtype = dtype),
+        list(dims = c(min(d[1:2]), d[-(1:2)]), dtype = "i32")
+      ),
+      reversed = TRUE
     )
   }
 
@@ -203,6 +238,46 @@ describe("lu", {
     expect_equal(lu_reconstruct(res[[1L]], as.integer(res[[2L]])), a, tolerance = 1e-10)
   })
 
+  it("factorises every matrix of a batch", {
+    withr::local_seed(16)
+    a <- array(rnorm(4L * 6L * 5L), c(4L, 6L, 5L))
+    a[,, 3L] <- 0
+    res <- run_lu(a, "f64")
+    expect_equal(dim(res[[2L]]), c(4L, 5L))
+    for (i in 1:5) {
+      expect_equal(lu_reconstruct(res[[1L]][,, i], as.integer(res[[2L]][, i])), a[,, i], tolerance = 1e-10)
+    }
+  })
+
+  it("rejects input that is not a matrix", {
+    expect_error(
+      run_linalg(
+        "lu",
+        inputs = list(1:4),
+        in_specs = list(list(dims = 4L, dtype = "f64")),
+        out_specs = list(list(dims = 4L, dtype = "f64"), list(dims = 1L, dtype = "i32")),
+        reversed = TRUE
+      ),
+      "requires a batch of matrices"
+    )
+  })
+
+  it("rejects outputs without the batch axes of the input", {
+    expect_error(
+      run_linalg(
+        "lu",
+        inputs = list(array(0, c(2L, 2L, 3L))),
+        in_specs = list(list(dims = c(2L, 2L, 3L), dtype = "f64")),
+        out_specs = list(
+          list(dims = c(2L, 2L, 3L), dtype = "f64"),
+          list(dims = 2L, dtype = "i32")
+        ),
+        reversed = TRUE
+      ),
+      "lu requires pivots \\[..., k\\] with the batch dimensions of its operand"
+    )
+  })
+
   it("returns int32 pivots", {
     res <- run_lu(matrix(c(0, 1, 1, 1), nrow = 2), "f64")
     expect_true(is.integer(as.vector(res[[2L]])))
@@ -225,7 +300,8 @@ describe("lu", {
       out_specs = list(
         list(dims = c(4, 4), dtype = "f64"),
         list(dims = 4, dtype = "i32")
-      )
+      ),
+      reversed = TRUE
     )
   })
 })
@@ -259,8 +335,9 @@ describe("svd", {
     U %*% Sd %*% Vt
   }
 
-  # CUDA-only: when m < n, pass transposed = true and switch operand / U / Vt
-  # to row-major layouts. The CPU handler ignores both.
+  # CUDA-only: when m < n, pass transposed = true and switch the matrices of
+  # the operand / U / Vt to column-major layouts, behind the batch axes. The CPU
+  # handler ignores both.
   svd_attrs <- function(m, n) {
     if (!is_cuda()) {
       return(list())
@@ -269,40 +346,44 @@ describe("svd", {
     list(backend_config = sprintf("{transposed = %s}", transposed))
   }
 
-  svd_layouts <- function(m, n) {
+  svd_layouts <- function(m, n, nd) {
     if (!is_cuda() || m >= n) {
       return(list(in_layouts = NULL, out_layouts = NULL))
     }
     list(
-      in_layouts = row_major_layout(2L),
-      out_layouts = c(row_major_layout(2L), col_major_layout(1L), row_major_layout(2L))
+      in_layouts = batched_matrix_layout(nd),
+      out_layouts = c(batched_matrix_layout(nd), row_major_layout(nd - 1L), batched_matrix_layout(nd))
     )
   }
 
+  # `a` is a matrix or a batch of them, (m, n, ...).
   run_svd <- function(a, dtype, donate = FALSE) {
-    m <- nrow(a)
-    n <- ncol(a)
+    d <- dim(a)
+    m <- d[[1L]]
+    n <- d[[2L]]
     k <- min(m, n)
+    batch <- d[-(1:2)]
     if (donate) {
       stopifnot(m >= n)
     }
-    in_spec <- list(dims = c(m, n), dtype = dtype)
+    in_spec <- list(dims = d, dtype = dtype)
     if (donate) {
       in_spec$aliases <- 1L
     }
-    layouts <- svd_layouts(m, n)
+    layouts <- svd_layouts(m, n, length(d))
     run_linalg(
       "svd",
       inputs = list(a),
       in_specs = list(in_spec),
       out_specs = list(
-        list(dims = c(m, k), dtype = dtype),
-        list(dims = k, dtype = dtype),
-        list(dims = c(k, n), dtype = dtype)
+        list(dims = c(m, k, batch), dtype = dtype),
+        list(dims = c(k, batch), dtype = dtype),
+        list(dims = c(k, n, batch), dtype = dtype)
       ),
       attrs = svd_attrs(m, n),
       in_layouts = layouts$in_layouts,
-      out_layouts = layouts$out_layouts
+      out_layouts = layouts$out_layouts,
+      reversed = TRUE
     )
   }
 
@@ -346,6 +427,22 @@ describe("svd", {
     expect_matches_r_svd(a, "f32")
   })
 
+  it("factorises every matrix of a batch, tall and wide", {
+    withr::local_seed(23)
+    for (d in list(c(5L, 3L), c(3L, 5L))) {
+      a <- array(rnorm(prod(d) * 6L), c(d, 2L, 3L))
+      res <- run_svd(a, "f64")
+      expect_equal(dim(res[[2L]]), c(3L, 2L, 3L))
+      for (i in 1:2) {
+        for (j in 1:3) {
+          slice <- list(res[[1L]][,, i, j], res[[2L]][, i, j], res[[3L]][,, i, j])
+          expect_equal(reconstruct(slice), a[,, i, j], tolerance = 1e-10)
+          expect_equal(slice[[2L]], svd(a[,, i, j])$d, tolerance = 1e-10)
+        }
+      }
+    }
+  })
+
   it("works with a donated input buffer", {
     withr::local_seed(24)
     a <- matrix(rnorm(20), 5, 4)
@@ -368,7 +465,8 @@ describe("svd", {
         list(dims = 4, dtype = "f64"),
         list(dims = c(4, 4), dtype = "f64")
       ),
-      attrs = svd_attrs(5, 4)
+      attrs = svd_attrs(5, 4),
+      reversed = TRUE
     )
   })
 })
@@ -404,9 +502,10 @@ describe("eigh", {
     V %*% Wd %*% t(V)
   }
 
+  # `a` is a matrix or a batch of them, (n, n, ...).
   run_eigh <- function(a, dtype, donate = FALSE) {
-    n <- nrow(a)
-    in_spec <- list(dims = dim(a), dtype = dtype)
+    d <- dim(a)
+    in_spec <- list(dims = d, dtype = dtype)
     if (donate) {
       in_spec$aliases <- 1L
     }
@@ -415,9 +514,10 @@ describe("eigh", {
       inputs = list(a),
       in_specs = list(in_spec),
       out_specs = list(
-        list(dims = c(n, n), dtype = dtype),
-        list(dims = n, dtype = dtype)
-      )
+        list(dims = d, dtype = dtype),
+        list(dims = d[-1L], dtype = dtype)
+      ),
+      reversed = TRUE
     )
   }
 
@@ -446,6 +546,19 @@ describe("eigh", {
     expect_matches_r_eigen(spd, "f64")
   })
 
+  it("factorises every matrix of a batch", {
+    withr::local_seed(34)
+    a <- array(0, c(4L, 4L, 7L))
+    for (i in 1:7) {
+      a[,, i] <- random_spd(4L)
+    }
+    res <- run_eigh(a, "f64")
+    expect_equal(dim(res[[2L]]), c(4L, 7L))
+    for (i in 1:7) {
+      expect_equal(reconstruct(list(res[[1L]][,, i], res[[2L]][, i])), a[,, i], tolerance = 1e-10)
+    }
+  })
+
   it("rejects non-square input", {
     expect_error(run_eigh(matrix(rnorm(6), nrow = 2), "f64"), "square")
   })
@@ -468,7 +581,8 @@ describe("eigh", {
       out_specs = list(
         list(dims = c(4, 4), dtype = "f64"),
         list(dims = 4, dtype = "f64")
-      )
+      ),
+      reversed = TRUE
     )
   })
 })

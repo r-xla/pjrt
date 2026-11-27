@@ -1,3 +1,4 @@
 src/RcppExports.cpp
 src/proto/**
 src/half/**
+src/testthat/**
